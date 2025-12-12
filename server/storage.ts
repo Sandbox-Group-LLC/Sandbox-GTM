@@ -12,6 +12,7 @@ import {
   emailCampaigns,
   socialPosts,
   emailTemplates,
+  socialConnections,
   type User,
   type UpsertUser,
   type Event,
@@ -36,6 +37,8 @@ import {
   type InsertSocialPost,
   type EmailTemplate,
   type InsertEmailTemplate,
+  type SocialConnection,
+  type InsertSocialConnection,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
@@ -128,6 +131,14 @@ export interface IStorage {
 
   // Public event operations
   getEventBySlug(slug: string): Promise<Event | undefined>;
+
+  // Social connection operations
+  getSocialConnections(userId: string): Promise<SocialConnection[]>;
+  getSocialConnection(id: string): Promise<SocialConnection | undefined>;
+  getSocialConnectionByPlatform(userId: string, platform: string): Promise<SocialConnection | undefined>;
+  createSocialConnection(connection: InsertSocialConnection): Promise<SocialConnection>;
+  updateSocialConnection(id: string, connection: Partial<InsertSocialConnection>): Promise<SocialConnection | undefined>;
+  deleteSocialConnection(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -509,6 +520,40 @@ export class DatabaseStorage implements IStorage {
   async getEventBySlug(slug: string): Promise<Event | undefined> {
     const [event] = await db.select().from(events).where(eq(events.publicSlug, slug));
     return event;
+  }
+
+  // Social connection operations
+  async getSocialConnections(userId: string): Promise<SocialConnection[]> {
+    return db.select().from(socialConnections).where(eq(socialConnections.userId, userId)).orderBy(desc(socialConnections.createdAt));
+  }
+
+  async getSocialConnection(id: string): Promise<SocialConnection | undefined> {
+    const [connection] = await db.select().from(socialConnections).where(eq(socialConnections.id, id));
+    return connection;
+  }
+
+  async getSocialConnectionByPlatform(userId: string, platform: string): Promise<SocialConnection | undefined> {
+    const connections = await db.select().from(socialConnections)
+      .where(eq(socialConnections.userId, userId));
+    return connections.find(c => c.platform === platform);
+  }
+
+  async createSocialConnection(connection: InsertSocialConnection): Promise<SocialConnection> {
+    const [newConnection] = await db.insert(socialConnections).values(connection).returning();
+    return newConnection;
+  }
+
+  async updateSocialConnection(id: string, connection: Partial<InsertSocialConnection>): Promise<SocialConnection | undefined> {
+    const [updated] = await db
+      .update(socialConnections)
+      .set({ ...connection, updatedAt: new Date() })
+      .where(eq(socialConnections.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteSocialConnection(id: string): Promise<void> {
+    await db.delete(socialConnections).where(eq(socialConnections.id, id));
   }
 }
 

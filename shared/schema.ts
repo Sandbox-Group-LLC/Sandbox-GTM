@@ -216,6 +216,21 @@ export const emailTemplates = pgTable("email_templates", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Social connections table
+export const socialConnections = pgTable("social_connections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  platform: varchar("platform", { length: 50 }).notNull(),
+  accountName: varchar("account_name", { length: 255 }),
+  accountId: varchar("account_id", { length: 255 }),
+  accessToken: text("access_token"),
+  refreshToken: text("refresh_token"),
+  tokenExpiresAt: timestamp("token_expires_at"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Relations
 export const eventsRelations = relations(events, ({ one, many }) => ({
   createdByUser: one(users, { fields: [events.createdBy], references: [users.id] }),
@@ -284,6 +299,10 @@ export const emailTemplatesRelations = relations(emailTemplates, ({ one }) => ({
   createdByUser: one(users, { fields: [emailTemplates.createdBy], references: [users.id] }),
 }));
 
+export const socialConnectionsRelations = relations(socialConnections, ({ one }) => ({
+  user: one(users, { fields: [socialConnections.userId], references: [users.id] }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true, updatedAt: true });
 export const insertEventSchema = createInsertSchema(events).omit({ id: true, createdAt: true, updatedAt: true });
@@ -298,6 +317,7 @@ export const insertDeliverableSchema = createInsertSchema(deliverables).omit({ i
 export const insertEmailCampaignSchema = createInsertSchema(emailCampaigns).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSocialPostSchema = createInsertSchema(socialPosts).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertEmailTemplateSchema = createInsertSchema(emailTemplates).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertSocialConnectionSchema = createInsertSchema(socialConnections).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Types
 export type UpsertUser = typeof users.$inferInsert;
@@ -326,3 +346,5 @@ export type InsertSocialPost = z.infer<typeof insertSocialPostSchema>;
 export type SocialPost = typeof socialPosts.$inferSelect;
 export type InsertEmailTemplate = z.infer<typeof insertEmailTemplateSchema>;
 export type EmailTemplate = typeof emailTemplates.$inferSelect;
+export type InsertSocialConnection = z.infer<typeof insertSocialConnectionSchema>;
+export type SocialConnection = typeof socialConnections.$inferSelect;

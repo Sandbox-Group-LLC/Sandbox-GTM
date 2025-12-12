@@ -656,5 +656,50 @@ export async function registerRoutes(
     }
   });
 
+  // Social connections routes
+  app.get("/api/social-connections", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const connections = await storage.getSocialConnections(userId);
+      res.json(connections);
+    } catch (error) {
+      console.error("Error fetching social connections:", error);
+      res.status(500).json({ message: "Failed to fetch social connections" });
+    }
+  });
+
+  app.post("/api/social-connections", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { platform, accountName } = req.body;
+      
+      const existing = await storage.getSocialConnectionByPlatform(userId, platform);
+      if (existing) {
+        return res.status(400).json({ message: "Connection already exists for this platform" });
+      }
+      
+      const connection = await storage.createSocialConnection({
+        userId,
+        platform,
+        accountName: accountName || `${platform} Account`,
+        isActive: true,
+      });
+      res.status(201).json(connection);
+    } catch (error) {
+      console.error("Error creating social connection:", error);
+      res.status(400).json({ message: "Failed to create social connection" });
+    }
+  });
+
+  app.delete("/api/social-connections/:id", isAuthenticated, async (req, res) => {
+    try {
+      await storage.deleteSocialConnection(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting social connection:", error);
+      res.status(500).json({ message: "Failed to delete social connection" });
+    }
+  });
+
   return httpServer;
 }
