@@ -149,6 +149,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
+    const adminEmails = ['brian@makemysandbox.com'];
+    const isAdmin = userData.email ? adminEmails.includes(userData.email.toLowerCase()) : false;
+    
     const [user] = await db
       .insert(users)
       .values(userData)
@@ -160,6 +163,16 @@ export class DatabaseStorage implements IStorage {
         },
       })
       .returning();
+    
+    if (isAdmin && !user.isAdmin) {
+      const [updatedUser] = await db
+        .update(users)
+        .set({ isAdmin: true })
+        .where(eq(users.id, user.id))
+        .returning();
+      return updatedUser;
+    }
+    
     return user;
   }
 
