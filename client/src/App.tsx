@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
+import Events from "@/pages/events";
 import Attendees from "@/pages/attendees";
 import Sessions from "@/pages/sessions";
 import Speakers from "@/pages/speakers";
@@ -66,6 +67,7 @@ function Router() {
     <AuthenticatedLayout>
       <Switch>
         <Route path="/" component={Dashboard} />
+        <Route path="/events" component={Events} />
         <Route path="/attendees" component={Attendees} />
         <Route path="/check-in" component={CheckIn} />
         <Route path="/sessions" component={Sessions} />
