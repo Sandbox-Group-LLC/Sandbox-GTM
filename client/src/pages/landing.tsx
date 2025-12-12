@@ -52,7 +52,7 @@ export default function Landing() {
         <div className="container mx-auto px-6 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <Calendar className="h-6 w-6 text-primary" />
-            <span className="font-semibold text-lg">EventFlow</span>
+            <span className="font-semibold text-lg">Sandbox</span>
           </div>
           <Button asChild data-testid="button-login-header">
             <a href="/api/login">Sign In</a>
@@ -114,7 +114,7 @@ export default function Landing() {
 
       <footer className="border-t border-border py-8 px-6">
         <div className="container mx-auto text-center text-sm text-muted-foreground">
-          EventFlow - Event Management Made Simple
+          Sandbox - Event Management Made Simple
         </div>
       </footer>
     </div>

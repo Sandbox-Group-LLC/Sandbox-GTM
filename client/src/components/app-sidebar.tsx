@@ -68,7 +68,7 @@ export function AppSidebar() {
       <SidebarHeader className="p-4 border-b border-sidebar-border">
         <div className="flex items-center gap-2">
           <Calendar className="h-6 w-6 text-sidebar-primary" />
-          <span className="font-semibold text-lg">EventFlow</span>
+          <span className="font-semibold text-lg">Sandbox</span>
         </div>
       </SidebarHeader>
 
