@@ -45,6 +45,10 @@ export const events = pgTable("events", {
   endDate: date("end_date").notNull(),
   location: varchar("location", { length: 255 }),
   status: varchar("status", { length: 50 }).default("draft"),
+  isPublic: boolean("is_public").default(false),
+  registrationOpen: boolean("registration_open").default(false),
+  maxAttendees: integer("max_attendees"),
+  publicSlug: varchar("public_slug", { length: 100 }).unique(),
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -63,6 +67,9 @@ export const attendees = pgTable("attendees", {
   registrationStatus: varchar("registration_status", { length: 50 }).default("pending"),
   ticketType: varchar("ticket_type", { length: 100 }),
   notes: text("notes"),
+  checkInCode: varchar("check_in_code", { length: 20 }).unique(),
+  checkedIn: boolean("checked_in").default(false),
+  checkInTime: timestamp("check_in_time"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -195,6 +202,20 @@ export const socialPosts = pgTable("social_posts", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Email templates table
+export const emailTemplates = pgTable("email_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").references(() => events.id).notNull(),
+  name: varchar("name", { length: 100 }).notNull(),
+  subject: varchar("subject", { length: 255 }).notNull(),
+  content: text("content").notNull(),
+  category: varchar("category", { length: 50 }).default("general"),
+  isDefault: boolean("is_default").default(false),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Relations
 export const eventsRelations = relations(events, ({ one, many }) => ({
   createdByUser: one(users, { fields: [events.createdBy], references: [users.id] }),
@@ -258,6 +279,11 @@ export const socialPostsRelations = relations(socialPosts, ({ one }) => ({
   createdByUser: one(users, { fields: [socialPosts.createdBy], references: [users.id] }),
 }));
 
+export const emailTemplatesRelations = relations(emailTemplates, ({ one }) => ({
+  event: one(events, { fields: [emailTemplates.eventId], references: [events.id] }),
+  createdByUser: one(users, { fields: [emailTemplates.createdBy], references: [users.id] }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true, updatedAt: true });
 export const insertEventSchema = createInsertSchema(events).omit({ id: true, createdAt: true, updatedAt: true });
@@ -271,6 +297,7 @@ export const insertMilestoneSchema = createInsertSchema(milestones).omit({ id: t
 export const insertDeliverableSchema = createInsertSchema(deliverables).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertEmailCampaignSchema = createInsertSchema(emailCampaigns).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSocialPostSchema = createInsertSchema(socialPosts).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertEmailTemplateSchema = createInsertSchema(emailTemplates).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Types
 export type UpsertUser = typeof users.$inferInsert;
@@ -297,3 +324,5 @@ export type InsertEmailCampaign = z.infer<typeof insertEmailCampaignSchema>;
 export type EmailCampaign = typeof emailCampaigns.$inferSelect;
 export type InsertSocialPost = z.infer<typeof insertSocialPostSchema>;
 export type SocialPost = typeof socialPosts.$inferSelect;
+export type InsertEmailTemplate = z.infer<typeof insertEmailTemplateSchema>;
+export type EmailTemplate = typeof emailTemplates.$inferSelect;

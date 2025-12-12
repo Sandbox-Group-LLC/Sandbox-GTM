@@ -11,6 +11,8 @@ import {
   Share2,
   Settings,
   LogOut,
+  QrCode,
+  BarChart3,
 } from "lucide-react";
 import {
   Sidebar,
@@ -30,6 +32,7 @@ import { useAuth } from "@/hooks/useAuth";
 const mainMenuItems = [
   { title: "Dashboard", icon: LayoutDashboard, path: "/" },
   { title: "Attendees", icon: Users, path: "/attendees" },
+  { title: "Check-In", icon: QrCode, path: "/check-in" },
   { title: "Sessions", icon: Calendar, path: "/sessions" },
   { title: "Speakers", icon: Mic2, path: "/speakers" },
   { title: "Content", icon: FolderOpen, path: "/content" },
@@ -43,6 +46,7 @@ const projectMenuItems = [
 const marketingMenuItems = [
   { title: "Email Campaigns", icon: Mail, path: "/emails" },
   { title: "Social Media", icon: Share2, path: "/social" },
+  { title: "Analytics", icon: BarChart3, path: "/analytics" },
 ];
 
 export function AppSidebar() {

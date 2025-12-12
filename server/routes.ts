@@ -12,6 +12,7 @@ import {
   insertDeliverableSchema,
   insertEmailCampaignSchema,
   insertSocialPostSchema,
+  insertEmailTemplateSchema,
 } from "@shared/schema";
 
 // Default event ID for MVP (single event mode)
@@ -431,6 +432,227 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting social post:", error);
       res.status(500).json({ message: "Failed to delete social post" });
+    }
+  });
+
+  // Email template routes
+  app.get("/api/email-templates", isAuthenticated, async (req, res) => {
+    try {
+      const templates = await storage.getEmailTemplates();
+      res.json(templates);
+    } catch (error) {
+      console.error("Error fetching email templates:", error);
+      res.status(500).json({ message: "Failed to fetch email templates" });
+    }
+  });
+
+  app.post("/api/email-templates", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const data = insertEmailTemplateSchema.parse({ ...req.body, eventId: DEFAULT_EVENT_ID, createdBy: userId });
+      const template = await storage.createEmailTemplate(data);
+      res.status(201).json(template);
+    } catch (error) {
+      console.error("Error creating email template:", error);
+      res.status(400).json({ message: "Invalid email template data" });
+    }
+  });
+
+  app.patch("/api/email-templates/:id", isAuthenticated, async (req, res) => {
+    try {
+      const template = await storage.updateEmailTemplate(req.params.id, req.body);
+      if (!template) {
+        return res.status(404).json({ message: "Email template not found" });
+      }
+      res.json(template);
+    } catch (error) {
+      console.error("Error updating email template:", error);
+      res.status(400).json({ message: "Failed to update email template" });
+    }
+  });
+
+  app.delete("/api/email-templates/:id", isAuthenticated, async (req, res) => {
+    try {
+      await storage.deleteEmailTemplate(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting email template:", error);
+      res.status(500).json({ message: "Failed to delete email template" });
+    }
+  });
+
+  // Check-in routes
+  app.post("/api/check-in/scan", isAuthenticated, async (req, res) => {
+    try {
+      const { code } = req.body;
+      if (!code) {
+        return res.status(400).json({ message: "Check-in code is required" });
+      }
+      
+      const attendee = await storage.getAttendeeByCheckInCode(code);
+      if (!attendee) {
+        return res.status(404).json({ message: "Invalid check-in code" });
+      }
+      
+      if (attendee.checkedIn) {
+        return res.status(400).json({ message: "Already checked in", attendee });
+      }
+      
+      const checkedInAttendee = await storage.checkInAttendee(attendee.id);
+      res.json({ message: "Check-in successful", attendee: checkedInAttendee });
+    } catch (error) {
+      console.error("Error during check-in:", error);
+      res.status(500).json({ message: "Failed to process check-in" });
+    }
+  });
+
+  app.get("/api/check-in/stats", isAuthenticated, async (req, res) => {
+    try {
+      const attendees = await storage.getAttendees();
+      const totalAttendees = attendees.length;
+      const checkedIn = attendees.filter(a => a.checkedIn).length;
+      const pending = totalAttendees - checkedIn;
+      
+      res.json({
+        totalAttendees,
+        checkedIn,
+        pending,
+        checkInRate: totalAttendees > 0 ? Math.round((checkedIn / totalAttendees) * 100) : 0,
+      });
+    } catch (error) {
+      console.error("Error fetching check-in stats:", error);
+      res.status(500).json({ message: "Failed to fetch check-in stats" });
+    }
+  });
+
+  // Public event registration routes (no auth required)
+  app.get("/api/public/event/:slug", async (req, res) => {
+    try {
+      const event = await storage.getEventBySlug(req.params.slug);
+      if (!event || !event.isPublic) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      const sessions = await storage.getSessions(event.id);
+      const speakers = await storage.getSpeakers(event.id);
+      
+      res.json({ event, sessions, speakers });
+    } catch (error) {
+      console.error("Error fetching public event:", error);
+      res.status(500).json({ message: "Failed to fetch event" });
+    }
+  });
+
+  app.post("/api/public/register/:slug", async (req, res) => {
+    try {
+      const event = await storage.getEventBySlug(req.params.slug);
+      if (!event || !event.isPublic || !event.registrationOpen) {
+        return res.status(404).json({ message: "Registration not available" });
+      }
+      
+      // Generate a unique check-in code
+      const checkInCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+      
+      const data = insertAttendeeSchema.parse({
+        ...req.body,
+        eventId: event.id,
+        checkInCode,
+        registrationStatus: "confirmed",
+      });
+      
+      const attendee = await storage.createAttendee(data);
+      res.status(201).json({ message: "Registration successful", attendee });
+    } catch (error) {
+      console.error("Error during public registration:", error);
+      res.status(400).json({ message: "Registration failed" });
+    }
+  });
+
+  // Analytics routes
+  app.get("/api/analytics/overview", isAuthenticated, async (req, res) => {
+    try {
+      const [attendees, sessions, speakers, budgetItems, deliverables, milestones, emailCampaigns, socialPosts] = await Promise.all([
+        storage.getAttendees(),
+        storage.getSessions(),
+        storage.getSpeakers(),
+        storage.getBudgetItems(),
+        storage.getDeliverables(),
+        storage.getMilestones(),
+        storage.getEmailCampaigns(),
+        storage.getSocialPosts(),
+      ]);
+
+      // Registration trends by date
+      const registrationsByDate = attendees.reduce((acc: Record<string, number>, a) => {
+        const date = a.createdAt ? new Date(a.createdAt).toISOString().split('T')[0] : 'unknown';
+        acc[date] = (acc[date] || 0) + 1;
+        return acc;
+      }, {});
+
+      // Attendee status breakdown
+      const statusBreakdown = attendees.reduce((acc: Record<string, number>, a) => {
+        const status = a.registrationStatus || 'pending';
+        acc[status] = (acc[status] || 0) + 1;
+        return acc;
+      }, {});
+
+      // Check-in metrics
+      const checkedInCount = attendees.filter(a => a.checkedIn).length;
+      const checkInRate = attendees.length > 0 ? Math.round((checkedInCount / attendees.length) * 100) : 0;
+
+      // Budget metrics
+      const totalPlanned = budgetItems.reduce((sum, item) => sum + parseFloat(item.plannedAmount || "0"), 0);
+      const totalSpent = budgetItems.reduce((sum, item) => sum + parseFloat(item.actualAmount || "0"), 0);
+      const budgetRemaining = totalPlanned - totalSpent;
+
+      // Project progress
+      const completedDeliverables = deliverables.filter(d => d.status === "done").length;
+      const completedMilestones = milestones.filter(m => m.status === "completed").length;
+      const projectProgress = deliverables.length > 0 ? Math.round((completedDeliverables / deliverables.length) * 100) : 0;
+
+      // Marketing metrics
+      const sentEmails = emailCampaigns.filter(e => e.status === "sent").length;
+      const scheduledEmails = emailCampaigns.filter(e => e.status === "scheduled").length;
+      const publishedPosts = socialPosts.filter(p => p.status === "published").length;
+      const scheduledPosts = socialPosts.filter(p => p.status === "scheduled").length;
+
+      res.json({
+        attendance: {
+          total: attendees.length,
+          checkedIn: checkedInCount,
+          checkInRate,
+          statusBreakdown,
+          registrationsByDate,
+        },
+        sessions: {
+          total: sessions.length,
+          speakers: speakers.length,
+        },
+        budget: {
+          totalPlanned,
+          totalSpent,
+          budgetRemaining,
+          utilizationRate: totalPlanned > 0 ? Math.round((totalSpent / totalPlanned) * 100) : 0,
+        },
+        project: {
+          deliverables: deliverables.length,
+          completedDeliverables,
+          milestones: milestones.length,
+          completedMilestones,
+          projectProgress,
+        },
+        marketing: {
+          totalEmails: emailCampaigns.length,
+          sentEmails,
+          scheduledEmails,
+          totalPosts: socialPosts.length,
+          publishedPosts,
+          scheduledPosts,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching analytics:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
     }
   });
 

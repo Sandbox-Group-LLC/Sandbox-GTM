@@ -19,6 +19,9 @@ import Deliverables from "@/pages/deliverables";
 import Emails from "@/pages/emails";
 import Social from "@/pages/social";
 import Settings from "@/pages/settings";
+import CheckIn from "@/pages/check-in";
+import Analytics from "@/pages/analytics";
+import PublicEvent from "@/pages/public-event";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const sidebarStyle = {
@@ -53,6 +56,7 @@ function Router() {
     return (
       <Switch>
         <Route path="/" component={Landing} />
+        <Route path="/event/:slug" component={PublicEvent} />
         <Route component={Landing} />
       </Switch>
     );
@@ -63,6 +67,7 @@ function Router() {
       <Switch>
         <Route path="/" component={Dashboard} />
         <Route path="/attendees" component={Attendees} />
+        <Route path="/check-in" component={CheckIn} />
         <Route path="/sessions" component={Sessions} />
         <Route path="/speakers" component={Speakers} />
         <Route path="/content" component={Content} />
@@ -70,7 +75,9 @@ function Router() {
         <Route path="/deliverables" component={Deliverables} />
         <Route path="/emails" component={Emails} />
         <Route path="/social" component={Social} />
+        <Route path="/analytics" component={Analytics} />
         <Route path="/settings" component={Settings} />
+        <Route path="/event/:slug" component={PublicEvent} />
         <Route component={NotFound} />
       </Switch>
     </AuthenticatedLayout>

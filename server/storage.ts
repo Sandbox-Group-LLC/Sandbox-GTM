@@ -11,6 +11,7 @@ import {
   deliverables,
   emailCampaigns,
   socialPosts,
+  emailTemplates,
   type User,
   type UpsertUser,
   type Event,
@@ -33,6 +34,8 @@ import {
   type InsertEmailCampaign,
   type SocialPost,
   type InsertSocialPost,
+  type EmailTemplate,
+  type InsertEmailTemplate,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
@@ -111,6 +114,20 @@ export interface IStorage {
   createSocialPost(post: InsertSocialPost): Promise<SocialPost>;
   updateSocialPost(id: string, post: Partial<InsertSocialPost>): Promise<SocialPost | undefined>;
   deleteSocialPost(id: string): Promise<void>;
+
+  // Email template operations
+  getEmailTemplates(eventId?: string): Promise<EmailTemplate[]>;
+  getEmailTemplate(id: string): Promise<EmailTemplate | undefined>;
+  createEmailTemplate(template: InsertEmailTemplate): Promise<EmailTemplate>;
+  updateEmailTemplate(id: string, template: Partial<InsertEmailTemplate>): Promise<EmailTemplate | undefined>;
+  deleteEmailTemplate(id: string): Promise<void>;
+
+  // Check-in operations
+  getAttendeeByCheckInCode(code: string): Promise<Attendee | undefined>;
+  checkInAttendee(id: string): Promise<Attendee | undefined>;
+
+  // Public event operations
+  getEventBySlug(slug: string): Promise<Event | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -440,6 +457,58 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSocialPost(id: string): Promise<void> {
     await db.delete(socialPosts).where(eq(socialPosts.id, id));
+  }
+
+  // Email template operations
+  async getEmailTemplates(eventId?: string): Promise<EmailTemplate[]> {
+    if (eventId) {
+      return db.select().from(emailTemplates).where(eq(emailTemplates.eventId, eventId)).orderBy(desc(emailTemplates.createdAt));
+    }
+    return db.select().from(emailTemplates).orderBy(desc(emailTemplates.createdAt));
+  }
+
+  async getEmailTemplate(id: string): Promise<EmailTemplate | undefined> {
+    const [template] = await db.select().from(emailTemplates).where(eq(emailTemplates.id, id));
+    return template;
+  }
+
+  async createEmailTemplate(template: InsertEmailTemplate): Promise<EmailTemplate> {
+    const [newTemplate] = await db.insert(emailTemplates).values(template).returning();
+    return newTemplate;
+  }
+
+  async updateEmailTemplate(id: string, template: Partial<InsertEmailTemplate>): Promise<EmailTemplate | undefined> {
+    const [updated] = await db
+      .update(emailTemplates)
+      .set({ ...template, updatedAt: new Date() })
+      .where(eq(emailTemplates.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteEmailTemplate(id: string): Promise<void> {
+    await db.delete(emailTemplates).where(eq(emailTemplates.id, id));
+  }
+
+  // Check-in operations
+  async getAttendeeByCheckInCode(code: string): Promise<Attendee | undefined> {
+    const [attendee] = await db.select().from(attendees).where(eq(attendees.checkInCode, code));
+    return attendee;
+  }
+
+  async checkInAttendee(id: string): Promise<Attendee | undefined> {
+    const [updated] = await db
+      .update(attendees)
+      .set({ checkedIn: true, checkInTime: new Date(), updatedAt: new Date() })
+      .where(eq(attendees.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Public event operations
+  async getEventBySlug(slug: string): Promise<Event | undefined> {
+    const [event] = await db.select().from(events).where(eq(events.publicSlug, slug));
+    return event;
   }
 }
 
