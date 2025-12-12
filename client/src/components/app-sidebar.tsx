@@ -1,0 +1,179 @@
+import { Link, useLocation } from "wouter";
+import {
+  LayoutDashboard,
+  Users,
+  Calendar,
+  Mic2,
+  FolderOpen,
+  DollarSign,
+  CheckSquare,
+  Mail,
+  Share2,
+  Settings,
+  LogOut,
+} from "lucide-react";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+} from "@/components/ui/sidebar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useAuth } from "@/hooks/useAuth";
+
+const mainMenuItems = [
+  { title: "Dashboard", icon: LayoutDashboard, path: "/" },
+  { title: "Attendees", icon: Users, path: "/attendees" },
+  { title: "Sessions", icon: Calendar, path: "/sessions" },
+  { title: "Speakers", icon: Mic2, path: "/speakers" },
+  { title: "Content", icon: FolderOpen, path: "/content" },
+];
+
+const projectMenuItems = [
+  { title: "Budget", icon: DollarSign, path: "/budget" },
+  { title: "Deliverables", icon: CheckSquare, path: "/deliverables" },
+];
+
+const marketingMenuItems = [
+  { title: "Email Campaigns", icon: Mail, path: "/emails" },
+  { title: "Social Media", icon: Share2, path: "/social" },
+];
+
+export function AppSidebar() {
+  const [location] = useLocation();
+  const { user } = useAuth();
+
+  const getInitials = () => {
+    if (user?.firstName && user?.lastName) {
+      return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
+    }
+    if (user?.email) {
+      return user.email[0].toUpperCase();
+    }
+    return "U";
+  };
+
+  return (
+    <Sidebar>
+      <SidebarHeader className="p-4 border-b border-sidebar-border">
+        <div className="flex items-center gap-2">
+          <Calendar className="h-6 w-6 text-sidebar-primary" />
+          <span className="font-semibold text-lg">EventFlow</span>
+        </div>
+      </SidebarHeader>
+
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>Event Management</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {mainMenuItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === item.path}
+                    data-testid={`nav-${item.title.toLowerCase()}`}
+                  >
+                    <Link href={item.path}>
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Project Management</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {projectMenuItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === item.path}
+                    data-testid={`nav-${item.title.toLowerCase().replace(" ", "-")}`}
+                  >
+                    <Link href={item.path}>
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Marketing</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {marketingMenuItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === item.path}
+                    data-testid={`nav-${item.title.toLowerCase().replace(" ", "-")}`}
+                  >
+                    <Link href={item.path}>
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+
+      <SidebarFooter className="border-t border-sidebar-border p-4">
+        <div className="flex items-center gap-3 mb-3">
+          <Avatar className="h-9 w-9">
+            <AvatarImage
+              src={user?.profileImageUrl || undefined}
+              alt={user?.firstName || "User"}
+              className="object-cover"
+            />
+            <AvatarFallback className="text-xs">{getInitials()}</AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium truncate">
+              {user?.firstName && user?.lastName
+                ? `${user.firstName} ${user.lastName}`
+                : user?.email || "User"}
+            </p>
+            <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+          </div>
+        </div>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild data-testid="nav-settings">
+              <Link href="/settings">
+                <Settings className="h-4 w-4" />
+                <span>Settings</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild data-testid="button-logout">
+              <a href="/api/logout">
+                <LogOut className="h-4 w-4" />
+                <span>Sign Out</span>
+              </a>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
+    </Sidebar>
+  );
+}

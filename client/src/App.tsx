@@ -3,26 +3,89 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ThemeProvider } from "@/components/theme-provider";
+import { SidebarProvider } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/app-sidebar";
+import { useAuth } from "@/hooks/useAuth";
 import NotFound from "@/pages/not-found";
+import Landing from "@/pages/landing";
+import Dashboard from "@/pages/dashboard";
+import Attendees from "@/pages/attendees";
+import Sessions from "@/pages/sessions";
+import Speakers from "@/pages/speakers";
+import Content from "@/pages/content";
+import Budget from "@/pages/budget";
+import Deliverables from "@/pages/deliverables";
+import Emails from "@/pages/emails";
+import Social from "@/pages/social";
+import Settings from "@/pages/settings";
+
+function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
+  const sidebarStyle = {
+    "--sidebar-width": "16rem",
+    "--sidebar-width-icon": "3rem",
+  };
+
+  return (
+    <SidebarProvider style={sidebarStyle as React.CSSProperties}>
+      <div className="flex h-screen w-full">
+        <AppSidebar />
+        <main className="flex-1 flex flex-col overflow-hidden">
+          {children}
+        </main>
+      </div>
+    </SidebarProvider>
+  );
+}
 
 function Router() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-pulse text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <Switch>
+        <Route path="/" component={Landing} />
+        <Route component={Landing} />
+      </Switch>
+    );
+  }
+
   return (
-    <Switch>
-      {/* Add pages below */}
-      {/* <Route path="/" component={Home}/> */}
-      {/* Fallback to 404 */}
-      <Route component={NotFound} />
-    </Switch>
+    <AuthenticatedLayout>
+      <Switch>
+        <Route path="/" component={Dashboard} />
+        <Route path="/attendees" component={Attendees} />
+        <Route path="/sessions" component={Sessions} />
+        <Route path="/speakers" component={Speakers} />
+        <Route path="/content" component={Content} />
+        <Route path="/budget" component={Budget} />
+        <Route path="/deliverables" component={Deliverables} />
+        <Route path="/emails" component={Emails} />
+        <Route path="/social" component={Social} />
+        <Route path="/settings" component={Settings} />
+        <Route component={NotFound} />
+      </Switch>
+    </AuthenticatedLayout>
   );
 }
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
+      <ThemeProvider defaultTheme="system" storageKey="event-cms-theme">
+        <TooltipProvider>
+          <Router />
+          <Toaster />
+        </TooltipProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }
