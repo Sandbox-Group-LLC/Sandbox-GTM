@@ -38,9 +38,11 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Plus, Calendar, Clock, MapPin, Users, Search } from "lucide-react";
+import { EventSelectField } from "@/components/event-select-field";
 import type { EventSession } from "@shared/schema";
 
 const sessionFormSchema = z.object({
+  eventId: z.string().min(1, "Event is required"),
   title: z.string().min(1, "Title is required"),
   description: z.string().optional(),
   sessionDate: z.string().min(1, "Date is required"),
@@ -74,6 +76,7 @@ export default function Sessions() {
   const form = useForm<SessionFormData>({
     resolver: zodResolver(sessionFormSchema),
     defaultValues: {
+      eventId: "",
       title: "",
       description: "",
       sessionDate: "",
@@ -147,6 +150,7 @@ export default function Sessions() {
   const handleEdit = (session: EventSession) => {
     setEditingSession(session);
     form.reset({
+      eventId: session.eventId,
       title: session.title,
       description: session.description || "",
       sessionDate: session.sessionDate,
@@ -208,6 +212,7 @@ export default function Sessions() {
               </DialogHeader>
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <EventSelectField control={form.control} />
                   <FormField
                     control={form.control}
                     name="title"

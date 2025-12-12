@@ -31,9 +31,11 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Plus, Mic2, Search, Mail, Building, Linkedin, Twitter, Globe } from "lucide-react";
+import { EventSelectField } from "@/components/event-select-field";
 import type { Speaker } from "@shared/schema";
 
 const speakerFormSchema = z.object({
+  eventId: z.string().min(1, "Event is required"),
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   email: z.string().email("Valid email is required"),
@@ -62,6 +64,7 @@ export default function Speakers() {
   const form = useForm<SpeakerFormData>({
     resolver: zodResolver(speakerFormSchema),
     defaultValues: {
+      eventId: "",
       firstName: "",
       lastName: "",
       email: "",
@@ -146,6 +149,7 @@ export default function Speakers() {
     setEditingSpeaker(speaker);
     const socialLinks = speaker.socialLinks as { linkedin?: string; twitter?: string; website?: string } | null;
     form.reset({
+      eventId: speaker.eventId,
       firstName: speaker.firstName,
       lastName: speaker.lastName,
       email: speaker.email,
@@ -198,6 +202,7 @@ export default function Speakers() {
               </DialogHeader>
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <EventSelectField control={form.control} />
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}

@@ -38,9 +38,11 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Plus, CheckSquare, Clock, AlertCircle, CheckCircle, Circle } from "lucide-react";
+import { EventSelectField } from "@/components/event-select-field";
 import type { Deliverable } from "@shared/schema";
 
 const deliverableFormSchema = z.object({
+  eventId: z.string().min(1, "Event is required"),
   title: z.string().min(1, "Title is required"),
   description: z.string().optional(),
   status: z.string().default("todo"),
@@ -76,6 +78,7 @@ export default function Deliverables() {
   const form = useForm<DeliverableFormData>({
     resolver: zodResolver(deliverableFormSchema),
     defaultValues: {
+      eventId: "",
       title: "",
       description: "",
       status: "todo",
@@ -138,6 +141,7 @@ export default function Deliverables() {
   const handleEdit = (item: Deliverable) => {
     setEditingItem(item);
     form.reset({
+      eventId: item.eventId,
       title: item.title,
       description: item.description || "",
       status: item.status || "todo",
@@ -181,6 +185,7 @@ export default function Deliverables() {
               </DialogHeader>
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <EventSelectField control={form.control} />
                   <FormField
                     control={form.control}
                     name="title"

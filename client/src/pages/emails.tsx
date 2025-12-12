@@ -38,9 +38,11 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Plus, Mail, Send, Clock, CheckCircle, FileText, Copy, Trash2 } from "lucide-react";
+import { EventSelectField } from "@/components/event-select-field";
 import type { EmailCampaign, EmailTemplate } from "@shared/schema";
 
 const emailFormSchema = z.object({
+  eventId: z.string().min(1, "Event is required"),
   subject: z.string().min(1, "Subject is required"),
   content: z.string().min(1, "Content is required"),
   recipientType: z.string().default("all"),
@@ -91,6 +93,7 @@ export default function Emails() {
   const campaignForm = useForm<EmailFormData>({
     resolver: zodResolver(emailFormSchema),
     defaultValues: {
+      eventId: "",
       subject: "",
       content: "",
       recipientType: "all",
@@ -236,6 +239,7 @@ export default function Emails() {
   const handleEditCampaign = (email: EmailCampaign) => {
     setEditingEmail(email);
     campaignForm.reset({
+      eventId: email.eventId,
       subject: email.subject,
       content: email.content,
       recipientType: email.recipientType || "all",
@@ -258,6 +262,7 @@ export default function Emails() {
 
   const handleUseTemplate = (template: EmailTemplate) => {
     campaignForm.reset({
+      eventId: "",
       subject: template.subject,
       content: template.content,
       recipientType: "all",
@@ -459,6 +464,7 @@ export default function Emails() {
                 </DialogHeader>
                 <Form {...campaignForm}>
                   <form onSubmit={campaignForm.handleSubmit(onSubmitCampaign)} className="space-y-4">
+                    <EventSelectField control={campaignForm.control} />
                     <FormField
                       control={campaignForm.control}
                       name="subject"

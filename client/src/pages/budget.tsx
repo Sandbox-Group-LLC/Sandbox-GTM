@@ -39,9 +39,11 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Plus, DollarSign, TrendingUp, TrendingDown, Wallet } from "lucide-react";
+import { EventSelectField } from "@/components/event-select-field";
 import type { BudgetItem } from "@shared/schema";
 
 const budgetFormSchema = z.object({
+  eventId: z.string().min(1, "Event is required"),
   category: z.string().min(1, "Category is required"),
   description: z.string().min(1, "Description is required"),
   plannedAmount: z.string().min(1, "Planned amount is required"),
@@ -84,6 +86,7 @@ export default function Budget() {
   const form = useForm<BudgetFormData>({
     resolver: zodResolver(budgetFormSchema),
     defaultValues: {
+      eventId: "",
       category: "",
       description: "",
       plannedAmount: "",
@@ -147,6 +150,7 @@ export default function Budget() {
   const handleEdit = (item: BudgetItem) => {
     setEditingItem(item);
     form.reset({
+      eventId: item.eventId,
       category: item.category,
       description: item.description,
       plannedAmount: item.plannedAmount,
@@ -266,6 +270,7 @@ export default function Budget() {
               </DialogHeader>
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <EventSelectField control={form.control} />
                   <FormField
                     control={form.control}
                     name="category"

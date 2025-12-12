@@ -55,9 +55,11 @@ import {
   AlertCircle,
   Send,
 } from "lucide-react";
+import { EventSelectField } from "@/components/event-select-field";
 import type { SocialPost, SocialConnection } from "@shared/schema";
 
 const socialFormSchema = z.object({
+  eventId: z.string().min(1, "Event is required"),
   platform: z.string().min(1, "Platform is required"),
   content: z.string().min(1, "Content is required"),
   mediaUrl: z.string().optional(),
@@ -118,6 +120,7 @@ export default function Social() {
   const form = useForm<SocialFormData>({
     resolver: zodResolver(socialFormSchema),
     defaultValues: {
+      eventId: "",
       platform: "",
       content: "",
       mediaUrl: "",
@@ -240,6 +243,7 @@ export default function Social() {
   const handleEdit = (post: SocialPost) => {
     setEditingPost(post);
     form.reset({
+      eventId: post.eventId,
       platform: post.platform,
       content: post.content,
       mediaUrl: post.mediaUrl || "",
@@ -313,6 +317,7 @@ export default function Social() {
                 </DialogHeader>
                 <Form {...form}>
                   <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <EventSelectField control={form.control} />
                     <FormField
                       control={form.control}
                       name="platform"
