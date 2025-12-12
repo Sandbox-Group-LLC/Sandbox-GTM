@@ -37,9 +37,11 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Plus, Users, Search, Download } from "lucide-react";
+import { EventSelectField } from "@/components/event-select-field";
 import type { Attendee } from "@shared/schema";
 
 const attendeeFormSchema = z.object({
+  eventId: z.string().min(1, "Event is required"),
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   email: z.string().email("Valid email is required"),
@@ -73,6 +75,7 @@ export default function Attendees() {
   const form = useForm<AttendeeFormData>({
     resolver: zodResolver(attendeeFormSchema),
     defaultValues: {
+      eventId: "",
       firstName: "",
       lastName: "",
       email: "",
@@ -138,6 +141,7 @@ export default function Attendees() {
   const handleEdit = (attendee: Attendee) => {
     setEditingAttendee(attendee);
     form.reset({
+      eventId: attendee.eventId,
       firstName: attendee.firstName,
       lastName: attendee.lastName,
       email: attendee.email,
@@ -245,6 +249,7 @@ export default function Attendees() {
               </DialogHeader>
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <EventSelectField control={form.control} />
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
