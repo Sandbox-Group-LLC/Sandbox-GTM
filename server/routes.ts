@@ -16,9 +16,6 @@ import {
   insertEmailTemplateSchema,
 } from "@shared/schema";
 
-// Default event ID for MVP (single event mode)
-const DEFAULT_EVENT_ID = "default-event";
-
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -154,7 +151,7 @@ export async function registerRoutes(
 
   app.post("/api/attendees", isAuthenticated, async (req, res) => {
     try {
-      const data = insertAttendeeSchema.parse({ ...req.body, eventId: DEFAULT_EVENT_ID });
+      const data = insertAttendeeSchema.parse(req.body);
       const attendee = await storage.createAttendee(data);
       res.status(201).json(attendee);
     } catch (error) {
@@ -199,7 +196,7 @@ export async function registerRoutes(
 
   app.post("/api/speakers", isAuthenticated, async (req, res) => {
     try {
-      const data = insertSpeakerSchema.parse({ ...req.body, eventId: DEFAULT_EVENT_ID });
+      const data = insertSpeakerSchema.parse(req.body);
       const speaker = await storage.createSpeaker(data);
       res.status(201).json(speaker);
     } catch (error) {
@@ -244,7 +241,7 @@ export async function registerRoutes(
 
   app.post("/api/sessions", isAuthenticated, async (req, res) => {
     try {
-      const data = insertSessionSchema.parse({ ...req.body, eventId: DEFAULT_EVENT_ID });
+      const data = insertSessionSchema.parse(req.body);
       const session = await storage.createSession(data);
       res.status(201).json(session);
     } catch (error) {
@@ -289,7 +286,7 @@ export async function registerRoutes(
 
   app.post("/api/content", isAuthenticated, async (req, res) => {
     try {
-      const data = insertContentItemSchema.parse({ ...req.body, eventId: DEFAULT_EVENT_ID });
+      const data = insertContentItemSchema.parse(req.body);
       const content = await storage.createContentItem(data);
       res.status(201).json(content);
     } catch (error) {
@@ -334,7 +331,7 @@ export async function registerRoutes(
 
   app.post("/api/budget", isAuthenticated, async (req, res) => {
     try {
-      const data = insertBudgetItemSchema.parse({ ...req.body, eventId: DEFAULT_EVENT_ID });
+      const data = insertBudgetItemSchema.parse(req.body);
       const budget = await storage.createBudgetItem(data);
       res.status(201).json(budget);
     } catch (error) {
@@ -379,7 +376,7 @@ export async function registerRoutes(
 
   app.post("/api/deliverables", isAuthenticated, async (req, res) => {
     try {
-      const data = insertDeliverableSchema.parse({ ...req.body, eventId: DEFAULT_EVENT_ID });
+      const data = insertDeliverableSchema.parse(req.body);
       const deliverable = await storage.createDeliverable(data);
       res.status(201).json(deliverable);
     } catch (error) {
@@ -425,7 +422,7 @@ export async function registerRoutes(
   app.post("/api/emails", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const data = insertEmailCampaignSchema.parse({ ...req.body, eventId: DEFAULT_EVENT_ID, createdBy: userId });
+      const data = insertEmailCampaignSchema.parse({ ...req.body, createdBy: userId });
       const email = await storage.createEmailCampaign(data);
       res.status(201).json(email);
     } catch (error) {
