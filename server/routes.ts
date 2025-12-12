@@ -403,7 +403,7 @@ export async function registerRoutes(
   app.post("/api/social", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const data = insertSocialPostSchema.parse({ ...req.body, eventId: DEFAULT_EVENT_ID, createdBy: userId });
+      const data = insertSocialPostSchema.parse({ ...req.body, eventId: req.body.eventId || null, createdBy: userId });
       const post = await storage.createSocialPost(data);
       res.status(201).json(post);
     } catch (error) {
@@ -449,7 +449,7 @@ export async function registerRoutes(
   app.post("/api/email-templates", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const data = insertEmailTemplateSchema.parse({ ...req.body, eventId: DEFAULT_EVENT_ID, createdBy: userId });
+      const data = insertEmailTemplateSchema.parse({ ...req.body, eventId: req.body.eventId || null, createdBy: userId });
       const template = await storage.createEmailTemplate(data);
       res.status(201).json(template);
     } catch (error) {

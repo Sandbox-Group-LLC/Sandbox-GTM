@@ -191,7 +191,7 @@ export const emailCampaigns = pgTable("email_campaigns", {
 // Social media posts table
 export const socialPosts = pgTable("social_posts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  eventId: varchar("event_id").references(() => events.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id),
   platform: varchar("platform", { length: 50 }).notNull(),
   content: text("content").notNull(),
   mediaUrl: varchar("media_url", { length: 500 }),
@@ -205,7 +205,7 @@ export const socialPosts = pgTable("social_posts", {
 // Email templates table
 export const emailTemplates = pgTable("email_templates", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  eventId: varchar("event_id").references(() => events.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id),
   name: varchar("name", { length: 100 }).notNull(),
   subject: varchar("subject", { length: 255 }).notNull(),
   content: text("content").notNull(),
