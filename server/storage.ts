@@ -2,6 +2,7 @@ import {
   users,
   events,
   attendees,
+  attendeeTypes,
   speakers,
   eventSessions,
   sessionSpeakers,
@@ -19,6 +20,8 @@ import {
   type InsertEvent,
   type Attendee,
   type InsertAttendee,
+  type AttendeeType,
+  type InsertAttendeeType,
   type Speaker,
   type InsertSpeaker,
   type EventSession,
@@ -61,6 +64,13 @@ export interface IStorage {
   createAttendee(attendee: InsertAttendee): Promise<Attendee>;
   updateAttendee(id: string, attendee: Partial<InsertAttendee>): Promise<Attendee | undefined>;
   deleteAttendee(id: string): Promise<void>;
+
+  // Attendee Type operations
+  getAttendeeTypes(eventId?: string): Promise<AttendeeType[]>;
+  getAttendeeType(id: string): Promise<AttendeeType | undefined>;
+  createAttendeeType(attendeeType: InsertAttendeeType): Promise<AttendeeType>;
+  updateAttendeeType(id: string, attendeeType: Partial<InsertAttendeeType>): Promise<AttendeeType | undefined>;
+  deleteAttendeeType(id: string): Promise<void>;
 
   // Speaker operations
   getSpeakers(eventId?: string): Promise<Speaker[]>;
@@ -233,6 +243,37 @@ export class DatabaseStorage implements IStorage {
 
   async deleteAttendee(id: string): Promise<void> {
     await db.delete(attendees).where(eq(attendees.id, id));
+  }
+
+  // Attendee Type operations
+  async getAttendeeTypes(eventId?: string): Promise<AttendeeType[]> {
+    if (eventId) {
+      return db.select().from(attendeeTypes).where(eq(attendeeTypes.eventId, eventId)).orderBy(desc(attendeeTypes.createdAt));
+    }
+    return db.select().from(attendeeTypes).orderBy(desc(attendeeTypes.createdAt));
+  }
+
+  async getAttendeeType(id: string): Promise<AttendeeType | undefined> {
+    const [attendeeType] = await db.select().from(attendeeTypes).where(eq(attendeeTypes.id, id));
+    return attendeeType;
+  }
+
+  async createAttendeeType(attendeeType: InsertAttendeeType): Promise<AttendeeType> {
+    const [newAttendeeType] = await db.insert(attendeeTypes).values(attendeeType).returning();
+    return newAttendeeType;
+  }
+
+  async updateAttendeeType(id: string, attendeeType: Partial<InsertAttendeeType>): Promise<AttendeeType | undefined> {
+    const [updated] = await db
+      .update(attendeeTypes)
+      .set({ ...attendeeType, updatedAt: new Date() })
+      .where(eq(attendeeTypes.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteAttendeeType(id: string): Promise<void> {
+    await db.delete(attendeeTypes).where(eq(attendeeTypes.id, id));
   }
 
   // Speaker operations
