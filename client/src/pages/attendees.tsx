@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -32,11 +33,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Plus, Users, Search, Download } from "lucide-react";
+import { Plus, Users, Search, Download, Settings2, ArrowUpDown, ArrowUp, ArrowDown, Filter, X } from "lucide-react";
 import { EventSelectField } from "@/components/event-select-field";
 import type { Attendee } from "@shared/schema";
 
@@ -48,6 +54,40 @@ const ATTENDEE_TYPE_OPTIONS = [
   { value: "analyst", label: "Analyst" },
   { value: "sponsor", label: "Sponsor" },
 ];
+
+const STATUS_OPTIONS = [
+  { value: "pending", label: "Pending" },
+  { value: "confirmed", label: "Confirmed" },
+  { value: "waitlist", label: "Waitlist" },
+  { value: "cancelled", label: "Cancelled" },
+];
+
+type ColumnConfig = {
+  key: string;
+  header: string;
+  sortable?: boolean;
+  getValue?: (attendee: Attendee) => string | number | boolean | null;
+};
+
+const ALL_COLUMNS: ColumnConfig[] = [
+  { key: "name", header: "Name", sortable: true, getValue: (a) => `${a.firstName} ${a.lastName}` },
+  { key: "email", header: "Email", sortable: true, getValue: (a) => a.email },
+  { key: "phone", header: "Phone", sortable: true, getValue: (a) => a.phone || "" },
+  { key: "company", header: "Company", sortable: true, getValue: (a) => a.company || "" },
+  { key: "jobTitle", header: "Job Title", sortable: true, getValue: (a) => a.jobTitle || "" },
+  { key: "attendeeType", header: "Type", sortable: true, getValue: (a) => a.attendeeType || "" },
+  { key: "ticketType", header: "Ticket", sortable: true, getValue: (a) => a.ticketType || "" },
+  { key: "status", header: "Status", sortable: true, getValue: (a) => a.registrationStatus || "pending" },
+  { key: "checkedIn", header: "Checked In", sortable: true, getValue: (a) => a.checkedIn ? "Yes" : "No" },
+  { key: "notes", header: "Notes", sortable: false, getValue: (a) => a.notes || "" },
+];
+
+const DEFAULT_VISIBLE_COLUMNS = ["name", "email", "company", "ticketType", "status"];
+
+type SortConfig = {
+  key: string;
+  direction: "asc" | "desc";
+} | null;
 
 const attendeeFormSchema = z.object({
   eventId: z.string().min(1, "Event is required"),
@@ -77,6 +117,10 @@ export default function Attendees() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [editingAttendee, setEditingAttendee] = useState<Attendee | null>(null);
+  const [visibleColumns, setVisibleColumns] = useState<string[]>(DEFAULT_VISIBLE_COLUMNS);
+  const [sortConfig, setSortConfig] = useState<SortConfig>(null);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
 
   const { data: attendees = [], isLoading } = useQuery<Attendee[]>({
     queryKey: ["/api/attendees"],
@@ -173,53 +217,153 @@ export default function Attendees() {
     form.reset();
   };
 
-  const filteredAttendees = attendees.filter((attendee) => {
-    const searchLower = searchQuery.toLowerCase();
-    return (
-      attendee.firstName.toLowerCase().includes(searchLower) ||
-      attendee.lastName.toLowerCase().includes(searchLower) ||
-      attendee.email.toLowerCase().includes(searchLower) ||
-      (attendee.company?.toLowerCase().includes(searchLower) ?? false)
+  const toggleColumn = (columnKey: string) => {
+    setVisibleColumns((prev) =>
+      prev.includes(columnKey)
+        ? prev.filter((k) => k !== columnKey)
+        : [...prev, columnKey]
     );
-  });
+  };
 
-  const columns = [
-    {
-      key: "name",
-      header: "Name",
-      cell: (attendee: Attendee) => (
-        <div className="font-medium">
-          {attendee.firstName} {attendee.lastName}
-        </div>
-      ),
-    },
-    {
-      key: "email",
-      header: "Email",
-      cell: (attendee: Attendee) => (
-        <span className="text-muted-foreground">{attendee.email}</span>
-      ),
-    },
-    {
-      key: "company",
-      header: "Company",
-      cell: (attendee: Attendee) => attendee.company || "-",
-    },
-    {
-      key: "ticketType",
-      header: "Ticket",
-      cell: (attendee: Attendee) => attendee.ticketType || "-",
-    },
-    {
-      key: "status",
-      header: "Status",
-      cell: (attendee: Attendee) => (
-        <Badge variant={statusColors[attendee.registrationStatus || "pending"]}>
-          {attendee.registrationStatus || "pending"}
-        </Badge>
-      ),
-    },
-    {
+  const handleSort = (columnKey: string) => {
+    setSortConfig((prev) => {
+      if (prev?.key === columnKey) {
+        if (prev.direction === "asc") {
+          return { key: columnKey, direction: "desc" };
+        }
+        return null;
+      }
+      return { key: columnKey, direction: "asc" };
+    });
+  };
+
+  const clearFilters = () => {
+    setStatusFilter("all");
+    setTypeFilter("all");
+    setSearchQuery("");
+  };
+
+  const hasActiveFilters = statusFilter !== "all" || typeFilter !== "all" || searchQuery !== "";
+
+  const processedAttendees = useMemo(() => {
+    let result = [...attendees];
+
+    // Apply search filter
+    if (searchQuery) {
+      const searchLower = searchQuery.toLowerCase();
+      result = result.filter((attendee) =>
+        attendee.firstName.toLowerCase().includes(searchLower) ||
+        attendee.lastName.toLowerCase().includes(searchLower) ||
+        attendee.email.toLowerCase().includes(searchLower) ||
+        (attendee.company?.toLowerCase().includes(searchLower) ?? false)
+      );
+    }
+
+    // Apply status filter
+    if (statusFilter !== "all") {
+      result = result.filter((attendee) => attendee.registrationStatus === statusFilter);
+    }
+
+    // Apply type filter
+    if (typeFilter !== "all") {
+      result = result.filter((attendee) => attendee.attendeeType === typeFilter);
+    }
+
+    // Apply sorting
+    if (sortConfig) {
+      const columnConfig = ALL_COLUMNS.find((c) => c.key === sortConfig.key);
+      if (columnConfig?.getValue) {
+        result.sort((a, b) => {
+          const aVal = columnConfig.getValue!(a);
+          const bVal = columnConfig.getValue!(b);
+          
+          const aIsEmpty = aVal === null || aVal === undefined || aVal === "";
+          const bIsEmpty = bVal === null || bVal === undefined || bVal === "";
+          
+          // Handle null/empty values consistently - push to end
+          if (aIsEmpty && bIsEmpty) return 0;
+          if (aIsEmpty) return 1;
+          if (bIsEmpty) return -1;
+          
+          let comparison = 0;
+          if (typeof aVal === "string" && typeof bVal === "string") {
+            comparison = aVal.localeCompare(bVal);
+          } else if (typeof aVal === "number" && typeof bVal === "number") {
+            comparison = aVal - bVal;
+          } else {
+            comparison = String(aVal).localeCompare(String(bVal));
+          }
+          
+          return sortConfig.direction === "asc" ? comparison : -comparison;
+        });
+      }
+    }
+
+    return result;
+  }, [attendees, searchQuery, statusFilter, typeFilter, sortConfig]);
+
+  const getSortIcon = (columnKey: string) => {
+    if (sortConfig?.key !== columnKey) {
+      return <ArrowUpDown className="h-3 w-3 ml-1 opacity-50" />;
+    }
+    return sortConfig.direction === "asc" 
+      ? <ArrowUp className="h-3 w-3 ml-1" />
+      : <ArrowDown className="h-3 w-3 ml-1" />;
+  };
+
+  const columns = useMemo(() => {
+    const visibleColumnConfigs = ALL_COLUMNS.filter((col) => visibleColumns.includes(col.key));
+    
+    const dynamicColumns = visibleColumnConfigs.map((colConfig) => {
+      const baseColumn = {
+        key: colConfig.key,
+        header: colConfig.sortable ? (
+          <button
+            type="button"
+            className="flex items-center hover-elevate px-1 py-0.5 rounded -ml-1"
+            onClick={() => handleSort(colConfig.key)}
+            data-testid={`button-sort-${colConfig.key}`}
+          >
+            {colConfig.header}
+            {getSortIcon(colConfig.key)}
+          </button>
+        ) : colConfig.header,
+        cell: (attendee: Attendee) => {
+          switch (colConfig.key) {
+            case "name":
+              return (
+                <div className="font-medium">
+                  {attendee.firstName} {attendee.lastName}
+                </div>
+              );
+            case "email":
+              return <span className="text-muted-foreground">{attendee.email}</span>;
+            case "status":
+              return (
+                <Badge variant={statusColors[attendee.registrationStatus || "pending"]}>
+                  {attendee.registrationStatus || "pending"}
+                </Badge>
+              );
+            case "attendeeType":
+              const typeOption = ATTENDEE_TYPE_OPTIONS.find(t => t.value === attendee.attendeeType);
+              return typeOption?.label || attendee.attendeeType || "-";
+            case "checkedIn":
+              return attendee.checkedIn ? (
+                <Badge variant="default">Yes</Badge>
+              ) : (
+                <Badge variant="outline">No</Badge>
+              );
+            default:
+              const value = colConfig.getValue?.(attendee);
+              return value || "-";
+          }
+        },
+      };
+      return baseColumn;
+    });
+
+    // Always add actions column at the end
+    dynamicColumns.push({
       key: "actions",
       header: "",
       cell: (attendee: Attendee) => (
@@ -235,9 +379,10 @@ export default function Attendees() {
           Edit
         </Button>
       ),
-      className: "w-20",
-    },
-  ];
+    });
+
+    return dynamicColumns;
+  }, [visibleColumns, sortConfig]);
 
   return (
     <div className="flex flex-col h-full">
@@ -447,7 +592,8 @@ export default function Attendees() {
 
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-7xl mx-auto space-y-4">
-          <div className="flex items-center gap-4 flex-wrap">
+          {/* Search and controls row */}
+          <div className="flex items-center gap-3 flex-wrap">
             <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -458,11 +604,94 @@ export default function Attendees() {
                 data-testid="input-search"
               />
             </div>
+            
+            {/* Status Filter */}
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[140px]" data-testid="select-filter-status">
+                <Filter className="h-4 w-4 mr-2 opacity-50" />
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                {STATUS_OPTIONS.map((status) => (
+                  <SelectItem key={status.value} value={status.value}>
+                    {status.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Type Filter */}
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="w-[140px]" data-testid="select-filter-type">
+                <Filter className="h-4 w-4 mr-2 opacity-50" />
+                <SelectValue placeholder="Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                {ATTENDEE_TYPE_OPTIONS.map((type) => (
+                  <SelectItem key={type.value} value={type.value}>
+                    {type.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                data-testid="button-clear-filters"
+              >
+                <X className="h-4 w-4 mr-1" />
+                Clear
+              </Button>
+            )}
+
+            {/* Column Visibility Popover */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" data-testid="button-column-settings">
+                  <Settings2 className="h-4 w-4 mr-2" />
+                  Columns
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56" align="end">
+                <div className="space-y-2">
+                  <h4 className="font-medium text-sm mb-3">Toggle Columns</h4>
+                  {ALL_COLUMNS.map((column) => (
+                    <div key={column.key} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`col-${column.key}`}
+                        checked={visibleColumns.includes(column.key)}
+                        onCheckedChange={() => toggleColumn(column.key)}
+                        data-testid={`checkbox-column-${column.key}`}
+                      />
+                      <label
+                        htmlFor={`col-${column.key}`}
+                        className="text-sm cursor-pointer"
+                      >
+                        {column.header}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+
             <Button variant="outline" size="sm" data-testid="button-export">
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
           </div>
+
+          {/* Results count */}
+          {!isLoading && attendees.length > 0 && (
+            <div className="text-sm text-muted-foreground">
+              Showing {processedAttendees.length} of {attendees.length} attendees
+            </div>
+          )}
 
           {!isLoading && attendees.length === 0 ? (
             <EmptyState
@@ -477,9 +706,9 @@ export default function Attendees() {
           ) : (
             <DataTable
               columns={columns}
-              data={filteredAttendees}
+              data={processedAttendees}
               isLoading={isLoading}
-              emptyMessage="No attendees match your search"
+              emptyMessage="No attendees match your filters"
               getRowKey={(attendee) => attendee.id}
             />
           )}
