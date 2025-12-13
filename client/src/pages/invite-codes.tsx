@@ -205,21 +205,21 @@ export default function InviteCodes() {
   const columns = [
     {
       header: "Code",
-      accessorKey: "code",
+      key: "code",
       cell: (row: InviteCode) => (
         <span className="font-mono font-medium" data-testid={`text-code-${row.id}`}>{row.code}</span>
       ),
     },
     {
       header: "Event",
-      accessorKey: "eventId",
+      key: "eventId",
       cell: (row: InviteCode) => (
         <span data-testid={`text-event-${row.id}`}>{getEventName(row.eventId)}</span>
       ),
     },
     {
       header: "Quantity",
-      accessorKey: "quantity",
+      key: "quantity",
       cell: (row: InviteCode) => (
         <span data-testid={`text-quantity-${row.id}`}>
           {row.quantity === null ? (
@@ -232,7 +232,7 @@ export default function InviteCodes() {
     },
     {
       header: "Status",
-      accessorKey: "isActive",
+      key: "isActive",
       cell: (row: InviteCode) => (
         <Badge variant={row.isActive ? "default" : "secondary"} data-testid={`badge-status-${row.id}`}>
           {row.isActive ? "Active" : "Inactive"}
@@ -241,7 +241,7 @@ export default function InviteCodes() {
     },
     {
       header: "Actions",
-      accessorKey: "id",
+      key: "actions",
       cell: (row: InviteCode) => (
         <div className="flex items-center gap-2">
           <Button
@@ -269,29 +269,29 @@ export default function InviteCodes() {
     <div className="flex flex-col h-full">
       <PageHeader
         title="Invite Codes"
-        description="Manage invite codes for event registration"
-      >
-        <div className="flex items-center gap-4">
-          <Select value={selectedEventId || "all"} onValueChange={(value) => setSelectedEventId(value === "all" ? "" : value)}>
-            <SelectTrigger className="w-[200px]" data-testid="select-event-filter">
-              <SelectValue placeholder="All Events" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Events</SelectItem>
-              {events.map((event) => (
-                <SelectItem key={event.id} value={event.id}>
-                  {event.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Dialog open={isDialogOpen} onOpenChange={(open) => !open && handleDialogClose()}>
-            <DialogTrigger asChild>
-              <Button onClick={() => setIsDialogOpen(true)} data-testid="button-add-invite-code">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Invite Code
-              </Button>
-            </DialogTrigger>
+        breadcrumbs={[{ label: "Invite Codes" }]}
+        actions={
+          <div className="flex items-center gap-4">
+            <Select value={selectedEventId || "all"} onValueChange={(value) => setSelectedEventId(value === "all" ? "" : value)}>
+              <SelectTrigger className="w-[200px]" data-testid="select-event-filter">
+                <SelectValue placeholder="All Events" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Events</SelectItem>
+                {events.map((event) => (
+                  <SelectItem key={event.id} value={event.id}>
+                    {event.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Dialog open={isDialogOpen} onOpenChange={(open) => !open && handleDialogClose()}>
+              <DialogTrigger asChild>
+                <Button onClick={() => setIsDialogOpen(true)} data-testid="button-add-invite-code">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Invite Code
+                </Button>
+              </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>{editingCode ? "Edit Invite Code" : "Add Invite Code"}</DialogTitle>
@@ -441,9 +441,10 @@ export default function InviteCodes() {
                 </form>
               </Form>
             </DialogContent>
-          </Dialog>
-        </div>
-      </PageHeader>
+            </Dialog>
+          </div>
+        }
+      />
 
       <div className="flex-1 p-6 overflow-auto">
         {isLoading ? (
@@ -455,15 +456,17 @@ export default function InviteCodes() {
             icon={Ticket}
             title="No invite codes yet"
             description="Create your first invite code to manage event registration access."
-            action={
-              <Button onClick={() => setIsDialogOpen(true)} data-testid="button-add-first-invite-code">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Invite Code
-              </Button>
-            }
+            action={{
+              label: "Add Invite Code",
+              onClick: () => setIsDialogOpen(true),
+            }}
           />
         ) : (
-          <DataTable columns={columns} data={inviteCodes} />
+          <DataTable 
+            columns={columns} 
+            data={inviteCodes} 
+            getRowKey={(row) => row.id}
+          />
         )}
       </div>
     </div>
