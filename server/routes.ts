@@ -399,6 +399,78 @@ export async function registerRoutes(
     }
   });
 
+  // Event Package routes (per-event package overrides)
+  app.get("/api/events/:eventId/packages", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const eventId = req.params.eventId;
+
+      // Get all base packages for the organization
+      const basePackages = await storage.getPackages(organizationId);
+      // Get event-specific overrides
+      const eventPackageOverrides = await storage.getEventPackages(organizationId, eventId);
+
+      // Create a map of overrides for quick lookup
+      const overrideMap = new Map(eventPackageOverrides.map(ep => [ep.packageId, ep]));
+
+      // Merge base packages with overrides
+      const mergedPackages = basePackages.map(pkg => {
+        const override = overrideMap.get(pkg.id);
+        return {
+          ...pkg,
+          effectivePrice: override?.priceOverride ?? pkg.price,
+          effectiveFeatures: override?.featuresOverride ?? pkg.features,
+          hasOverride: !!override,
+          isEnabled: override ? override.isEnabled : pkg.isActive,
+          eventPackageId: override?.id,
+        };
+      });
+
+      res.json(mergedPackages);
+    } catch (error) {
+      console.error("Error fetching event packages:", error);
+      res.status(500).json({ message: "Failed to fetch event packages" });
+    }
+  });
+
+  app.put("/api/events/:eventId/packages/:packageId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const { eventId, packageId } = req.params;
+      const { priceOverride, featuresOverride, isEnabled } = req.body;
+
+      const eventPackage = await storage.upsertEventPackage({
+        organizationId,
+        eventId,
+        packageId,
+        priceOverride: priceOverride !== undefined ? String(priceOverride) : null,
+        featuresOverride: featuresOverride ?? null,
+        isEnabled: isEnabled ?? true,
+      });
+
+      res.json(eventPackage);
+    } catch (error) {
+      console.error("Error upserting event package:", error);
+      res.status(400).json({ message: "Failed to update event package" });
+    }
+  });
+
+  app.delete("/api/events/:eventId/packages/:packageId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const { eventId, packageId } = req.params;
+
+      await storage.deleteEventPackage(organizationId, eventId, packageId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting event package:", error);
+      res.status(500).json({ message: "Failed to delete event package" });
+    }
+  });
+
   // Speaker routes
   app.get("/api/speakers", isAuthenticated, async (req: any, res) => {
     try {

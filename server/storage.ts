@@ -4,6 +4,7 @@ import {
   attendees,
   attendeeTypes,
   packages,
+  eventPackages,
   speakers,
   eventSessions,
   sessionSpeakers,
@@ -27,6 +28,8 @@ import {
   type InsertAttendeeType,
   type Package,
   type InsertPackage,
+  type EventPackage,
+  type InsertEventPackage,
   type Speaker,
   type InsertSpeaker,
   type EventSession,
@@ -94,6 +97,12 @@ export interface IStorage {
   createPackage(pkg: InsertPackage): Promise<Package>;
   updatePackage(organizationId: string, id: string, pkg: Partial<InsertPackage>): Promise<Package | undefined>;
   deletePackage(organizationId: string, id: string): Promise<void>;
+
+  // Event Package operations (per-event package overrides)
+  getEventPackages(organizationId: string, eventId: string): Promise<EventPackage[]>;
+  getEventPackage(organizationId: string, eventId: string, packageId: string): Promise<EventPackage | undefined>;
+  upsertEventPackage(eventPackage: InsertEventPackage): Promise<EventPackage>;
+  deleteEventPackage(organizationId: string, eventId: string, packageId: string): Promise<void>;
 
   // Speaker operations
   getSpeakers(organizationId: string, eventId?: string): Promise<Speaker[]>;
@@ -354,6 +363,47 @@ export class DatabaseStorage implements IStorage {
 
   async deletePackage(organizationId: string, id: string): Promise<void> {
     await db.delete(packages).where(and(eq(packages.organizationId, organizationId), eq(packages.id, id)));
+  }
+
+  // Event Package operations
+  async getEventPackages(organizationId: string, eventId: string): Promise<EventPackage[]> {
+    return db.select().from(eventPackages)
+      .where(and(eq(eventPackages.organizationId, organizationId), eq(eventPackages.eventId, eventId)));
+  }
+
+  async getEventPackage(organizationId: string, eventId: string, packageId: string): Promise<EventPackage | undefined> {
+    const [eventPackage] = await db.select().from(eventPackages)
+      .where(and(
+        eq(eventPackages.organizationId, organizationId),
+        eq(eventPackages.eventId, eventId),
+        eq(eventPackages.packageId, packageId)
+      ));
+    return eventPackage;
+  }
+
+  async upsertEventPackage(eventPackage: InsertEventPackage): Promise<EventPackage> {
+    const [result] = await db
+      .insert(eventPackages)
+      .values(eventPackage)
+      .onConflictDoUpdate({
+        target: [eventPackages.eventId, eventPackages.packageId],
+        set: {
+          priceOverride: eventPackage.priceOverride,
+          featuresOverride: eventPackage.featuresOverride,
+          isEnabled: eventPackage.isEnabled,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return result;
+  }
+
+  async deleteEventPackage(organizationId: string, eventId: string, packageId: string): Promise<void> {
+    await db.delete(eventPackages).where(and(
+      eq(eventPackages.organizationId, organizationId),
+      eq(eventPackages.eventId, eventId),
+      eq(eventPackages.packageId, packageId)
+    ));
   }
 
   // Speaker operations

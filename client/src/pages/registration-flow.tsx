@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { EmptyState } from "@/components/empty-state";
 import {
   User,
@@ -28,9 +36,21 @@ import {
   Trash2,
   GripVertical,
   FileText,
+  Settings2,
+  RotateCcw,
 } from "lucide-react";
 import { SiGoogle } from "react-icons/si";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import type { Event, Package as PackageType } from "@shared/schema";
+
+interface MergedPackage extends PackageType {
+  effectivePrice: string | null;
+  effectiveFeatures: string[] | null;
+  hasOverride: boolean;
+  isEnabled: boolean;
+  eventPackageId?: string;
+}
 
 type StepStatus = "configured" | "pending" | "disabled";
 
@@ -139,6 +159,12 @@ export default function RegistrationFlow() {
     allowMultipleSelection: false,
   });
 
+  const [customizeDialogOpen, setCustomizeDialogOpen] = useState(false);
+  const [editingPackage, setEditingPackage] = useState<MergedPackage | null>(null);
+  const [overridePrice, setOverridePrice] = useState("");
+  const [overrideFeatures, setOverrideFeatures] = useState("");
+  const { toast } = useToast();
+
   const [step5Config, setStep5Config] = useState({
     sendConfirmationEmail: true,
     generateQRCode: true,
@@ -153,6 +179,70 @@ export default function RegistrationFlow() {
   const { data: packages = [], isLoading: packagesLoading } = useQuery<PackageType[]>({
     queryKey: ["/api/packages"],
   });
+
+  const { data: eventPackages = [], isLoading: eventPackagesLoading, refetch: refetchEventPackages } = useQuery<MergedPackage[]>({
+    queryKey: ["/api/events", selectedEventId, "packages"],
+    enabled: !!selectedEventId,
+  });
+
+  const upsertEventPackageMutation = useMutation({
+    mutationFn: async (data: { packageId: string; priceOverride?: string | null; featuresOverride?: string[] | null; isEnabled?: boolean }) => {
+      return apiRequest("PUT", `/api/events/${selectedEventId}/packages/${data.packageId}`, {
+        priceOverride: data.priceOverride,
+        featuresOverride: data.featuresOverride,
+        isEnabled: data.isEnabled,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/events", selectedEventId, "packages"] });
+      toast({ title: "Package updated", description: "Event package customization saved." });
+      setCustomizeDialogOpen(false);
+      setEditingPackage(null);
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update package.", variant: "destructive" });
+    },
+  });
+
+  const deleteEventPackageMutation = useMutation({
+    mutationFn: async (packageId: string) => {
+      return apiRequest("DELETE", `/api/events/${selectedEventId}/packages/${packageId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/events", selectedEventId, "packages"] });
+      toast({ title: "Override removed", description: "Package reset to base values." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to reset package.", variant: "destructive" });
+    },
+  });
+
+  const openCustomizeDialog = (pkg: MergedPackage) => {
+    setEditingPackage(pkg);
+    setOverridePrice(pkg.effectivePrice ?? pkg.price ?? "0");
+    setOverrideFeatures((pkg.effectiveFeatures ?? pkg.features ?? []).join("\n"));
+    setCustomizeDialogOpen(true);
+  };
+
+  const handleSaveOverride = () => {
+    if (!editingPackage) return;
+    const featuresArray = overrideFeatures.split("\n").map(f => f.trim()).filter(Boolean);
+    upsertEventPackageMutation.mutate({
+      packageId: editingPackage.id,
+      priceOverride: overridePrice || null,
+      featuresOverride: featuresArray.length > 0 ? featuresArray : null,
+      isEnabled: true,
+    });
+  };
+
+  const handleToggleEventPackage = (pkg: MergedPackage, enabled: boolean) => {
+    upsertEventPackageMutation.mutate({
+      packageId: pkg.id,
+      priceOverride: pkg.hasOverride ? (pkg.effectivePrice ?? undefined) : undefined,
+      featuresOverride: pkg.hasOverride ? (pkg.effectiveFeatures ?? undefined) : undefined,
+      isEnabled: enabled,
+    });
+  };
 
   const togglePackage = (packageId: string) => {
     setStep3Config(prev => ({
@@ -409,64 +499,144 @@ export default function RegistrationFlow() {
             </div>
 
             <div>
-              <h3 className="text-lg font-medium mb-4">Available Packages</h3>
-              <p className="text-sm text-muted-foreground mb-4">Enable which packages are available for registration</p>
+              <h3 className="text-lg font-medium mb-4">Event Packages</h3>
+              <p className="text-sm text-muted-foreground mb-4">Configure which packages are available for this event and customize pricing</p>
               
-              {packagesLoading ? (
+              {eventPackagesLoading ? (
                 <div className="space-y-3">
                   {[1, 2, 3].map(i => (
-                    <div key={i} className="animate-pulse h-16 bg-muted rounded-md" />
+                    <div key={i} className="animate-pulse h-20 bg-muted rounded-md" />
                   ))}
                 </div>
-              ) : packages.length === 0 ? (
+              ) : eventPackages.length === 0 ? (
                 <EmptyState
                   icon={Package}
                   title="No packages found"
-                  description="Create packages first before configuring registration"
+                  description="Create packages in the Packages section first"
                 />
               ) : (
                 <div className="space-y-3">
-                  {packages.filter(pkg => pkg.isActive).map((pkg) => (
+                  {eventPackages.map((pkg) => (
                     <div
                       key={pkg.id}
-                      className="flex items-center justify-between p-4 border rounded-md"
+                      className="flex items-center justify-between gap-4 p-4 border rounded-md"
                       data-testid={`package-item-${pkg.id}`}
                     >
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-medium">{pkg.name}</span>
                           <Badge variant="outline" className="text-xs">
-                            ${Number(pkg.price || 0).toFixed(2)}
+                            ${Number(pkg.effectivePrice || 0).toFixed(2)}
                           </Badge>
+                          {pkg.hasOverride && (
+                            <Badge variant="secondary" className="text-xs">
+                              Customized
+                            </Badge>
+                          )}
+                          {!pkg.isEnabled && (
+                            <Badge variant="destructive" className="text-xs">
+                              Disabled
+                            </Badge>
+                          )}
                         </div>
                         {pkg.description && (
                           <p className="text-sm text-muted-foreground mt-1 truncate">{pkg.description}</p>
                         )}
-                        {pkg.features && pkg.features.length > 0 && (
+                        {(pkg.effectiveFeatures ?? pkg.features) && (pkg.effectiveFeatures ?? pkg.features)!.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-2">
-                            {pkg.features.slice(0, 3).map((feature, index) => (
+                            {(pkg.effectiveFeatures ?? pkg.features)!.slice(0, 3).map((feature, index) => (
                               <Badge key={index} variant="secondary" className="text-xs">
                                 {feature}
                               </Badge>
                             ))}
-                            {pkg.features.length > 3 && (
+                            {(pkg.effectiveFeatures ?? pkg.features)!.length > 3 && (
                               <Badge variant="outline" className="text-xs">
-                                +{pkg.features.length - 3} more
+                                +{(pkg.effectiveFeatures ?? pkg.features)!.length - 3} more
                               </Badge>
                             )}
                           </div>
                         )}
                       </div>
-                      <Switch
-                        checked={step3Config.enabledPackages.includes(pkg.id)}
-                        onCheckedChange={() => togglePackage(pkg.id)}
-                        data-testid={`switch-package-${pkg.id}`}
-                      />
+                      <div className="flex items-center gap-2">
+                        {pkg.hasOverride && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => deleteEventPackageMutation.mutate(pkg.id)}
+                            disabled={deleteEventPackageMutation.isPending}
+                            title="Reset to base values"
+                            data-testid={`button-reset-package-${pkg.id}`}
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openCustomizeDialog(pkg)}
+                          data-testid={`button-customize-package-${pkg.id}`}
+                        >
+                          <Settings2 className="h-4 w-4 mr-2" />
+                          Customize
+                        </Button>
+                        <Switch
+                          checked={pkg.isEnabled}
+                          onCheckedChange={(checked) => handleToggleEventPackage(pkg, checked)}
+                          data-testid={`switch-package-${pkg.id}`}
+                        />
+                      </div>
                     </div>
                   ))}
                 </div>
               )}
             </div>
+
+            <Dialog open={customizeDialogOpen} onOpenChange={setCustomizeDialogOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Customize Package for Event</DialogTitle>
+                  <DialogDescription>
+                    Override the price and features for "{editingPackage?.name}" for this specific event.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="override-price">Price Override</Label>
+                    <Input
+                      id="override-price"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={overridePrice}
+                      onChange={(e) => setOverridePrice(e.target.value)}
+                      placeholder="Enter price"
+                      data-testid="input-override-price"
+                    />
+                    <p className="text-xs text-muted-foreground">Base price: ${Number(editingPackage?.price || 0).toFixed(2)}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="override-features">Features (one per line)</Label>
+                    <textarea
+                      id="override-features"
+                      className="w-full min-h-24 p-3 border rounded-md bg-background resize-none text-sm"
+                      value={overrideFeatures}
+                      onChange={(e) => setOverrideFeatures(e.target.value)}
+                      placeholder="Enter features, one per line"
+                      data-testid="textarea-override-features"
+                    />
+                    <p className="text-xs text-muted-foreground">Base features: {(editingPackage?.features || []).join(", ") || "None"}</p>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setCustomizeDialogOpen(false)} data-testid="button-cancel-override">
+                    Cancel
+                  </Button>
+                  <Button onClick={handleSaveOverride} disabled={upsertEventPackageMutation.isPending} data-testid="button-save-override">
+                    {upsertEventPackageMutation.isPending ? "Saving..." : "Save Override"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         );
 

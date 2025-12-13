@@ -116,7 +116,9 @@ export const eventPackages = pgTable("event_packages", {
   isEnabled: boolean("is_enabled").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  index("IDX_event_package_unique").on(table.eventId, table.packageId),
+]);
 
 // Attendees table
 export const attendees = pgTable("attendees", {
