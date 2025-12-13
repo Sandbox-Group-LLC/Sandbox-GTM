@@ -62,10 +62,21 @@ export const events = pgTable("events", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Attendee Types table
+export const attendeeTypes = pgTable("attendee_types", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").references(() => events.id).notNull(),
+  type: varchar("type", { length: 50 }).notNull(),
+  capacity: integer("capacity").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Attendees table
 export const attendees = pgTable("attendees", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   eventId: varchar("event_id").references(() => events.id).notNull(),
+  attendeeTypeId: varchar("attendee_type_id").references(() => attendeeTypes.id),
   firstName: varchar("first_name", { length: 100 }).notNull(),
   lastName: varchar("last_name", { length: 100 }).notNull(),
   email: varchar("email", { length: 255 }).notNull(),
@@ -78,16 +89,6 @@ export const attendees = pgTable("attendees", {
   checkInCode: varchar("check_in_code", { length: 20 }).unique(),
   checkedIn: boolean("checked_in").default(false),
   checkInTime: timestamp("check_in_time"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
-// Attendee Types table
-export const attendeeTypes = pgTable("attendee_types", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  eventId: varchar("event_id").references(() => events.id).notNull(),
-  type: varchar("type", { length: 50 }).notNull(),
-  capacity: integer("capacity").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
