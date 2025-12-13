@@ -19,13 +19,21 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Calendar, MapPin, Clock, Users, Mic, CheckCircle, AlertCircle } from "lucide-react";
-import type { Event, EventSession, Speaker, Attendee } from "@shared/schema";
+import { Calendar, MapPin, Clock, Users, Mic, CheckCircle, AlertCircle, ArrowRight } from "lucide-react";
+import type { Event, EventSession, Speaker, Attendee, EventPage } from "@shared/schema";
+
+interface Section {
+  id: string;
+  type: string;
+  order: number;
+  config: Record<string, unknown>;
+}
 
 interface PublicEventData {
   event: Event;
   sessions: EventSession[];
   speakers: Speaker[];
+  landingPage: EventPage | null;
 }
 
 const registrationSchema = z.object({
@@ -106,7 +114,8 @@ export default function PublicEvent() {
     );
   }
 
-  const { event, sessions, speakers } = data;
+  const { event, sessions, speakers, landingPage } = data;
+  const sections = (landingPage?.sections as Section[]) || [];
 
   if (registrationComplete && registeredAttendee) {
     return (
@@ -354,6 +363,113 @@ export default function PublicEvent() {
           </div>
         </div>
       </div>
+
+      {/* Render custom sections from Site Builder */}
+      {sections.length > 0 && (
+        <div className="max-w-4xl mx-auto px-6 pb-12 space-y-12">
+          {sections
+            .sort((a, b) => a.order - b.order)
+            .map((section) => (
+              <SectionRenderer key={section.id} section={section} event={event} />
+            ))}
+        </div>
+      )}
     </div>
   );
+}
+
+function SectionRenderer({ section, event }: { section: Section; event: Event }) {
+  const config = section.config;
+  const title = String(config.title || "");
+  const subtitle = String(config.subtitle || "");
+  const buttonText = String(config.buttonText || "");
+  const buttonLink = String(config.buttonLink || "");
+  const heading = String(config.heading || "");
+  const content = String(config.content || "");
+  const description = String(config.description || "");
+
+  const renderButton = (text: string, link: string, testId: string) => {
+    if (!text) return null;
+    const isExternal = link.startsWith("http");
+    const isAnchor = link.startsWith("#");
+    
+    if (link && (isExternal || isAnchor)) {
+      return (
+        <Button size="lg" asChild data-testid={testId}>
+          <a href={link} target={isExternal ? "_blank" : undefined} rel={isExternal ? "noopener noreferrer" : undefined}>
+            {text}
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </a>
+        </Button>
+      );
+    }
+    
+    return (
+      <Button size="lg" onClick={() => link && (window.location.href = link)} data-testid={testId}>
+        {text}
+        <ArrowRight className="ml-2 h-4 w-4" />
+      </Button>
+    );
+  };
+
+  switch (section.type) {
+    case "hero":
+      return (
+        <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-lg p-8 text-center" data-testid={`section-hero-${section.id}`}>
+          <h2 className="text-3xl font-bold mb-4">{title || event.name}</h2>
+          {subtitle && (
+            <p className="text-lg text-muted-foreground mb-6">{subtitle}</p>
+          )}
+          {renderButton(buttonText, buttonLink, "button-hero-cta")}
+        </div>
+      );
+
+    case "text":
+      return (
+        <div className="prose dark:prose-invert max-w-none" data-testid={`section-text-${section.id}`}>
+          {heading && <h3 className="text-2xl font-semibold mb-4">{heading}</h3>}
+          {content && <p className="text-muted-foreground">{content}</p>}
+        </div>
+      );
+
+    case "cta":
+      return (
+        <Card className="bg-primary/5 border-primary/20" data-testid={`section-cta-${section.id}`}>
+          <CardContent className="p-8 text-center">
+            <h3 className="text-2xl font-bold mb-2">{heading || "Ready to Join?"}</h3>
+            {description && (
+              <p className="text-muted-foreground mb-6">{description}</p>
+            )}
+            {renderButton(buttonText || "Get Started", buttonLink, "button-cta-action")}
+          </CardContent>
+        </Card>
+      );
+
+    case "features":
+      const features = (config.features as Array<{ title: string; description: string }>) || [];
+      return (
+        <div data-testid={`section-features-${section.id}`}>
+          {heading && (
+            <h3 className="text-2xl font-semibold mb-6 text-center">{heading}</h3>
+          )}
+          {features.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {features.map((feature, idx) => (
+                <Card key={idx}>
+                  <CardContent className="p-4">
+                    <h4 className="font-medium mb-2">{feature.title}</h4>
+                    <p className="text-sm text-muted-foreground">{feature.description}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-muted-foreground">Feature items will appear here</p>
+          )}
+        </div>
+      );
+
+    default:
+      return null;
+  }
 }

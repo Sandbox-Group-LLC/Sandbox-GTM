@@ -1085,7 +1085,11 @@ export async function registerRoutes(
       const sessions = await storage.getSessions(event.organizationId, event.id);
       const speakers = await storage.getSpeakers(event.organizationId, event.id);
       
-      res.json({ event, sessions, speakers });
+      // Also fetch the landing page configuration if published
+      const pages = await storage.getEventPages(event.organizationId, event.id);
+      const landingPage = pages.find(p => p.pageType === "landing" && p.isPublished);
+      
+      res.json({ event, sessions, speakers, landingPage: landingPage || null });
     } catch (error) {
       console.error("Error fetching public event:", error);
       res.status(500).json({ message: "Failed to fetch event" });
