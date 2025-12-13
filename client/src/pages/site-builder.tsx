@@ -207,17 +207,25 @@ export default function SiteBuilder() {
         actions={
           selectedEventId && (
             <div className="flex items-center gap-2">
-              {selectedEvent?.publicSlug && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => window.open(`/event/${selectedEvent.publicSlug}`, "_blank")}
-                  data-testid="button-preview"
-                >
-                  <Eye className="h-4 w-4 mr-2" />
-                  Preview
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (selectedEvent?.publicSlug) {
+                    window.open(`/event/${selectedEvent.publicSlug}`, "_blank");
+                  } else {
+                    toast({ 
+                      title: "No public URL", 
+                      description: "Set a public slug for this event to enable preview",
+                      variant: "destructive"
+                    });
+                  }
+                }}
+                data-testid="button-preview"
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                Preview
+              </Button>
               <Button
                 variant={currentPage?.isPublished ? "outline" : "default"}
                 size="sm"
