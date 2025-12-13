@@ -5,6 +5,7 @@ import {
   attendeeTypes,
   packages,
   eventPackages,
+  inviteCodes,
   speakers,
   eventSessions,
   sessionSpeakers,
@@ -30,6 +31,8 @@ import {
   type InsertPackage,
   type EventPackage,
   type InsertEventPackage,
+  type InviteCode,
+  type InsertInviteCode,
   type Speaker,
   type InsertSpeaker,
   type EventSession,
@@ -103,6 +106,14 @@ export interface IStorage {
   getEventPackage(organizationId: string, eventId: string, packageId: string): Promise<EventPackage | undefined>;
   upsertEventPackage(eventPackage: InsertEventPackage): Promise<EventPackage>;
   deleteEventPackage(organizationId: string, eventId: string, packageId: string): Promise<void>;
+
+  // Invite Code operations
+  getInviteCodes(organizationId: string, eventId?: string): Promise<InviteCode[]>;
+  getInviteCode(organizationId: string, id: string): Promise<InviteCode | undefined>;
+  getInviteCodeByCode(organizationId: string, eventId: string, code: string): Promise<InviteCode | undefined>;
+  createInviteCode(inviteCode: InsertInviteCode): Promise<InviteCode>;
+  updateInviteCode(organizationId: string, id: string, inviteCode: Partial<InsertInviteCode>): Promise<InviteCode | undefined>;
+  deleteInviteCode(organizationId: string, id: string): Promise<void>;
 
   // Speaker operations
   getSpeakers(organizationId: string, eventId?: string): Promise<Speaker[]>;
@@ -404,6 +415,48 @@ export class DatabaseStorage implements IStorage {
       eq(eventPackages.eventId, eventId),
       eq(eventPackages.packageId, packageId)
     ));
+  }
+
+  // Invite Code operations
+  async getInviteCodes(organizationId: string, eventId?: string): Promise<InviteCode[]> {
+    if (eventId) {
+      return db.select().from(inviteCodes).where(and(eq(inviteCodes.organizationId, organizationId), eq(inviteCodes.eventId, eventId))).orderBy(desc(inviteCodes.createdAt));
+    }
+    return db.select().from(inviteCodes).where(eq(inviteCodes.organizationId, organizationId)).orderBy(desc(inviteCodes.createdAt));
+  }
+
+  async getInviteCode(organizationId: string, id: string): Promise<InviteCode | undefined> {
+    const [inviteCode] = await db.select().from(inviteCodes)
+      .where(and(eq(inviteCodes.organizationId, organizationId), eq(inviteCodes.id, id)));
+    return inviteCode;
+  }
+
+  async getInviteCodeByCode(organizationId: string, eventId: string, code: string): Promise<InviteCode | undefined> {
+    const [inviteCode] = await db.select().from(inviteCodes)
+      .where(and(
+        eq(inviteCodes.organizationId, organizationId),
+        eq(inviteCodes.eventId, eventId),
+        eq(inviteCodes.code, code)
+      ));
+    return inviteCode;
+  }
+
+  async createInviteCode(inviteCode: InsertInviteCode): Promise<InviteCode> {
+    const [newInviteCode] = await db.insert(inviteCodes).values(inviteCode).returning();
+    return newInviteCode;
+  }
+
+  async updateInviteCode(organizationId: string, id: string, inviteCode: Partial<InsertInviteCode>): Promise<InviteCode | undefined> {
+    const [updated] = await db
+      .update(inviteCodes)
+      .set({ ...inviteCode, updatedAt: new Date() })
+      .where(and(eq(inviteCodes.organizationId, organizationId), eq(inviteCodes.id, id)))
+      .returning();
+    return updated;
+  }
+
+  async deleteInviteCode(organizationId: string, id: string): Promise<void> {
+    await db.delete(inviteCodes).where(and(eq(inviteCodes.organizationId, organizationId), eq(inviteCodes.id, id)));
   }
 
   // Speaker operations

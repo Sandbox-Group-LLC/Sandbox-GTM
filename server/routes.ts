@@ -7,6 +7,7 @@ import {
   insertAttendeeSchema,
   insertAttendeeTypeSchema,
   insertPackageSchema,
+  insertInviteCodeSchema,
   insertSpeakerSchema,
   insertSessionSchema,
   insertContentItemSchema,
@@ -468,6 +469,75 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting event package:", error);
       res.status(500).json({ message: "Failed to delete event package" });
+    }
+  });
+
+  // Invite Code routes
+  app.get("/api/invite-codes", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const eventId = req.query.eventId as string | undefined;
+      const inviteCodes = await storage.getInviteCodes(organizationId, eventId);
+      res.json(inviteCodes);
+    } catch (error) {
+      console.error("Error fetching invite codes:", error);
+      res.status(500).json({ message: "Failed to fetch invite codes" });
+    }
+  });
+
+  app.get("/api/invite-codes/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const inviteCode = await storage.getInviteCode(organizationId, req.params.id);
+      if (!inviteCode) {
+        return res.status(404).json({ message: "Invite code not found" });
+      }
+      res.json(inviteCode);
+    } catch (error) {
+      console.error("Error fetching invite code:", error);
+      res.status(500).json({ message: "Failed to fetch invite code" });
+    }
+  });
+
+  app.post("/api/invite-codes", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const data = insertInviteCodeSchema.parse({ ...req.body, organizationId });
+      const inviteCode = await storage.createInviteCode(data);
+      res.status(201).json(inviteCode);
+    } catch (error) {
+      console.error("Error creating invite code:", error);
+      res.status(400).json({ message: "Invalid invite code data" });
+    }
+  });
+
+  app.patch("/api/invite-codes/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const inviteCode = await storage.updateInviteCode(organizationId, req.params.id, req.body);
+      if (!inviteCode) {
+        return res.status(404).json({ message: "Invite code not found" });
+      }
+      res.json(inviteCode);
+    } catch (error) {
+      console.error("Error updating invite code:", error);
+      res.status(400).json({ message: "Failed to update invite code" });
+    }
+  });
+
+  app.delete("/api/invite-codes/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      await storage.deleteInviteCode(organizationId, req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting invite code:", error);
+      res.status(500).json({ message: "Failed to delete invite code" });
     }
   });
 
