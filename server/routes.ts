@@ -354,7 +354,12 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
-      const data = insertPackageSchema.parse({ ...req.body, organizationId });
+      const body = {
+        ...req.body,
+        organizationId,
+        price: req.body.price !== undefined ? String(req.body.price) : "0",
+      };
+      const data = insertPackageSchema.parse(body);
       const pkg = await storage.createPackage(data);
       res.status(201).json(pkg);
     } catch (error) {
@@ -367,7 +372,11 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
-      const pkg = await storage.updatePackage(organizationId, req.params.id, req.body);
+      const body = {
+        ...req.body,
+        ...(req.body.price !== undefined && { price: String(req.body.price) }),
+      };
+      const pkg = await storage.updatePackage(organizationId, req.params.id, body);
       if (!pkg) {
         return res.status(404).json({ message: "Package not found" });
       }
