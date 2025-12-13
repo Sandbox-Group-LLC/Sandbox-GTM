@@ -5,6 +5,7 @@ import { setupAuth, isAuthenticated } from "./replitAuth";
 import {
   insertEventSchema,
   insertAttendeeSchema,
+  insertAttendeeTypeSchema,
   insertSpeakerSchema,
   insertSessionSchema,
   insertContentItemSchema,
@@ -181,6 +182,65 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting attendee:", error);
       res.status(500).json({ message: "Failed to delete attendee" });
+    }
+  });
+
+  // Attendee Type routes
+  app.get("/api/attendee-types", isAuthenticated, async (req, res) => {
+    try {
+      const eventId = req.query.eventId as string | undefined;
+      const attendeeTypes = await storage.getAttendeeTypes(eventId);
+      res.json(attendeeTypes);
+    } catch (error) {
+      console.error("Error fetching attendee types:", error);
+      res.status(500).json({ message: "Failed to fetch attendee types" });
+    }
+  });
+
+  app.get("/api/attendee-types/:id", isAuthenticated, async (req, res) => {
+    try {
+      const attendeeType = await storage.getAttendeeType(req.params.id);
+      if (!attendeeType) {
+        return res.status(404).json({ message: "Attendee type not found" });
+      }
+      res.json(attendeeType);
+    } catch (error) {
+      console.error("Error fetching attendee type:", error);
+      res.status(500).json({ message: "Failed to fetch attendee type" });
+    }
+  });
+
+  app.post("/api/attendee-types", isAuthenticated, async (req, res) => {
+    try {
+      const data = insertAttendeeTypeSchema.parse(req.body);
+      const attendeeType = await storage.createAttendeeType(data);
+      res.status(201).json(attendeeType);
+    } catch (error) {
+      console.error("Error creating attendee type:", error);
+      res.status(400).json({ message: "Invalid attendee type data" });
+    }
+  });
+
+  app.patch("/api/attendee-types/:id", isAuthenticated, async (req, res) => {
+    try {
+      const attendeeType = await storage.updateAttendeeType(req.params.id, req.body);
+      if (!attendeeType) {
+        return res.status(404).json({ message: "Attendee type not found" });
+      }
+      res.json(attendeeType);
+    } catch (error) {
+      console.error("Error updating attendee type:", error);
+      res.status(400).json({ message: "Failed to update attendee type" });
+    }
+  });
+
+  app.delete("/api/attendee-types/:id", isAuthenticated, async (req, res) => {
+    try {
+      await storage.deleteAttendeeType(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting attendee type:", error);
+      res.status(500).json({ message: "Failed to delete attendee type" });
     }
   });
 
