@@ -117,9 +117,11 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/events/:id", isAuthenticated, async (req, res) => {
+  app.get("/api/events/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const event = await storage.getEvent(req.params.id);
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const event = await storage.getEvent(organizationId, req.params.id);
       if (!event) {
         return res.status(404).json({ message: "Event not found" });
       }
@@ -130,9 +132,11 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/events/:id", isAuthenticated, async (req, res) => {
+  app.patch("/api/events/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const event = await storage.updateEvent(req.params.id, req.body);
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const event = await storage.updateEvent(organizationId, req.params.id, req.body);
       if (!event) {
         return res.status(404).json({ message: "Event not found" });
       }
@@ -143,9 +147,11 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/events/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/events/:id", isAuthenticated, async (req: any, res) => {
     try {
-      await storage.deleteEvent(req.params.id);
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      await storage.deleteEvent(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting event:", error);
@@ -219,9 +225,11 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/attendees/:id", isAuthenticated, async (req, res) => {
+  app.patch("/api/attendees/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const attendee = await storage.updateAttendee(req.params.id, req.body);
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const attendee = await storage.updateAttendee(organizationId, req.params.id, req.body);
       if (!attendee) {
         return res.status(404).json({ message: "Attendee not found" });
       }
@@ -232,9 +240,11 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/attendees/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/attendees/:id", isAuthenticated, async (req: any, res) => {
     try {
-      await storage.deleteAttendee(req.params.id);
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      await storage.deleteAttendee(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting attendee:", error);
@@ -256,9 +266,11 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/attendee-types/:id", isAuthenticated, async (req, res) => {
+  app.get("/api/attendee-types/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const attendeeType = await storage.getAttendeeType(req.params.id);
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const attendeeType = await storage.getAttendeeType(organizationId, req.params.id);
       if (!attendeeType) {
         return res.status(404).json({ message: "Attendee type not found" });
       }
@@ -282,9 +294,11 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/attendee-types/:id", isAuthenticated, async (req, res) => {
+  app.patch("/api/attendee-types/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const attendeeType = await storage.updateAttendeeType(req.params.id, req.body);
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const attendeeType = await storage.updateAttendeeType(organizationId, req.params.id, req.body);
       if (!attendeeType) {
         return res.status(404).json({ message: "Attendee type not found" });
       }
@@ -295,9 +309,11 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/attendee-types/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/attendee-types/:id", isAuthenticated, async (req: any, res) => {
     try {
-      await storage.deleteAttendeeType(req.params.id);
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      await storage.deleteAttendeeType(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting attendee type:", error);
@@ -332,9 +348,11 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/speakers/:id", isAuthenticated, async (req, res) => {
+  app.patch("/api/speakers/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const speaker = await storage.updateSpeaker(req.params.id, req.body);
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const speaker = await storage.updateSpeaker(organizationId, req.params.id, req.body);
       if (!speaker) {
         return res.status(404).json({ message: "Speaker not found" });
       }
@@ -345,9 +363,11 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/speakers/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/speakers/:id", isAuthenticated, async (req: any, res) => {
     try {
-      await storage.deleteSpeaker(req.params.id);
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      await storage.deleteSpeaker(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting speaker:", error);
@@ -382,9 +402,11 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/sessions/:id", isAuthenticated, async (req, res) => {
+  app.patch("/api/sessions/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const session = await storage.updateSession(req.params.id, req.body);
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const session = await storage.updateSession(organizationId, req.params.id, req.body);
       if (!session) {
         return res.status(404).json({ message: "Session not found" });
       }
@@ -395,9 +417,11 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/sessions/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/sessions/:id", isAuthenticated, async (req: any, res) => {
     try {
-      await storage.deleteSession(req.params.id);
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      await storage.deleteSession(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting session:", error);
@@ -432,9 +456,11 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/content/:id", isAuthenticated, async (req, res) => {
+  app.patch("/api/content/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const content = await storage.updateContentItem(req.params.id, req.body);
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const content = await storage.updateContentItem(organizationId, req.params.id, req.body);
       if (!content) {
         return res.status(404).json({ message: "Content not found" });
       }
@@ -445,9 +471,11 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/content/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/content/:id", isAuthenticated, async (req: any, res) => {
     try {
-      await storage.deleteContentItem(req.params.id);
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      await storage.deleteContentItem(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting content:", error);
@@ -482,9 +510,11 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/budget/:id", isAuthenticated, async (req, res) => {
+  app.patch("/api/budget/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const budget = await storage.updateBudgetItem(req.params.id, req.body);
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const budget = await storage.updateBudgetItem(organizationId, req.params.id, req.body);
       if (!budget) {
         return res.status(404).json({ message: "Budget item not found" });
       }
@@ -495,9 +525,11 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/budget/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/budget/:id", isAuthenticated, async (req: any, res) => {
     try {
-      await storage.deleteBudgetItem(req.params.id);
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      await storage.deleteBudgetItem(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting budget item:", error);
@@ -532,9 +564,11 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/milestones/:id", isAuthenticated, async (req, res) => {
+  app.patch("/api/milestones/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const milestone = await storage.updateMilestone(req.params.id, req.body);
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const milestone = await storage.updateMilestone(organizationId, req.params.id, req.body);
       if (!milestone) {
         return res.status(404).json({ message: "Milestone not found" });
       }
@@ -545,9 +579,11 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/milestones/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/milestones/:id", isAuthenticated, async (req: any, res) => {
     try {
-      await storage.deleteMilestone(req.params.id);
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      await storage.deleteMilestone(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting milestone:", error);
@@ -582,9 +618,11 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/deliverables/:id", isAuthenticated, async (req, res) => {
+  app.patch("/api/deliverables/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const deliverable = await storage.updateDeliverable(req.params.id, req.body);
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const deliverable = await storage.updateDeliverable(organizationId, req.params.id, req.body);
       if (!deliverable) {
         return res.status(404).json({ message: "Deliverable not found" });
       }
@@ -595,9 +633,11 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/deliverables/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/deliverables/:id", isAuthenticated, async (req: any, res) => {
     try {
-      await storage.deleteDeliverable(req.params.id);
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      await storage.deleteDeliverable(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting deliverable:", error);
@@ -632,9 +672,11 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/emails/:id", isAuthenticated, async (req, res) => {
+  app.patch("/api/emails/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const email = await storage.updateEmailCampaign(req.params.id, req.body);
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const email = await storage.updateEmailCampaign(organizationId, req.params.id, req.body);
       if (!email) {
         return res.status(404).json({ message: "Email campaign not found" });
       }
@@ -645,9 +687,11 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/emails/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/emails/:id", isAuthenticated, async (req: any, res) => {
     try {
-      await storage.deleteEmailCampaign(req.params.id);
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      await storage.deleteEmailCampaign(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting email campaign:", error);
@@ -682,9 +726,11 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/social/:id", isAuthenticated, async (req, res) => {
+  app.patch("/api/social/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const post = await storage.updateSocialPost(req.params.id, req.body);
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const post = await storage.updateSocialPost(organizationId, req.params.id, req.body);
       if (!post) {
         return res.status(404).json({ message: "Social post not found" });
       }
@@ -695,9 +741,11 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/social/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/social/:id", isAuthenticated, async (req: any, res) => {
     try {
-      await storage.deleteSocialPost(req.params.id);
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      await storage.deleteSocialPost(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting social post:", error);
@@ -732,9 +780,11 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/email-templates/:id", isAuthenticated, async (req, res) => {
+  app.patch("/api/email-templates/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const template = await storage.updateEmailTemplate(req.params.id, req.body);
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const template = await storage.updateEmailTemplate(organizationId, req.params.id, req.body);
       if (!template) {
         return res.status(404).json({ message: "Email template not found" });
       }
@@ -745,9 +795,11 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/email-templates/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/email-templates/:id", isAuthenticated, async (req: any, res) => {
     try {
-      await storage.deleteEmailTemplate(req.params.id);
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      await storage.deleteEmailTemplate(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting email template:", error);
@@ -755,7 +807,7 @@ export async function registerRoutes(
     }
   });
 
-  // Check-in routes
+  // Check-in routes (code-based access - no organizationId verification needed for scan)
   app.post("/api/check-in/scan", isAuthenticated, async (req, res) => {
     try {
       const { code } = req.body;
@@ -936,7 +988,7 @@ export async function registerRoutes(
     }
   });
 
-  // Social connections routes
+  // Social connections routes (user-scoped - no organizationId needed)
   app.get("/api/social-connections", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
