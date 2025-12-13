@@ -1,6 +1,7 @@
 import { sql, relations } from "drizzle-orm";
 import {
   index,
+  uniqueIndex,
   jsonb,
   pgTable,
   timestamp,
@@ -117,7 +118,7 @@ export const eventPackages = pgTable("event_packages", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
-  index("IDX_event_package_unique").on(table.eventId, table.packageId),
+  uniqueIndex("IDX_event_package_unique").on(table.eventId, table.packageId),
 ]);
 
 // Attendees table
