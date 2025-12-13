@@ -57,6 +57,7 @@ const eventsSubItems = [
   { title: "Registration", path: "/registration" },
   { title: "Attendee Types", path: "/attendee-types" },
   { title: "Invite Codes", path: "/invite-codes" },
+  { title: "Site Builder", path: "/site-builder" },
 ];
 
 const projectMenuItems = [
@@ -74,7 +75,7 @@ export function AppSidebar() {
   const [location] = useLocation();
   const { user } = useAuth();
 
-  const isEventsActive = location === "/events" || location === "/registration" || location === "/attendee-types" || location === "/invite-codes";
+  const isEventsActive = location === "/events" || location === "/registration" || location === "/attendee-types" || location === "/invite-codes" || location === "/site-builder";
   const isAttendeesActive = location === "/attendees" || location === "/packages";
 
   const getInitials = () => {

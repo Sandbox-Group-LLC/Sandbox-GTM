@@ -17,6 +17,7 @@ import {
   insertEmailCampaignSchema,
   insertSocialPostSchema,
   insertEmailTemplateSchema,
+  insertEventPageSchema,
 } from "@shared/schema";
 
 export async function registerRoutes(
@@ -1250,6 +1251,77 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting social connection:", error);
       res.status(500).json({ message: "Failed to delete social connection" });
+    }
+  });
+
+  // Event Pages routes (site builder)
+  app.get("/api/events/:eventId/pages", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const eventId = req.params.eventId;
+      const pages = await storage.getEventPages(organizationId, eventId);
+      res.json(pages);
+    } catch (error) {
+      console.error("Error fetching event pages:", error);
+      res.status(500).json({ message: "Failed to fetch event pages" });
+    }
+  });
+
+  app.get("/api/events/:eventId/pages/:pageType", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const { eventId, pageType } = req.params;
+      const page = await storage.getEventPageByType(organizationId, eventId, pageType);
+      if (!page) {
+        return res.status(404).json({ message: "Page not found" });
+      }
+      res.json(page);
+    } catch (error) {
+      console.error("Error fetching event page:", error);
+      res.status(500).json({ message: "Failed to fetch event page" });
+    }
+  });
+
+  app.post("/api/events/:eventId/pages", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const eventId = req.params.eventId;
+      const data = insertEventPageSchema.parse({ ...req.body, organizationId, eventId });
+      const page = await storage.upsertEventPage(data);
+      res.status(201).json(page);
+    } catch (error) {
+      console.error("Error creating/updating event page:", error);
+      res.status(400).json({ message: "Invalid event page data" });
+    }
+  });
+
+  app.patch("/api/events/:eventId/pages/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const page = await storage.updateEventPage(organizationId, req.params.id, req.body);
+      if (!page) {
+        return res.status(404).json({ message: "Page not found" });
+      }
+      res.json(page);
+    } catch (error) {
+      console.error("Error updating event page:", error);
+      res.status(400).json({ message: "Failed to update event page" });
+    }
+  });
+
+  app.delete("/api/events/:eventId/pages/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      await storage.deleteEventPage(organizationId, req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting event page:", error);
+      res.status(500).json({ message: "Failed to delete event page" });
     }
   });
 

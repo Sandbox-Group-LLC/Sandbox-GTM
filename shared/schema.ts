@@ -135,6 +135,28 @@ export const inviteCodes = pgTable("invite_codes", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Event Pages table - stores customizable page configurations for site builder
+export const eventPages = pgTable("event_pages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id).notNull(),
+  pageType: varchar("page_type", { length: 50 }).notNull(),
+  slug: varchar("slug", { length: 100 }),
+  isPublished: boolean("is_published").default(false),
+  theme: jsonb("theme").$type<{ primaryColor?: string; secondaryColor?: string; fontFamily?: string }>(),
+  seo: jsonb("seo").$type<{ title?: string; description?: string; ogImage?: string }>(),
+  sections: jsonb("sections").$type<Array<{
+    id: string;
+    type: string;
+    order: number;
+    config: Record<string, unknown>;
+  }>>(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("IDX_event_page_unique").on(table.eventId, table.pageType),
+]);
+
 // Attendees table
 export const attendees = pgTable("attendees", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -450,6 +472,11 @@ export const inviteCodesRelations = relations(inviteCodes, ({ one }) => ({
   attendeeType: one(attendeeTypes, { fields: [inviteCodes.attendeeTypeId], references: [attendeeTypes.id] }),
 }));
 
+export const eventPagesRelations = relations(eventPages, ({ one }) => ({
+  organization: one(organizations, { fields: [eventPages.organizationId], references: [organizations.id] }),
+  event: one(events, { fields: [eventPages.eventId], references: [events.id] }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true, updatedAt: true });
 export const insertOrganizationSchema = createInsertSchema(organizations).omit({ id: true, createdAt: true, updatedAt: true });
@@ -471,6 +498,7 @@ export const insertAttendeeTypeSchema = createInsertSchema(attendeeTypes).omit({
 export const insertPackageSchema = createInsertSchema(packages).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertEventPackageSchema = createInsertSchema(eventPackages).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertInviteCodeSchema = createInsertSchema(inviteCodes).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertEventPageSchema = createInsertSchema(eventPages).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Types
 export type UpsertUser = typeof users.$inferInsert;
@@ -513,3 +541,5 @@ export type InsertEventPackage = z.infer<typeof insertEventPackageSchema>;
 export type EventPackage = typeof eventPackages.$inferSelect;
 export type InsertInviteCode = z.infer<typeof insertInviteCodeSchema>;
 export type InviteCode = typeof inviteCodes.$inferSelect;
+export type InsertEventPage = z.infer<typeof insertEventPageSchema>;
+export type EventPage = typeof eventPages.$inferSelect;

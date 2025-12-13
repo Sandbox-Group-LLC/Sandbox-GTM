@@ -19,6 +19,7 @@ import {
   socialConnections,
   organizations,
   organizationMembers,
+  eventPages,
   type User,
   type UpsertUser,
   type Event,
@@ -57,6 +58,8 @@ import {
   type InsertOrganization,
   type OrganizationMember,
   type InsertOrganizationMember,
+  type EventPage,
+  type InsertEventPage,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and } from "drizzle-orm";
@@ -192,6 +195,15 @@ export interface IStorage {
   createSocialConnection(connection: InsertSocialConnection): Promise<SocialConnection>;
   updateSocialConnection(id: string, connection: Partial<InsertSocialConnection>): Promise<SocialConnection | undefined>;
   deleteSocialConnection(id: string): Promise<void>;
+
+  // Event Page operations (site builder)
+  getEventPages(organizationId: string, eventId: string): Promise<EventPage[]>;
+  getEventPage(organizationId: string, id: string): Promise<EventPage | undefined>;
+  getEventPageByType(organizationId: string, eventId: string, pageType: string): Promise<EventPage | undefined>;
+  createEventPage(page: InsertEventPage): Promise<EventPage>;
+  updateEventPage(organizationId: string, id: string, page: Partial<InsertEventPage>): Promise<EventPage | undefined>;
+  upsertEventPage(page: InsertEventPage): Promise<EventPage>;
+  deleteEventPage(organizationId: string, id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -801,6 +813,67 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSocialConnection(id: string): Promise<void> {
     await db.delete(socialConnections).where(eq(socialConnections.id, id));
+  }
+
+  // Event Page operations (site builder)
+  async getEventPages(organizationId: string, eventId: string): Promise<EventPage[]> {
+    return db.select().from(eventPages)
+      .where(and(eq(eventPages.organizationId, organizationId), eq(eventPages.eventId, eventId)));
+  }
+
+  async getEventPage(organizationId: string, id: string): Promise<EventPage | undefined> {
+    const [page] = await db.select().from(eventPages)
+      .where(and(eq(eventPages.organizationId, organizationId), eq(eventPages.id, id)));
+    return page;
+  }
+
+  async getEventPageByType(organizationId: string, eventId: string, pageType: string): Promise<EventPage | undefined> {
+    const [page] = await db.select().from(eventPages)
+      .where(and(
+        eq(eventPages.organizationId, organizationId),
+        eq(eventPages.eventId, eventId),
+        eq(eventPages.pageType, pageType)
+      ));
+    return page;
+  }
+
+  async createEventPage(page: InsertEventPage): Promise<EventPage> {
+    const [newPage] = await db.insert(eventPages).values(page as typeof eventPages.$inferInsert).returning();
+    return newPage;
+  }
+
+  async updateEventPage(organizationId: string, id: string, page: Partial<InsertEventPage>): Promise<EventPage | undefined> {
+    const updatePayload = { ...page, updatedAt: new Date() } as Partial<typeof eventPages.$inferInsert> & { updatedAt: Date };
+    const [updated] = await db
+      .update(eventPages)
+      .set(updatePayload)
+      .where(and(eq(eventPages.organizationId, organizationId), eq(eventPages.id, id)))
+      .returning();
+    return updated;
+  }
+
+  async upsertEventPage(page: InsertEventPage): Promise<EventPage> {
+    const insertValue = page as typeof eventPages.$inferInsert;
+    const [result] = await db
+      .insert(eventPages)
+      .values(insertValue)
+      .onConflictDoUpdate({
+        target: [eventPages.eventId, eventPages.pageType],
+        set: {
+          slug: insertValue.slug,
+          isPublished: insertValue.isPublished,
+          theme: insertValue.theme,
+          seo: insertValue.seo,
+          sections: insertValue.sections,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return result;
+  }
+
+  async deleteEventPage(organizationId: string, id: string): Promise<void> {
+    await db.delete(eventPages).where(and(eq(eventPages.organizationId, organizationId), eq(eventPages.id, id)));
   }
 }
 
