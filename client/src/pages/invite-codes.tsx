@@ -272,12 +272,12 @@ export default function InviteCodes() {
         description="Manage invite codes for event registration"
       >
         <div className="flex items-center gap-4">
-          <Select value={selectedEventId} onValueChange={setSelectedEventId}>
+          <Select value={selectedEventId || "all"} onValueChange={(value) => setSelectedEventId(value === "all" ? "" : value)}>
             <SelectTrigger className="w-[200px]" data-testid="select-event-filter">
               <SelectValue placeholder="All Events" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Events</SelectItem>
+              <SelectItem value="all">All Events</SelectItem>
               {events.map((event) => (
                 <SelectItem key={event.id} value={event.id}>
                   {event.name}
@@ -382,14 +382,14 @@ export default function InviteCodes() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Attendee Type (Optional)</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value || ""}>
+                        <Select onValueChange={(value) => field.onChange(value === "none" ? null : value)} value={field.value || "none"}>
                           <FormControl>
                             <SelectTrigger data-testid="select-attendee-type">
                               <SelectValue placeholder="Select attendee type" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="">None</SelectItem>
+                            <SelectItem value="none">None</SelectItem>
                             {attendeeTypes.map((type) => (
                               <SelectItem key={type.id} value={type.id}>
                                 {type.type}
