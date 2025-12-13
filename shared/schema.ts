@@ -76,7 +76,7 @@ export const attendeeTypes = pgTable("attendee_types", {
 export const attendees = pgTable("attendees", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   eventId: varchar("event_id").references(() => events.id).notNull(),
-  attendeeTypeId: varchar("attendee_type_id").references(() => attendeeTypes.id),
+  attendeeType: varchar("attendee_type", { length: 50 }),
   firstName: varchar("first_name", { length: 100 }).notNull(),
   lastName: varchar("last_name", { length: 100 }).notNull(),
   email: varchar("email", { length: 255 }).notNull(),

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -38,11 +38,20 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Plus, Users, Search, Download } from "lucide-react";
 import { EventSelectField } from "@/components/event-select-field";
-import type { Attendee, AttendeeType } from "@shared/schema";
+import type { Attendee } from "@shared/schema";
+
+const ATTENDEE_TYPE_OPTIONS = [
+  { value: "attendee", label: "Attendee" },
+  { value: "vendor", label: "Vendor" },
+  { value: "employee", label: "Employee" },
+  { value: "press_media", label: "Press & Media" },
+  { value: "analyst", label: "Analyst" },
+  { value: "sponsor", label: "Sponsor" },
+];
 
 const attendeeFormSchema = z.object({
   eventId: z.string().min(1, "Event is required"),
-  attendeeTypeId: z.string().optional(),
+  attendeeType: z.string().optional(),
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   email: z.string().email("Valid email is required"),
@@ -73,15 +82,11 @@ export default function Attendees() {
     queryKey: ["/api/attendees"],
   });
 
-  const { data: attendeeTypes = [] } = useQuery<AttendeeType[]>({
-    queryKey: ["/api/attendee-types"],
-  });
-
   const form = useForm<AttendeeFormData>({
     resolver: zodResolver(attendeeFormSchema),
     defaultValues: {
       eventId: "",
-      attendeeTypeId: "",
+      attendeeType: "",
       firstName: "",
       lastName: "",
       email: "",
@@ -93,19 +98,6 @@ export default function Attendees() {
       notes: "",
     },
   });
-
-  const selectedEventId = form.watch("eventId");
-  const filteredAttendeeTypes = attendeeTypes.filter(
-    (type) => type.eventId === selectedEventId
-  );
-
-  const previousEventIdRef = useRef(selectedEventId);
-  useEffect(() => {
-    if (previousEventIdRef.current !== selectedEventId && previousEventIdRef.current !== "") {
-      form.setValue("attendeeTypeId", "");
-    }
-    previousEventIdRef.current = selectedEventId;
-  }, [selectedEventId, form]);
 
   const createMutation = useMutation({
     mutationFn: async (data: AttendeeFormData) => {
@@ -161,7 +153,7 @@ export default function Attendees() {
     setEditingAttendee(attendee);
     form.reset({
       eventId: attendee.eventId,
-      attendeeTypeId: attendee.attendeeTypeId || "",
+      attendeeType: attendee.attendeeType || "",
       firstName: attendee.firstName,
       lastName: attendee.lastName,
       email: attendee.email,
@@ -272,24 +264,23 @@ export default function Attendees() {
                   <EventSelectField control={form.control} />
                   <FormField
                     control={form.control}
-                    name="attendeeTypeId"
+                    name="attendeeType"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Attendee Type</FormLabel>
                         <Select
                           onValueChange={field.onChange}
                           value={field.value || ""}
-                          disabled={!selectedEventId}
                         >
                           <FormControl>
                             <SelectTrigger data-testid="select-attendee-type">
-                              <SelectValue placeholder={selectedEventId ? (filteredAttendeeTypes.length > 0 ? "Select attendee type" : "No types configured for this event") : "Select an event first"} />
+                              <SelectValue placeholder="Select attendee type" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {filteredAttendeeTypes.map((type) => (
-                              <SelectItem key={type.id} value={type.id}>
-                                {type.type}
+                            {ATTENDEE_TYPE_OPTIONS.map((type) => (
+                              <SelectItem key={type.value} value={type.value}>
+                                {type.label}
                               </SelectItem>
                             ))}
                           </SelectContent>
