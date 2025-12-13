@@ -46,6 +46,13 @@ const eventFormSchema = z.object({
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().min(1, "End date is required"),
   location: z.string().optional(),
+  address: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  country: z.string().optional(),
+  postalCode: z.string().optional(),
+  phone: z.string().optional(),
+  website: z.string().optional(),
   status: z.enum(["draft", "published", "cancelled", "completed"]),
 });
 
@@ -70,6 +77,13 @@ export default function Events() {
       startDate: "",
       endDate: "",
       location: "",
+      address: "",
+      city: "",
+      state: "",
+      country: "",
+      postalCode: "",
+      phone: "",
+      website: "",
       status: "draft",
     },
   });
@@ -144,6 +158,13 @@ export default function Events() {
         startDate: selectedEvent.startDate || "",
         endDate: selectedEvent.endDate || "",
         location: selectedEvent.location || "",
+        address: selectedEvent.address || "",
+        city: selectedEvent.city || "",
+        state: selectedEvent.state || "",
+        country: selectedEvent.country || "",
+        postalCode: selectedEvent.postalCode || "",
+        phone: selectedEvent.phone || "",
+        website: selectedEvent.website || "",
         status: selectedEvent.status as EventFormValues["status"],
       });
       setIsEditing(true);
@@ -262,10 +283,10 @@ export default function Events() {
                     name="location"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Location</FormLabel>
+                        <FormLabel>Venue Name</FormLabel>
                         <FormControl>
                           <Input
-                            placeholder="Convention Center, City"
+                            placeholder="Convention Center"
                             {...field}
                             value={field.value || ""}
                             data-testid="input-event-location"
@@ -275,6 +296,138 @@ export default function Events() {
                       </FormItem>
                     )}
                   />
+                  <FormField
+                    control={form.control}
+                    name="address"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Address</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="123 Main Street"
+                            {...field}
+                            value={field.value || ""}
+                            data-testid="input-event-address"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="city"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>City</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="New York"
+                              {...field}
+                              value={field.value || ""}
+                              data-testid="input-event-city"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="state"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>State/Province</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="NY"
+                              {...field}
+                              value={field.value || ""}
+                              data-testid="input-event-state"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="country"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Country</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="United States"
+                              {...field}
+                              value={field.value || ""}
+                              data-testid="input-event-country"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="postalCode"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Postal Code</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="10001"
+                              {...field}
+                              value={field.value || ""}
+                              data-testid="input-event-postal-code"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="phone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Phone</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="+1 (555) 123-4567"
+                              {...field}
+                              value={field.value || ""}
+                              data-testid="input-event-phone"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="website"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Website</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="https://example.com"
+                              {...field}
+                              value={field.value || ""}
+                              data-testid="input-event-website"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                   <FormField
                     control={form.control}
                     name="status"
@@ -481,10 +634,10 @@ export default function Events() {
                       name="location"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Location</FormLabel>
+                          <FormLabel>Venue Name</FormLabel>
                           <FormControl>
                             <Input
-                              placeholder="Convention Center, City"
+                              placeholder="Convention Center"
                               {...field}
                               value={field.value || ""}
                               data-testid="input-edit-event-location"
@@ -494,6 +647,138 @@ export default function Events() {
                         </FormItem>
                       )}
                     />
+                    <FormField
+                      control={form.control}
+                      name="address"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Address</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="123 Main Street"
+                              {...field}
+                              value={field.value || ""}
+                              data-testid="input-edit-event-address"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="city"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>City</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder="New York"
+                                {...field}
+                                value={field.value || ""}
+                                data-testid="input-edit-event-city"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="state"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>State/Province</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder="NY"
+                                {...field}
+                                value={field.value || ""}
+                                data-testid="input-edit-event-state"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="country"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Country</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder="United States"
+                                {...field}
+                                value={field.value || ""}
+                                data-testid="input-edit-event-country"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="postalCode"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Postal Code</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder="10001"
+                                {...field}
+                                value={field.value || ""}
+                                data-testid="input-edit-event-postal-code"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="phone"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Phone</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder="+1 (555) 123-4567"
+                                {...field}
+                                value={field.value || ""}
+                                data-testid="input-edit-event-phone"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="website"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Website</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder="https://example.com"
+                                {...field}
+                                value={field.value || ""}
+                                data-testid="input-edit-event-website"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                     <FormField
                       control={form.control}
                       name="status"
@@ -561,6 +846,42 @@ export default function Events() {
                         {selectedEvent.startDate && selectedEvent.endDate && " - "}
                         {selectedEvent.endDate && format(new Date(selectedEvent.endDate), "MMMM d, yyyy")}
                       </p>
+                    </div>
+                  )}
+
+                  {(selectedEvent.address || selectedEvent.city || selectedEvent.state || selectedEvent.country || selectedEvent.postalCode) && (
+                    <div>
+                      <p className="text-sm font-medium mb-1">Address</p>
+                      <div className="text-sm text-muted-foreground">
+                        {selectedEvent.address && <p>{selectedEvent.address}</p>}
+                        {(selectedEvent.city || selectedEvent.state || selectedEvent.postalCode) && (
+                          <p>
+                            {selectedEvent.city}{selectedEvent.city && selectedEvent.state && ", "}
+                            {selectedEvent.state}{selectedEvent.state && selectedEvent.postalCode && " "}
+                            {selectedEvent.postalCode}
+                          </p>
+                        )}
+                        {selectedEvent.country && <p>{selectedEvent.country}</p>}
+                      </div>
+                    </div>
+                  )}
+
+                  {(selectedEvent.phone || selectedEvent.website) && (
+                    <div>
+                      <p className="text-sm font-medium mb-1">Contact</p>
+                      <div className="text-sm text-muted-foreground space-y-1">
+                        {selectedEvent.phone && <p>{selectedEvent.phone}</p>}
+                        {selectedEvent.website && (
+                          <a 
+                            href={selectedEvent.website} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline"
+                          >
+                            {selectedEvent.website}
+                          </a>
+                        )}
+                      </div>
                     </div>
                   )}
 
