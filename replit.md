@@ -4,7 +4,9 @@
 
 This is an Event Management Content Management System (CMS) - a full-stack admin platform for managing events, attendees, speakers, sessions, content, budgets, deliverables, and marketing campaigns. The application follows a utility-focused, information-dense design approach prioritizing efficiency and clarity over visual flair.
 
-The platform operates in single-event mode (MVP) with a fixed sidebar navigation and provides comprehensive event planning and management capabilities including registration tracking, agenda building, speaker management, budget monitoring, and email/social media campaign tools.
+The platform supports multi-tenancy with organization-based data isolation. Each organization has its own events, attendees, speakers, and other data. Users are automatically assigned to an organization on first login, and all data operations are scoped to the user's active organization.
+
+Key capabilities include registration tracking, agenda building, speaker management, budget monitoring, and email/social media campaign tools.
 
 ## User Preferences
 
@@ -58,8 +60,16 @@ Preferred communication style: Simple, everyday language.
 - User data synchronized to `users` table on login
 - Protected routes require `isAuthenticated` middleware
 
+### Multi-Tenancy Architecture
+- **Organizations**: Each user belongs to one or more organizations
+- **Data Isolation**: All data tables have `organizationId` foreign key for tenant isolation
+- **Auto-provisioning**: New users automatically get a default organization created on first login
+- **Storage Layer**: All storage methods require organizationId to enforce data isolation
+- **Route Middleware**: `getOrganizationId(userId)` helper resolves user's active organization for each request
+- **Frontend Context**: `useAuth()` hook exposes current organization alongside user data
+
 ### Key Design Patterns
-- **Storage Interface**: Abstraction layer (`IStorage`) for all database operations
+- **Storage Interface**: Abstraction layer (`IStorage`) for all database operations with org-scoped access
 - **Shared Schema**: Single source of truth for database types used by both frontend and backend
 - **API Request Helper**: Centralized `apiRequest` function with error handling
 - **Component Composition**: Reusable components like `PageHeader`, `DataTable`, `StatsCard`, `EmptyState`
