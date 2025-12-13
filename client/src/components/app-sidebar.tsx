@@ -14,6 +14,7 @@ import {
   QrCode,
   BarChart3,
   UserCheck,
+  ChevronRight,
 } from "lucide-react";
 import {
   Sidebar,
@@ -26,19 +27,30 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 
 const mainMenuItems = [
   { title: "Dashboard", icon: LayoutDashboard, path: "/" },
-  { title: "Events", icon: Calendar, path: "/events" },
-  { title: "Attendee Types", icon: UserCheck, path: "/attendee-types" },
   { title: "Attendees", icon: Users, path: "/attendees" },
   { title: "Check-In", icon: QrCode, path: "/check-in" },
   { title: "Sessions", icon: Calendar, path: "/sessions" },
   { title: "Speakers", icon: Mic2, path: "/speakers" },
   { title: "Content", icon: FolderOpen, path: "/content" },
+];
+
+const eventsSubItems = [
+  { title: "All Events", path: "/events" },
+  { title: "Attendee Types", path: "/attendee-types" },
 ];
 
 const projectMenuItems = [
@@ -55,6 +67,8 @@ const marketingMenuItems = [
 export function AppSidebar() {
   const [location] = useLocation();
   const { user } = useAuth();
+
+  const isEventsActive = location === "/events" || location === "/attendee-types";
 
   const getInitials = () => {
     if (user?.firstName && user?.lastName) {
@@ -80,7 +94,54 @@ export function AppSidebar() {
           <SidebarGroupLabel>Event Management</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainMenuItems.map((item) => (
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location === "/"}
+                  data-testid="nav-dashboard"
+                >
+                  <Link href="/">
+                    <LayoutDashboard className="h-4 w-4" />
+                    <span>Dashboard</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <Collapsible defaultOpen={isEventsActive} className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton
+                      isActive={isEventsActive}
+                      data-testid="nav-events"
+                    >
+                      <Calendar className="h-4 w-4" />
+                      <span>Events</span>
+                      <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {eventsSubItems.map((item) => (
+                        <SidebarMenuSubItem key={item.title}>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={location === item.path}
+                          >
+                            <Link
+                              href={item.path}
+                              data-testid={`nav-${item.title.toLowerCase().replace(" ", "-")}`}
+                            >
+                              <span>{item.title}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+
+              {mainMenuItems.slice(1).map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
