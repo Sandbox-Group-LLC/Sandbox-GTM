@@ -206,10 +206,10 @@ export default function SiteBuilder() {
         breadcrumbs={[{ label: "Events", href: "/events" }, { label: "Site Builder" }]}
         actions={
           selectedEventId && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <Button
                 variant="outline"
-                size="sm"
+                size="icon"
                 onClick={() => {
                   if (selectedEvent?.publicSlug) {
                     window.open(`/event/${selectedEvent.publicSlug}`, "_blank");
@@ -222,9 +222,9 @@ export default function SiteBuilder() {
                   }
                 }}
                 data-testid="button-preview"
+                title="Preview"
               >
-                <Eye className="h-4 w-4 mr-2" />
-                Preview
+                <Eye className="h-4 w-4" />
               </Button>
               <Button
                 variant={currentPage?.isPublished ? "outline" : "default"}
