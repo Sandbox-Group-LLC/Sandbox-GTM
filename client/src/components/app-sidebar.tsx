@@ -13,6 +13,7 @@ import {
   LogOut,
   QrCode,
   BarChart3,
+  UserCheck,
 } from "lucide-react";
 import {
   Sidebar,
@@ -32,6 +33,7 @@ import { useAuth } from "@/hooks/useAuth";
 const mainMenuItems = [
   { title: "Dashboard", icon: LayoutDashboard, path: "/" },
   { title: "Events", icon: Calendar, path: "/events" },
+  { title: "Attendee Types", icon: UserCheck, path: "/attendee-types" },
   { title: "Attendees", icon: Users, path: "/attendees" },
   { title: "Check-In", icon: QrCode, path: "/check-in" },
   { title: "Sessions", icon: Calendar, path: "/sessions" },

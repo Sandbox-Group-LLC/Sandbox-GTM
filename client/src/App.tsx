@@ -23,6 +23,7 @@ import Settings from "@/pages/settings";
 import CheckIn from "@/pages/check-in";
 import Analytics from "@/pages/analytics";
 import PublicEvent from "@/pages/public-event";
+import AttendeeTypes from "@/pages/attendee-types";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const sidebarStyle = {
@@ -68,6 +69,7 @@ function Router() {
       <Switch>
         <Route path="/" component={Dashboard} />
         <Route path="/events" component={Events} />
+        <Route path="/attendee-types" component={AttendeeTypes} />
         <Route path="/attendees" component={Attendees} />
         <Route path="/check-in" component={CheckIn} />
         <Route path="/sessions" component={Sessions} />
