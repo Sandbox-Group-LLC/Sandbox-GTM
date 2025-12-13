@@ -92,7 +92,7 @@ export const attendeeTypes = pgTable("attendee_types", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Packages table - global packages for registration (not event-specific)
+// Packages table - global packages for registration (templates)
 export const packages = pgTable("packages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
@@ -101,6 +101,19 @@ export const packages = pgTable("packages", {
   price: decimal("price", { precision: 10, scale: 2 }).default("0"),
   features: text("features").array(),
   isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Event Packages junction table - stores per-event package overrides
+export const eventPackages = pgTable("event_packages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id).notNull(),
+  packageId: varchar("package_id").references(() => packages.id).notNull(),
+  priceOverride: decimal("price_override", { precision: 10, scale: 2 }),
+  featuresOverride: text("features_override").array(),
+  isEnabled: boolean("is_enabled").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -403,8 +416,15 @@ export const attendeeTypesRelations = relations(attendeeTypes, ({ one }) => ({
   event: one(events, { fields: [attendeeTypes.eventId], references: [events.id] }),
 }));
 
-export const packagesRelations = relations(packages, ({ one }) => ({
+export const packagesRelations = relations(packages, ({ one, many }) => ({
   organization: one(organizations, { fields: [packages.organizationId], references: [organizations.id] }),
+  eventPackages: many(eventPackages),
+}));
+
+export const eventPackagesRelations = relations(eventPackages, ({ one }) => ({
+  organization: one(organizations, { fields: [eventPackages.organizationId], references: [organizations.id] }),
+  event: one(events, { fields: [eventPackages.eventId], references: [events.id] }),
+  package: one(packages, { fields: [eventPackages.packageId], references: [packages.id] }),
 }));
 
 // Insert schemas
@@ -426,6 +446,7 @@ export const insertEmailTemplateSchema = createInsertSchema(emailTemplates).omit
 export const insertSocialConnectionSchema = createInsertSchema(socialConnections).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertAttendeeTypeSchema = createInsertSchema(attendeeTypes).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertPackageSchema = createInsertSchema(packages).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertEventPackageSchema = createInsertSchema(eventPackages).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Types
 export type UpsertUser = typeof users.$inferInsert;
@@ -464,3 +485,5 @@ export type InsertAttendeeType = z.infer<typeof insertAttendeeTypeSchema>;
 export type AttendeeType = typeof attendeeTypes.$inferSelect;
 export type InsertPackage = z.infer<typeof insertPackageSchema>;
 export type Package = typeof packages.$inferSelect;
+export type InsertEventPackage = z.infer<typeof insertEventPackageSchema>;
+export type EventPackage = typeof eventPackages.$inferSelect;
