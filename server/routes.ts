@@ -24,6 +24,25 @@ export async function registerRoutes(
   // Auth middleware
   await setupAuth(app);
 
+  // Helper function to get user's organization (creates default if none exists)
+  async function getOrganizationId(userId: string): Promise<string> {
+    const memberships = await storage.getUserOrganizations(userId);
+    if (memberships.length > 0) {
+      return memberships[0].organizationId;
+    }
+    // Create default org for user if none exists
+    const org = await storage.createOrganization({
+      name: 'My Organization',
+      slug: `org-${userId.slice(0, 8)}`
+    });
+    await storage.addOrganizationMember({
+      organizationId: org.id,
+      userId: userId,
+      role: 'owner'
+    });
+    return org.id;
+  }
+
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
@@ -37,9 +56,11 @@ export async function registerRoutes(
   });
 
   // Event routes
-  app.get("/api/events", isAuthenticated, async (req, res) => {
+  app.get("/api/events", isAuthenticated, async (req: any, res) => {
     try {
-      const events = await storage.getEvents();
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const events = await storage.getEvents(organizationId);
       res.json(events);
     } catch (error) {
       console.error("Error fetching events:", error);
@@ -50,6 +71,7 @@ export async function registerRoutes(
   app.post("/api/events", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
       const slug = req.body.name
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
@@ -57,6 +79,7 @@ export async function registerRoutes(
       const data = insertEventSchema.parse({
         ...req.body,
         slug,
+        organizationId,
         createdBy: userId,
       });
       const event = await storage.createEvent(data);
@@ -105,15 +128,18 @@ export async function registerRoutes(
   });
 
   // Dashboard stats
-  app.get("/api/dashboard/stats", isAuthenticated, async (req, res) => {
+  app.get("/api/dashboard/stats", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      
       const [attendees, sessions, speakers, budgetItems, deliverablesList, milestonesList] = await Promise.all([
-        storage.getAttendees(),
-        storage.getSessions(),
-        storage.getSpeakers(),
-        storage.getBudgetItems(),
-        storage.getDeliverables(),
-        storage.getMilestones(),
+        storage.getAttendees(organizationId),
+        storage.getSessions(organizationId),
+        storage.getSpeakers(organizationId),
+        storage.getBudgetItems(organizationId),
+        storage.getDeliverables(organizationId),
+        storage.getMilestones(organizationId),
       ]);
 
       const totalBudget = budgetItems.reduce((sum, item) => sum + parseFloat(item.plannedAmount || "0"), 0);
@@ -141,9 +167,12 @@ export async function registerRoutes(
   });
 
   // Attendee routes
-  app.get("/api/attendees", isAuthenticated, async (req, res) => {
+  app.get("/api/attendees", isAuthenticated, async (req: any, res) => {
     try {
-      const attendees = await storage.getAttendees();
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const eventId = req.query.eventId as string | undefined;
+      const attendees = await storage.getAttendees(organizationId, eventId);
       res.json(attendees);
     } catch (error) {
       console.error("Error fetching attendees:", error);
@@ -151,9 +180,11 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/attendees", isAuthenticated, async (req, res) => {
+  app.post("/api/attendees", isAuthenticated, async (req: any, res) => {
     try {
-      const data = insertAttendeeSchema.parse(req.body);
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const data = insertAttendeeSchema.parse({ ...req.body, organizationId });
       const attendee = await storage.createAttendee(data);
       res.status(201).json(attendee);
     } catch (error) {
@@ -186,10 +217,12 @@ export async function registerRoutes(
   });
 
   // Attendee Type routes
-  app.get("/api/attendee-types", isAuthenticated, async (req, res) => {
+  app.get("/api/attendee-types", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
       const eventId = req.query.eventId as string | undefined;
-      const attendeeTypes = await storage.getAttendeeTypes(eventId);
+      const attendeeTypes = await storage.getAttendeeTypes(organizationId, eventId);
       res.json(attendeeTypes);
     } catch (error) {
       console.error("Error fetching attendee types:", error);
@@ -210,9 +243,11 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/attendee-types", isAuthenticated, async (req, res) => {
+  app.post("/api/attendee-types", isAuthenticated, async (req: any, res) => {
     try {
-      const data = insertAttendeeTypeSchema.parse(req.body);
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const data = insertAttendeeTypeSchema.parse({ ...req.body, organizationId });
       const attendeeType = await storage.createAttendeeType(data);
       res.status(201).json(attendeeType);
     } catch (error) {
@@ -245,9 +280,12 @@ export async function registerRoutes(
   });
 
   // Speaker routes
-  app.get("/api/speakers", isAuthenticated, async (req, res) => {
+  app.get("/api/speakers", isAuthenticated, async (req: any, res) => {
     try {
-      const speakers = await storage.getSpeakers();
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const eventId = req.query.eventId as string | undefined;
+      const speakers = await storage.getSpeakers(organizationId, eventId);
       res.json(speakers);
     } catch (error) {
       console.error("Error fetching speakers:", error);
@@ -255,9 +293,11 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/speakers", isAuthenticated, async (req, res) => {
+  app.post("/api/speakers", isAuthenticated, async (req: any, res) => {
     try {
-      const data = insertSpeakerSchema.parse(req.body);
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const data = insertSpeakerSchema.parse({ ...req.body, organizationId });
       const speaker = await storage.createSpeaker(data);
       res.status(201).json(speaker);
     } catch (error) {
@@ -290,9 +330,12 @@ export async function registerRoutes(
   });
 
   // Session routes
-  app.get("/api/sessions", isAuthenticated, async (req, res) => {
+  app.get("/api/sessions", isAuthenticated, async (req: any, res) => {
     try {
-      const sessions = await storage.getSessions();
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const eventId = req.query.eventId as string | undefined;
+      const sessions = await storage.getSessions(organizationId, eventId);
       res.json(sessions);
     } catch (error) {
       console.error("Error fetching sessions:", error);
@@ -300,9 +343,11 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/sessions", isAuthenticated, async (req, res) => {
+  app.post("/api/sessions", isAuthenticated, async (req: any, res) => {
     try {
-      const data = insertSessionSchema.parse(req.body);
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const data = insertSessionSchema.parse({ ...req.body, organizationId });
       const session = await storage.createSession(data);
       res.status(201).json(session);
     } catch (error) {
@@ -335,9 +380,12 @@ export async function registerRoutes(
   });
 
   // Content routes
-  app.get("/api/content", isAuthenticated, async (req, res) => {
+  app.get("/api/content", isAuthenticated, async (req: any, res) => {
     try {
-      const content = await storage.getContentItems();
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const eventId = req.query.eventId as string | undefined;
+      const content = await storage.getContentItems(organizationId, eventId);
       res.json(content);
     } catch (error) {
       console.error("Error fetching content:", error);
@@ -345,9 +393,11 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/content", isAuthenticated, async (req, res) => {
+  app.post("/api/content", isAuthenticated, async (req: any, res) => {
     try {
-      const data = insertContentItemSchema.parse(req.body);
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const data = insertContentItemSchema.parse({ ...req.body, organizationId });
       const content = await storage.createContentItem(data);
       res.status(201).json(content);
     } catch (error) {
@@ -380,9 +430,12 @@ export async function registerRoutes(
   });
 
   // Budget routes
-  app.get("/api/budget", isAuthenticated, async (req, res) => {
+  app.get("/api/budget", isAuthenticated, async (req: any, res) => {
     try {
-      const budget = await storage.getBudgetItems();
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const eventId = req.query.eventId as string | undefined;
+      const budget = await storage.getBudgetItems(organizationId, eventId);
       res.json(budget);
     } catch (error) {
       console.error("Error fetching budget:", error);
@@ -390,9 +443,11 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/budget", isAuthenticated, async (req, res) => {
+  app.post("/api/budget", isAuthenticated, async (req: any, res) => {
     try {
-      const data = insertBudgetItemSchema.parse(req.body);
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const data = insertBudgetItemSchema.parse({ ...req.body, organizationId });
       const budget = await storage.createBudgetItem(data);
       res.status(201).json(budget);
     } catch (error) {
@@ -424,10 +479,63 @@ export async function registerRoutes(
     }
   });
 
-  // Deliverable routes
-  app.get("/api/deliverables", isAuthenticated, async (req, res) => {
+  // Milestone routes
+  app.get("/api/milestones", isAuthenticated, async (req: any, res) => {
     try {
-      const deliverables = await storage.getDeliverables();
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const eventId = req.query.eventId as string | undefined;
+      const milestones = await storage.getMilestones(organizationId, eventId);
+      res.json(milestones);
+    } catch (error) {
+      console.error("Error fetching milestones:", error);
+      res.status(500).json({ message: "Failed to fetch milestones" });
+    }
+  });
+
+  app.post("/api/milestones", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const data = insertMilestoneSchema.parse({ ...req.body, organizationId });
+      const milestone = await storage.createMilestone(data);
+      res.status(201).json(milestone);
+    } catch (error) {
+      console.error("Error creating milestone:", error);
+      res.status(400).json({ message: "Invalid milestone data" });
+    }
+  });
+
+  app.patch("/api/milestones/:id", isAuthenticated, async (req, res) => {
+    try {
+      const milestone = await storage.updateMilestone(req.params.id, req.body);
+      if (!milestone) {
+        return res.status(404).json({ message: "Milestone not found" });
+      }
+      res.json(milestone);
+    } catch (error) {
+      console.error("Error updating milestone:", error);
+      res.status(400).json({ message: "Failed to update milestone" });
+    }
+  });
+
+  app.delete("/api/milestones/:id", isAuthenticated, async (req, res) => {
+    try {
+      await storage.deleteMilestone(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting milestone:", error);
+      res.status(500).json({ message: "Failed to delete milestone" });
+    }
+  });
+
+  // Deliverable routes
+  app.get("/api/deliverables", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const eventId = req.query.eventId as string | undefined;
+      const deliverables = await storage.getDeliverables(organizationId, eventId);
       res.json(deliverables);
     } catch (error) {
       console.error("Error fetching deliverables:", error);
@@ -435,9 +543,11 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/deliverables", isAuthenticated, async (req, res) => {
+  app.post("/api/deliverables", isAuthenticated, async (req: any, res) => {
     try {
-      const data = insertDeliverableSchema.parse(req.body);
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const data = insertDeliverableSchema.parse({ ...req.body, organizationId });
       const deliverable = await storage.createDeliverable(data);
       res.status(201).json(deliverable);
     } catch (error) {
@@ -470,9 +580,12 @@ export async function registerRoutes(
   });
 
   // Email campaign routes
-  app.get("/api/emails", isAuthenticated, async (req, res) => {
+  app.get("/api/emails", isAuthenticated, async (req: any, res) => {
     try {
-      const emails = await storage.getEmailCampaigns();
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const eventId = req.query.eventId as string | undefined;
+      const emails = await storage.getEmailCampaigns(organizationId, eventId);
       res.json(emails);
     } catch (error) {
       console.error("Error fetching emails:", error);
@@ -483,7 +596,8 @@ export async function registerRoutes(
   app.post("/api/emails", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const data = insertEmailCampaignSchema.parse({ ...req.body, createdBy: userId });
+      const organizationId = await getOrganizationId(userId);
+      const data = insertEmailCampaignSchema.parse({ ...req.body, organizationId, createdBy: userId });
       const email = await storage.createEmailCampaign(data);
       res.status(201).json(email);
     } catch (error) {
@@ -516,9 +630,12 @@ export async function registerRoutes(
   });
 
   // Social post routes
-  app.get("/api/social", isAuthenticated, async (req, res) => {
+  app.get("/api/social", isAuthenticated, async (req: any, res) => {
     try {
-      const posts = await storage.getSocialPosts();
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const eventId = req.query.eventId as string | undefined;
+      const posts = await storage.getSocialPosts(organizationId, eventId);
       res.json(posts);
     } catch (error) {
       console.error("Error fetching social posts:", error);
@@ -529,7 +646,8 @@ export async function registerRoutes(
   app.post("/api/social", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const data = insertSocialPostSchema.parse({ ...req.body, eventId: req.body.eventId || null, createdBy: userId });
+      const organizationId = await getOrganizationId(userId);
+      const data = insertSocialPostSchema.parse({ ...req.body, organizationId, eventId: req.body.eventId || null, createdBy: userId });
       const post = await storage.createSocialPost(data);
       res.status(201).json(post);
     } catch (error) {
@@ -562,9 +680,12 @@ export async function registerRoutes(
   });
 
   // Email template routes
-  app.get("/api/email-templates", isAuthenticated, async (req, res) => {
+  app.get("/api/email-templates", isAuthenticated, async (req: any, res) => {
     try {
-      const templates = await storage.getEmailTemplates();
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const eventId = req.query.eventId as string | undefined;
+      const templates = await storage.getEmailTemplates(organizationId, eventId);
       res.json(templates);
     } catch (error) {
       console.error("Error fetching email templates:", error);
@@ -575,7 +696,8 @@ export async function registerRoutes(
   app.post("/api/email-templates", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const data = insertEmailTemplateSchema.parse({ ...req.body, eventId: req.body.eventId || null, createdBy: userId });
+      const organizationId = await getOrganizationId(userId);
+      const data = insertEmailTemplateSchema.parse({ ...req.body, organizationId, eventId: req.body.eventId || null, createdBy: userId });
       const template = await storage.createEmailTemplate(data);
       res.status(201).json(template);
     } catch (error) {
@@ -632,9 +754,11 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/check-in/stats", isAuthenticated, async (req, res) => {
+  app.get("/api/check-in/stats", isAuthenticated, async (req: any, res) => {
     try {
-      const attendees = await storage.getAttendees();
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const attendees = await storage.getAttendees(organizationId);
       const totalAttendees = attendees.length;
       const checkedIn = attendees.filter(a => a.checkedIn).length;
       const pending = totalAttendees - checkedIn;
@@ -659,8 +783,8 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Event not found" });
       }
       
-      const sessions = await storage.getSessions(event.id);
-      const speakers = await storage.getSpeakers(event.id);
+      const sessions = await storage.getSessions(event.organizationId, event.id);
+      const speakers = await storage.getSpeakers(event.organizationId, event.id);
       
       res.json({ event, sessions, speakers });
     } catch (error) {
@@ -681,6 +805,7 @@ export async function registerRoutes(
       
       const data = insertAttendeeSchema.parse({
         ...req.body,
+        organizationId: event.organizationId,
         eventId: event.id,
         checkInCode,
         registrationStatus: "confirmed",
@@ -695,17 +820,20 @@ export async function registerRoutes(
   });
 
   // Analytics routes
-  app.get("/api/analytics/overview", isAuthenticated, async (req, res) => {
+  app.get("/api/analytics/overview", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      
       const [attendees, sessions, speakers, budgetItems, deliverables, milestones, emailCampaigns, socialPosts] = await Promise.all([
-        storage.getAttendees(),
-        storage.getSessions(),
-        storage.getSpeakers(),
-        storage.getBudgetItems(),
-        storage.getDeliverables(),
-        storage.getMilestones(),
-        storage.getEmailCampaigns(),
-        storage.getSocialPosts(),
+        storage.getAttendees(organizationId),
+        storage.getSessions(organizationId),
+        storage.getSpeakers(organizationId),
+        storage.getBudgetItems(organizationId),
+        storage.getDeliverables(organizationId),
+        storage.getMilestones(organizationId),
+        storage.getEmailCampaigns(organizationId),
+        storage.getSocialPosts(organizationId),
       ]);
 
       // Registration trends by date
