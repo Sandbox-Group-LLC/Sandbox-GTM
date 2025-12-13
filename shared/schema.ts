@@ -37,9 +37,28 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Organizations table
+export const organizations = pgTable("organizations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(),
+  slug: varchar("slug", { length: 100 }).unique().notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Organization Members table
+export const organizationMembers = pgTable("organization_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  role: varchar("role", { length: 50 }).default("member"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Events table
 export const events = pgTable("events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
   startDate: date("start_date").notNull(),
@@ -65,6 +84,7 @@ export const events = pgTable("events", {
 // Attendee Types table
 export const attendeeTypes = pgTable("attendee_types", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
   eventId: varchar("event_id").references(() => events.id).notNull(),
   type: varchar("type", { length: 50 }).notNull(),
   capacity: integer("capacity").default(0),
@@ -75,6 +95,7 @@ export const attendeeTypes = pgTable("attendee_types", {
 // Attendees table
 export const attendees = pgTable("attendees", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
   eventId: varchar("event_id").references(() => events.id).notNull(),
   attendeeType: varchar("attendee_type", { length: 50 }),
   firstName: varchar("first_name", { length: 100 }).notNull(),
@@ -96,6 +117,7 @@ export const attendees = pgTable("attendees", {
 // Speakers table
 export const speakers = pgTable("speakers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
   eventId: varchar("event_id").references(() => events.id).notNull(),
   firstName: varchar("first_name", { length: 100 }).notNull(),
   lastName: varchar("last_name", { length: 100 }).notNull(),
@@ -113,6 +135,7 @@ export const speakers = pgTable("speakers", {
 // Sessions table
 export const eventSessions = pgTable("event_sessions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
   eventId: varchar("event_id").references(() => events.id).notNull(),
   title: varchar("title", { length: 255 }).notNull(),
   description: text("description"),
@@ -137,6 +160,7 @@ export const sessionSpeakers = pgTable("session_speakers", {
 // Content catalog table
 export const contentItems = pgTable("content_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
   eventId: varchar("event_id").references(() => events.id).notNull(),
   title: varchar("title", { length: 255 }).notNull(),
   description: text("description"),
@@ -152,6 +176,7 @@ export const contentItems = pgTable("content_items", {
 // Budget items table
 export const budgetItems = pgTable("budget_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
   eventId: varchar("event_id").references(() => events.id).notNull(),
   category: varchar("category", { length: 100 }).notNull(),
   description: varchar("description", { length: 255 }).notNull(),
@@ -166,6 +191,7 @@ export const budgetItems = pgTable("budget_items", {
 // Timeline/Milestones table
 export const milestones = pgTable("milestones", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
   eventId: varchar("event_id").references(() => events.id).notNull(),
   title: varchar("title", { length: 255 }).notNull(),
   description: text("description"),
@@ -180,6 +206,7 @@ export const milestones = pgTable("milestones", {
 // Deliverables table
 export const deliverables = pgTable("deliverables", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
   eventId: varchar("event_id").references(() => events.id).notNull(),
   milestoneId: varchar("milestone_id").references(() => milestones.id),
   title: varchar("title", { length: 255 }).notNull(),
@@ -195,6 +222,7 @@ export const deliverables = pgTable("deliverables", {
 // Email campaigns table
 export const emailCampaigns = pgTable("email_campaigns", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
   eventId: varchar("event_id").references(() => events.id).notNull(),
   subject: varchar("subject", { length: 255 }).notNull(),
   content: text("content").notNull(),
@@ -210,6 +238,7 @@ export const emailCampaigns = pgTable("email_campaigns", {
 // Social media posts table
 export const socialPosts = pgTable("social_posts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
   eventId: varchar("event_id").references(() => events.id),
   platform: varchar("platform", { length: 50 }).notNull(),
   content: text("content").notNull(),
@@ -224,6 +253,7 @@ export const socialPosts = pgTable("social_posts", {
 // Email templates table
 export const emailTemplates = pgTable("email_templates", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
   eventId: varchar("event_id").references(() => events.id),
   name: varchar("name", { length: 100 }).notNull(),
   subject: varchar("subject", { length: 255 }).notNull(),
@@ -251,7 +281,29 @@ export const socialConnections = pgTable("social_connections", {
 });
 
 // Relations
+export const organizationsRelations = relations(organizations, ({ many }) => ({
+  members: many(organizationMembers),
+  events: many(events),
+  attendees: many(attendees),
+  speakers: many(speakers),
+  sessions: many(eventSessions),
+  attendeeTypes: many(attendeeTypes),
+  contentItems: many(contentItems),
+  budgetItems: many(budgetItems),
+  milestones: many(milestones),
+  deliverables: many(deliverables),
+  emailCampaigns: many(emailCampaigns),
+  socialPosts: many(socialPosts),
+  emailTemplates: many(emailTemplates),
+}));
+
+export const organizationMembersRelations = relations(organizationMembers, ({ one }) => ({
+  organization: one(organizations, { fields: [organizationMembers.organizationId], references: [organizations.id] }),
+  user: one(users, { fields: [organizationMembers.userId], references: [users.id] }),
+}));
+
 export const eventsRelations = relations(events, ({ one, many }) => ({
+  organization: one(organizations, { fields: [events.organizationId], references: [organizations.id] }),
   createdByUser: one(users, { fields: [events.createdBy], references: [users.id] }),
   attendees: many(attendees),
   speakers: many(speakers),
@@ -265,15 +317,18 @@ export const eventsRelations = relations(events, ({ one, many }) => ({
 }));
 
 export const attendeesRelations = relations(attendees, ({ one }) => ({
+  organization: one(organizations, { fields: [attendees.organizationId], references: [organizations.id] }),
   event: one(events, { fields: [attendees.eventId], references: [events.id] }),
 }));
 
 export const speakersRelations = relations(speakers, ({ one, many }) => ({
+  organization: one(organizations, { fields: [speakers.organizationId], references: [organizations.id] }),
   event: one(events, { fields: [speakers.eventId], references: [events.id] }),
   sessionSpeakers: many(sessionSpeakers),
 }));
 
 export const eventSessionsRelations = relations(eventSessions, ({ one, many }) => ({
+  organization: one(organizations, { fields: [eventSessions.organizationId], references: [organizations.id] }),
   event: one(events, { fields: [eventSessions.eventId], references: [events.id] }),
   sessionSpeakers: many(sessionSpeakers),
 }));
@@ -284,36 +339,43 @@ export const sessionSpeakersRelations = relations(sessionSpeakers, ({ one }) => 
 }));
 
 export const contentItemsRelations = relations(contentItems, ({ one }) => ({
+  organization: one(organizations, { fields: [contentItems.organizationId], references: [organizations.id] }),
   event: one(events, { fields: [contentItems.eventId], references: [events.id] }),
 }));
 
 export const budgetItemsRelations = relations(budgetItems, ({ one }) => ({
+  organization: one(organizations, { fields: [budgetItems.organizationId], references: [organizations.id] }),
   event: one(events, { fields: [budgetItems.eventId], references: [events.id] }),
 }));
 
 export const milestonesRelations = relations(milestones, ({ one, many }) => ({
+  organization: one(organizations, { fields: [milestones.organizationId], references: [organizations.id] }),
   event: one(events, { fields: [milestones.eventId], references: [events.id] }),
   assignedToUser: one(users, { fields: [milestones.assignedTo], references: [users.id] }),
   deliverables: many(deliverables),
 }));
 
 export const deliverablesRelations = relations(deliverables, ({ one }) => ({
+  organization: one(organizations, { fields: [deliverables.organizationId], references: [organizations.id] }),
   event: one(events, { fields: [deliverables.eventId], references: [events.id] }),
   milestone: one(milestones, { fields: [deliverables.milestoneId], references: [milestones.id] }),
   assignedToUser: one(users, { fields: [deliverables.assignedTo], references: [users.id] }),
 }));
 
 export const emailCampaignsRelations = relations(emailCampaigns, ({ one }) => ({
+  organization: one(organizations, { fields: [emailCampaigns.organizationId], references: [organizations.id] }),
   event: one(events, { fields: [emailCampaigns.eventId], references: [events.id] }),
   createdByUser: one(users, { fields: [emailCampaigns.createdBy], references: [users.id] }),
 }));
 
 export const socialPostsRelations = relations(socialPosts, ({ one }) => ({
+  organization: one(organizations, { fields: [socialPosts.organizationId], references: [organizations.id] }),
   event: one(events, { fields: [socialPosts.eventId], references: [events.id] }),
   createdByUser: one(users, { fields: [socialPosts.createdBy], references: [users.id] }),
 }));
 
 export const emailTemplatesRelations = relations(emailTemplates, ({ one }) => ({
+  organization: one(organizations, { fields: [emailTemplates.organizationId], references: [organizations.id] }),
   event: one(events, { fields: [emailTemplates.eventId], references: [events.id] }),
   createdByUser: one(users, { fields: [emailTemplates.createdBy], references: [users.id] }),
 }));
@@ -323,11 +385,14 @@ export const socialConnectionsRelations = relations(socialConnections, ({ one })
 }));
 
 export const attendeeTypesRelations = relations(attendeeTypes, ({ one }) => ({
+  organization: one(organizations, { fields: [attendeeTypes.organizationId], references: [organizations.id] }),
   event: one(events, { fields: [attendeeTypes.eventId], references: [events.id] }),
 }));
 
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true, updatedAt: true });
+export const insertOrganizationSchema = createInsertSchema(organizations).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertOrganizationMemberSchema = createInsertSchema(organizationMembers).omit({ id: true, createdAt: true });
 export const insertEventSchema = createInsertSchema(events).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertAttendeeSchema = createInsertSchema(attendees).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSpeakerSchema = createInsertSchema(speakers).omit({ id: true, createdAt: true, updatedAt: true });
@@ -346,6 +411,10 @@ export const insertAttendeeTypeSchema = createInsertSchema(attendeeTypes).omit({
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+export type InsertOrganization = z.infer<typeof insertOrganizationSchema>;
+export type Organization = typeof organizations.$inferSelect;
+export type InsertOrganizationMember = z.infer<typeof insertOrganizationMemberSchema>;
+export type OrganizationMember = typeof organizationMembers.$inferSelect;
 export type InsertEvent = z.infer<typeof insertEventSchema>;
 export type Event = typeof events.$inferSelect;
 export type InsertAttendee = z.infer<typeof insertAttendeeSchema>;
