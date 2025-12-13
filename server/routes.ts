@@ -55,6 +55,32 @@ export async function registerRoutes(
     }
   });
 
+  app.get('/api/auth/organization', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const memberships = await storage.getUserOrganizations(userId);
+      if (memberships.length > 0) {
+        const org = await storage.getOrganization(memberships[0].organizationId);
+        res.json(org);
+      } else {
+        // Create default org for user if none exists
+        const org = await storage.createOrganization({
+          name: 'My Organization',
+          slug: `org-${userId.slice(0, 8)}`
+        });
+        await storage.addOrganizationMember({
+          organizationId: org.id,
+          userId: userId,
+          role: 'owner'
+        });
+        res.json(org);
+      }
+    } catch (error) {
+      console.error("Error fetching organization:", error);
+      res.status(500).json({ message: "Failed to fetch organization" });
+    }
+  });
+
   // Event routes
   app.get("/api/events", isAuthenticated, async (req: any, res) => {
     try {
