@@ -60,9 +60,10 @@ export async function registerRoutes(
       });
       const event = await storage.createEvent(data);
       res.status(201).json(event);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating event:", error);
-      res.status(400).json({ message: "Invalid event data" });
+      const message = error.errors ? error.errors.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', ') : "Invalid event data";
+      res.status(400).json({ message });
     }
   });
 
