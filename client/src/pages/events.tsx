@@ -53,6 +53,7 @@ const eventFormSchema = z.object({
   postalCode: z.string().optional(),
   phone: z.string().optional(),
   website: z.string().optional(),
+  publicSlug: z.string().optional(),
   status: z.enum(["draft", "published", "cancelled", "completed"]),
 });
 
@@ -84,6 +85,7 @@ export default function Events() {
       postalCode: "",
       phone: "",
       website: "",
+      publicSlug: "",
       status: "draft",
     },
   });
@@ -165,6 +167,7 @@ export default function Events() {
         postalCode: selectedEvent.postalCode || "",
         phone: selectedEvent.phone || "",
         website: selectedEvent.website || "",
+        publicSlug: selectedEvent.publicSlug || "",
         status: selectedEvent.status as EventFormValues["status"],
       });
       setIsEditing(true);
@@ -421,6 +424,24 @@ export default function Events() {
                               {...field}
                               value={field.value || ""}
                               data-testid="input-event-website"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="publicSlug"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Public URL Slug</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="my-conference-2025"
+                              {...field}
+                              value={field.value || ""}
+                              data-testid="input-event-public-slug"
                             />
                           </FormControl>
                           <FormMessage />
@@ -772,6 +793,24 @@ export default function Events() {
                                 {...field}
                                 value={field.value || ""}
                                 data-testid="input-edit-event-website"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="publicSlug"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Public URL Slug</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder="my-conference-2025"
+                                {...field}
+                                value={field.value || ""}
+                                data-testid="input-edit-event-public-slug"
                               />
                             </FormControl>
                             <FormMessage />
