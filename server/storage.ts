@@ -14,6 +14,8 @@ import {
   socialPosts,
   emailTemplates,
   socialConnections,
+  organizations,
+  organizationMembers,
   type User,
   type UpsertUser,
   type Event,
@@ -42,94 +44,105 @@ import {
   type InsertEmailTemplate,
   type SocialConnection,
   type InsertSocialConnection,
+  type Organization,
+  type InsertOrganization,
+  type OrganizationMember,
+  type InsertOrganizationMember,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (MANDATORY for Replit Auth)
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
 
+  // Organization operations
+  getOrganization(id: string): Promise<Organization | undefined>;
+  getOrganizationBySlug(slug: string): Promise<Organization | undefined>;
+  createOrganization(org: InsertOrganization): Promise<Organization>;
+  getUserOrganizations(userId: string): Promise<OrganizationMember[]>;
+  addOrganizationMember(member: InsertOrganizationMember): Promise<OrganizationMember>;
+
   // Event operations
-  getEvents(): Promise<Event[]>;
+  getEvents(organizationId: string): Promise<Event[]>;
   getEvent(id: string): Promise<Event | undefined>;
   createEvent(event: InsertEvent): Promise<Event>;
   updateEvent(id: string, event: Partial<InsertEvent>): Promise<Event | undefined>;
   deleteEvent(id: string): Promise<void>;
 
   // Attendee operations
-  getAttendees(eventId?: string): Promise<Attendee[]>;
+  getAttendees(organizationId: string, eventId?: string): Promise<Attendee[]>;
   getAttendee(id: string): Promise<Attendee | undefined>;
   createAttendee(attendee: InsertAttendee): Promise<Attendee>;
   updateAttendee(id: string, attendee: Partial<InsertAttendee>): Promise<Attendee | undefined>;
   deleteAttendee(id: string): Promise<void>;
 
   // Attendee Type operations
-  getAttendeeTypes(eventId?: string): Promise<AttendeeType[]>;
+  getAttendeeTypes(organizationId: string, eventId?: string): Promise<AttendeeType[]>;
   getAttendeeType(id: string): Promise<AttendeeType | undefined>;
   createAttendeeType(attendeeType: InsertAttendeeType): Promise<AttendeeType>;
   updateAttendeeType(id: string, attendeeType: Partial<InsertAttendeeType>): Promise<AttendeeType | undefined>;
   deleteAttendeeType(id: string): Promise<void>;
 
   // Speaker operations
-  getSpeakers(eventId?: string): Promise<Speaker[]>;
+  getSpeakers(organizationId: string, eventId?: string): Promise<Speaker[]>;
   getSpeaker(id: string): Promise<Speaker | undefined>;
   createSpeaker(speaker: InsertSpeaker): Promise<Speaker>;
   updateSpeaker(id: string, speaker: Partial<InsertSpeaker>): Promise<Speaker | undefined>;
   deleteSpeaker(id: string): Promise<void>;
 
   // Session operations
-  getSessions(eventId?: string): Promise<EventSession[]>;
+  getSessions(organizationId: string, eventId?: string): Promise<EventSession[]>;
   getSession(id: string): Promise<EventSession | undefined>;
   createSession(session: InsertSession): Promise<EventSession>;
   updateSession(id: string, session: Partial<InsertSession>): Promise<EventSession | undefined>;
   deleteSession(id: string): Promise<void>;
 
   // Content operations
-  getContentItems(eventId?: string): Promise<ContentItem[]>;
+  getContentItems(organizationId: string, eventId?: string): Promise<ContentItem[]>;
   getContentItem(id: string): Promise<ContentItem | undefined>;
   createContentItem(item: InsertContentItem): Promise<ContentItem>;
   updateContentItem(id: string, item: Partial<InsertContentItem>): Promise<ContentItem | undefined>;
   deleteContentItem(id: string): Promise<void>;
 
   // Budget operations
-  getBudgetItems(eventId?: string): Promise<BudgetItem[]>;
+  getBudgetItems(organizationId: string, eventId?: string): Promise<BudgetItem[]>;
   getBudgetItem(id: string): Promise<BudgetItem | undefined>;
   createBudgetItem(item: InsertBudgetItem): Promise<BudgetItem>;
   updateBudgetItem(id: string, item: Partial<InsertBudgetItem>): Promise<BudgetItem | undefined>;
   deleteBudgetItem(id: string): Promise<void>;
 
   // Milestone operations
-  getMilestones(eventId?: string): Promise<Milestone[]>;
+  getMilestones(organizationId: string, eventId?: string): Promise<Milestone[]>;
   getMilestone(id: string): Promise<Milestone | undefined>;
   createMilestone(milestone: InsertMilestone): Promise<Milestone>;
   updateMilestone(id: string, milestone: Partial<InsertMilestone>): Promise<Milestone | undefined>;
   deleteMilestone(id: string): Promise<void>;
 
   // Deliverable operations
-  getDeliverables(eventId?: string): Promise<Deliverable[]>;
+  getDeliverables(organizationId: string, eventId?: string): Promise<Deliverable[]>;
   getDeliverable(id: string): Promise<Deliverable | undefined>;
   createDeliverable(deliverable: InsertDeliverable): Promise<Deliverable>;
   updateDeliverable(id: string, deliverable: Partial<InsertDeliverable>): Promise<Deliverable | undefined>;
   deleteDeliverable(id: string): Promise<void>;
 
   // Email campaign operations
-  getEmailCampaigns(eventId?: string): Promise<EmailCampaign[]>;
+  getEmailCampaigns(organizationId: string, eventId?: string): Promise<EmailCampaign[]>;
   getEmailCampaign(id: string): Promise<EmailCampaign | undefined>;
   createEmailCampaign(campaign: InsertEmailCampaign): Promise<EmailCampaign>;
   updateEmailCampaign(id: string, campaign: Partial<InsertEmailCampaign>): Promise<EmailCampaign | undefined>;
   deleteEmailCampaign(id: string): Promise<void>;
 
   // Social post operations
-  getSocialPosts(eventId?: string): Promise<SocialPost[]>;
+  getSocialPosts(organizationId: string, eventId?: string): Promise<SocialPost[]>;
   getSocialPost(id: string): Promise<SocialPost | undefined>;
   createSocialPost(post: InsertSocialPost): Promise<SocialPost>;
   updateSocialPost(id: string, post: Partial<InsertSocialPost>): Promise<SocialPost | undefined>;
   deleteSocialPost(id: string): Promise<void>;
 
   // Email template operations
-  getEmailTemplates(eventId?: string): Promise<EmailTemplate[]>;
+  getEmailTemplates(organizationId: string, eventId?: string): Promise<EmailTemplate[]>;
   getEmailTemplate(id: string): Promise<EmailTemplate | undefined>;
   createEmailTemplate(template: InsertEmailTemplate): Promise<EmailTemplate>;
   updateEmailTemplate(id: string, template: Partial<InsertEmailTemplate>): Promise<EmailTemplate | undefined>;
@@ -186,9 +199,34 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  // Organization operations
+  async getOrganization(id: string): Promise<Organization | undefined> {
+    const [org] = await db.select().from(organizations).where(eq(organizations.id, id));
+    return org;
+  }
+
+  async getOrganizationBySlug(slug: string): Promise<Organization | undefined> {
+    const [org] = await db.select().from(organizations).where(eq(organizations.slug, slug));
+    return org;
+  }
+
+  async createOrganization(org: InsertOrganization): Promise<Organization> {
+    const [newOrg] = await db.insert(organizations).values(org).returning();
+    return newOrg;
+  }
+
+  async getUserOrganizations(userId: string): Promise<OrganizationMember[]> {
+    return db.select().from(organizationMembers).where(eq(organizationMembers.userId, userId));
+  }
+
+  async addOrganizationMember(member: InsertOrganizationMember): Promise<OrganizationMember> {
+    const [newMember] = await db.insert(organizationMembers).values(member).returning();
+    return newMember;
+  }
+
   // Event operations
-  async getEvents(): Promise<Event[]> {
-    return db.select().from(events).orderBy(desc(events.createdAt));
+  async getEvents(organizationId: string): Promise<Event[]> {
+    return db.select().from(events).where(eq(events.organizationId, organizationId)).orderBy(desc(events.createdAt));
   }
 
   async getEvent(id: string): Promise<Event | undefined> {
@@ -215,11 +253,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Attendee operations
-  async getAttendees(eventId?: string): Promise<Attendee[]> {
+  async getAttendees(organizationId: string, eventId?: string): Promise<Attendee[]> {
     if (eventId) {
-      return db.select().from(attendees).where(eq(attendees.eventId, eventId)).orderBy(desc(attendees.createdAt));
+      return db.select().from(attendees).where(and(eq(attendees.organizationId, organizationId), eq(attendees.eventId, eventId))).orderBy(desc(attendees.createdAt));
     }
-    return db.select().from(attendees).orderBy(desc(attendees.createdAt));
+    return db.select().from(attendees).where(eq(attendees.organizationId, organizationId)).orderBy(desc(attendees.createdAt));
   }
 
   async getAttendee(id: string): Promise<Attendee | undefined> {
@@ -246,11 +284,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Attendee Type operations
-  async getAttendeeTypes(eventId?: string): Promise<AttendeeType[]> {
+  async getAttendeeTypes(organizationId: string, eventId?: string): Promise<AttendeeType[]> {
     if (eventId) {
-      return db.select().from(attendeeTypes).where(eq(attendeeTypes.eventId, eventId)).orderBy(desc(attendeeTypes.createdAt));
+      return db.select().from(attendeeTypes).where(and(eq(attendeeTypes.organizationId, organizationId), eq(attendeeTypes.eventId, eventId))).orderBy(desc(attendeeTypes.createdAt));
     }
-    return db.select().from(attendeeTypes).orderBy(desc(attendeeTypes.createdAt));
+    return db.select().from(attendeeTypes).where(eq(attendeeTypes.organizationId, organizationId)).orderBy(desc(attendeeTypes.createdAt));
   }
 
   async getAttendeeType(id: string): Promise<AttendeeType | undefined> {
@@ -277,11 +315,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Speaker operations
-  async getSpeakers(eventId?: string): Promise<Speaker[]> {
+  async getSpeakers(organizationId: string, eventId?: string): Promise<Speaker[]> {
     if (eventId) {
-      return db.select().from(speakers).where(eq(speakers.eventId, eventId)).orderBy(desc(speakers.createdAt));
+      return db.select().from(speakers).where(and(eq(speakers.organizationId, organizationId), eq(speakers.eventId, eventId))).orderBy(desc(speakers.createdAt));
     }
-    return db.select().from(speakers).orderBy(desc(speakers.createdAt));
+    return db.select().from(speakers).where(eq(speakers.organizationId, organizationId)).orderBy(desc(speakers.createdAt));
   }
 
   async getSpeaker(id: string): Promise<Speaker | undefined> {
@@ -290,14 +328,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createSpeaker(speaker: InsertSpeaker): Promise<Speaker> {
-    const [newSpeaker] = await db.insert(speakers).values(speaker).returning();
+    const [newSpeaker] = await db.insert(speakers).values(speaker as typeof speakers.$inferInsert).returning();
     return newSpeaker;
   }
 
   async updateSpeaker(id: string, speaker: Partial<InsertSpeaker>): Promise<Speaker | undefined> {
+    const updatePayload = { ...speaker, updatedAt: new Date() } as Partial<typeof speakers.$inferInsert> & { updatedAt: Date };
     const [updated] = await db
       .update(speakers)
-      .set({ ...speaker, updatedAt: new Date() })
+      .set(updatePayload)
       .where(eq(speakers.id, id))
       .returning();
     return updated;
@@ -308,11 +347,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Session operations
-  async getSessions(eventId?: string): Promise<EventSession[]> {
+  async getSessions(organizationId: string, eventId?: string): Promise<EventSession[]> {
     if (eventId) {
-      return db.select().from(eventSessions).where(eq(eventSessions.eventId, eventId)).orderBy(eventSessions.sessionDate);
+      return db.select().from(eventSessions).where(and(eq(eventSessions.organizationId, organizationId), eq(eventSessions.eventId, eventId))).orderBy(eventSessions.sessionDate);
     }
-    return db.select().from(eventSessions).orderBy(eventSessions.sessionDate);
+    return db.select().from(eventSessions).where(eq(eventSessions.organizationId, organizationId)).orderBy(eventSessions.sessionDate);
   }
 
   async getSession(id: string): Promise<EventSession | undefined> {
@@ -339,11 +378,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Content operations
-  async getContentItems(eventId?: string): Promise<ContentItem[]> {
+  async getContentItems(organizationId: string, eventId?: string): Promise<ContentItem[]> {
     if (eventId) {
-      return db.select().from(contentItems).where(eq(contentItems.eventId, eventId)).orderBy(desc(contentItems.createdAt));
+      return db.select().from(contentItems).where(and(eq(contentItems.organizationId, organizationId), eq(contentItems.eventId, eventId))).orderBy(desc(contentItems.createdAt));
     }
-    return db.select().from(contentItems).orderBy(desc(contentItems.createdAt));
+    return db.select().from(contentItems).where(eq(contentItems.organizationId, organizationId)).orderBy(desc(contentItems.createdAt));
   }
 
   async getContentItem(id: string): Promise<ContentItem | undefined> {
@@ -370,11 +409,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Budget operations
-  async getBudgetItems(eventId?: string): Promise<BudgetItem[]> {
+  async getBudgetItems(organizationId: string, eventId?: string): Promise<BudgetItem[]> {
     if (eventId) {
-      return db.select().from(budgetItems).where(eq(budgetItems.eventId, eventId)).orderBy(desc(budgetItems.createdAt));
+      return db.select().from(budgetItems).where(and(eq(budgetItems.organizationId, organizationId), eq(budgetItems.eventId, eventId))).orderBy(desc(budgetItems.createdAt));
     }
-    return db.select().from(budgetItems).orderBy(desc(budgetItems.createdAt));
+    return db.select().from(budgetItems).where(eq(budgetItems.organizationId, organizationId)).orderBy(desc(budgetItems.createdAt));
   }
 
   async getBudgetItem(id: string): Promise<BudgetItem | undefined> {
@@ -401,11 +440,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Milestone operations
-  async getMilestones(eventId?: string): Promise<Milestone[]> {
+  async getMilestones(organizationId: string, eventId?: string): Promise<Milestone[]> {
     if (eventId) {
-      return db.select().from(milestones).where(eq(milestones.eventId, eventId)).orderBy(milestones.dueDate);
+      return db.select().from(milestones).where(and(eq(milestones.organizationId, organizationId), eq(milestones.eventId, eventId))).orderBy(milestones.dueDate);
     }
-    return db.select().from(milestones).orderBy(milestones.dueDate);
+    return db.select().from(milestones).where(eq(milestones.organizationId, organizationId)).orderBy(milestones.dueDate);
   }
 
   async getMilestone(id: string): Promise<Milestone | undefined> {
@@ -432,11 +471,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Deliverable operations
-  async getDeliverables(eventId?: string): Promise<Deliverable[]> {
+  async getDeliverables(organizationId: string, eventId?: string): Promise<Deliverable[]> {
     if (eventId) {
-      return db.select().from(deliverables).where(eq(deliverables.eventId, eventId)).orderBy(desc(deliverables.createdAt));
+      return db.select().from(deliverables).where(and(eq(deliverables.organizationId, organizationId), eq(deliverables.eventId, eventId))).orderBy(desc(deliverables.createdAt));
     }
-    return db.select().from(deliverables).orderBy(desc(deliverables.createdAt));
+    return db.select().from(deliverables).where(eq(deliverables.organizationId, organizationId)).orderBy(desc(deliverables.createdAt));
   }
 
   async getDeliverable(id: string): Promise<Deliverable | undefined> {
@@ -463,11 +502,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Email campaign operations
-  async getEmailCampaigns(eventId?: string): Promise<EmailCampaign[]> {
+  async getEmailCampaigns(organizationId: string, eventId?: string): Promise<EmailCampaign[]> {
     if (eventId) {
-      return db.select().from(emailCampaigns).where(eq(emailCampaigns.eventId, eventId)).orderBy(desc(emailCampaigns.createdAt));
+      return db.select().from(emailCampaigns).where(and(eq(emailCampaigns.organizationId, organizationId), eq(emailCampaigns.eventId, eventId))).orderBy(desc(emailCampaigns.createdAt));
     }
-    return db.select().from(emailCampaigns).orderBy(desc(emailCampaigns.createdAt));
+    return db.select().from(emailCampaigns).where(eq(emailCampaigns.organizationId, organizationId)).orderBy(desc(emailCampaigns.createdAt));
   }
 
   async getEmailCampaign(id: string): Promise<EmailCampaign | undefined> {
@@ -494,11 +533,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Social post operations
-  async getSocialPosts(eventId?: string): Promise<SocialPost[]> {
+  async getSocialPosts(organizationId: string, eventId?: string): Promise<SocialPost[]> {
     if (eventId) {
-      return db.select().from(socialPosts).where(eq(socialPosts.eventId, eventId)).orderBy(desc(socialPosts.createdAt));
+      return db.select().from(socialPosts).where(and(eq(socialPosts.organizationId, organizationId), eq(socialPosts.eventId, eventId))).orderBy(desc(socialPosts.createdAt));
     }
-    return db.select().from(socialPosts).orderBy(desc(socialPosts.createdAt));
+    return db.select().from(socialPosts).where(eq(socialPosts.organizationId, organizationId)).orderBy(desc(socialPosts.createdAt));
   }
 
   async getSocialPost(id: string): Promise<SocialPost | undefined> {
@@ -525,11 +564,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Email template operations
-  async getEmailTemplates(eventId?: string): Promise<EmailTemplate[]> {
+  async getEmailTemplates(organizationId: string, eventId?: string): Promise<EmailTemplate[]> {
     if (eventId) {
-      return db.select().from(emailTemplates).where(eq(emailTemplates.eventId, eventId)).orderBy(desc(emailTemplates.createdAt));
+      return db.select().from(emailTemplates).where(and(eq(emailTemplates.organizationId, organizationId), eq(emailTemplates.eventId, eventId))).orderBy(desc(emailTemplates.createdAt));
     }
-    return db.select().from(emailTemplates).orderBy(desc(emailTemplates.createdAt));
+    return db.select().from(emailTemplates).where(eq(emailTemplates.organizationId, organizationId)).orderBy(desc(emailTemplates.createdAt));
   }
 
   async getEmailTemplate(id: string): Promise<EmailTemplate | undefined> {
@@ -587,9 +626,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getSocialConnectionByPlatform(userId: string, platform: string): Promise<SocialConnection | undefined> {
-    const connections = await db.select().from(socialConnections)
-      .where(eq(socialConnections.userId, userId));
-    return connections.find(c => c.platform === platform);
+    const [connection] = await db.select().from(socialConnections)
+      .where(and(eq(socialConnections.userId, userId), eq(socialConnections.platform, platform)));
+    return connection;
   }
 
   async createSocialConnection(connection: InsertSocialConnection): Promise<SocialConnection> {
