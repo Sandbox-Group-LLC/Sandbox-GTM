@@ -100,8 +100,8 @@ const defaultSteps: FlowStep[] = [
     title: "Payment",
     description: "Process registration payment",
     icon: CreditCard,
-    status: "disabled",
-    enabled: false,
+    status: "pending",
+    enabled: true,
   },
   {
     id: 5,
@@ -164,6 +164,15 @@ export default function RegistrationFlow() {
   const [overridePrice, setOverridePrice] = useState("");
   const [overrideFeatures, setOverrideFeatures] = useState("");
   const { toast } = useToast();
+
+  const [step4Config, setStep4Config] = useState({
+    cardholderName: "",
+    cardNumber: "",
+    expiryDate: "",
+    cvc: "",
+    acceptTerms: false,
+    requirePayment: true,
+  });
 
   const [step5Config, setStep5Config] = useState({
     sendConfirmationEmail: true,
@@ -642,12 +651,127 @@ export default function RegistrationFlow() {
 
       case 4:
         return (
-          <div className="flex flex-col items-center justify-center h-64 text-center">
-            <div className="text-muted-foreground mb-4">
-              <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <h3 className="font-medium text-lg">Coming Soon</h3>
-              <p className="text-sm">This step will be available in a future update</p>
+          <div className="space-y-6">
+            <div className="flex items-center justify-between p-3 border rounded-md">
+              <div>
+                <Label htmlFor="requirePayment" className="cursor-pointer">Require Payment</Label>
+                <p className="text-sm text-muted-foreground">Attendees must complete payment to register</p>
+              </div>
+              <Switch
+                id="requirePayment"
+                checked={step4Config.requirePayment}
+                onCheckedChange={(checked) => setStep4Config({ ...step4Config, requirePayment: checked })}
+                data-testid="switch-require-payment"
+              />
             </div>
+
+            <div>
+              <h3 className="text-lg font-medium mb-2">Payment Form Preview</h3>
+              <p className="text-sm text-muted-foreground mb-4">This is how the payment form will appear to attendees</p>
+              
+              <Card className="max-w-md">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <CreditCard className="h-5 w-5" />
+                    Payment Details
+                  </CardTitle>
+                  <CardDescription>Enter your card information securely</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="cardholderName">Cardholder Name</Label>
+                    <Input
+                      id="cardholderName"
+                      placeholder="John Doe"
+                      value={step4Config.cardholderName}
+                      onChange={(e) => setStep4Config({ ...step4Config, cardholderName: e.target.value })}
+                      data-testid="input-cardholder-name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cardNumber">Card Number</Label>
+                    <Input
+                      id="cardNumber"
+                      placeholder="1234 5678 9012 3456"
+                      value={step4Config.cardNumber}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, '').slice(0, 16);
+                        const formatted = value.replace(/(\d{4})(?=\d)/g, '$1 ');
+                        setStep4Config({ ...step4Config, cardNumber: formatted });
+                      }}
+                      data-testid="input-card-number"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="expiryDate">Expiry Date</Label>
+                      <Input
+                        id="expiryDate"
+                        placeholder="MM/YY"
+                        value={step4Config.expiryDate}
+                        onChange={(e) => {
+                          let value = e.target.value.replace(/\D/g, '').slice(0, 4);
+                          if (value.length >= 2) {
+                            value = value.slice(0, 2) + '/' + value.slice(2);
+                          }
+                          setStep4Config({ ...step4Config, expiryDate: value });
+                        }}
+                        data-testid="input-expiry-date"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="cvc">CVC</Label>
+                      <Input
+                        id="cvc"
+                        placeholder="123"
+                        value={step4Config.cvc}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/\D/g, '').slice(0, 4);
+                          setStep4Config({ ...step4Config, cvc: value });
+                        }}
+                        data-testid="input-cvc"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 pt-2">
+                    <input
+                      type="checkbox"
+                      id="acceptTerms"
+                      checked={step4Config.acceptTerms}
+                      onChange={(e) => setStep4Config({ ...step4Config, acceptTerms: e.target.checked })}
+                      className="mt-1"
+                      data-testid="checkbox-accept-terms"
+                    />
+                    <Label htmlFor="acceptTerms" className="text-sm cursor-pointer">
+                      I agree to the <span className="text-primary underline">Terms and Conditions</span> and <span className="text-primary underline">Privacy Policy</span>
+                    </Label>
+                  </div>
+                  <Button
+                    className="w-full"
+                    disabled={!step4Config.acceptTerms}
+                    data-testid="button-submit-payment"
+                  >
+                    <CreditCard className="h-4 w-4 mr-2" />
+                    Pay Now
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Shield className="h-4 w-4" />
+                  Payment Processing
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  Stripe integration will be configured here to securely process credit card payments. 
+                  Connect your Stripe account to enable live payment processing.
+                </p>
+              </CardContent>
+            </Card>
           </div>
         );
 
