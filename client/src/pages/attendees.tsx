@@ -44,7 +44,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Plus, Users, Search, Download, Settings2, ArrowUpDown, ArrowUp, ArrowDown, Filter, X } from "lucide-react";
 import { EventSelectField } from "@/components/event-select-field";
-import type { Attendee } from "@shared/schema";
+import type { Attendee, Event } from "@shared/schema";
 
 const ATTENDEE_TYPE_OPTIONS = [
   { value: "attendee", label: "Attendee" },
@@ -72,6 +72,7 @@ type ColumnConfig = {
 const ALL_COLUMNS: ColumnConfig[] = [
   { key: "name", header: "Name", sortable: true, getValue: (a) => `${a.firstName} ${a.lastName}` },
   { key: "email", header: "Email", sortable: true, getValue: (a) => a.email },
+  { key: "event", header: "Event", sortable: true, getValue: (a) => a.eventId },
   { key: "phone", header: "Phone", sortable: true, getValue: (a) => a.phone || "" },
   { key: "company", header: "Company", sortable: true, getValue: (a) => a.company || "" },
   { key: "jobTitle", header: "Job Title", sortable: true, getValue: (a) => a.jobTitle || "" },
@@ -125,6 +126,18 @@ export default function Attendees() {
   const { data: attendees = [], isLoading } = useQuery<Attendee[]>({
     queryKey: ["/api/attendees"],
   });
+
+  const { data: events = [] } = useQuery<Event[]>({
+    queryKey: ["/api/events"],
+  });
+
+  const eventLookup = useMemo(() => {
+    const lookup: Record<string, string> = {};
+    events.forEach((event) => {
+      lookup[event.id] = event.name;
+    });
+    return lookup;
+  }, [events]);
 
   const form = useForm<AttendeeFormData>({
     resolver: zodResolver(attendeeFormSchema),
@@ -274,8 +287,14 @@ export default function Attendees() {
       const columnConfig = ALL_COLUMNS.find((c) => c.key === sortConfig.key);
       if (columnConfig?.getValue) {
         result.sort((a, b) => {
-          const aVal = columnConfig.getValue!(a);
-          const bVal = columnConfig.getValue!(b);
+          let aVal = columnConfig.getValue!(a);
+          let bVal = columnConfig.getValue!(b);
+          
+          // For event column, sort by event name not ID
+          if (sortConfig.key === "event") {
+            aVal = eventLookup[a.eventId] || "";
+            bVal = eventLookup[b.eventId] || "";
+          }
           
           const aIsEmpty = aVal === null || aVal === undefined || aVal === "";
           const bIsEmpty = bVal === null || bVal === undefined || bVal === "";
@@ -300,7 +319,7 @@ export default function Attendees() {
     }
 
     return result;
-  }, [attendees, searchQuery, statusFilter, typeFilter, sortConfig]);
+  }, [attendees, searchQuery, statusFilter, typeFilter, sortConfig, eventLookup]);
 
   const getSortIcon = (columnKey: string) => {
     if (sortConfig?.key !== columnKey) {
@@ -338,6 +357,8 @@ export default function Attendees() {
               );
             case "email":
               return <span className="text-muted-foreground">{attendee.email}</span>;
+            case "event":
+              return eventLookup[attendee.eventId] || "-";
             case "status":
               return (
                 <Badge variant={statusColors[attendee.registrationStatus || "pending"]}>
@@ -382,7 +403,7 @@ export default function Attendees() {
     });
 
     return dynamicColumns;
-  }, [visibleColumns, sortConfig]);
+  }, [visibleColumns, sortConfig, eventLookup]);
 
   return (
     <div className="flex flex-col h-full">
