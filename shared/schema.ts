@@ -82,6 +82,16 @@ export const attendees = pgTable("attendees", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Attendee Types table
+export const attendeeTypes = pgTable("attendee_types", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").references(() => events.id).notNull(),
+  type: varchar("type", { length: 50 }).notNull(),
+  capacity: integer("capacity").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Speakers table
 export const speakers = pgTable("speakers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -311,6 +321,10 @@ export const socialConnectionsRelations = relations(socialConnections, ({ one })
   user: one(users, { fields: [socialConnections.userId], references: [users.id] }),
 }));
 
+export const attendeeTypesRelations = relations(attendeeTypes, ({ one }) => ({
+  event: one(events, { fields: [attendeeTypes.eventId], references: [events.id] }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true, updatedAt: true });
 export const insertEventSchema = createInsertSchema(events).omit({ id: true, createdAt: true, updatedAt: true });
@@ -326,6 +340,7 @@ export const insertEmailCampaignSchema = createInsertSchema(emailCampaigns).omit
 export const insertSocialPostSchema = createInsertSchema(socialPosts).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertEmailTemplateSchema = createInsertSchema(emailTemplates).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSocialConnectionSchema = createInsertSchema(socialConnections).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertAttendeeTypeSchema = createInsertSchema(attendeeTypes).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Types
 export type UpsertUser = typeof users.$inferInsert;
@@ -356,3 +371,5 @@ export type InsertEmailTemplate = z.infer<typeof insertEmailTemplateSchema>;
 export type EmailTemplate = typeof emailTemplates.$inferSelect;
 export type InsertSocialConnection = z.infer<typeof insertSocialConnectionSchema>;
 export type SocialConnection = typeof socialConnections.$inferSelect;
+export type InsertAttendeeType = z.infer<typeof insertAttendeeTypeSchema>;
+export type AttendeeType = typeof attendeeTypes.$inferSelect;
