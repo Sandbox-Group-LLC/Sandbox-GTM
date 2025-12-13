@@ -3,6 +3,7 @@ import {
   events,
   attendees,
   attendeeTypes,
+  packages,
   speakers,
   eventSessions,
   sessionSpeakers,
@@ -24,6 +25,8 @@ import {
   type InsertAttendee,
   type AttendeeType,
   type InsertAttendeeType,
+  type Package,
+  type InsertPackage,
   type Speaker,
   type InsertSpeaker,
   type EventSession,
@@ -84,6 +87,13 @@ export interface IStorage {
   createAttendeeType(attendeeType: InsertAttendeeType): Promise<AttendeeType>;
   updateAttendeeType(organizationId: string, id: string, attendeeType: Partial<InsertAttendeeType>): Promise<AttendeeType | undefined>;
   deleteAttendeeType(organizationId: string, id: string): Promise<void>;
+
+  // Package operations (global to organization, not event-specific)
+  getPackages(organizationId: string): Promise<Package[]>;
+  getPackage(organizationId: string, id: string): Promise<Package | undefined>;
+  createPackage(pkg: InsertPackage): Promise<Package>;
+  updatePackage(organizationId: string, id: string, pkg: Partial<InsertPackage>): Promise<Package | undefined>;
+  deletePackage(organizationId: string, id: string): Promise<void>;
 
   // Speaker operations
   getSpeakers(organizationId: string, eventId?: string): Promise<Speaker[]>;
@@ -315,6 +325,35 @@ export class DatabaseStorage implements IStorage {
 
   async deleteAttendeeType(organizationId: string, id: string): Promise<void> {
     await db.delete(attendeeTypes).where(and(eq(attendeeTypes.organizationId, organizationId), eq(attendeeTypes.id, id)));
+  }
+
+  // Package operations (global to organization, not event-specific)
+  async getPackages(organizationId: string): Promise<Package[]> {
+    return db.select().from(packages).where(eq(packages.organizationId, organizationId)).orderBy(desc(packages.createdAt));
+  }
+
+  async getPackage(organizationId: string, id: string): Promise<Package | undefined> {
+    const [pkg] = await db.select().from(packages)
+      .where(and(eq(packages.organizationId, organizationId), eq(packages.id, id)));
+    return pkg;
+  }
+
+  async createPackage(pkg: InsertPackage): Promise<Package> {
+    const [newPackage] = await db.insert(packages).values(pkg).returning();
+    return newPackage;
+  }
+
+  async updatePackage(organizationId: string, id: string, pkg: Partial<InsertPackage>): Promise<Package | undefined> {
+    const [updated] = await db
+      .update(packages)
+      .set({ ...pkg, updatedAt: new Date() })
+      .where(and(eq(packages.organizationId, organizationId), eq(packages.id, id)))
+      .returning();
+    return updated;
+  }
+
+  async deletePackage(organizationId: string, id: string): Promise<void> {
+    await db.delete(packages).where(and(eq(packages.organizationId, organizationId), eq(packages.id, id)));
   }
 
   // Speaker operations

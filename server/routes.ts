@@ -6,6 +6,7 @@ import {
   insertEventSchema,
   insertAttendeeSchema,
   insertAttendeeTypeSchema,
+  insertPackageSchema,
   insertSpeakerSchema,
   insertSessionSchema,
   insertContentItemSchema,
@@ -318,6 +319,74 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting attendee type:", error);
       res.status(500).json({ message: "Failed to delete attendee type" });
+    }
+  });
+
+  // Package routes (global to organization, not event-specific)
+  app.get("/api/packages", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const packages = await storage.getPackages(organizationId);
+      res.json(packages);
+    } catch (error) {
+      console.error("Error fetching packages:", error);
+      res.status(500).json({ message: "Failed to fetch packages" });
+    }
+  });
+
+  app.get("/api/packages/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const pkg = await storage.getPackage(organizationId, req.params.id);
+      if (!pkg) {
+        return res.status(404).json({ message: "Package not found" });
+      }
+      res.json(pkg);
+    } catch (error) {
+      console.error("Error fetching package:", error);
+      res.status(500).json({ message: "Failed to fetch package" });
+    }
+  });
+
+  app.post("/api/packages", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const data = insertPackageSchema.parse({ ...req.body, organizationId });
+      const pkg = await storage.createPackage(data);
+      res.status(201).json(pkg);
+    } catch (error) {
+      console.error("Error creating package:", error);
+      res.status(400).json({ message: "Invalid package data" });
+    }
+  });
+
+  app.patch("/api/packages/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const pkg = await storage.updatePackage(organizationId, req.params.id, req.body);
+      if (!pkg) {
+        return res.status(404).json({ message: "Package not found" });
+      }
+      res.json(pkg);
+    } catch (error) {
+      console.error("Error updating package:", error);
+      res.status(400).json({ message: "Failed to update package" });
+    }
+  });
+
+  app.delete("/api/packages/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      await storage.deletePackage(organizationId, req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting package:", error);
+      res.status(500).json({ message: "Failed to delete package" });
     }
   });
 

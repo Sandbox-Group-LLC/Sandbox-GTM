@@ -41,11 +41,15 @@ import { useAuth } from "@/hooks/useAuth";
 
 const mainMenuItems = [
   { title: "Dashboard", icon: LayoutDashboard, path: "/" },
-  { title: "Attendees", icon: Users, path: "/attendees" },
   { title: "Check-In", icon: QrCode, path: "/check-in" },
   { title: "Sessions", icon: Calendar, path: "/sessions" },
   { title: "Speakers", icon: Mic2, path: "/speakers" },
   { title: "Content", icon: FolderOpen, path: "/content" },
+];
+
+const attendeesSubItems = [
+  { title: "All Attendees", path: "/attendees" },
+  { title: "Packages", path: "/packages" },
 ];
 
 const eventsSubItems = [
@@ -70,6 +74,7 @@ export function AppSidebar() {
   const { user } = useAuth();
 
   const isEventsActive = location === "/events" || location === "/registration" || location === "/attendee-types";
+  const isAttendeesActive = location === "/attendees" || location === "/packages";
 
   const getInitials = () => {
     if (user?.firstName && user?.lastName) {
@@ -123,6 +128,40 @@ export function AppSidebar() {
                   <CollapsibleContent>
                     <SidebarMenuSub>
                       {eventsSubItems.map((item) => (
+                        <SidebarMenuSubItem key={item.title}>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={location === item.path}
+                          >
+                            <Link
+                              href={item.path}
+                              data-testid={`nav-${item.title.toLowerCase().replace(" ", "-")}`}
+                            >
+                              <span>{item.title}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+
+              <Collapsible defaultOpen={isAttendeesActive} className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton
+                      isActive={isAttendeesActive}
+                      data-testid="nav-attendees"
+                    >
+                      <Users className="h-4 w-4" />
+                      <span>Attendees</span>
+                      <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {attendeesSubItems.map((item) => (
                         <SidebarMenuSubItem key={item.title}>
                           <SidebarMenuSubButton
                             asChild

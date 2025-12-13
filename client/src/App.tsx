@@ -25,6 +25,7 @@ import Analytics from "@/pages/analytics";
 import PublicEvent from "@/pages/public-event";
 import AttendeeTypes from "@/pages/attendee-types";
 import RegistrationFlow from "@/pages/registration-flow";
+import Packages from "@/pages/packages";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const sidebarStyle = {
@@ -73,6 +74,7 @@ function Router() {
         <Route path="/attendee-types" component={AttendeeTypes} />
         <Route path="/registration" component={RegistrationFlow} />
         <Route path="/attendees" component={Attendees} />
+        <Route path="/packages" component={Packages} />
         <Route path="/check-in" component={CheckIn} />
         <Route path="/sessions" component={Sessions} />
         <Route path="/speakers" component={Speakers} />

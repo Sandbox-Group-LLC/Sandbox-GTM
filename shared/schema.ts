@@ -92,6 +92,19 @@ export const attendeeTypes = pgTable("attendee_types", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Packages table - global packages for registration (not event-specific)
+export const packages = pgTable("packages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  price: decimal("price", { precision: 10, scale: 2 }).default("0"),
+  features: text("features").array(),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Attendees table
 export const attendees = pgTable("attendees", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -288,6 +301,7 @@ export const organizationsRelations = relations(organizations, ({ many }) => ({
   speakers: many(speakers),
   sessions: many(eventSessions),
   attendeeTypes: many(attendeeTypes),
+  packages: many(packages),
   contentItems: many(contentItems),
   budgetItems: many(budgetItems),
   milestones: many(milestones),
@@ -389,6 +403,10 @@ export const attendeeTypesRelations = relations(attendeeTypes, ({ one }) => ({
   event: one(events, { fields: [attendeeTypes.eventId], references: [events.id] }),
 }));
 
+export const packagesRelations = relations(packages, ({ one }) => ({
+  organization: one(organizations, { fields: [packages.organizationId], references: [organizations.id] }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true, updatedAt: true });
 export const insertOrganizationSchema = createInsertSchema(organizations).omit({ id: true, createdAt: true, updatedAt: true });
@@ -407,6 +425,7 @@ export const insertSocialPostSchema = createInsertSchema(socialPosts).omit({ id:
 export const insertEmailTemplateSchema = createInsertSchema(emailTemplates).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSocialConnectionSchema = createInsertSchema(socialConnections).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertAttendeeTypeSchema = createInsertSchema(attendeeTypes).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertPackageSchema = createInsertSchema(packages).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Types
 export type UpsertUser = typeof users.$inferInsert;
@@ -443,3 +462,5 @@ export type InsertSocialConnection = z.infer<typeof insertSocialConnectionSchema
 export type SocialConnection = typeof socialConnections.$inferSelect;
 export type InsertAttendeeType = z.infer<typeof insertAttendeeTypeSchema>;
 export type AttendeeType = typeof attendeeTypes.$inferSelect;
+export type InsertPackage = z.infer<typeof insertPackageSchema>;
+export type Package = typeof packages.$inferSelect;

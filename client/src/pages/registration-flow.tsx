@@ -19,7 +19,7 @@ import { EmptyState } from "@/components/empty-state";
 import {
   User,
   Shield,
-  FileText,
+  Package,
   CreditCard,
   CheckCircle,
   Calendar,
@@ -27,9 +27,10 @@ import {
   Plus,
   Trash2,
   GripVertical,
+  FileText,
 } from "lucide-react";
 import { SiGoogle } from "react-icons/si";
-import type { Event } from "@shared/schema";
+import type { Event, Package as PackageType } from "@shared/schema";
 
 type StepStatus = "configured" | "pending" | "disabled";
 
@@ -68,11 +69,11 @@ const defaultSteps: FlowStep[] = [
   },
   {
     id: 3,
-    title: "Session Selection",
-    description: "Allow attendees to choose sessions",
-    icon: FileText,
-    status: "disabled",
-    enabled: false,
+    title: "Packages",
+    description: "Select available packages for attendees",
+    icon: Package,
+    status: "pending",
+    enabled: true,
   },
   {
     id: 4,
@@ -133,6 +134,11 @@ export default function RegistrationFlow() {
     { id: "1", field: "utm_source", operator: "equals", value: "" },
   ]);
 
+  const [step3Config, setStep3Config] = useState({
+    enabledPackages: [] as string[],
+    allowMultipleSelection: false,
+  });
+
   const [step5Config, setStep5Config] = useState({
     sendConfirmationEmail: true,
     generateQRCode: true,
@@ -143,6 +149,19 @@ export default function RegistrationFlow() {
   const { data: events = [], isLoading: eventsLoading } = useQuery<Event[]>({
     queryKey: ["/api/events"],
   });
+
+  const { data: packages = [], isLoading: packagesLoading } = useQuery<PackageType[]>({
+    queryKey: ["/api/packages"],
+  });
+
+  const togglePackage = (packageId: string) => {
+    setStep3Config(prev => ({
+      ...prev,
+      enabledPackages: prev.enabledPackages.includes(packageId)
+        ? prev.enabledPackages.filter(id => id !== packageId)
+        : [...prev.enabledPackages, packageId],
+    }));
+  };
 
   const selectedEvent = events.find(e => e.id === selectedEventId);
 
@@ -374,6 +393,83 @@ export default function RegistrationFlow() {
         );
 
       case 3:
+        return (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between p-3 border rounded-md">
+              <div>
+                <Label htmlFor="multipleSelection" className="cursor-pointer">Allow Multiple Package Selection</Label>
+                <p className="text-sm text-muted-foreground">Let attendees select more than one package</p>
+              </div>
+              <Switch
+                id="multipleSelection"
+                checked={step3Config.allowMultipleSelection}
+                onCheckedChange={(checked) => setStep3Config({ ...step3Config, allowMultipleSelection: checked })}
+                data-testid="switch-multiple-selection"
+              />
+            </div>
+
+            <div>
+              <h3 className="text-lg font-medium mb-4">Available Packages</h3>
+              <p className="text-sm text-muted-foreground mb-4">Enable which packages are available for registration</p>
+              
+              {packagesLoading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="animate-pulse h-16 bg-muted rounded-md" />
+                  ))}
+                </div>
+              ) : packages.length === 0 ? (
+                <EmptyState
+                  icon={Package}
+                  title="No packages found"
+                  description="Create packages first before configuring registration"
+                />
+              ) : (
+                <div className="space-y-3">
+                  {packages.filter(pkg => pkg.isActive).map((pkg) => (
+                    <div
+                      key={pkg.id}
+                      className="flex items-center justify-between p-4 border rounded-md"
+                      data-testid={`package-item-${pkg.id}`}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{pkg.name}</span>
+                          <Badge variant="outline" className="text-xs">
+                            ${Number(pkg.price || 0).toFixed(2)}
+                          </Badge>
+                        </div>
+                        {pkg.description && (
+                          <p className="text-sm text-muted-foreground mt-1 truncate">{pkg.description}</p>
+                        )}
+                        {pkg.features && pkg.features.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {pkg.features.slice(0, 3).map((feature, index) => (
+                              <Badge key={index} variant="secondary" className="text-xs">
+                                {feature}
+                              </Badge>
+                            ))}
+                            {pkg.features.length > 3 && (
+                              <Badge variant="outline" className="text-xs">
+                                +{pkg.features.length - 3} more
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <Switch
+                        checked={step3Config.enabledPackages.includes(pkg.id)}
+                        onCheckedChange={() => togglePackage(pkg.id)}
+                        data-testid={`switch-package-${pkg.id}`}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+
       case 4:
         return (
           <div className="flex flex-col items-center justify-center h-64 text-center">
@@ -554,7 +650,7 @@ export default function RegistrationFlow() {
                             <span className={`font-medium ${!step.enabled ? "text-muted-foreground" : ""}`}>
                               {step.title}
                             </span>
-                            {step.id === 3 || step.id === 4 ? (
+                            {step.id === 4 ? (
                               <Badge variant="secondary" className="text-xs">Coming Soon</Badge>
                             ) : null}
                           </div>
@@ -563,7 +659,7 @@ export default function RegistrationFlow() {
                         <Switch
                           checked={step.enabled}
                           onCheckedChange={() => handleStepToggle(step.id)}
-                          disabled={step.id === 3 || step.id === 4}
+                          disabled={step.id === 4}
                           onClick={(e) => e.stopPropagation()}
                           data-testid={`switch-step-${step.id}`}
                         />
