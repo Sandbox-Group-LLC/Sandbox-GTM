@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -38,7 +38,16 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Plus, Users, Search, Download } from "lucide-react";
 import { EventSelectField } from "@/components/event-select-field";
-import type { Attendee, AttendeeType } from "@shared/schema";
+import type { Attendee } from "@shared/schema";
+
+const ATTENDEE_TYPE_OPTIONS = [
+  { value: "attendee", label: "Attendee" },
+  { value: "vendor", label: "Vendor" },
+  { value: "employee", label: "Employee" },
+  { value: "press_media", label: "Press & Media" },
+  { value: "analyst", label: "Analyst" },
+  { value: "sponsor", label: "Sponsor" },
+];
 
 const attendeeFormSchema = z.object({
   eventId: z.string().min(1, "Event is required"),
@@ -73,10 +82,6 @@ export default function Attendees() {
     queryKey: ["/api/attendees"],
   });
 
-  const { data: attendeeTypes = [] } = useQuery<AttendeeType[]>({
-    queryKey: ["/api/attendee-types"],
-  });
-
   const form = useForm<AttendeeFormData>({
     resolver: zodResolver(attendeeFormSchema),
     defaultValues: {
@@ -93,19 +98,6 @@ export default function Attendees() {
       notes: "",
     },
   });
-
-  const selectedEventId = form.watch("eventId");
-  const filteredAttendeeTypes = attendeeTypes.filter(
-    (type) => type.eventId === selectedEventId
-  );
-
-  const previousEventIdRef = useRef(selectedEventId);
-  useEffect(() => {
-    if (previousEventIdRef.current !== selectedEventId && previousEventIdRef.current !== "") {
-      form.setValue("attendeeTypeId", "");
-    }
-    previousEventIdRef.current = selectedEventId;
-  }, [selectedEventId, form]);
 
   const createMutation = useMutation({
     mutationFn: async (data: AttendeeFormData) => {
@@ -279,17 +271,16 @@ export default function Attendees() {
                         <Select
                           onValueChange={field.onChange}
                           value={field.value || ""}
-                          disabled={!selectedEventId}
                         >
                           <FormControl>
                             <SelectTrigger data-testid="select-attendee-type">
-                              <SelectValue placeholder={selectedEventId ? "Select attendee type" : "Select an event first"} />
+                              <SelectValue placeholder="Select attendee type" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {filteredAttendeeTypes.map((type) => (
-                              <SelectItem key={type.id} value={type.id}>
-                                {type.type}
+                            {ATTENDEE_TYPE_OPTIONS.map((type) => (
+                              <SelectItem key={type.value} value={type.value}>
+                                {type.label}
                               </SelectItem>
                             ))}
                           </SelectContent>
