@@ -83,6 +83,24 @@ Preferred communication style: Simple, everyday language.
   - `hasOverride`: boolean indicating if customizations exist
   - `isEnabled`: whether package is available for this specific event
 
+### Site Builder
+- **Purpose**: Visual page builder for customizing public-facing event pages
+- **Database**: `eventPages` table stores page configurations per event with JSONB sections
+- **Page Types**: Landing, Registration, and Portal pages for each event
+- **Section Types**: Hero, Text, CTA, and Features sections with configurable content
+- **Key Features**:
+  - Event selector to choose which event to customize
+  - Tri-tab layout for different page types (Landing, Registration, Portal)
+  - Add/edit/delete/reorder sections within each page
+  - Publish/unpublish workflow with "Live" badge indicators
+  - Preview button to view public event page
+- **API Endpoints**:
+  - `GET /api/events/:eventId/pages` - List all pages for an event
+  - `POST /api/events/:eventId/pages` - Create/upsert page configuration
+  - `PATCH /api/events/:eventId/pages/:id` - Update specific page
+  - `DELETE /api/events/:eventId/pages/:id` - Delete page
+- **Public Rendering**: `SectionRenderer` component in public-event.tsx renders saved sections
+
 ## External Dependencies
 
 ### Database
