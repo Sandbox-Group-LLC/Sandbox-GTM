@@ -74,6 +74,15 @@ Preferred communication style: Simple, everyday language.
 - **API Request Helper**: Centralized `apiRequest` function with error handling
 - **Component Composition**: Reusable components like `PageHeader`, `DataTable`, `StatsCard`, `EmptyState`
 
+### Event-Specific Package Overrides
+- **Packages** are global templates scoped to the organization
+- **Event Packages** (`eventPackages` table) store per-event overrides for price, features, and enabled status
+- The merge endpoint (`GET /api/events/:eventId/packages`) returns packages with effective values:
+  - `effectivePrice`: override value or base package price
+  - `effectiveFeatures`: override array or base package features
+  - `hasOverride`: boolean indicating if customizations exist
+  - `isEnabled`: whether package is available for this specific event
+
 ## External Dependencies
 
 ### Database
