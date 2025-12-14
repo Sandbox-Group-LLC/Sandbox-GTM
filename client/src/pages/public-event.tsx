@@ -281,22 +281,27 @@ function SectionRenderer({ section, event, sessions, speakers }: { section: Sect
       );
 
     case "features":
-      const features = (config.features as Array<{ title: string; description: string }>) || [];
+      const rawFeatures = (config.features as Array<string | { title: string; description: string }>) || [];
       return (
         <div data-testid={`section-features-${section.id}`}>
           {heading && (
             <h3 className="text-2xl font-semibold mb-6 text-center">{heading}</h3>
           )}
-          {features.length > 0 ? (
+          {rawFeatures.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {features.map((feature, idx) => (
-                <Card key={idx}>
-                  <CardContent className="p-4">
-                    <h4 className="font-medium mb-2">{feature.title}</h4>
-                    <p className="text-sm text-muted-foreground">{feature.description}</p>
-                  </CardContent>
-                </Card>
-              ))}
+              {rawFeatures.map((feature, idx) => {
+                const isString = typeof feature === "string";
+                const title = isString ? feature : feature.title;
+                const description = isString ? "" : feature.description;
+                return (
+                  <Card key={idx}>
+                    <CardContent className="p-4">
+                      <h4 className="font-medium mb-2">{title}</h4>
+                      {description && <p className="text-sm text-muted-foreground">{description}</p>}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           ) : (
             <p className="text-center text-muted-foreground">Feature items will appear here</p>
