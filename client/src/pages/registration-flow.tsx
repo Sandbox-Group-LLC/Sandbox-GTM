@@ -42,7 +42,7 @@ import {
 import { SiGoogle } from "react-icons/si";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Event, Package as PackageType } from "@shared/schema";
+import type { Event, Package as PackageType, EmailTemplate } from "@shared/schema";
 
 interface MergedPackage extends PackageType {
   effectivePrice: string | null;
@@ -176,6 +176,7 @@ export default function RegistrationFlow() {
 
   const [step5Config, setStep5Config] = useState({
     sendConfirmationEmail: true,
+    confirmationEmailTemplateId: "",
     generateQRCode: true,
     showCalendarAdd: true,
     customMessage: "",
@@ -192,6 +193,10 @@ export default function RegistrationFlow() {
   const { data: eventPackages = [], isLoading: eventPackagesLoading, refetch: refetchEventPackages } = useQuery<MergedPackage[]>({
     queryKey: ["/api/events", selectedEventId, "packages"],
     enabled: !!selectedEventId,
+  });
+
+  const { data: emailTemplates = [] } = useQuery<EmailTemplate[]>({
+    queryKey: ["/api/email-templates"],
   });
 
   const upsertEventPackageMutation = useMutation({
@@ -288,6 +293,7 @@ export default function RegistrationFlow() {
       });
       setStep5Config({
         sendConfirmationEmail: true,
+        confirmationEmailTemplateId: "",
         generateQRCode: true,
         showCalendarAdd: true,
         customMessage: "",
@@ -884,6 +890,34 @@ export default function RegistrationFlow() {
                     data-testid="switch-confirm-email"
                   />
                 </div>
+                {step5Config.sendConfirmationEmail && (
+                  <div className="p-3 border rounded-md space-y-2">
+                    <Label htmlFor="emailTemplate">Confirmation Email Template</Label>
+                    <Select
+                      value={step5Config.confirmationEmailTemplateId}
+                      onValueChange={(value) => setStep5Config({ ...step5Config, confirmationEmailTemplateId: value })}
+                    >
+                      <SelectTrigger id="emailTemplate" data-testid="select-confirmation-email-template">
+                        <SelectValue placeholder="Select an email template" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {emailTemplates.length === 0 ? (
+                          <SelectItem value="none" disabled>No templates available</SelectItem>
+                        ) : (
+                          emailTemplates.map((template) => (
+                            <SelectItem key={template.id} value={template.id}>
+                              {template.name}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-sm text-muted-foreground">
+                      Choose which email template to use for registration confirmations. 
+                      Create templates in the Email Templates page.
+                    </p>
+                  </div>
+                )}
                 <div className="flex items-center justify-between p-3 border rounded-md">
                   <div>
                     <Label htmlFor="qrCode" className="cursor-pointer">Generate QR Code</Label>

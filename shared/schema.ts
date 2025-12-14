@@ -234,6 +234,7 @@ export const registrationConfigs = pgTable("registration_configs", {
   }>(),
   step5Config: jsonb("step5_config").$type<{
     sendConfirmationEmail?: boolean;
+    confirmationEmailTemplateId?: string;
     generateQRCode?: boolean;
     showCalendarAdd?: boolean;
     customMessage?: string;
