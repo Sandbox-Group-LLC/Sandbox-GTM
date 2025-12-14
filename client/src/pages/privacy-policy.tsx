@@ -181,8 +181,7 @@ export default function PrivacyPolicy() {
                 If you have any questions, concerns, or requests regarding this Privacy Policy or our data practices, please contact us at:
               </p>
               <p className="mt-4">
-                <strong>Email:</strong> privacy@example.com<br />
-                <strong>Address:</strong> [Your Business Address]
+                <strong>Email:</strong> admin@makemysandbox.com
               </p>
               <p className="mt-4">
                 We will respond to your inquiry within a reasonable timeframe.
