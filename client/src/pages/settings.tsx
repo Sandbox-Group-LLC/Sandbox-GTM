@@ -25,7 +25,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { LogOut, User, Shield, Bell, Palette, CreditCard, AlertTriangle, FileText } from "lucide-react";
+import { LogOut, User, Shield, Bell, Palette, CreditCard, AlertTriangle, FileText, Mail, ExternalLink, CheckCircle, XCircle } from "lucide-react";
 import { Link } from "wouter";
 import type { Organization } from "@shared/schema";
 
@@ -43,6 +43,10 @@ export default function Settings() {
 
   const { data: organization, isLoading: isLoadingOrg } = useQuery<Organization>({
     queryKey: ["/api/auth/organization"],
+  });
+
+  const { data: resendStatus } = useQuery<{ configured: boolean }>({
+    queryKey: ["/api/settings/resend-status"],
   });
 
   const form = useForm<PaymentSettingsFormData>({
@@ -252,6 +256,64 @@ export default function Settings() {
                   </form>
                 </Form>
               )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Mail className="h-5 w-5" />
+                Email Settings (Resend)
+              </CardTitle>
+              <CardDescription>Configure email sending for campaigns and notifications</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="font-medium">API Key Status</p>
+                  <p className="text-sm text-muted-foreground">Resend API key configuration</p>
+                </div>
+                {resendStatus?.configured ? (
+                  <Badge variant="outline" className="flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3 text-green-500" />
+                    Configured
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="flex items-center gap-1">
+                    <XCircle className="h-3 w-3 text-red-500" />
+                    Not Configured
+                  </Badge>
+                )}
+              </div>
+
+              <Separator />
+
+              <div className="space-y-3">
+                <p className="font-medium">Setup Instructions</p>
+                <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
+                  <li>Create a free account at <a href="https://resend.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">resend.com <ExternalLink className="h-3 w-3" /></a></li>
+                  <li>Go to API Keys in your Resend dashboard</li>
+                  <li>Create a new API key with sending permissions</li>
+                  <li>In Replit, open the Secrets tab (padlock icon in the sidebar)</li>
+                  <li>Add a new secret with key <code className="bg-muted px-1.5 py-0.5 rounded text-xs">RESEND_API_KEY</code> and paste your API key as the value</li>
+                  <li>Verify a domain in Resend to send from your own email address</li>
+                </ol>
+              </div>
+
+              <Alert>
+                <Mail className="h-4 w-4" />
+                <AlertTitle>Email Sending</AlertTitle>
+                <AlertDescription>
+                  Resend is used to send email campaigns and notifications. Without a configured API key, email features will not work.
+                </AlertDescription>
+              </Alert>
+
+              <Button variant="outline" asChild>
+                <a href="https://resend.com/api-keys" target="_blank" rel="noopener noreferrer" data-testid="button-resend-dashboard">
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Open Resend Dashboard
+                </a>
+              </Button>
             </CardContent>
           </Card>
 

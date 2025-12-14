@@ -206,6 +206,17 @@ export async function registerRoutes(
     }
   });
 
+  // Settings routes
+  app.get('/api/settings/resend-status', isAuthenticated, async (req: any, res) => {
+    try {
+      const configured = !!process.env.RESEND_API_KEY;
+      res.json({ configured });
+    } catch (error) {
+      console.error("Error checking Resend status:", error);
+      res.status(500).json({ message: "Failed to check Resend status" });
+    }
+  });
+
   // Onboarding routes
   app.get('/api/onboarding/status', isAuthenticated, async (req: any, res) => {
     try {
