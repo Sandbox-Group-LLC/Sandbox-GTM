@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -225,6 +225,97 @@ export default function RegistrationFlow() {
       toast({ title: "Error", description: "Failed to reset package.", variant: "destructive" });
     },
   });
+
+  const { data: registrationConfig } = useQuery<{
+    steps?: Array<{ id: number; title: string; enabled: boolean }>;
+    step1Config?: typeof step1Config;
+    step2Config?: { rules?: ValidationRule[]; ruleLogic?: 'all' | 'any' };
+    step3Config?: typeof step3Config;
+    step4Config?: { requirePayment?: boolean };
+    step5Config?: typeof step5Config;
+  } | null>({
+    queryKey: ["/api/events", selectedEventId, "registration-config"],
+    enabled: !!selectedEventId,
+  });
+
+  const saveRegistrationConfigMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", `/api/events/${selectedEventId}/registration-config`, {
+        steps: steps.map(s => ({ id: s.id, title: s.title, enabled: s.enabled })),
+        step1Config,
+        step2Config: { rules: validationRules },
+        step3Config,
+        step4Config: { requirePayment: step4Config.requirePayment },
+        step5Config,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/events", selectedEventId, "registration-config"] });
+      toast({ title: "Saved", description: "Registration flow configuration saved successfully." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to save registration configuration.", variant: "destructive" });
+    },
+  });
+
+  useEffect(() => {
+    if (registrationConfig === null || registrationConfig === undefined) {
+      setSteps(defaultSteps);
+      setStep1Config({
+        collectFirstName: true,
+        collectLastName: true,
+        collectEmail: true,
+        collectPhone: false,
+        collectCompany: false,
+        collectJobTitle: false,
+        requirePassword: true,
+        allowGoogleAuth: false,
+      });
+      setValidationRules([
+        { id: "1", field: "utm_source", operator: "equals", value: "" },
+      ]);
+      setStep3Config({
+        enabledPackages: [],
+        allowMultipleSelection: false,
+      });
+      setStep4Config({
+        cardholderName: "",
+        cardNumber: "",
+        expiryDate: "",
+        cvc: "",
+        acceptTerms: false,
+        requirePayment: true,
+      });
+      setStep5Config({
+        sendConfirmationEmail: true,
+        generateQRCode: true,
+        showCalendarAdd: true,
+        customMessage: "",
+      });
+    } else {
+      if (registrationConfig.steps) {
+        setSteps(prev => prev.map(s => {
+          const savedStep = registrationConfig.steps?.find(ss => ss.id === s.id);
+          return savedStep ? { ...s, enabled: savedStep.enabled } : s;
+        }));
+      }
+      if (registrationConfig.step1Config) {
+        setStep1Config(prev => ({ ...prev, ...registrationConfig.step1Config }));
+      }
+      if (registrationConfig.step2Config?.rules) {
+        setValidationRules(registrationConfig.step2Config.rules);
+      }
+      if (registrationConfig.step3Config) {
+        setStep3Config(prev => ({ ...prev, ...registrationConfig.step3Config }));
+      }
+      if (registrationConfig.step4Config) {
+        setStep4Config(prev => ({ ...prev, requirePayment: registrationConfig.step4Config?.requirePayment ?? true }));
+      }
+      if (registrationConfig.step5Config) {
+        setStep5Config(prev => ({ ...prev, ...registrationConfig.step5Config }));
+      }
+    }
+  }, [registrationConfig, selectedEventId]);
 
   const openCustomizeDialog = (pkg: MergedPackage) => {
     setEditingPackage(pkg);
@@ -905,8 +996,12 @@ export default function RegistrationFlow() {
                 ))}
               </SelectContent>
             </Select>
-            <Button data-testid="button-save-flow">
-              Save Changes
+            <Button 
+              onClick={() => saveRegistrationConfigMutation.mutate()}
+              disabled={saveRegistrationConfigMutation.isPending}
+              data-testid="button-save-flow"
+            >
+              {saveRegistrationConfigMutation.isPending ? "Saving..." : "Save Changes"}
             </Button>
           </div>
         }
