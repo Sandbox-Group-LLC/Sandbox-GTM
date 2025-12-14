@@ -43,6 +43,18 @@ export const organizations = pgTable("organizations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: varchar("name", { length: 255 }).notNull(),
   slug: varchar("slug", { length: 100 }).unique().notNull(),
+  // Organization profile
+  organizationType: varchar("organization_type", { length: 50 }),
+  expectedEventsPerYear: varchar("expected_events_per_year", { length: 20 }),
+  typicalEventSize: varchar("typical_event_size", { length: 20 }),
+  phone: varchar("phone", { length: 50 }),
+  website: varchar("website", { length: 500 }),
+  country: varchar("country", { length: 100 }),
+  timezone: varchar("timezone", { length: 100 }),
+  currency: varchar("currency", { length: 10 }).default("USD"),
+  // Onboarding tracking
+  onboardingCompleted: boolean("onboarding_completed").default(false),
+  onboardingStep: integer("onboarding_step").default(1),
   // Payment settings
   stripePublishableKey: varchar("stripe_publishable_key", { length: 255 }),
   stripeSecretKey: varchar("stripe_secret_key", { length: 255 }),
