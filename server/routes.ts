@@ -84,6 +84,24 @@ export async function registerRoutes(
     }
   });
 
+  // Super Admin routes
+  app.get("/api/admin/organizations", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+      
+      const organizations = await storage.getAllOrganizationsWithStats();
+      res.json(organizations);
+    } catch (error) {
+      console.error("Error fetching all organizations:", error);
+      res.status(500).json({ message: "Failed to fetch organizations" });
+    }
+  });
+
   // Event routes
   app.get("/api/events", isAuthenticated, async (req: any, res) => {
     try {

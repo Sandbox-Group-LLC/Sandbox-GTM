@@ -78,6 +78,7 @@ export interface IStorage {
   createOrganization(org: InsertOrganization): Promise<Organization>;
   getUserOrganizations(userId: string): Promise<OrganizationMember[]>;
   addOrganizationMember(member: InsertOrganizationMember): Promise<OrganizationMember>;
+  getAllOrganizationsWithStats(): Promise<Array<Organization & { memberCount: number; eventCount: number; attendeeCount: number }>>;
 
   // Event operations
   getEvents(organizationId: string): Promise<Event[]>;
@@ -272,6 +273,25 @@ export class DatabaseStorage implements IStorage {
   async addOrganizationMember(member: InsertOrganizationMember): Promise<OrganizationMember> {
     const [newMember] = await db.insert(organizationMembers).values(member).returning();
     return newMember;
+  }
+
+  async getAllOrganizationsWithStats(): Promise<Array<Organization & { memberCount: number; eventCount: number; attendeeCount: number }>> {
+    const allOrgs = await db.select().from(organizations).orderBy(desc(organizations.createdAt));
+    
+    const orgsWithStats = await Promise.all(allOrgs.map(async (org) => {
+      const members = await db.select().from(organizationMembers).where(eq(organizationMembers.organizationId, org.id));
+      const orgEvents = await db.select().from(events).where(eq(events.organizationId, org.id));
+      const orgAttendees = await db.select().from(attendees).where(eq(attendees.organizationId, org.id));
+      
+      return {
+        ...org,
+        memberCount: members.length,
+        eventCount: orgEvents.length,
+        attendeeCount: orgAttendees.length,
+      };
+    }));
+    
+    return orgsWithStats;
   }
 
   // Event operations

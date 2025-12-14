@@ -15,6 +15,8 @@ import {
   BarChart3,
   UserCheck,
   ChevronRight,
+  Building2,
+  Shield,
 } from "lucide-react";
 import {
   Sidebar,
@@ -244,6 +246,28 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {user?.isAdmin && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Admin</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === "/admin/organizations"}
+                    data-testid="nav-admin-organizations"
+                  >
+                    <Link href="/admin/organizations">
+                      <Building2 className="h-4 w-4" />
+                      <span>Organizations</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-4">
