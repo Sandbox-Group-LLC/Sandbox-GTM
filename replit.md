@@ -134,6 +134,23 @@ Preferred communication style: Simple, everyday language.
   - `GET /api/public/event/:slug/packages` - Returns only public, active, enabled packages
   - `POST /api/public/validate-invite-code/:slug` - Validates invite code and returns unlocked package + discount info
 
+### Email Templates
+- **Purpose**: Create reusable email templates for campaigns and automated emails
+- **Database**: `emailTemplates` table with fields: name, subject, content, headerImageUrl, category, isDefault
+- **Features**:
+  - **Merge Tags**: Insert dynamic placeholders using MergeTagPicker component
+    - Event tags: {{event.name}}, {{event.date}}, {{event.location}}, {{event.description}}
+    - Attendee tags: {{attendee.firstName}}, {{attendee.lastName}}, {{attendee.email}}, {{attendee.company}}, {{attendee.checkInCode}}
+    - Organization tags: {{organization.name}}
+  - **Header Image**: Upload 600x150 px header image (stored as base64, max 500KB)
+  - **Test Email**: Send test email to logged-in admin's email address
+- **API Endpoints**:
+  - `GET /api/email-templates` - List all templates for organization
+  - `POST /api/email-templates` - Create new template
+  - `PATCH /api/email-templates/:id` - Update template
+  - `DELETE /api/email-templates/:id` - Delete template
+  - `POST /api/email-templates/:id/test-email` - Send test email to admin
+
 ## External Dependencies
 
 ### Database
