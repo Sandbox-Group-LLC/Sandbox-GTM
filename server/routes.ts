@@ -1212,10 +1212,20 @@ export async function registerRoutes(
   // Public event registration routes (no auth required)
   app.get("/api/public/event/:slug", async (req, res) => {
     try {
+      console.log(`[Public Event] Fetching event with slug: ${req.params.slug}`);
       const event = await storage.getEventBySlug(req.params.slug);
-      if (!event || !event.isPublic) {
+      
+      if (!event) {
+        console.log(`[Public Event] No event found for slug: ${req.params.slug}`);
         return res.status(404).json({ message: "Event not found" });
       }
+      
+      if (!event.isPublic) {
+        console.log(`[Public Event] Event ${event.id} is not public`);
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      console.log(`[Public Event] Found event: ${event.name} (${event.id}), org: ${event.organizationId}`);
       
       const sessions = await storage.getSessions(event.organizationId, event.id);
       const speakers = await storage.getSpeakers(event.organizationId, event.id);
@@ -1224,9 +1234,11 @@ export async function registerRoutes(
       const pages = await storage.getEventPages(event.organizationId, event.id);
       const landingPage = pages.find(p => p.pageType === "landing" && p.isPublished);
       
+      console.log(`[Public Event] Sessions: ${sessions.length}, Speakers: ${speakers.length}, Pages: ${pages.length}, Landing published: ${!!landingPage}`);
+      
       res.json({ event, sessions, speakers, landingPage: landingPage || null });
     } catch (error) {
-      console.error("Error fetching public event:", error);
+      console.error("[Public Event] Error fetching public event:", error);
       res.status(500).json({ message: "Failed to fetch event" });
     }
   });

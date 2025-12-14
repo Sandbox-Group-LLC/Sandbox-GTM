@@ -68,7 +68,7 @@ import {
   type InsertCustomField,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, ilike } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (MANDATORY for Replit Auth)
@@ -831,7 +831,8 @@ export class DatabaseStorage implements IStorage {
 
   // Public event operations (public access - no organizationId needed)
   async getEventBySlug(slug: string): Promise<Event | undefined> {
-    const [event] = await db.select().from(events).where(eq(events.publicSlug, slug));
+    // Use case-insensitive comparison with ilike for slug matching
+    const [event] = await db.select().from(events).where(ilike(events.publicSlug, slug));
     return event;
   }
 
