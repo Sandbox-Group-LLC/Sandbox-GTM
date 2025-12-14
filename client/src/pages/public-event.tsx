@@ -63,8 +63,8 @@ export default function PublicEvent() {
   // If site builder has content, use that as the primary page layout
   if (hasSiteBuilderContent) {
     return (
-      <div className="min-h-screen bg-background">
-        <div className="max-w-4xl mx-auto px-6 py-12 space-y-12">
+      <div className="min-h-screen bg-background overflow-y-auto">
+        <div className="max-w-4xl mx-auto px-6 py-12 space-y-12 pb-24">
           {sections
             .sort((a, b) => a.order - b.order)
             .map((section) => (
