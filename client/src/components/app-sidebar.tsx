@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard,
@@ -18,6 +19,8 @@ import {
   Building2,
   Shield,
 } from "lucide-react";
+import { OnboardingChecklist } from "./onboarding-checklist";
+import { OnboardingWizard } from "./onboarding-wizard";
 import {
   Sidebar,
   SidebarContent,
@@ -77,6 +80,7 @@ const marketingMenuItems = [
 export function AppSidebar() {
   const [location] = useLocation();
   const { user } = useAuth();
+  const [wizardOpen, setWizardOpen] = useState(false);
 
   const isEventsActive = location === "/events" || location === "/check-in" || location === "/registration" || location === "/site-builder";
   const isAttendeesActive = location === "/attendees" || location === "/attendee-types" || location === "/invite-codes" || location === "/packages" || location === "/custom-fields";
@@ -271,8 +275,12 @@ export function AppSidebar() {
             </SidebarGroupContent>
           </SidebarGroup>
         )}
+        
+        <OnboardingChecklist onOpenWizard={() => setWizardOpen(true)} />
       </SidebarContent>
 
+      <OnboardingWizard open={wizardOpen} onOpenChange={setWizardOpen} />
+      
       <SidebarFooter className="border-t border-sidebar-border p-4">
         <div className="flex items-center gap-3 mb-3">
           <Avatar className="h-9 w-9">
