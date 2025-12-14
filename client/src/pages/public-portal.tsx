@@ -285,14 +285,19 @@ export default function PublicPortal() {
         </div>
 
         {sessions.length === 0 && speakers.length === 0 && sections.length === 0 && (
-          <Card>
+          <Card style={{
+            backgroundColor: theme?.cardBackground || undefined,
+            borderRadius: theme?.borderRadius ? ({ none: "0px", small: "4px", medium: "8px", large: "16px", pill: "9999px" }[theme.borderRadius]) : undefined,
+          }}>
             <CardContent className="py-12 text-center">
               <AlertCircle className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-medium mb-2">Portal Content Coming Soon</h3>
-              <p className="text-muted-foreground mb-4">
+              <h3 className="text-lg font-medium mb-2" style={{ fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined }}>Portal Content Coming Soon</h3>
+              <p className="mb-4" style={{ color: theme?.textSecondaryColor || undefined }}>
                 Check back later for schedule updates and event information.
               </p>
-              <Button variant="outline" asChild>
+              <Button variant="outline" asChild style={{
+                borderRadius: theme?.borderRadius ? ({ none: "0px", small: "4px", medium: "8px", large: "16px", pill: "9999px" }[theme.borderRadius]) : undefined,
+              }}>
                 <Link href={`/event/${slug}`}>
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Back to Event
