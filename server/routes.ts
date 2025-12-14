@@ -1297,6 +1297,105 @@ export async function registerRoutes(
     }
   });
 
+  // Get public packages for an event (public ones + any unlocked by invite code)
+  app.get("/api/public/event/:slug/packages", async (req, res) => {
+    try {
+      const event = await storage.getEventBySlug(req.params.slug);
+      if (!event || !event.isPublic) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      // Get all packages for this organization
+      const allPackages = await storage.getPackages(event.organizationId);
+      
+      // Get event-specific package overrides
+      const eventPackageOverrides = await storage.getEventPackages(event.organizationId, event.id);
+      const overrideMap = new Map(eventPackageOverrides.map(ep => [ep.packageId, ep]));
+      
+      // Filter to only enabled packages for this event that are public and active
+      const publicPackages = allPackages
+        .map(pkg => {
+          const override = overrideMap.get(pkg.id);
+          // Skip if no override (package not linked to event)
+          if (!override) return null;
+          // Skip if not enabled
+          if (override.isEnabled !== true) return null;
+          // Skip if not active or not public
+          if (pkg.isActive !== true || pkg.isPublic !== true) return null;
+          return {
+            ...pkg,
+            effectivePrice: override?.priceOverride ?? pkg.price,
+            effectiveFeatures: override?.featuresOverride ?? pkg.features,
+          };
+        })
+        .filter((pkg): pkg is NonNullable<typeof pkg> => pkg !== null);
+      
+      res.json(publicPackages);
+    } catch (error) {
+      console.error("Error fetching public packages:", error);
+      res.status(500).json({ message: "Failed to fetch packages" });
+    }
+  });
+
+  // Validate invite code and return unlocked package if any
+  app.post("/api/public/validate-invite-code/:slug", async (req, res) => {
+    try {
+      const event = await storage.getEventBySlug(req.params.slug);
+      if (!event || !event.isPublic) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      const { code } = req.body;
+      if (!code) {
+        return res.json({ valid: false, inviteCode: null, unlockedPackage: null });
+      }
+      
+      const inviteCode = await storage.getInviteCodeByCode(event.organizationId, event.id, code);
+      
+      if (!inviteCode || !inviteCode.isActive) {
+        return res.json({ valid: false, inviteCode: null, unlockedPackage: null });
+      }
+      
+      // Check quantity limit
+      if (inviteCode.quantity !== null && (inviteCode.usedCount || 0) >= inviteCode.quantity) {
+        return res.json({ valid: false, inviteCode: null, unlockedPackage: null, message: "Code has reached its usage limit" });
+      }
+      
+      let unlockedPackage = null;
+      if (inviteCode.packageId) {
+        const pkg = await storage.getPackage(event.organizationId, inviteCode.packageId);
+        if (pkg && pkg.isActive) {
+          // Get event-specific override if any
+          const eventPackageOverrides = await storage.getEventPackages(event.organizationId, event.id);
+          const override = eventPackageOverrides.find(ep => ep.packageId === pkg.id);
+          
+          unlockedPackage = {
+            ...pkg,
+            effectivePrice: override?.priceOverride ?? pkg.price,
+            effectiveFeatures: override?.featuresOverride ?? pkg.features,
+          };
+        }
+      }
+      
+      // Return invite code info with discount details
+      res.json({
+        valid: true,
+        inviteCode: {
+          id: inviteCode.id,
+          code: inviteCode.code,
+          discountType: inviteCode.discountType,
+          discountValue: inviteCode.discountValue,
+          packageId: inviteCode.packageId,
+          attendeeTypeId: inviteCode.attendeeTypeId,
+        },
+        unlockedPackage,
+      });
+    } catch (error) {
+      console.error("Error validating invite code:", error);
+      res.status(500).json({ message: "Failed to validate invite code" });
+    }
+  });
+
   app.post("/api/public/register/:slug", async (req, res) => {
     try {
       const event = await storage.getEventBySlug(req.params.slug);

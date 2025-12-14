@@ -73,10 +73,20 @@ const inviteCodeFormSchema = z.object({
   quantity: z.coerce.number().min(1).nullable(),
   attendeeTypeId: z.string().nullable(),
   packageId: z.string().nullable(),
+  discountType: z.string().nullable(),
+  discountValue: z.coerce.number().min(0).nullable(),
   isActive: z.boolean().default(true),
 });
 
 type InviteCodeFormData = z.infer<typeof inviteCodeFormSchema>;
+
+const formatDiscount = (discountType: string | null, discountValue: string | number | null) => {
+  if (!discountType || discountValue === null || discountValue === undefined) return null;
+  const value = Number(discountValue);
+  if (discountType === "percentage") return `${value}% off`;
+  if (discountType === "fixed") return `$${value.toFixed(2)} off`;
+  return null;
+};
 
 interface GroupedInviteCodes {
   eventId: string;
@@ -116,9 +126,13 @@ export default function InviteCodes() {
       quantity: null,
       attendeeTypeId: null,
       packageId: null,
+      discountType: null,
+      discountValue: null,
       isActive: true,
     },
   });
+
+  const watchDiscountType = form.watch("discountType");
 
   const formEventId = form.watch("eventId");
 
@@ -256,6 +270,8 @@ export default function InviteCodes() {
       quantity: isUnlimited ? null : data.quantity,
       attendeeTypeId: data.attendeeTypeId || null,
       packageId: data.packageId || null,
+      discountType: data.discountType || null,
+      discountValue: data.discountType ? data.discountValue : null,
     };
     if (editingCode) {
       updateMutation.mutate({ id: editingCode.id, data: submitData });
@@ -273,6 +289,8 @@ export default function InviteCodes() {
       quantity: code.quantity,
       attendeeTypeId: code.attendeeTypeId || null,
       packageId: code.packageId || null,
+      discountType: code.discountType || null,
+      discountValue: code.discountValue ? Number(code.discountValue) : null,
       isActive: code.isActive ?? true,
     });
     setIsDialogOpen(true);
@@ -446,7 +464,7 @@ export default function InviteCodes() {
                       name="packageId"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Package (Optional)</FormLabel>
+                          <FormLabel>Unlock Package (Optional)</FormLabel>
                           <Select onValueChange={(value) => field.onChange(value === "none" ? null : value)} value={field.value || "none"}>
                             <FormControl>
                               <SelectTrigger data-testid="select-package">
@@ -463,12 +481,71 @@ export default function InviteCodes() {
                             </SelectContent>
                           </Select>
                           <FormDescription>
-                            Optionally assign a package when this code is used
+                            Unlock a hidden package when this code is used
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
+
+                    <FormField
+                      control={form.control}
+                      name="discountType"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Discount Type (Optional)</FormLabel>
+                          <Select onValueChange={(value) => field.onChange(value === "none" ? null : value)} value={field.value || "none"}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-discount-type">
+                                <SelectValue placeholder="Select discount type" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="none">No Discount</SelectItem>
+                              <SelectItem value="percentage">Percentage Off</SelectItem>
+                              <SelectItem value="fixed">Fixed Amount Off</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            Apply a discount to any package purchase
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {watchDiscountType && (
+                      <FormField
+                        control={form.control}
+                        name="discountValue"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>
+                              {watchDiscountType === "percentage" ? "Discount Percentage" : "Discount Amount ($)"}
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min="0"
+                                step={watchDiscountType === "percentage" ? "1" : "0.01"}
+                                max={watchDiscountType === "percentage" ? "100" : undefined}
+                                placeholder={watchDiscountType === "percentage" ? "e.g. 20" : "e.g. 50.00"}
+                                {...field}
+                                value={field.value ?? ""}
+                                onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
+                                data-testid="input-discount-value"
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              {watchDiscountType === "percentage" 
+                                ? "Enter percentage (1-100)" 
+                                : "Enter dollar amount to subtract"}
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
 
                     <FormField
                       control={form.control}
@@ -561,52 +638,63 @@ export default function InviteCodes() {
                               <TableRow>
                                 <TableHead>Code</TableHead>
                                 <TableHead>Quantity</TableHead>
+                                <TableHead>Discount</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead className="w-32"></TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {group.codes.map((code) => (
-                                <TableRow key={code.id} data-testid={`row-invite-code-${code.id}`}>
-                                  <TableCell>
-                                    <span className="font-mono font-medium" data-testid={`text-code-${code.id}`}>
-                                      {code.code}
-                                    </span>
-                                  </TableCell>
-                                  <TableCell data-testid={`text-quantity-${code.id}`}>
-                                    {code.quantity === null ? (
-                                      "Unlimited"
-                                    ) : (
-                                      `${code.usedCount ?? 0} / ${code.quantity}`
-                                    )}
-                                  </TableCell>
-                                  <TableCell>
-                                    <Badge variant={code.isActive ? "default" : "secondary"} data-testid={`badge-status-${code.id}`}>
-                                      {code.isActive ? "Active" : "Inactive"}
-                                    </Badge>
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="flex items-center gap-2">
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => handleEdit(code)}
-                                        data-testid={`button-edit-${code.id}`}
-                                      >
-                                        Edit
-                                      </Button>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={() => handleDelete(code.id)}
-                                        data-testid={`button-delete-${code.id}`}
-                                      >
-                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                      </Button>
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
+                              {group.codes.map((code) => {
+                                const discountDisplay = formatDiscount(code.discountType, code.discountValue);
+                                return (
+                                  <TableRow key={code.id} data-testid={`row-invite-code-${code.id}`}>
+                                    <TableCell>
+                                      <span className="font-mono font-medium" data-testid={`text-code-${code.id}`}>
+                                        {code.code}
+                                      </span>
+                                    </TableCell>
+                                    <TableCell data-testid={`text-quantity-${code.id}`}>
+                                      {code.quantity === null ? (
+                                        "Unlimited"
+                                      ) : (
+                                        `${code.usedCount ?? 0} / ${code.quantity}`
+                                      )}
+                                    </TableCell>
+                                    <TableCell data-testid={`text-discount-${code.id}`}>
+                                      {discountDisplay ? (
+                                        <Badge variant="outline">{discountDisplay}</Badge>
+                                      ) : (
+                                        <span className="text-muted-foreground">-</span>
+                                      )}
+                                    </TableCell>
+                                    <TableCell>
+                                      <Badge variant={code.isActive ? "default" : "secondary"} data-testid={`badge-status-${code.id}`}>
+                                        {code.isActive ? "Active" : "Inactive"}
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                      <div className="flex items-center gap-2">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => handleEdit(code)}
+                                          data-testid={`button-edit-${code.id}`}
+                                        >
+                                          Edit
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          onClick={() => handleDelete(code.id)}
+                                          data-testid={`button-delete-${code.id}`}
+                                        >
+                                          <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
                             </TableBody>
                           </Table>
                         </CardContent>

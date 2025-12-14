@@ -43,6 +43,7 @@ const packageFormSchema = z.object({
   price: z.coerce.number().min(0, "Price must be 0 or greater").default(0),
   features: z.array(z.string()).default([]),
   isActive: z.boolean().default(true),
+  isPublic: z.boolean().default(true),
   eventIds: z.array(z.string()).default([]),
 });
 
@@ -83,6 +84,7 @@ export default function Packages() {
       price: 0,
       features: [],
       isActive: true,
+      isPublic: true,
       eventIds: [],
     },
   });
@@ -191,6 +193,7 @@ export default function Packages() {
       price: Number(pkg.price) || 0,
       features: pkg.features || [],
       isActive: pkg.isActive ?? true,
+      isPublic: pkg.isPublic ?? true,
       eventIds: [],
     });
     setIsDialogOpen(true);
@@ -288,6 +291,18 @@ export default function Packages() {
           data-testid={`badge-status-${pkg.id}`}
         >
           {pkg.isActive ? "Active" : "Inactive"}
+        </Badge>
+      ),
+    },
+    {
+      key: "visibility",
+      header: "Visibility",
+      cell: (pkg: PackageType) => (
+        <Badge
+          variant={pkg.isPublic ? "outline" : "secondary"}
+          data-testid={`badge-visibility-${pkg.id}`}
+        >
+          {pkg.isPublic ? "Public" : "Code-Only"}
         </Badge>
       ),
     },
@@ -467,6 +482,27 @@ export default function Packages() {
                             checked={field.value}
                             onCheckedChange={field.onChange}
                             data-testid="switch-is-active"
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="isPublic"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center justify-between p-3 border rounded-md">
+                        <div>
+                          <FormLabel>Visibility</FormLabel>
+                          <FormDescription>
+                            {field.value ? "Public - visible to all registrants" : "Code-Only - hidden until invite code entered"}
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                            data-testid="switch-is-public"
                           />
                         </FormControl>
                       </FormItem>

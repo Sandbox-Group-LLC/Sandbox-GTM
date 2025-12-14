@@ -29,8 +29,42 @@ import {
   FormMessage,
   FormDescription,
 } from "@/components/ui/form";
-import { Calendar, MapPin, CheckCircle, AlertCircle, ArrowLeft, ArrowRight } from "lucide-react";
-import type { Event, Attendee, EventPage, EventPageTheme, CustomField } from "@shared/schema";
+import { Calendar, MapPin, CheckCircle, AlertCircle, ArrowLeft, ArrowRight, Tag, Check, Loader2 } from "lucide-react";
+import type { Event, Attendee, EventPage, EventPageTheme, CustomField, Package } from "@shared/schema";
+
+interface PackageWithEffectivePrice extends Package {
+  effectivePrice: string;
+  effectiveFeatures: string[] | null;
+}
+
+interface ValidatedInviteCode {
+  id: string;
+  code: string;
+  discountType: string | null;
+  discountValue: string | null;
+  packageId: string | null;
+  attendeeTypeId: string | null;
+}
+
+const calculateDiscount = (price: number, discountType: string | null, discountValue: string | null): number => {
+  if (!discountType || !discountValue) return price;
+  const discountNum = parseFloat(discountValue);
+  if (isNaN(discountNum)) return price;
+  if (discountType === "percentage") {
+    const cappedPercent = Math.min(100, Math.max(0, discountNum));
+    return price * (1 - cappedPercent / 100);
+  }
+  if (discountType === "fixed") return Math.max(0, price - discountNum);
+  return price;
+};
+
+const formatPrice = (price: string | number | null) => {
+  const numPrice = Number(price) || 0;
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(numPrice);
+};
 
 function GoogleFontsLoader({ fonts }: { fonts: string[] }) {
   const uniqueFonts = useMemo(() => [...new Set(fonts.filter(Boolean))], [fonts]);
@@ -155,6 +189,11 @@ export default function PublicRegistration() {
   const { toast } = useToast();
   const [registrationComplete, setRegistrationComplete] = useState(false);
   const [registeredAttendee, setRegisteredAttendee] = useState<Attendee | null>(null);
+  const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
+  const [inviteCodeInput, setInviteCodeInput] = useState("");
+  const [validatedCode, setValidatedCode] = useState<ValidatedInviteCode | null>(null);
+  const [unlockedPackage, setUnlockedPackage] = useState<PackageWithEffectivePrice | null>(null);
+  const [isValidatingCode, setIsValidatingCode] = useState(false);
 
   const { data, isLoading, error } = useQuery<PublicRegistrationData>({
     queryKey: ["/api/public/event", slug, "registration"],
@@ -175,6 +214,54 @@ export default function PublicRegistration() {
     },
     enabled: !!slug,
   });
+
+  const { data: publicPackages = [] } = useQuery<PackageWithEffectivePrice[]>({
+    queryKey: ["/api/public/event", slug, "packages"],
+    queryFn: async () => {
+      const res = await fetch(`/api/public/event/${slug}/packages`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!slug,
+  });
+
+  const availablePackages = useMemo(() => {
+    const packages = [...publicPackages];
+    if (unlockedPackage && !packages.find(p => p.id === unlockedPackage.id)) {
+      packages.push(unlockedPackage);
+    }
+    return packages;
+  }, [publicPackages, unlockedPackage]);
+
+  const validateInviteCode = async () => {
+    if (!inviteCodeInput.trim()) return;
+    setIsValidatingCode(true);
+    try {
+      const res = await fetch(`/api/public/validate-invite-code/${slug}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: inviteCodeInput.trim() }),
+      });
+      const result = await res.json();
+      if (result.valid) {
+        setValidatedCode(result.inviteCode);
+        setUnlockedPackage(result.unlockedPackage);
+        form.setValue("inviteCode", inviteCodeInput.trim());
+        toast({ title: "Invite code applied!", description: result.unlockedPackage ? "Package unlocked" : "Code validated" });
+        if (result.unlockedPackage && !selectedPackageId) {
+          setSelectedPackageId(result.unlockedPackage.id);
+        }
+      } else {
+        toast({ title: "Invalid code", description: result.message || "Please check the code and try again", variant: "destructive" });
+        setValidatedCode(null);
+        setUnlockedPackage(null);
+      }
+    } catch {
+      toast({ title: "Error", description: "Failed to validate code", variant: "destructive" });
+    } finally {
+      setIsValidatingCode(false);
+    }
+  };
 
   const sortedCustomFields = useMemo(() => {
     return [...customFields].sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
@@ -212,7 +299,11 @@ export default function PublicRegistration() {
 
   const registerMutation = useMutation({
     mutationFn: async (formData: RegistrationFormData) => {
-      const res = await apiRequest("POST", `/api/public/register/${slug}`, formData);
+      const res = await apiRequest("POST", `/api/public/register/${slug}`, {
+        ...formData,
+        packageId: selectedPackageId,
+        inviteCodeId: validatedCode?.id || undefined,
+      });
       return res.json();
     },
     onSuccess: (data) => {
@@ -227,6 +318,14 @@ export default function PublicRegistration() {
 
   const onSubmit = (formData: RegistrationFormData) => {
     registerMutation.mutate(formData);
+  };
+
+  const getPackagePrice = (pkg: PackageWithEffectivePrice) => {
+    const basePrice = Number(pkg.effectivePrice) || 0;
+    if (validatedCode?.discountType && validatedCode?.discountValue) {
+      return calculateDiscount(basePrice, validatedCode.discountType, validatedCode.discountValue);
+    }
+    return basePrice;
   };
 
   if (isLoading) {
@@ -480,19 +579,101 @@ export default function PublicRegistration() {
                     )}
                   />
 
-                  <FormField
-                    control={form.control}
-                    name="inviteCode"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Invite Code (optional)</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter invite code if you have one" data-testid="input-invite-code" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
+                  <div className="space-y-2">
+                    <FormLabel>Invite Code (optional)</FormLabel>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Enter invite code"
+                        value={inviteCodeInput}
+                        onChange={(e) => setInviteCodeInput(e.target.value)}
+                        disabled={!!validatedCode}
+                        data-testid="input-invite-code"
+                      />
+                      <Button
+                        type="button"
+                        variant={validatedCode ? "secondary" : "outline"}
+                        onClick={validateInviteCode}
+                        disabled={!inviteCodeInput.trim() || isValidatingCode || !!validatedCode}
+                        data-testid="button-validate-code"
+                      >
+                        {isValidatingCode ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : validatedCode ? (
+                          <Check className="h-4 w-4" />
+                        ) : (
+                          "Apply"
+                        )}
+                      </Button>
+                    </div>
+                    {validatedCode && (
+                      <div className="flex items-center gap-2 text-sm text-green-600">
+                        <Check className="h-4 w-4" />
+                        <span>Code applied{validatedCode.discountType && ` - ${validatedCode.discountType === "percentage" ? `${validatedCode.discountValue}% off` : `${formatPrice(validatedCode.discountValue)} off`}`}</span>
+                      </div>
                     )}
-                  />
+                  </div>
+
+                  {availablePackages.length > 0 && (
+                    <div className="space-y-2">
+                      <FormLabel>Select Package</FormLabel>
+                      <div className="grid gap-3">
+                        {availablePackages.map((pkg) => {
+                          const originalPrice = Number(pkg.effectivePrice) || 0;
+                          const discountedPrice = getPackagePrice(pkg);
+                          const hasDiscount = discountedPrice < originalPrice;
+                          const isSelected = selectedPackageId === pkg.id;
+                          
+                          return (
+                            <div
+                              key={pkg.id}
+                              className={`p-4 border rounded-md cursor-pointer transition-colors ${
+                                isSelected ? "border-2 border-primary bg-primary/5" : "hover:bg-muted/50"
+                              }`}
+                              onClick={() => setSelectedPackageId(pkg.id)}
+                              data-testid={`package-option-${pkg.id}`}
+                            >
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium">{pkg.name}</span>
+                                    {unlockedPackage?.id === pkg.id && (
+                                      <Badge variant="secondary" className="text-xs">
+                                        <Tag className="h-3 w-3 mr-1" />
+                                        Unlocked
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  {pkg.description && (
+                                    <p className="text-sm text-muted-foreground mt-1">{pkg.description}</p>
+                                  )}
+                                  {pkg.effectiveFeatures && pkg.effectiveFeatures.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mt-2">
+                                      {pkg.effectiveFeatures.slice(0, 3).map((feature, i) => (
+                                        <Badge key={i} variant="outline" className="text-xs">{feature}</Badge>
+                                      ))}
+                                      {pkg.effectiveFeatures.length > 3 && (
+                                        <Badge variant="outline" className="text-xs">+{pkg.effectiveFeatures.length - 3} more</Badge>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="text-right">
+                                  {hasDiscount ? (
+                                    <>
+                                      <span className="text-lg font-bold">{formatPrice(discountedPrice)}</span>
+                                      <span className="text-sm text-muted-foreground line-through ml-2">{formatPrice(originalPrice)}</span>
+                                    </>
+                                  ) : (
+                                    <span className="text-lg font-bold">{formatPrice(originalPrice)}</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
                   {sortedCustomFields.length > 0 && (
                     <div className="space-y-4 pt-4 border-t">
