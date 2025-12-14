@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import { sendNewOrganizationAlert } from "./email";
 import {
   insertEventSchema,
   insertAttendeeSchema,
@@ -44,6 +45,11 @@ export async function registerRoutes(
       userId: userId,
       role: 'owner'
     });
+    
+    // Send email alert for new organization
+    const user = await storage.getUser(userId);
+    sendNewOrganizationAlert(org.name, org.slug, user?.email || undefined);
+    
     return org.id;
   }
 
@@ -77,6 +83,11 @@ export async function registerRoutes(
           userId: userId,
           role: 'owner'
         });
+        
+        // Send email alert for new organization
+        const user = await storage.getUser(userId);
+        sendNewOrganizationAlert(org.name, org.slug, user?.email || undefined);
+        
         res.json(org);
       }
     } catch (error) {
