@@ -401,6 +401,19 @@ export async function registerRoutes(
     }
   });
 
+  // Get events assigned to a package
+  app.get("/api/packages/:id/events", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const eventPackages = await storage.getEventPackagesByPackageId(organizationId, req.params.id);
+      res.json(eventPackages.map(ep => ep.eventId));
+    } catch (error) {
+      console.error("Error fetching package events:", error);
+      res.status(500).json({ message: "Failed to fetch package events" });
+    }
+  });
+
   // Event Package routes (per-event package overrides)
   app.get("/api/events/:eventId/packages", isAuthenticated, async (req: any, res) => {
     try {

@@ -109,6 +109,7 @@ export interface IStorage {
 
   // Event Package operations (per-event package overrides)
   getEventPackages(organizationId: string, eventId: string): Promise<EventPackage[]>;
+  getEventPackagesByPackageId(organizationId: string, packageId: string): Promise<EventPackage[]>;
   getEventPackage(organizationId: string, eventId: string, packageId: string): Promise<EventPackage | undefined>;
   upsertEventPackage(eventPackage: InsertEventPackage): Promise<EventPackage>;
   deleteEventPackage(organizationId: string, eventId: string, packageId: string): Promise<void>;
@@ -399,6 +400,11 @@ export class DatabaseStorage implements IStorage {
   async getEventPackages(organizationId: string, eventId: string): Promise<EventPackage[]> {
     return db.select().from(eventPackages)
       .where(and(eq(eventPackages.organizationId, organizationId), eq(eventPackages.eventId, eventId)));
+  }
+
+  async getEventPackagesByPackageId(organizationId: string, packageId: string): Promise<EventPackage[]> {
+    return db.select().from(eventPackages)
+      .where(and(eq(eventPackages.organizationId, organizationId), eq(eventPackages.packageId, packageId)));
   }
 
   async getEventPackage(organizationId: string, eventId: string, packageId: string): Promise<EventPackage | undefined> {
