@@ -39,6 +39,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Plus, Mail, Send, Clock, CheckCircle, FileText, Copy, Trash2 } from "lucide-react";
 import { EventSelectField } from "@/components/event-select-field";
+import { MergeTagPicker } from "@/components/merge-tag-picker";
 import type { EmailCampaign, EmailTemplate } from "@shared/schema";
 
 const emailFormSchema = z.object({
@@ -158,6 +159,27 @@ export default function Emails() {
         return;
       }
       toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const sendCampaignMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("POST", `/api/emails/${id}/send`);
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/emails"] });
+      toast({ 
+        title: "Campaign sent successfully", 
+        description: `${data.totalSent} emails sent${data.totalFailed > 0 ? `, ${data.totalFailed} failed` : ''}` 
+      });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({ title: "Unauthorized", description: "You are logged out. Logging in again...", variant: "destructive" });
+        setTimeout(() => { window.location.href = "/api/login"; }, 500);
+        return;
+      }
+      toast({ title: "Failed to send campaign", description: error.message, variant: "destructive" });
     },
   });
 
@@ -353,8 +375,9 @@ export default function Emails() {
               size="icon"
               onClick={(e) => {
                 e.stopPropagation();
-                toast({ title: "Email sending not configured", description: "Connect an email service to send campaigns" });
+                sendCampaignMutation.mutate(email.id);
               }}
+              disabled={sendCampaignMutation.isPending}
               data-testid={`button-send-${email.id}`}
             >
               <Send className="h-4 w-4" />
@@ -472,7 +495,12 @@ export default function Emails() {
                         <FormItem>
                           <FormLabel>Subject</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="Email subject line" data-testid="input-subject" />
+                            <div className="flex items-center gap-1">
+                              <Input {...field} placeholder="Email subject line" data-testid="input-subject" className="flex-1" />
+                              <MergeTagPicker
+                                onInsert={(tag) => field.onChange(field.value + tag)}
+                              />
+                            </div>
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -544,12 +572,18 @@ export default function Emails() {
                         <FormItem>
                           <FormLabel>Content</FormLabel>
                           <FormControl>
-                            <Textarea
-                              rows={10}
-                              {...field}
-                              placeholder="Write your email content here..."
-                              data-testid="input-content"
-                            />
+                            <div className="flex items-start gap-1">
+                              <Textarea
+                                rows={10}
+                                {...field}
+                                placeholder="Write your email content here..."
+                                data-testid="input-content"
+                                className="flex-1"
+                              />
+                              <MergeTagPicker
+                                onInsert={(tag) => field.onChange(field.value + tag)}
+                              />
+                            </div>
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -638,7 +672,12 @@ export default function Emails() {
                         <FormItem>
                           <FormLabel>Subject Line</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="Email subject" data-testid="input-template-subject" />
+                            <div className="flex items-center gap-1">
+                              <Input {...field} placeholder="Email subject" data-testid="input-template-subject" className="flex-1" />
+                              <MergeTagPicker
+                                onInsert={(tag) => field.onChange(field.value + tag)}
+                              />
+                            </div>
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -651,12 +690,18 @@ export default function Emails() {
                         <FormItem>
                           <FormLabel>Template Content</FormLabel>
                           <FormControl>
-                            <Textarea
-                              rows={12}
-                              {...field}
-                              placeholder="Write your email template content here. Use {{name}}, {{event}}, {{date}} for dynamic values..."
-                              data-testid="input-template-content"
-                            />
+                            <div className="flex items-start gap-1">
+                              <Textarea
+                                rows={12}
+                                {...field}
+                                placeholder="Write your email template content here. Use merge tags like {{event.name}}, {{attendee.firstName}}..."
+                                data-testid="input-template-content"
+                                className="flex-1"
+                              />
+                              <MergeTagPicker
+                                onInsert={(tag) => field.onChange(field.value + tag)}
+                              />
+                            </div>
                           </FormControl>
                           <FormMessage />
                         </FormItem>

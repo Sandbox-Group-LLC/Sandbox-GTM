@@ -8,6 +8,7 @@ import { Calendar, MapPin, Clock, Mic, AlertCircle, ArrowRight, ChevronDown, Che
 import { useState, useEffect, useMemo } from "react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import type { Event, EventSession, Speaker, EventPage, EventPageTheme } from "@shared/schema";
+import { replaceMergeTags, type MergeTagContext } from "@shared/mergeTags";
 
 function GoogleFontsLoader({ fonts }: { fonts: string[] }) {
   const uniqueFonts = useMemo(() => [...new Set(fonts.filter(Boolean))], [fonts]);
@@ -306,13 +307,23 @@ export default function PublicEvent() {
 
 function SectionRenderer({ section, event, sessions, speakers, theme }: { section: Section; event: Event; sessions?: EventSession[]; speakers?: Speaker[]; theme?: EventPageTheme | null }) {
   const config = section.config;
-  const title = String(config.title || "");
-  const subtitle = String(config.subtitle || "");
-  const buttonText = String(config.buttonText || "");
+  
+  const mergeTagContext: MergeTagContext = {
+    event: {
+      name: event.name,
+      date: event.startDate ? new Date(event.startDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : "",
+      location: event.location || "",
+      description: event.description || "",
+    },
+  };
+  
+  const title = replaceMergeTags(String(config.title || ""), mergeTagContext);
+  const subtitle = replaceMergeTags(String(config.subtitle || ""), mergeTagContext);
+  const buttonText = replaceMergeTags(String(config.buttonText || ""), mergeTagContext);
   const buttonLink = String(config.buttonLink || "");
-  const heading = String(config.heading || "");
-  const content = String(config.content || "");
-  const description = String(config.description || "");
+  const heading = replaceMergeTags(String(config.heading || ""), mergeTagContext);
+  const content = replaceMergeTags(String(config.content || ""), mergeTagContext);
+  const description = replaceMergeTags(String(config.description || ""), mergeTagContext);
 
   const borderRadiusMap: Record<string, string> = {
     none: "0px", small: "4px", medium: "8px", large: "16px", pill: "9999px",

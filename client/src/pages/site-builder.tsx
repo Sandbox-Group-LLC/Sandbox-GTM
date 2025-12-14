@@ -48,6 +48,7 @@ import {
   Paintbrush,
 } from "lucide-react";
 import type { Event, EventPage, EventPageTheme } from "@shared/schema";
+import { MergeTagPicker } from "@/components/merge-tag-picker";
 
 type PageType = "landing" | "registration" | "portal";
 
@@ -599,33 +600,54 @@ function SectionEditor({ section, onSave, onCancel }: SectionEditorProps) {
           <>
             <div className="space-y-2">
               <Label htmlFor="title">Title</Label>
-              <Input
-                id="title"
-                value={(config.title as string) || ""}
-                onChange={(e) => updateConfig("title", e.target.value)}
-                placeholder="Enter hero title"
-                data-testid="input-hero-title"
-              />
+              <div className="flex items-center gap-1">
+                <Input
+                  id="title"
+                  value={(config.title as string) || ""}
+                  onChange={(e) => updateConfig("title", e.target.value)}
+                  placeholder="Enter hero title"
+                  data-testid="input-hero-title"
+                  className="flex-1"
+                />
+                <MergeTagPicker
+                  categories={["event", "organization"]}
+                  onInsert={(tag) => updateConfig("title", ((config.title as string) || "") + tag)}
+                />
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="subtitle">Subtitle</Label>
-              <Textarea
-                id="subtitle"
-                value={(config.subtitle as string) || ""}
-                onChange={(e) => updateConfig("subtitle", e.target.value)}
-                placeholder="Enter subtitle text"
-                data-testid="input-hero-subtitle"
-              />
+              <div className="flex items-start gap-1">
+                <Textarea
+                  id="subtitle"
+                  value={(config.subtitle as string) || ""}
+                  onChange={(e) => updateConfig("subtitle", e.target.value)}
+                  placeholder="Enter subtitle text"
+                  data-testid="input-hero-subtitle"
+                  className="flex-1"
+                />
+                <MergeTagPicker
+                  categories={["event", "organization"]}
+                  onInsert={(tag) => updateConfig("subtitle", ((config.subtitle as string) || "") + tag)}
+                />
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="buttonText">Button Text</Label>
-              <Input
-                id="buttonText"
-                value={(config.buttonText as string) || ""}
-                onChange={(e) => updateConfig("buttonText", e.target.value)}
-                placeholder="Register Now"
-                data-testid="input-hero-button-text"
-              />
+              <div className="flex items-center gap-1">
+                <Input
+                  id="buttonText"
+                  value={(config.buttonText as string) || ""}
+                  onChange={(e) => updateConfig("buttonText", e.target.value)}
+                  placeholder="Register Now"
+                  data-testid="input-hero-button-text"
+                  className="flex-1"
+                />
+                <MergeTagPicker
+                  categories={["event", "organization"]}
+                  onInsert={(tag) => updateConfig("buttonText", ((config.buttonText as string) || "") + tag)}
+                />
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="buttonLink">Button Link</Label>
@@ -644,24 +666,38 @@ function SectionEditor({ section, onSave, onCancel }: SectionEditorProps) {
           <>
             <div className="space-y-2">
               <Label htmlFor="heading">Heading</Label>
-              <Input
-                id="heading"
-                value={(config.heading as string) || ""}
-                onChange={(e) => updateConfig("heading", e.target.value)}
-                placeholder="Section heading"
-                data-testid="input-text-heading"
-              />
+              <div className="flex items-center gap-1">
+                <Input
+                  id="heading"
+                  value={(config.heading as string) || ""}
+                  onChange={(e) => updateConfig("heading", e.target.value)}
+                  placeholder="Section heading"
+                  data-testid="input-text-heading"
+                  className="flex-1"
+                />
+                <MergeTagPicker
+                  categories={["event", "organization"]}
+                  onInsert={(tag) => updateConfig("heading", ((config.heading as string) || "") + tag)}
+                />
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="content">Content</Label>
-              <Textarea
-                id="content"
-                value={(config.content as string) || ""}
-                onChange={(e) => updateConfig("content", e.target.value)}
-                placeholder="Enter your text content"
-                rows={5}
-                data-testid="input-text-content"
-              />
+              <div className="flex items-start gap-1">
+                <Textarea
+                  id="content"
+                  value={(config.content as string) || ""}
+                  onChange={(e) => updateConfig("content", e.target.value)}
+                  placeholder="Enter your text content"
+                  rows={5}
+                  data-testid="input-text-content"
+                  className="flex-1"
+                />
+                <MergeTagPicker
+                  categories={["event", "organization"]}
+                  onInsert={(tag) => updateConfig("content", ((config.content as string) || "") + tag)}
+                />
+              </div>
             </div>
           </>
         );
@@ -670,33 +706,54 @@ function SectionEditor({ section, onSave, onCancel }: SectionEditorProps) {
           <>
             <div className="space-y-2">
               <Label htmlFor="heading">Heading</Label>
-              <Input
-                id="heading"
-                value={(config.heading as string) || ""}
-                onChange={(e) => updateConfig("heading", e.target.value)}
-                placeholder="Ready to Join?"
-                data-testid="input-cta-heading"
-              />
+              <div className="flex items-center gap-1">
+                <Input
+                  id="heading"
+                  value={(config.heading as string) || ""}
+                  onChange={(e) => updateConfig("heading", e.target.value)}
+                  placeholder="Ready to Join?"
+                  data-testid="input-cta-heading"
+                  className="flex-1"
+                />
+                <MergeTagPicker
+                  categories={["event", "organization"]}
+                  onInsert={(tag) => updateConfig("heading", ((config.heading as string) || "") + tag)}
+                />
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={(config.description as string) || ""}
-                onChange={(e) => updateConfig("description", e.target.value)}
-                placeholder="Brief description"
-                data-testid="input-cta-description"
-              />
+              <div className="flex items-start gap-1">
+                <Textarea
+                  id="description"
+                  value={(config.description as string) || ""}
+                  onChange={(e) => updateConfig("description", e.target.value)}
+                  placeholder="Brief description"
+                  data-testid="input-cta-description"
+                  className="flex-1"
+                />
+                <MergeTagPicker
+                  categories={["event", "organization"]}
+                  onInsert={(tag) => updateConfig("description", ((config.description as string) || "") + tag)}
+                />
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="buttonText">Button Text</Label>
-              <Input
-                id="buttonText"
-                value={(config.buttonText as string) || ""}
-                onChange={(e) => updateConfig("buttonText", e.target.value)}
-                placeholder="Get Started"
-                data-testid="input-cta-button-text"
-              />
+              <div className="flex items-center gap-1">
+                <Input
+                  id="buttonText"
+                  value={(config.buttonText as string) || ""}
+                  onChange={(e) => updateConfig("buttonText", e.target.value)}
+                  placeholder="Get Started"
+                  data-testid="input-cta-button-text"
+                  className="flex-1"
+                />
+                <MergeTagPicker
+                  categories={["event", "organization"]}
+                  onInsert={(tag) => updateConfig("buttonText", ((config.buttonText as string) || "") + tag)}
+                />
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="buttonLink">Button Link</Label>

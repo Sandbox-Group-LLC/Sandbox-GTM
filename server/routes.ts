@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { sendNewOrganizationAlert } from "./email";
+import { sendNewOrganizationAlert, sendCampaignEmails } from "./email";
 import { createPaymentIntent, getPaymentIntent, calculateFinalPrice } from "./stripe";
 import {
   insertEventSchema,
@@ -1352,6 +1352,93 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting email campaign:", error);
       res.status(500).json({ message: "Failed to delete email campaign" });
+    }
+  });
+
+  // Send email campaign with merge tag replacement
+  app.post("/api/emails/:id/send", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      
+      // Get the email campaign
+      const campaigns = await storage.getEmailCampaigns(organizationId);
+      const campaign = campaigns.find(c => c.id === req.params.id);
+      if (!campaign) {
+        return res.status(404).json({ message: "Email campaign not found" });
+      }
+
+      // Get event details for merge tags
+      const event = await storage.getEvent(organizationId, campaign.eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+
+      // Get organization details for merge tags
+      const org = await storage.getOrganization(organizationId);
+
+      // Get recipients based on recipientType
+      let attendees = await storage.getAttendees(organizationId, campaign.eventId);
+      
+      // Filter by recipientType if needed
+      if (campaign.recipientType && campaign.recipientType !== "all") {
+        attendees = attendees.filter(a => a.attendeeType === campaign.recipientType);
+      }
+
+      if (attendees.length === 0) {
+        return res.status(400).json({ message: "No recipients found for this campaign" });
+      }
+
+      // Check if email service is configured
+      if (!process.env.RESEND_API_KEY) {
+        return res.status(400).json({ message: "Email service not configured. Please add RESEND_API_KEY to enable sending." });
+      }
+
+      // Format event date for merge tags
+      const eventDate = event.startDate ? new Date(event.startDate).toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      }) : '';
+
+      // Send emails with merge tag replacement
+      const result = await sendCampaignEmails({
+        subject: campaign.subject,
+        content: campaign.content,
+        recipients: attendees.map(a => ({
+          email: a.email,
+          firstName: a.firstName || undefined,
+          lastName: a.lastName || undefined,
+          company: a.company || undefined,
+          checkInCode: a.checkInCode || undefined,
+        })),
+        eventContext: {
+          name: event.name,
+          date: eventDate,
+          location: event.location || undefined,
+          description: event.description || undefined,
+        },
+        organizationContext: {
+          name: org?.name,
+        },
+      });
+
+      // Update campaign status to sent
+      await storage.updateEmailCampaign(organizationId, campaign.id, {
+        status: "sent",
+        sentAt: new Date(),
+      });
+
+      res.json({
+        message: `Campaign sent successfully`,
+        totalSent: result.totalSent,
+        totalFailed: result.totalFailed,
+        errors: result.errors.length > 0 ? result.errors : undefined,
+      });
+    } catch (error) {
+      console.error("Error sending email campaign:", error);
+      res.status(500).json({ message: "Failed to send email campaign" });
     }
   });
 
