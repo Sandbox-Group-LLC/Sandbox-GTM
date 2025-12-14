@@ -49,14 +49,14 @@ const mainMenuItems = [
 
 const attendeesSubItems = [
   { title: "All Attendees", path: "/attendees" },
+  { title: "Attendee Types", path: "/attendee-types" },
+  { title: "Invite Codes", path: "/invite-codes" },
   { title: "Packages", path: "/packages" },
 ];
 
 const eventsSubItems = [
   { title: "All Events", path: "/events" },
   { title: "Registration", path: "/registration" },
-  { title: "Attendee Types", path: "/attendee-types" },
-  { title: "Invite Codes", path: "/invite-codes" },
   { title: "Site Builder", path: "/site-builder" },
 ];
 
@@ -75,8 +75,8 @@ export function AppSidebar() {
   const [location] = useLocation();
   const { user } = useAuth();
 
-  const isEventsActive = location === "/events" || location === "/registration" || location === "/attendee-types" || location === "/invite-codes" || location === "/site-builder";
-  const isAttendeesActive = location === "/attendees" || location === "/packages";
+  const isEventsActive = location === "/events" || location === "/registration" || location === "/site-builder";
+  const isAttendeesActive = location === "/attendees" || location === "/attendee-types" || location === "/invite-codes" || location === "/packages";
 
   const getInitials = () => {
     if (user?.firstName && user?.lastName) {
