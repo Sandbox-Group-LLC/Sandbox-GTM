@@ -1365,5 +1365,36 @@ export async function registerRoutes(
     }
   });
 
+  // Registration config routes
+  app.get("/api/events/:eventId/registration-config", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const config = await storage.getRegistrationConfig(organizationId, req.params.eventId);
+      res.json(config || null);
+    } catch (error) {
+      console.error("Error fetching registration config:", error);
+      res.status(500).json({ message: "Failed to fetch registration config" });
+    }
+  });
+
+  app.post("/api/events/:eventId/registration-config", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const eventId = req.params.eventId;
+      const data = {
+        ...req.body,
+        organizationId,
+        eventId,
+      };
+      const config = await storage.upsertRegistrationConfig(data);
+      res.status(201).json(config);
+    } catch (error) {
+      console.error("Error saving registration config:", error);
+      res.status(400).json({ message: "Failed to save registration config" });
+    }
+  });
+
   return httpServer;
 }
