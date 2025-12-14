@@ -144,7 +144,26 @@ export const eventPages = pgTable("event_pages", {
   pageType: varchar("page_type", { length: 50 }).notNull(),
   slug: varchar("slug", { length: 100 }),
   isPublished: boolean("is_published").default(false),
-  theme: jsonb("theme").$type<{ primaryColor?: string; secondaryColor?: string; fontFamily?: string }>(),
+  theme: jsonb("theme").$type<{
+    // Typography
+    headingFont?: string;
+    bodyFont?: string;
+    baseFontSize?: string;
+    // Colors
+    primaryColor?: string;
+    secondaryColor?: string;
+    backgroundColor?: string;
+    textColor?: string;
+    textSecondaryColor?: string;
+    buttonColor?: string;
+    buttonTextColor?: string;
+    cardBackground?: string;
+    // Layout
+    borderRadius?: 'none' | 'small' | 'medium' | 'large' | 'pill';
+    buttonStyle?: 'filled' | 'outline';
+    containerWidth?: 'narrow' | 'standard' | 'wide';
+    sectionSpacing?: 'compact' | 'normal' | 'relaxed';
+  }>(),
   seo: jsonb("seo").$type<{ title?: string; description?: string; ogImage?: string }>(),
   sections: jsonb("sections").$type<Array<{
     id: string;
@@ -615,6 +634,7 @@ export type InsertInviteCode = z.infer<typeof insertInviteCodeSchema>;
 export type InviteCode = typeof inviteCodes.$inferSelect;
 export type InsertEventPage = z.infer<typeof insertEventPageSchema>;
 export type EventPage = typeof eventPages.$inferSelect;
+export type EventPageTheme = NonNullable<EventPage['theme']>;
 export type InsertRegistrationConfig = z.infer<typeof insertRegistrationConfigSchema>;
 export type RegistrationConfig = typeof registrationConfigs.$inferSelect;
 export type InsertCustomField = z.infer<typeof insertCustomFieldSchema>;
