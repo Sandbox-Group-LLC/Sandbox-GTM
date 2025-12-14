@@ -357,7 +357,6 @@ export class DatabaseStorage implements IStorage {
     await db.delete(emailTemplates).where(eq(emailTemplates.eventId, id));
     await db.delete(eventPages).where(eq(eventPages.eventId, id));
     await db.delete(registrationConfigs).where(eq(registrationConfigs.eventId, id));
-    await db.delete(customFields).where(eq(customFields.eventId, id));
     
     // Now delete the event itself
     await db.delete(events).where(and(eq(events.organizationId, organizationId), eq(events.id, id)));

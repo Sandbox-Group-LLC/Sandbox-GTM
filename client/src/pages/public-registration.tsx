@@ -81,7 +81,7 @@ const formatPrice = (price: string | number | null) => {
 };
 
 function GoogleFontsLoader({ fonts }: { fonts: string[] }) {
-  const uniqueFonts = useMemo(() => [...new Set(fonts.filter(Boolean))], [fonts]);
+  const uniqueFonts = useMemo(() => Array.from(new Set(fonts.filter(Boolean))), [fonts]);
   
   if (uniqueFonts.length === 0) return null;
   
