@@ -444,6 +444,7 @@ export function OnboardingWizard({ open, onOpenChange }: OnboardingWizardProps) 
                     <FormControl>
                       <Input
                         placeholder="Annual Conference 2025"
+                        autoComplete="off"
                         {...field}
                         data-testid="input-event-name"
                       />
