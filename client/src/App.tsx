@@ -32,6 +32,7 @@ import InviteCodes from "@/pages/invite-codes";
 import SiteBuilder from "@/pages/site-builder";
 import AdminOrganizations from "@/pages/admin-organizations";
 import MyOrganization from "@/pages/my-organization";
+import CustomFields from "@/pages/custom-fields";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const sidebarStyle = {
@@ -83,6 +84,7 @@ function Router() {
         <Route path="/registration" component={RegistrationFlow} />
         <Route path="/attendees" component={Attendees} />
         <Route path="/packages" component={Packages} />
+        <Route path="/custom-fields" component={CustomFields} />
         <Route path="/invite-codes" component={InviteCodes} />
         <Route path="/site-builder" component={SiteBuilder} />
         <Route path="/check-in" component={CheckIn} />

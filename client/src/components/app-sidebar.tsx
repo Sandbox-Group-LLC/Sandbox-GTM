@@ -54,6 +54,7 @@ const attendeesSubItems = [
   { title: "Attendee Types", path: "/attendee-types" },
   { title: "Invite Codes", path: "/invite-codes" },
   { title: "Packages", path: "/packages" },
+  { title: "Custom Fields", path: "/custom-fields" },
 ];
 
 const eventsSubItems = [
@@ -78,7 +79,7 @@ export function AppSidebar() {
   const { user } = useAuth();
 
   const isEventsActive = location === "/events" || location === "/registration" || location === "/site-builder";
-  const isAttendeesActive = location === "/attendees" || location === "/attendee-types" || location === "/invite-codes" || location === "/packages";
+  const isAttendeesActive = location === "/attendees" || location === "/attendee-types" || location === "/invite-codes" || location === "/packages" || location === "/custom-fields";
   
   const isSuperAdmin = user?.email?.toLowerCase().endsWith("@makemysandbox.com") ?? false;
 

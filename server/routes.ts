@@ -18,6 +18,7 @@ import {
   insertSocialPostSchema,
   insertEmailTemplateSchema,
   insertEventPageSchema,
+  insertCustomFieldSchema,
 } from "@shared/schema";
 
 export async function registerRoutes(
@@ -1583,6 +1584,70 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error saving registration config:", error);
       res.status(400).json({ message: "Failed to save registration config" });
+    }
+  });
+
+  // Custom Fields routes
+  app.get("/api/custom-fields", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const fields = await storage.getCustomFields(organizationId);
+      res.json(fields);
+    } catch (error) {
+      console.error("Error fetching custom fields:", error);
+      res.status(500).json({ message: "Failed to fetch custom fields" });
+    }
+  });
+
+  app.post("/api/custom-fields", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const data = insertCustomFieldSchema.parse({ ...req.body, organizationId });
+      const field = await storage.createCustomField(data);
+      res.status(201).json(field);
+    } catch (error) {
+      console.error("Error creating custom field:", error);
+      res.status(400).json({ message: "Invalid custom field data" });
+    }
+  });
+
+  app.patch("/api/custom-fields/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const field = await storage.updateCustomField(organizationId, req.params.id, req.body);
+      if (!field) {
+        return res.status(404).json({ message: "Custom field not found" });
+      }
+      res.json(field);
+    } catch (error) {
+      console.error("Error updating custom field:", error);
+      res.status(400).json({ message: "Failed to update custom field" });
+    }
+  });
+
+  app.delete("/api/custom-fields/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      await storage.deleteCustomField(organizationId, req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting custom field:", error);
+      res.status(500).json({ message: "Failed to delete custom field" });
+    }
+  });
+
+  // Public custom fields endpoint (no auth required)
+  app.get("/api/public/custom-fields/:slug", async (req, res) => {
+    try {
+      const fields = await storage.getActiveCustomFieldsByEventSlug(req.params.slug);
+      res.json(fields);
+    } catch (error) {
+      console.error("Error fetching public custom fields:", error);
+      res.status(500).json({ message: "Failed to fetch custom fields" });
     }
   });
 

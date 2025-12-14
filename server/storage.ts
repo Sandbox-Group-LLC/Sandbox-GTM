@@ -21,6 +21,7 @@ import {
   organizationMembers,
   eventPages,
   registrationConfigs,
+  customFields,
   type User,
   type UpsertUser,
   type Event,
@@ -63,6 +64,8 @@ import {
   type InsertEventPage,
   type RegistrationConfig,
   type InsertRegistrationConfig,
+  type CustomField,
+  type InsertCustomField,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and } from "drizzle-orm";
@@ -214,6 +217,14 @@ export interface IStorage {
   // Registration Config operations
   getRegistrationConfig(organizationId: string, eventId: string): Promise<RegistrationConfig | undefined>;
   upsertRegistrationConfig(config: InsertRegistrationConfig): Promise<RegistrationConfig>;
+
+  // Custom Field operations
+  getCustomFields(organizationId: string): Promise<CustomField[]>;
+  getCustomField(organizationId: string, id: string): Promise<CustomField | undefined>;
+  createCustomField(field: InsertCustomField): Promise<CustomField>;
+  updateCustomField(organizationId: string, id: string, field: Partial<InsertCustomField>): Promise<CustomField | undefined>;
+  deleteCustomField(organizationId: string, id: string): Promise<void>;
+  getActiveCustomFieldsByEventSlug(slug: string): Promise<CustomField[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -945,6 +956,48 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return result;
+  }
+
+  // Custom Field operations
+  async getCustomFields(organizationId: string): Promise<CustomField[]> {
+    return db.select().from(customFields)
+      .where(eq(customFields.organizationId, organizationId))
+      .orderBy(customFields.displayOrder);
+  }
+
+  async getCustomField(organizationId: string, id: string): Promise<CustomField | undefined> {
+    const [field] = await db.select().from(customFields)
+      .where(and(eq(customFields.organizationId, organizationId), eq(customFields.id, id)));
+    return field;
+  }
+
+  async createCustomField(field: InsertCustomField): Promise<CustomField> {
+    const [newField] = await db.insert(customFields).values(field).returning();
+    return newField;
+  }
+
+  async updateCustomField(organizationId: string, id: string, field: Partial<InsertCustomField>): Promise<CustomField | undefined> {
+    const [updated] = await db
+      .update(customFields)
+      .set({ ...field, updatedAt: new Date() })
+      .where(and(eq(customFields.organizationId, organizationId), eq(customFields.id, id)))
+      .returning();
+    return updated;
+  }
+
+  async deleteCustomField(organizationId: string, id: string): Promise<void> {
+    await db.delete(customFields).where(and(eq(customFields.organizationId, organizationId), eq(customFields.id, id)));
+  }
+
+  async getActiveCustomFieldsByEventSlug(slug: string): Promise<CustomField[]> {
+    const event = await this.getEventBySlug(slug);
+    if (!event) return [];
+    return db.select().from(customFields)
+      .where(and(
+        eq(customFields.organizationId, event.organizationId),
+        eq(customFields.isActive, true)
+      ))
+      .orderBy(customFields.displayOrder);
   }
 }
 
