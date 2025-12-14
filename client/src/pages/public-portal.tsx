@@ -188,7 +188,7 @@ export default function PublicPortal() {
             {sections
               .sort((a, b) => a.order - b.order)
               .map((section) => (
-                <SectionRenderer key={section.id} section={section} event={event} slug={slug || ""} />
+                <SectionRenderer key={section.id} section={section} event={event} slug={slug || ""} theme={theme} />
               ))}
           </div>
         )}
@@ -290,7 +290,7 @@ export default function PublicPortal() {
   );
 }
 
-function SectionRenderer({ section, event, slug }: { section: Section; event: Event; slug: string }) {
+function SectionRenderer({ section, event, slug, theme }: { section: Section; event: Event; slug: string; theme?: EventPageTheme | null }) {
   const config = section.config;
   const title = String(config.title || "");
   const subtitle = String(config.subtitle || "");
@@ -300,6 +300,39 @@ function SectionRenderer({ section, event, slug }: { section: Section; event: Ev
   const content = String(config.content || "");
   const description = String(config.description || "");
 
+  const borderRadiusMap: Record<string, string> = {
+    none: "0px", small: "4px", medium: "8px", large: "16px", pill: "9999px",
+  };
+  const themeRadius = borderRadiusMap[theme?.borderRadius || "medium"];
+  const isOutlineButton = theme?.buttonStyle === "outline";
+
+  const buttonStyles: React.CSSProperties = isOutlineButton 
+    ? {
+        backgroundColor: "transparent",
+        color: theme?.buttonColor || "#3b82f6",
+        border: `2px solid ${theme?.buttonColor || "#3b82f6"}`,
+        borderRadius: themeRadius,
+      }
+    : {
+        backgroundColor: theme?.buttonColor || undefined,
+        color: theme?.buttonTextColor || undefined,
+        borderRadius: themeRadius,
+      };
+
+  const cardStyles: React.CSSProperties = {
+    backgroundColor: theme?.cardBackground || undefined,
+    borderRadius: themeRadius,
+  };
+
+  const headingStyles: React.CSSProperties = {
+    fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined,
+    color: theme?.textColor || undefined,
+  };
+
+  const secondaryTextStyles: React.CSSProperties = {
+    color: theme?.textSecondaryColor || undefined,
+  };
+
   const renderButton = (text: string, link: string, testId: string) => {
     if (!text) return null;
     const isExternal = link.startsWith("http");
@@ -307,7 +340,7 @@ function SectionRenderer({ section, event, slug }: { section: Section; event: Ev
     
     if (link && (isExternal || isAnchor)) {
       return (
-        <Button size="lg" asChild data-testid={testId}>
+        <Button size="lg" asChild data-testid={testId} style={buttonStyles}>
           <a href={link} target={isExternal ? "_blank" : undefined} rel={isExternal ? "noopener noreferrer" : undefined}>
             {text}
             <ArrowRight className="ml-2 h-4 w-4" />
@@ -317,7 +350,7 @@ function SectionRenderer({ section, event, slug }: { section: Section; event: Ev
     }
     
     return (
-      <Button size="lg" onClick={() => link && (window.location.href = link)} data-testid={testId}>
+      <Button size="lg" onClick={() => link && (window.location.href = link)} data-testid={testId} style={buttonStyles}>
         {text}
         <ArrowRight className="ml-2 h-4 w-4" />
       </Button>
@@ -327,10 +360,10 @@ function SectionRenderer({ section, event, slug }: { section: Section; event: Ev
   switch (section.type) {
     case "hero":
       return (
-        <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-lg p-8 text-center" data-testid={`section-hero-${section.id}`}>
-          <h2 className="text-3xl font-bold mb-4">{title || event.name}</h2>
+        <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-8 text-center" style={{ borderRadius: themeRadius }} data-testid={`section-hero-${section.id}`}>
+          <h2 className="text-3xl font-bold mb-4" style={headingStyles}>{title || event.name}</h2>
           {subtitle && (
-            <p className="text-lg text-muted-foreground mb-6">{subtitle}</p>
+            <p className="text-lg mb-6" style={secondaryTextStyles}>{subtitle}</p>
           )}
           {renderButton(buttonText, buttonLink, "button-hero-cta")}
         </div>
@@ -339,18 +372,18 @@ function SectionRenderer({ section, event, slug }: { section: Section; event: Ev
     case "text":
       return (
         <div className="prose dark:prose-invert max-w-none" data-testid={`section-text-${section.id}`}>
-          {heading && <h3 className="text-2xl font-semibold mb-4">{heading}</h3>}
-          {content && <p className="text-muted-foreground">{content}</p>}
+          {heading && <h3 className="text-2xl font-semibold mb-4" style={headingStyles}>{heading}</h3>}
+          {content && <p style={secondaryTextStyles}>{content}</p>}
         </div>
       );
 
     case "cta":
       return (
-        <Card className="bg-primary/5 border-primary/20" data-testid={`section-cta-${section.id}`}>
+        <Card className="bg-primary/5 border-primary/20" style={cardStyles} data-testid={`section-cta-${section.id}`}>
           <CardContent className="p-8 text-center">
-            <h3 className="text-2xl font-bold mb-2">{heading || "Ready to Join?"}</h3>
+            <h3 className="text-2xl font-bold mb-2" style={headingStyles}>{heading || "Ready to Join?"}</h3>
             {description && (
-              <p className="text-muted-foreground mb-6">{description}</p>
+              <p className="mb-6" style={secondaryTextStyles}>{description}</p>
             )}
             {renderButton(buttonText || "Get Started", buttonLink, "button-cta-action")}
           </CardContent>
@@ -362,15 +395,15 @@ function SectionRenderer({ section, event, slug }: { section: Section; event: Ev
       return (
         <div data-testid={`section-features-${section.id}`}>
           {heading && (
-            <h3 className="text-2xl font-semibold mb-6 text-center">{heading}</h3>
+            <h3 className="text-2xl font-semibold mb-6 text-center" style={headingStyles}>{heading}</h3>
           )}
           {features.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {features.map((feature, idx) => (
-                <Card key={idx}>
+                <Card key={idx} style={cardStyles}>
                   <CardContent className="p-4">
-                    <h4 className="font-medium mb-2">{feature.title}</h4>
-                    <p className="text-sm text-muted-foreground">{feature.description}</p>
+                    <h4 className="font-medium mb-2" style={headingStyles}>{feature.title}</h4>
+                    <p className="text-sm" style={secondaryTextStyles}>{feature.description}</p>
                   </CardContent>
                 </Card>
               ))}
