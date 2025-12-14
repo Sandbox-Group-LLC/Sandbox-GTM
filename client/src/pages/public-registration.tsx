@@ -99,6 +99,7 @@ interface Section {
 interface PublicRegistrationData {
   event: Event;
   registrationPage: EventPage | null;
+  landingTheme?: EventPageTheme | null;
 }
 
 const baseRegistrationSchema = z.object({
@@ -259,9 +260,9 @@ export default function PublicRegistration() {
     );
   }
 
-  const { event, registrationPage } = data;
+  const { event, registrationPage, landingTheme } = data;
   const sections = (registrationPage?.sections as Section[]) || [];
-  const theme = registrationPage?.theme;
+  const theme = registrationPage?.theme || landingTheme;
   const themeStyles = getThemeStyles(theme);
   const fontsToLoad = [theme?.headingFont, theme?.bodyFont].filter(Boolean) as string[];
 

@@ -77,6 +77,7 @@ interface PublicPortalData {
   sessions: EventSession[];
   speakers: Speaker[];
   portalPage: EventPage | null;
+  landingTheme?: EventPageTheme | null;
 }
 
 export default function PublicPortal() {
@@ -124,9 +125,9 @@ export default function PublicPortal() {
     );
   }
 
-  const { event, sessions, speakers, portalPage } = data;
+  const { event, sessions, speakers, portalPage, landingTheme } = data;
   const sections = (portalPage?.sections as Section[]) || [];
-  const theme = portalPage?.theme;
+  const theme = portalPage?.theme || landingTheme;
   const themeStyles = getThemeStyles(theme);
   const fontsToLoad = [theme?.headingFont, theme?.bodyFont].filter(Boolean) as string[];
 

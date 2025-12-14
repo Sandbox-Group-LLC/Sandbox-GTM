@@ -1252,8 +1252,17 @@ export async function registerRoutes(
       
       const pages = await storage.getEventPages(event.organizationId, event.id);
       const registrationPage = pages.find(p => p.pageType === "registration" && p.isPublished);
+      const landingPage = pages.find(p => p.pageType === "landing" && p.isPublished);
       
-      res.json({ event, registrationPage: registrationPage || null });
+      // Use landing page theme as fallback if registration page has no theme
+      // Also provide landing theme even if no registration page exists
+      const landingTheme = landingPage?.theme || null;
+      const effectivePage = registrationPage ? {
+        ...registrationPage,
+        theme: registrationPage.theme || landingTheme
+      } : null;
+      
+      res.json({ event, registrationPage: effectivePage, landingTheme });
     } catch (error) {
       console.error("Error fetching registration page:", error);
       res.status(500).json({ message: "Failed to fetch registration page" });
@@ -1271,8 +1280,17 @@ export async function registerRoutes(
       const speakers = await storage.getSpeakers(event.organizationId, event.id);
       const pages = await storage.getEventPages(event.organizationId, event.id);
       const portalPage = pages.find(p => p.pageType === "portal" && p.isPublished);
+      const landingPage = pages.find(p => p.pageType === "landing" && p.isPublished);
       
-      res.json({ event, sessions, speakers, portalPage: portalPage || null });
+      // Use landing page theme as fallback if portal page has no theme
+      // Also provide landing theme even if no portal page exists
+      const landingTheme = landingPage?.theme || null;
+      const effectivePage = portalPage ? {
+        ...portalPage,
+        theme: portalPage.theme || landingTheme
+      } : null;
+      
+      res.json({ event, sessions, speakers, portalPage: effectivePage, landingTheme });
     } catch (error) {
       console.error("Error fetching portal page:", error);
       res.status(500).json({ message: "Failed to fetch portal page" });
