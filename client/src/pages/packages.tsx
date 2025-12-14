@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -11,6 +11,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Dialog,
   DialogContent,
@@ -32,7 +35,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Plus, Package, Trash2, X } from "lucide-react";
-import type { Package as PackageType } from "@shared/schema";
+import type { Package as PackageType, Event } from "@shared/schema";
 
 const packageFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -40,6 +43,7 @@ const packageFormSchema = z.object({
   price: z.coerce.number().min(0, "Price must be 0 or greater").default(0),
   features: z.array(z.string()).default([]),
   isActive: z.boolean().default(true),
+  eventIds: z.array(z.string()).default([]),
 });
 
 type PackageFormData = z.infer<typeof packageFormSchema>;
@@ -49,9 +53,26 @@ export default function Packages() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPackage, setEditingPackage] = useState<PackageType | null>(null);
   const [newFeature, setNewFeature] = useState("");
+  const [originalEventIds, setOriginalEventIds] = useState<string[]>([]);
 
   const { data: packages = [], isLoading } = useQuery<PackageType[]>({
     queryKey: ["/api/packages"],
+  });
+
+  const { data: events = [] } = useQuery<Event[]>({
+    queryKey: ["/api/events"],
+  });
+
+  const packageId = editingPackage?.id;
+  const { data: packageEventIds = [] } = useQuery<string[]>({
+    queryKey: ["/api/packages", packageId, "events"],
+    queryFn: async () => {
+      if (!packageId) return [];
+      const res = await fetch(`/api/packages/${packageId}/events`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch package events");
+      return res.json();
+    },
+    enabled: !!packageId,
   });
 
   const form = useForm<PackageFormData>({
@@ -62,12 +83,28 @@ export default function Packages() {
       price: 0,
       features: [],
       isActive: true,
+      eventIds: [],
     },
   });
 
+  useEffect(() => {
+    if (editingPackage) {
+      form.setValue("eventIds", packageEventIds);
+      setOriginalEventIds(packageEventIds);
+    }
+  }, [editingPackage, packageEventIds, form]);
+
   const createMutation = useMutation({
     mutationFn: async (data: PackageFormData) => {
-      return await apiRequest("POST", "/api/packages", data);
+      const { eventIds, ...packageData } = data;
+      const response = await apiRequest("POST", "/api/packages", packageData);
+      const newPackage = await response.json();
+      
+      for (const eventId of eventIds) {
+        await apiRequest("PUT", `/api/events/${eventId}/packages/${newPackage.id}`, { isEnabled: true });
+      }
+      
+      return newPackage;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/packages"] });
@@ -87,13 +124,26 @@ export default function Packages() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: PackageFormData }) => {
-      return await apiRequest("PATCH", `/api/packages/${id}`, data);
+      const { eventIds, ...packageData } = data;
+      await apiRequest("PATCH", `/api/packages/${id}`, packageData);
+      
+      const addedEventIds = eventIds.filter((eventId) => !originalEventIds.includes(eventId));
+      const removedEventIds = originalEventIds.filter((eventId) => !eventIds.includes(eventId));
+      
+      for (const eventId of addedEventIds) {
+        await apiRequest("PUT", `/api/events/${eventId}/packages/${id}`, { isEnabled: true });
+      }
+      
+      for (const eventId of removedEventIds) {
+        await apiRequest("DELETE", `/api/events/${eventId}/packages/${id}`);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/packages"] });
       toast({ title: "Package updated successfully" });
       setIsDialogOpen(false);
       setEditingPackage(null);
+      setOriginalEventIds([]);
       form.reset();
     },
     onError: (error: Error) => {
@@ -134,12 +184,14 @@ export default function Packages() {
 
   const handleEdit = (pkg: PackageType) => {
     setEditingPackage(pkg);
+    setOriginalEventIds([]);
     form.reset({
       name: pkg.name,
       description: pkg.description || "",
       price: Number(pkg.price) || 0,
       features: pkg.features || [],
       isActive: pkg.isActive ?? true,
+      eventIds: [],
     });
     setIsDialogOpen(true);
   };
@@ -154,6 +206,7 @@ export default function Packages() {
     setIsDialogOpen(false);
     setEditingPackage(null);
     setNewFeature("");
+    setOriginalEventIds([]);
     form.reset();
   };
 
@@ -415,6 +468,54 @@ export default function Packages() {
                             data-testid="switch-is-active"
                           />
                         </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="eventIds"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Assign to Events</FormLabel>
+                        <FormDescription>Select events where this package will be available</FormDescription>
+                        <div className="border rounded-md p-3">
+                          <ScrollArea className="h-40">
+                            <div className="space-y-2">
+                              {events.length === 0 ? (
+                                <p className="text-sm text-muted-foreground">No events available</p>
+                              ) : (
+                                events.map((event) => (
+                                  <div
+                                    key={event.id}
+                                    className="flex items-center gap-2"
+                                    data-testid={`event-checkbox-container-${event.id}`}
+                                  >
+                                    <Checkbox
+                                      id={`event-${event.id}`}
+                                      checked={field.value?.includes(event.id)}
+                                      onCheckedChange={(checked) => {
+                                        const currentIds = field.value || [];
+                                        if (checked) {
+                                          field.onChange([...currentIds, event.id]);
+                                        } else {
+                                          field.onChange(currentIds.filter((id) => id !== event.id));
+                                        }
+                                      }}
+                                      data-testid={`checkbox-event-${event.id}`}
+                                    />
+                                    <Label
+                                      htmlFor={`event-${event.id}`}
+                                      className="text-sm font-normal cursor-pointer"
+                                    >
+                                      {event.name}
+                                    </Label>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          </ScrollArea>
+                        </div>
+                        <FormMessage />
                       </FormItem>
                     )}
                   />

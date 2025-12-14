@@ -36,7 +36,7 @@ export async function registerRoutes(
     // Create default org for user if none exists
     const org = await storage.createOrganization({
       name: 'My Organization',
-      slug: `org-${userId.slice(0, 8)}`
+      slug: `org-${userId.slice(0, 8)}-${Date.now()}`
     });
     await storage.addOrganizationMember({
       organizationId: org.id,
@@ -69,7 +69,7 @@ export async function registerRoutes(
         // Create default org for user if none exists
         const org = await storage.createOrganization({
           name: 'My Organization',
-          slug: `org-${userId.slice(0, 8)}`
+          slug: `org-${userId.slice(0, 8)}-${Date.now()}`
         });
         await storage.addOrganizationMember({
           organizationId: org.id,
