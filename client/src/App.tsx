@@ -33,6 +33,7 @@ import SiteBuilder from "@/pages/site-builder";
 import AdminOrganizations from "@/pages/admin-organizations";
 import MyOrganization from "@/pages/my-organization";
 import CustomFields from "@/pages/custom-fields";
+import PrivacyPolicy from "@/pages/privacy-policy";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const sidebarStyle = {
@@ -67,6 +68,7 @@ function Router() {
     return (
       <Switch>
         <Route path="/" component={Landing} />
+        <Route path="/privacy-policy" component={PrivacyPolicy} />
         <Route path="/event/:slug/register" component={PublicRegistration} />
         <Route path="/event/:slug/portal" component={PublicPortal} />
         <Route path="/event/:slug" component={PublicEvent} />
@@ -99,6 +101,7 @@ function Router() {
         <Route path="/settings" component={Settings} />
         <Route path="/my-organization" component={MyOrganization} />
         <Route path="/admin/organizations" component={AdminOrganizations} />
+        <Route path="/privacy-policy" component={PrivacyPolicy} />
         <Route path="/event/:slug/register" component={PublicRegistration} />
         <Route path="/event/:slug/portal" component={PublicPortal} />
         <Route path="/event/:slug" component={PublicEvent} />
