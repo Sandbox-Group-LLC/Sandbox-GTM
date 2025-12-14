@@ -102,6 +102,7 @@ export const packages = pgTable("packages", {
   price: decimal("price", { precision: 10, scale: 2 }).default("0"),
   features: text("features").array(),
   isActive: boolean("is_active").default(true),
+  isPublic: boolean("is_public").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -131,6 +132,8 @@ export const inviteCodes = pgTable("invite_codes", {
   usedCount: integer("used_count").default(0),
   attendeeTypeId: varchar("attendee_type_id").references(() => attendeeTypes.id),
   packageId: varchar("package_id").references(() => packages.id),
+  discountType: varchar("discount_type", { length: 20 }),
+  discountValue: decimal("discount_value", { precision: 10, scale: 2 }),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
