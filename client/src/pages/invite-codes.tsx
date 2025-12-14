@@ -51,13 +51,14 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Plus, Ticket, Trash2, ChevronDown, ChevronRight, Calendar } from "lucide-react";
-import type { InviteCode, Event, AttendeeType } from "@shared/schema";
+import type { InviteCode, Event, AttendeeType, Package } from "@shared/schema";
 
 const inviteCodeFormSchema = z.object({
   eventId: z.string().min(1, "Event is required"),
   code: z.string().min(1, "Code is required"),
   quantity: z.coerce.number().min(1).nullable(),
   attendeeTypeId: z.string().nullable(),
+  packageId: z.string().nullable(),
   isActive: z.boolean().default(true),
 });
 
@@ -100,6 +101,7 @@ export default function InviteCodes() {
       code: "",
       quantity: null,
       attendeeTypeId: null,
+      packageId: null,
       isActive: true,
     },
   });
@@ -112,6 +114,17 @@ export default function InviteCodes() {
       if (!formEventId) return [];
       const res = await fetch(`/api/attendee-types?eventId=${formEventId}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch attendee types");
+      return res.json();
+    },
+    enabled: !!formEventId,
+  });
+
+  const { data: packages = [] } = useQuery<Package[]>({
+    queryKey: ["/api/events", formEventId, "packages"],
+    queryFn: async () => {
+      if (!formEventId) return [];
+      const res = await fetch(`/api/events/${formEventId}/packages`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch packages");
       return res.json();
     },
     enabled: !!formEventId,
@@ -228,6 +241,7 @@ export default function InviteCodes() {
       ...data,
       quantity: isUnlimited ? null : data.quantity,
       attendeeTypeId: data.attendeeTypeId || null,
+      packageId: data.packageId || null,
     };
     if (editingCode) {
       updateMutation.mutate({ id: editingCode.id, data: submitData });
@@ -244,6 +258,7 @@ export default function InviteCodes() {
       code: code.code,
       quantity: code.quantity,
       attendeeTypeId: code.attendeeTypeId || null,
+      packageId: code.packageId || null,
       isActive: code.isActive ?? true,
     });
     setIsDialogOpen(true);
@@ -406,6 +421,35 @@ export default function InviteCodes() {
                           </Select>
                           <FormDescription>
                             Optionally assign an attendee type when this code is used
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="packageId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Package (Optional)</FormLabel>
+                          <Select onValueChange={(value) => field.onChange(value === "none" ? null : value)} value={field.value || "none"}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-package">
+                                <SelectValue placeholder="Select package" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="none">None</SelectItem>
+                              {packages.map((pkg) => (
+                                <SelectItem key={pkg.id} value={pkg.id}>
+                                  {pkg.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            Optionally assign a package when this code is used
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
