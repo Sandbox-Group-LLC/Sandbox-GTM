@@ -325,7 +325,14 @@ export default function PublicRegistration() {
           fontFamily: theme?.bodyFont ? `"${theme.bodyFont}", sans-serif` : undefined,
         }}
       >
-        <div className="bg-gradient-to-b from-primary/10 to-background py-8 px-6">
+        <div 
+          className="py-8 px-6"
+          style={{
+            background: theme?.primaryColor 
+              ? `linear-gradient(to bottom, ${theme.primaryColor}1a, transparent)` 
+              : undefined,
+          }}
+        >
           <div className="max-w-2xl mx-auto">
             <Button variant="ghost" size="sm" asChild className="mb-4">
               <Link href={`/event/${slug}`}>
@@ -338,7 +345,10 @@ export default function PublicRegistration() {
             <h1 
               className="text-3xl font-bold mb-2" 
               data-testid="text-event-name"
-              style={{ fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined }}
+              style={{ 
+                fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined,
+                color: theme?.textColor || undefined,
+              }}
             >
               {event.name}
             </h1>
@@ -369,9 +379,12 @@ export default function PublicRegistration() {
           </div>
         )}
 
-        <Card>
+        <Card style={{
+          backgroundColor: theme?.cardBackground || undefined,
+          borderRadius: theme?.borderRadius ? ({ none: "0px", small: "4px", medium: "8px", large: "16px", pill: "9999px" }[theme.borderRadius]) : undefined,
+        }}>
           <CardHeader>
-            <CardTitle>Complete Your Registration</CardTitle>
+            <CardTitle style={{ fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined }}>Complete Your Registration</CardTitle>
             <CardDescription>
               {event.registrationOpen
                 ? "Fill out the form below to register for this event"
@@ -499,6 +512,12 @@ export default function PublicRegistration() {
                     className="w-full"
                     disabled={registerMutation.isPending}
                     data-testid="button-register"
+                    style={{
+                      backgroundColor: theme?.buttonStyle === "outline" ? "transparent" : (theme?.buttonColor || undefined),
+                      color: theme?.buttonStyle === "outline" ? (theme?.buttonColor || undefined) : (theme?.buttonTextColor || undefined),
+                      border: theme?.buttonStyle === "outline" ? `2px solid ${theme?.buttonColor || "#3b82f6"}` : undefined,
+                      borderRadius: theme?.borderRadius ? ({ none: "0px", small: "4px", medium: "8px", large: "16px", pill: "9999px" }[theme.borderRadius]) : undefined,
+                    }}
                   >
                     {registerMutation.isPending ? "Registering..." : "Complete Registration"}
                   </Button>

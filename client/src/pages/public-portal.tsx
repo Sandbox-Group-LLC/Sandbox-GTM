@@ -143,7 +143,14 @@ export default function PublicPortal() {
           fontFamily: theme?.bodyFont ? `"${theme.bodyFont}", sans-serif` : undefined,
         }}
       >
-        <div className="bg-gradient-to-b from-primary/10 to-background py-8 px-6">
+        <div 
+          className="py-8 px-6"
+          style={{
+            background: theme?.primaryColor 
+              ? `linear-gradient(to bottom, ${theme.primaryColor}1a, transparent)` 
+              : undefined,
+          }}
+        >
           <div className="max-w-4xl mx-auto">
             <Button variant="ghost" size="sm" asChild className="mb-4">
               <Link href={`/event/${slug}`}>
@@ -154,7 +161,7 @@ export default function PublicPortal() {
             
             <div className="flex items-center gap-3 mb-4">
               <Badge variant="secondary">Attendee Portal</Badge>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 text-sm" style={{ color: theme?.textSecondaryColor || undefined }}>
                 <User className="w-4 h-4" />
                 <span>Welcome, Attendee</span>
               </div>
@@ -163,7 +170,10 @@ export default function PublicPortal() {
             <h1 
               className="text-3xl font-bold mb-2" 
               data-testid="text-event-name"
-              style={{ fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined }}
+              style={{ 
+                fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined,
+                color: theme?.textColor || undefined,
+              }}
             >
               {event.name}
             </h1>
@@ -196,9 +206,12 @@ export default function PublicPortal() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {sessions.length > 0 && (
-            <Card>
+            <Card style={{
+              backgroundColor: theme?.cardBackground || undefined,
+              borderRadius: theme?.borderRadius ? ({ none: "0px", small: "4px", medium: "8px", large: "16px", pill: "9999px" }[theme.borderRadius]) : undefined,
+            }}>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2" style={{ fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined }}>
                   <Clock className="w-5 h-5" />
                   Your Schedule
                 </CardTitle>
@@ -232,9 +245,12 @@ export default function PublicPortal() {
           )}
 
           {speakers.length > 0 && (
-            <Card>
+            <Card style={{
+              backgroundColor: theme?.cardBackground || undefined,
+              borderRadius: theme?.borderRadius ? ({ none: "0px", small: "4px", medium: "8px", large: "16px", pill: "9999px" }[theme.borderRadius]) : undefined,
+            }}>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2" style={{ fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined }}>
                   <Mic className="w-5 h-5" />
                   Speakers
                 </CardTitle>
