@@ -239,6 +239,14 @@ function SectionRenderer({ section, event, sessions, speakers }: { section: Sect
     const isExternal = link.startsWith("http");
     const isAnchor = link.startsWith("#");
     
+    // Resolve relative links like "/register" to full event path "/event/{slug}/register"
+    let resolvedLink = link;
+    if (link && !isExternal && !isAnchor) {
+      // Remove leading slash if present for relative paths
+      const relativePath = link.startsWith("/") ? link.slice(1) : link;
+      resolvedLink = `/event/${event.publicSlug}/${relativePath}`;
+    }
+    
     if (link && (isExternal || isAnchor)) {
       return (
         <Button size="lg" asChild data-testid={testId}>
@@ -251,9 +259,11 @@ function SectionRenderer({ section, event, sessions, speakers }: { section: Sect
     }
     
     return (
-      <Button size="lg" onClick={() => link && (window.location.href = link)} data-testid={testId}>
-        {text}
-        <ArrowRight className="ml-2 h-4 w-4" />
+      <Button size="lg" asChild data-testid={testId}>
+        <Link href={resolvedLink}>
+          {text}
+          <ArrowRight className="ml-2 h-4 w-4" />
+        </Link>
       </Button>
     );
   };
