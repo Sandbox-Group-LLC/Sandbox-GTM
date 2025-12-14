@@ -22,6 +22,12 @@ app.use(
 
 app.use(express.urlencoded({ extended: false }));
 
+// Health check endpoint - responds immediately without database dependencies
+// This must be defined before any async initialization for deployment health checks
+app.get("/health", (_req, res) => {
+  res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
     hour: "numeric",
