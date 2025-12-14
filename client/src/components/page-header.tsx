@@ -22,7 +22,7 @@ export function PageHeader({ title, breadcrumbs = [], actions }: PageHeaderProps
       <SidebarTrigger data-testid="button-sidebar-toggle" />
       <Separator orientation="vertical" className="h-6" />
       
-      <Breadcrumb className="flex-1">
+      <Breadcrumb className="hidden sm:flex flex-1">
         <BreadcrumbList>
           <BreadcrumbItem>
             <BreadcrumbLink href="/">Home</BreadcrumbLink>
@@ -41,6 +41,7 @@ export function PageHeader({ title, breadcrumbs = [], actions }: PageHeaderProps
           ))}
         </BreadcrumbList>
       </Breadcrumb>
+      <div className="flex-1 sm:hidden" />
 
       <div className="flex items-center gap-2">
         {actions}
