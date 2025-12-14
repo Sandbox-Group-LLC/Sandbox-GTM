@@ -38,12 +38,18 @@ import {
   Image,
   MousePointer,
   Grid3X3,
+  Timer,
+  Users,
+  Calendar,
+  HelpCircle,
+  Quote,
+  Images,
 } from "lucide-react";
 import type { Event, EventPage } from "@shared/schema";
 
 type PageType = "landing" | "registration" | "portal";
 
-type SectionType = "hero" | "text" | "cta" | "features";
+type SectionType = "hero" | "text" | "cta" | "features" | "countdown" | "speakers" | "agenda" | "faq" | "testimonials" | "gallery";
 
 interface Section {
   id: string;
@@ -63,6 +69,12 @@ const SECTION_TYPES: { type: SectionType; label: string; icon: React.ComponentTy
   { type: "text", label: "Text Block", icon: Type, description: "Rich text content area" },
   { type: "cta", label: "Call to Action", icon: MousePointer, description: "Button with action prompt" },
   { type: "features", label: "Features Grid", icon: Grid3X3, description: "Grid of feature cards" },
+  { type: "countdown", label: "Countdown Timer", icon: Timer, description: "Countdown to event start" },
+  { type: "speakers", label: "Speakers Grid", icon: Users, description: "Display event speakers" },
+  { type: "agenda", label: "Agenda Schedule", icon: Calendar, description: "Event sessions timeline" },
+  { type: "faq", label: "FAQ Accordion", icon: HelpCircle, description: "Frequently asked questions" },
+  { type: "testimonials", label: "Testimonials", icon: Quote, description: "Quotes from past attendees" },
+  { type: "gallery", label: "Image Gallery", icon: Images, description: "Photo grid display" },
 ];
 
 const getDefaultConfig = (type: SectionType): Record<string, unknown> => {
@@ -75,6 +87,18 @@ const getDefaultConfig = (type: SectionType): Record<string, unknown> => {
       return { heading: "Ready to Join?", description: "", buttonText: "Get Started", buttonLink: "" };
     case "features":
       return { heading: "What's Included", features: [] };
+    case "countdown":
+      return { heading: "Event Starts In", useEventDate: true, customDate: "" };
+    case "speakers":
+      return { heading: "Meet Our Speakers", showBio: true, columns: 3 };
+    case "agenda":
+      return { heading: "Event Schedule", showRoom: true, showTrack: true };
+    case "faq":
+      return { heading: "Frequently Asked Questions", items: [] };
+    case "testimonials":
+      return { heading: "What Attendees Say", items: [] };
+    case "gallery":
+      return { heading: "Event Gallery", images: [], columns: 3 };
     default:
       return {};
   }
@@ -613,6 +637,312 @@ function SectionEditor({ section, onSave, onCancel }: SectionEditorProps) {
             <p className="text-sm text-muted-foreground">
               Feature items can be configured in advanced settings
             </p>
+          </>
+        );
+      case "countdown":
+        return (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="heading">Section Heading</Label>
+              <Input
+                id="heading"
+                value={(config.heading as string) || ""}
+                onChange={(e) => updateConfig("heading", e.target.value)}
+                placeholder="Event Starts In"
+                data-testid="input-countdown-heading"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="useEventDate"
+                checked={(config.useEventDate as boolean) ?? true}
+                onChange={(e) => updateConfig("useEventDate", e.target.checked)}
+                className="h-4 w-4"
+                data-testid="checkbox-use-event-date"
+              />
+              <Label htmlFor="useEventDate">Use event start date</Label>
+            </div>
+            {!(config.useEventDate as boolean) && (
+              <div className="space-y-2">
+                <Label htmlFor="customDate">Custom Target Date</Label>
+                <Input
+                  id="customDate"
+                  type="datetime-local"
+                  value={(config.customDate as string) || ""}
+                  onChange={(e) => updateConfig("customDate", e.target.value)}
+                  data-testid="input-countdown-custom-date"
+                />
+              </div>
+            )}
+          </>
+        );
+      case "speakers":
+        return (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="heading">Section Heading</Label>
+              <Input
+                id="heading"
+                value={(config.heading as string) || ""}
+                onChange={(e) => updateConfig("heading", e.target.value)}
+                placeholder="Meet Our Speakers"
+                data-testid="input-speakers-heading"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="showBio"
+                checked={(config.showBio as boolean) ?? true}
+                onChange={(e) => updateConfig("showBio", e.target.checked)}
+                className="h-4 w-4"
+                data-testid="checkbox-show-bio"
+              />
+              <Label htmlFor="showBio">Show speaker bios</Label>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Speakers are automatically pulled from event data
+            </p>
+          </>
+        );
+      case "agenda":
+        return (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="heading">Section Heading</Label>
+              <Input
+                id="heading"
+                value={(config.heading as string) || ""}
+                onChange={(e) => updateConfig("heading", e.target.value)}
+                placeholder="Event Schedule"
+                data-testid="input-agenda-heading"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="showRoom"
+                checked={(config.showRoom as boolean) ?? true}
+                onChange={(e) => updateConfig("showRoom", e.target.checked)}
+                className="h-4 w-4"
+                data-testid="checkbox-show-room"
+              />
+              <Label htmlFor="showRoom">Show room/location</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="showTrack"
+                checked={(config.showTrack as boolean) ?? true}
+                onChange={(e) => updateConfig("showTrack", e.target.checked)}
+                className="h-4 w-4"
+                data-testid="checkbox-show-track"
+              />
+              <Label htmlFor="showTrack">Show track badges</Label>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Sessions are automatically pulled from event data
+            </p>
+          </>
+        );
+      case "faq":
+        const faqItems = (config.items as Array<{ question: string; answer: string }>) || [];
+        return (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="heading">Section Heading</Label>
+              <Input
+                id="heading"
+                value={(config.heading as string) || ""}
+                onChange={(e) => updateConfig("heading", e.target.value)}
+                placeholder="Frequently Asked Questions"
+                data-testid="input-faq-heading"
+              />
+            </div>
+            <div className="space-y-3">
+              <Label>FAQ Items</Label>
+              {faqItems.map((item, index) => (
+                <div key={index} className="space-y-2 p-3 border rounded-md">
+                  <Input
+                    placeholder="Question"
+                    value={item.question}
+                    onChange={(e) => {
+                      const newItems = [...faqItems];
+                      newItems[index] = { ...item, question: e.target.value };
+                      updateConfig("items", newItems);
+                    }}
+                    data-testid={`input-faq-question-${index}`}
+                  />
+                  <Textarea
+                    placeholder="Answer"
+                    value={item.answer}
+                    onChange={(e) => {
+                      const newItems = [...faqItems];
+                      newItems[index] = { ...item, answer: e.target.value };
+                      updateConfig("items", newItems);
+                    }}
+                    data-testid={`input-faq-answer-${index}`}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const newItems = faqItems.filter((_, i) => i !== index);
+                      updateConfig("items", newItems);
+                    }}
+                    data-testid={`button-remove-faq-${index}`}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Remove
+                  </Button>
+                </div>
+              ))}
+              <Button
+                variant="outline"
+                onClick={() => updateConfig("items", [...faqItems, { question: "", answer: "" }])}
+                data-testid="button-add-faq"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Question
+              </Button>
+            </div>
+          </>
+        );
+      case "testimonials":
+        const testimonialItems = (config.items as Array<{ quote: string; author: string; role: string }>) || [];
+        return (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="heading">Section Heading</Label>
+              <Input
+                id="heading"
+                value={(config.heading as string) || ""}
+                onChange={(e) => updateConfig("heading", e.target.value)}
+                placeholder="What Attendees Say"
+                data-testid="input-testimonials-heading"
+              />
+            </div>
+            <div className="space-y-3">
+              <Label>Testimonials</Label>
+              {testimonialItems.map((item, index) => (
+                <div key={index} className="space-y-2 p-3 border rounded-md">
+                  <Textarea
+                    placeholder="Quote"
+                    value={item.quote}
+                    onChange={(e) => {
+                      const newItems = [...testimonialItems];
+                      newItems[index] = { ...item, quote: e.target.value };
+                      updateConfig("items", newItems);
+                    }}
+                    data-testid={`input-testimonial-quote-${index}`}
+                  />
+                  <Input
+                    placeholder="Author name"
+                    value={item.author}
+                    onChange={(e) => {
+                      const newItems = [...testimonialItems];
+                      newItems[index] = { ...item, author: e.target.value };
+                      updateConfig("items", newItems);
+                    }}
+                    data-testid={`input-testimonial-author-${index}`}
+                  />
+                  <Input
+                    placeholder="Role/Company"
+                    value={item.role}
+                    onChange={(e) => {
+                      const newItems = [...testimonialItems];
+                      newItems[index] = { ...item, role: e.target.value };
+                      updateConfig("items", newItems);
+                    }}
+                    data-testid={`input-testimonial-role-${index}`}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const newItems = testimonialItems.filter((_, i) => i !== index);
+                      updateConfig("items", newItems);
+                    }}
+                    data-testid={`button-remove-testimonial-${index}`}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Remove
+                  </Button>
+                </div>
+              ))}
+              <Button
+                variant="outline"
+                onClick={() => updateConfig("items", [...testimonialItems, { quote: "", author: "", role: "" }])}
+                data-testid="button-add-testimonial"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Testimonial
+              </Button>
+            </div>
+          </>
+        );
+      case "gallery":
+        const galleryImages = (config.images as Array<{ url: string; caption: string }>) || [];
+        return (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="heading">Section Heading</Label>
+              <Input
+                id="heading"
+                value={(config.heading as string) || ""}
+                onChange={(e) => updateConfig("heading", e.target.value)}
+                placeholder="Event Gallery"
+                data-testid="input-gallery-heading"
+              />
+            </div>
+            <div className="space-y-3">
+              <Label>Gallery Images</Label>
+              {galleryImages.map((item, index) => (
+                <div key={index} className="space-y-2 p-3 border rounded-md">
+                  <Input
+                    placeholder="Image URL"
+                    value={item.url}
+                    onChange={(e) => {
+                      const newImages = [...galleryImages];
+                      newImages[index] = { ...item, url: e.target.value };
+                      updateConfig("images", newImages);
+                    }}
+                    data-testid={`input-gallery-url-${index}`}
+                  />
+                  <Input
+                    placeholder="Caption (optional)"
+                    value={item.caption}
+                    onChange={(e) => {
+                      const newImages = [...galleryImages];
+                      newImages[index] = { ...item, caption: e.target.value };
+                      updateConfig("images", newImages);
+                    }}
+                    data-testid={`input-gallery-caption-${index}`}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const newImages = galleryImages.filter((_, i) => i !== index);
+                      updateConfig("images", newImages);
+                    }}
+                    data-testid={`button-remove-image-${index}`}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Remove
+                  </Button>
+                </div>
+              ))}
+              <Button
+                variant="outline"
+                onClick={() => updateConfig("images", [...galleryImages, { url: "", caption: "" }])}
+                data-testid="button-add-image"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Image
+              </Button>
+            </div>
           </>
         );
       default:

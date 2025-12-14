@@ -4,7 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Calendar, MapPin, Clock, Mic, AlertCircle, ArrowRight } from "lucide-react";
+import { Calendar, MapPin, Clock, Mic, AlertCircle, ArrowRight, ChevronDown, ChevronUp, Quote } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import type { Event, EventSession, Speaker, EventPage } from "@shared/schema";
 
 interface Section {
@@ -203,7 +205,7 @@ export default function PublicEvent() {
           {sections
             .sort((a, b) => a.order - b.order)
             .map((section) => (
-              <SectionRenderer key={section.id} section={section} event={event} />
+              <SectionRenderer key={section.id} section={section} event={event} sessions={sessions} speakers={speakers} />
             ))}
         </div>
       )}
@@ -211,7 +213,7 @@ export default function PublicEvent() {
   );
 }
 
-function SectionRenderer({ section, event }: { section: Section; event: Event }) {
+function SectionRenderer({ section, event, sessions, speakers }: { section: Section; event: Event; sessions?: EventSession[]; speakers?: Speaker[] }) {
   const config = section.config;
   const title = String(config.title || "");
   const subtitle = String(config.subtitle || "");
@@ -302,7 +304,203 @@ function SectionRenderer({ section, event }: { section: Section; event: Event })
         </div>
       );
 
+    case "countdown":
+      return <CountdownSection config={config} event={event} sectionId={section.id} />;
+
+    case "speakers":
+      const showBio = config.showBio !== false;
+      return (
+        <div data-testid={`section-speakers-${section.id}`}>
+          {heading && <h3 className="text-2xl font-semibold mb-6 text-center">{heading}</h3>}
+          {speakers && speakers.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {speakers.map((speaker) => (
+                <Card key={speaker.id}>
+                  <CardContent className="p-4 flex items-start gap-4">
+                    <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                      {speaker.photoUrl ? (
+                        <img src={speaker.photoUrl} alt={`${speaker.firstName} ${speaker.lastName}`} className="w-full h-full rounded-full object-cover" />
+                      ) : (
+                        <span className="text-xl font-semibold text-muted-foreground">
+                          {speaker.firstName[0]}{speaker.lastName[0]}
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-medium">{speaker.firstName} {speaker.lastName}</p>
+                      {speaker.jobTitle && <p className="text-sm text-muted-foreground">{speaker.jobTitle}</p>}
+                      {speaker.company && <p className="text-sm text-muted-foreground">{speaker.company}</p>}
+                      {showBio && speaker.bio && <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{speaker.bio}</p>}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-muted-foreground">Speakers will appear here</p>
+          )}
+        </div>
+      );
+
+    case "agenda":
+      const showRoom = config.showRoom !== false;
+      const showTrack = config.showTrack !== false;
+      return (
+        <div data-testid={`section-agenda-${section.id}`}>
+          {heading && <h3 className="text-2xl font-semibold mb-6 text-center">{heading}</h3>}
+          {sessions && sessions.length > 0 ? (
+            <div className="space-y-3">
+              {sessions.map((session) => (
+                <Card key={session.id}>
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h4 className="font-medium">{session.title}</h4>
+                        {session.description && (
+                          <p className="text-sm text-muted-foreground mt-1">{session.description}</p>
+                        )}
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {showTrack && session.track && <Badge variant="outline">{session.track}</Badge>}
+                          {session.sessionType && <Badge variant="secondary">{session.sessionType}</Badge>}
+                        </div>
+                      </div>
+                      <div className="text-right text-sm text-muted-foreground whitespace-nowrap">
+                        <p>{session.startTime} - {session.endTime}</p>
+                        {showRoom && session.room && <p className="text-xs">{session.room}</p>}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-muted-foreground">Schedule will appear here</p>
+          )}
+        </div>
+      );
+
+    case "faq":
+      const faqItems = (config.items as Array<{ question: string; answer: string }>) || [];
+      return (
+        <div data-testid={`section-faq-${section.id}`}>
+          {heading && <h3 className="text-2xl font-semibold mb-6 text-center">{heading}</h3>}
+          {faqItems.length > 0 ? (
+            <Accordion type="single" collapsible className="w-full">
+              {faqItems.map((item, idx) => (
+                <AccordionItem key={idx} value={`faq-${idx}`}>
+                  <AccordionTrigger className="text-left">{item.question}</AccordionTrigger>
+                  <AccordionContent className="text-muted-foreground">{item.answer}</AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          ) : (
+            <p className="text-center text-muted-foreground">FAQ items will appear here</p>
+          )}
+        </div>
+      );
+
+    case "testimonials":
+      const testimonialItems = (config.items as Array<{ quote: string; author: string; role: string }>) || [];
+      return (
+        <div data-testid={`section-testimonials-${section.id}`}>
+          {heading && <h3 className="text-2xl font-semibold mb-6 text-center">{heading}</h3>}
+          {testimonialItems.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {testimonialItems.map((item, idx) => (
+                <Card key={idx}>
+                  <CardContent className="p-6">
+                    <Quote className="w-8 h-8 text-primary/30 mb-4" />
+                    <p className="text-muted-foreground mb-4 italic">{item.quote}</p>
+                    <div>
+                      <p className="font-medium">{item.author}</p>
+                      {item.role && <p className="text-sm text-muted-foreground">{item.role}</p>}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-muted-foreground">Testimonials will appear here</p>
+          )}
+        </div>
+      );
+
+    case "gallery":
+      const galleryImages = (config.images as Array<{ url: string; caption: string }>) || [];
+      return (
+        <div data-testid={`section-gallery-${section.id}`}>
+          {heading && <h3 className="text-2xl font-semibold mb-6 text-center">{heading}</h3>}
+          {galleryImages.length > 0 ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {galleryImages.map((item, idx) => (
+                <div key={idx} className="relative aspect-video bg-muted rounded-md overflow-hidden">
+                  <img src={item.url} alt={item.caption || `Gallery image ${idx + 1}`} className="w-full h-full object-cover" />
+                  {item.caption && (
+                    <div className="absolute bottom-0 left-0 right-0 bg-black/50 p-2">
+                      <p className="text-white text-sm">{item.caption}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-muted-foreground">Gallery images will appear here</p>
+          )}
+        </div>
+      );
+
     default:
       return null;
   }
+}
+
+function CountdownSection({ config, event, sectionId }: { config: Record<string, unknown>; event: Event; sectionId: string }) {
+  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+  const heading = String(config.heading || "Event Starts In");
+  const useEventDate = config.useEventDate !== false;
+  const customDate = String(config.customDate || "");
+  
+  const targetDate = useEventDate ? new Date(event.startDate) : customDate ? new Date(customDate) : new Date(event.startDate);
+
+  useEffect(() => {
+    const calculateTimeLeft = () => {
+      const now = new Date().getTime();
+      const target = targetDate.getTime();
+      const diff = target - now;
+
+      if (diff <= 0) {
+        return { days: 0, hours: 0, minutes: 0, seconds: 0 };
+      }
+
+      return {
+        days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+        hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+        minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
+        seconds: Math.floor((diff % (1000 * 60)) / 1000),
+      };
+    };
+
+    setTimeLeft(calculateTimeLeft());
+    const timer = setInterval(() => setTimeLeft(calculateTimeLeft()), 1000);
+    return () => clearInterval(timer);
+  }, [targetDate.getTime()]);
+
+  return (
+    <div className="text-center" data-testid={`section-countdown-${sectionId}`}>
+      {heading && <h3 className="text-2xl font-semibold mb-6">{heading}</h3>}
+      <div className="flex justify-center gap-4">
+        {[
+          { value: timeLeft.days, label: "Days" },
+          { value: timeLeft.hours, label: "Hours" },
+          { value: timeLeft.minutes, label: "Minutes" },
+          { value: timeLeft.seconds, label: "Seconds" },
+        ].map((item) => (
+          <div key={item.label} className="bg-primary/10 rounded-lg p-4 min-w-[80px]">
+            <div className="text-3xl font-bold">{item.value}</div>
+            <div className="text-sm text-muted-foreground">{item.label}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
