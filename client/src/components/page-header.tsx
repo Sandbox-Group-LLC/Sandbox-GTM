@@ -1,6 +1,7 @@
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Separator } from "@/components/ui/separator";
+import { CommandPaletteTrigger } from "@/components/command-palette";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -22,7 +23,7 @@ export function PageHeader({ title, breadcrumbs = [], actions }: PageHeaderProps
       <SidebarTrigger data-testid="button-sidebar-toggle" />
       <Separator orientation="vertical" className="h-6" />
       
-      <Breadcrumb className="hidden sm:flex flex-1">
+      <Breadcrumb className="hidden sm:flex">
         <BreadcrumbList>
           <BreadcrumbItem>
             <BreadcrumbLink href="/">Home</BreadcrumbLink>
@@ -41,7 +42,10 @@ export function PageHeader({ title, breadcrumbs = [], actions }: PageHeaderProps
           ))}
         </BreadcrumbList>
       </Breadcrumb>
-      <div className="flex-1 sm:hidden" />
+      
+      <div className="flex-1" />
+      
+      <CommandPaletteTrigger />
 
       <div className="flex items-center gap-2">
         {actions}
