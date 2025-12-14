@@ -1,26 +1,11 @@
-import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { useParams } from "wouter";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { apiRequest } from "@/lib/queryClient";
+import { useQuery } from "@tanstack/react-query";
+import { useParams, Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useToast } from "@/hooks/use-toast";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Calendar, MapPin, Clock, Users, Mic, CheckCircle, AlertCircle, ArrowRight } from "lucide-react";
-import type { Event, EventSession, Speaker, Attendee, EventPage } from "@shared/schema";
+import { Calendar, MapPin, Clock, Mic, AlertCircle, ArrowRight } from "lucide-react";
+import type { Event, EventSession, Speaker, EventPage } from "@shared/schema";
 
 interface Section {
   id: string;
@@ -36,58 +21,13 @@ interface PublicEventData {
   landingPage: EventPage | null;
 }
 
-const registrationSchema = z.object({
-  firstName: z.string().min(1, "First name is required"),
-  lastName: z.string().min(1, "Last name is required"),
-  email: z.string().email("Valid email is required"),
-  phone: z.string().optional(),
-  company: z.string().optional(),
-  jobTitle: z.string().optional(),
-});
-
-type RegistrationFormData = z.infer<typeof registrationSchema>;
-
 export default function PublicEvent() {
   const { slug } = useParams<{ slug: string }>();
-  const { toast } = useToast();
-  const [registrationComplete, setRegistrationComplete] = useState(false);
-  const [registeredAttendee, setRegisteredAttendee] = useState<Attendee | null>(null);
 
   const { data, isLoading, error } = useQuery<PublicEventData>({
     queryKey: ["/api/public/event", slug],
     enabled: !!slug,
   });
-
-  const form = useForm<RegistrationFormData>({
-    resolver: zodResolver(registrationSchema),
-    defaultValues: {
-      firstName: "",
-      lastName: "",
-      email: "",
-      phone: "",
-      company: "",
-      jobTitle: "",
-    },
-  });
-
-  const registerMutation = useMutation({
-    mutationFn: async (formData: RegistrationFormData) => {
-      const res = await apiRequest("POST", `/api/public/register/${slug}`, formData);
-      return res.json();
-    },
-    onSuccess: (data) => {
-      setRegistrationComplete(true);
-      setRegisteredAttendee(data.attendee);
-      toast({ title: "Registration successful!", description: "You have been registered for the event." });
-    },
-    onError: () => {
-      toast({ title: "Registration failed", description: "Please try again.", variant: "destructive" });
-    },
-  });
-
-  const onSubmit = (formData: RegistrationFormData) => {
-    registerMutation.mutate(formData);
-  };
 
   if (isLoading) {
     return (
@@ -117,38 +57,6 @@ export default function PublicEvent() {
   const { event, sessions, speakers, landingPage } = data;
   const sections = (landingPage?.sections as Section[]) || [];
 
-  if (registrationComplete && registeredAttendee) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-6">
-        <Card className="max-w-md w-full">
-          <CardContent className="pt-6 text-center">
-            <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mx-auto mb-4">
-              <CheckCircle className="w-8 h-8 text-green-600" />
-            </div>
-            <h2 className="text-2xl font-semibold mb-2">Registration Complete!</h2>
-            <p className="text-muted-foreground mb-6">
-              Thank you for registering for {event.name}
-            </p>
-            
-            <div className="bg-muted/50 rounded-lg p-4 mb-6">
-              <p className="text-sm text-muted-foreground mb-2">Your Check-In Code</p>
-              <p className="text-3xl font-mono font-bold tracking-wider" data-testid="text-checkin-code">
-                {registeredAttendee.checkInCode}
-              </p>
-              <p className="text-xs text-muted-foreground mt-2">Save this code for check-in on event day</p>
-            </div>
-
-            <div className="text-left space-y-2 text-sm">
-              <p><strong>Name:</strong> {registeredAttendee.firstName} {registeredAttendee.lastName}</p>
-              <p><strong>Email:</strong> {registeredAttendee.email}</p>
-              {registeredAttendee.company && <p><strong>Company:</strong> {registeredAttendee.company}</p>}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-background">
       <div className="bg-gradient-to-b from-primary/10 to-background py-12 px-6">
@@ -171,6 +79,17 @@ export default function PublicEvent() {
 
           {event.description && (
             <p className="mt-6 text-lg text-muted-foreground">{event.description}</p>
+          )}
+
+          {event.registrationOpen && (
+            <div className="mt-8">
+              <Button size="lg" asChild data-testid="button-register-cta">
+                <Link href={`/event/${slug}/register`}>
+                  Register Now
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
           )}
         </div>
       </div>
@@ -249,109 +168,23 @@ export default function PublicEvent() {
                 <CardTitle>Register Now</CardTitle>
                 <CardDescription>
                   {event.registrationOpen
-                    ? "Complete the form below to register for this event"
+                    ? "Join us at this event"
                     : "Registration is currently closed"}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 {event.registrationOpen ? (
-                  <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="firstName"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>First Name</FormLabel>
-                              <FormControl>
-                                <Input data-testid="input-first-name" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="lastName"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Last Name</FormLabel>
-                              <FormControl>
-                                <Input data-testid="input-last-name" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-
-                      <FormField
-                        control={form.control}
-                        name="email"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Email</FormLabel>
-                            <FormControl>
-                              <Input type="email" data-testid="input-email" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="phone"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Phone (optional)</FormLabel>
-                            <FormControl>
-                              <Input data-testid="input-phone" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="company"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Company (optional)</FormLabel>
-                            <FormControl>
-                              <Input data-testid="input-company" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="jobTitle"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Job Title (optional)</FormLabel>
-                            <FormControl>
-                              <Input data-testid="input-job-title" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <Button
-                        type="submit"
-                        className="w-full"
-                        disabled={registerMutation.isPending}
-                        data-testid="button-register"
-                      >
-                        {registerMutation.isPending ? "Registering..." : "Register"}
-                      </Button>
-                    </form>
-                  </Form>
+                  <div className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      Complete your registration to secure your spot at {event.name}.
+                    </p>
+                    <Button className="w-full" asChild data-testid="button-register">
+                      <Link href={`/event/${slug}/register`}>
+                        Register Now
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Link>
+                    </Button>
+                  </div>
                 ) : (
                   <div className="text-center py-4">
                     <AlertCircle className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />

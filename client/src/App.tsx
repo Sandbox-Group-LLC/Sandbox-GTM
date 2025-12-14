@@ -23,6 +23,8 @@ import Settings from "@/pages/settings";
 import CheckIn from "@/pages/check-in";
 import Analytics from "@/pages/analytics";
 import PublicEvent from "@/pages/public-event";
+import PublicRegistration from "@/pages/public-registration";
+import PublicPortal from "@/pages/public-portal";
 import AttendeeTypes from "@/pages/attendee-types";
 import RegistrationFlow from "@/pages/registration-flow";
 import Packages from "@/pages/packages";
@@ -62,6 +64,8 @@ function Router() {
     return (
       <Switch>
         <Route path="/" component={Landing} />
+        <Route path="/event/:slug/register" component={PublicRegistration} />
+        <Route path="/event/:slug/portal" component={PublicPortal} />
         <Route path="/event/:slug" component={PublicEvent} />
         <Route component={Landing} />
       </Switch>
@@ -89,6 +93,8 @@ function Router() {
         <Route path="/social" component={Social} />
         <Route path="/analytics" component={Analytics} />
         <Route path="/settings" component={Settings} />
+        <Route path="/event/:slug/register" component={PublicRegistration} />
+        <Route path="/event/:slug/portal" component={PublicPortal} />
         <Route path="/event/:slug" component={PublicEvent} />
         <Route component={NotFound} />
       </Switch>

@@ -212,7 +212,13 @@ export default function SiteBuilder() {
                 size="icon"
                 onClick={() => {
                   if (selectedEvent?.publicSlug) {
-                    window.open(`/event/${selectedEvent.publicSlug}`, "_blank");
+                    const baseUrl = `/event/${selectedEvent.publicSlug}`;
+                    const previewUrl = activeTab === "landing" 
+                      ? baseUrl 
+                      : activeTab === "registration" 
+                        ? `${baseUrl}/register`
+                        : `${baseUrl}/portal`;
+                    window.open(previewUrl, "_blank");
                   } else {
                     toast({ 
                       title: "No public URL", 

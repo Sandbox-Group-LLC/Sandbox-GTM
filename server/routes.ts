@@ -1096,6 +1096,42 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/public/event/:slug/registration", async (req, res) => {
+    try {
+      const event = await storage.getEventBySlug(req.params.slug);
+      if (!event || !event.isPublic) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      const pages = await storage.getEventPages(event.organizationId, event.id);
+      const registrationPage = pages.find(p => p.pageType === "registration" && p.isPublished);
+      
+      res.json({ event, registrationPage: registrationPage || null });
+    } catch (error) {
+      console.error("Error fetching registration page:", error);
+      res.status(500).json({ message: "Failed to fetch registration page" });
+    }
+  });
+
+  app.get("/api/public/event/:slug/portal", async (req, res) => {
+    try {
+      const event = await storage.getEventBySlug(req.params.slug);
+      if (!event || !event.isPublic) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      const sessions = await storage.getSessions(event.organizationId, event.id);
+      const speakers = await storage.getSpeakers(event.organizationId, event.id);
+      const pages = await storage.getEventPages(event.organizationId, event.id);
+      const portalPage = pages.find(p => p.pageType === "portal" && p.isPublished);
+      
+      res.json({ event, sessions, speakers, portalPage: portalPage || null });
+    } catch (error) {
+      console.error("Error fetching portal page:", error);
+      res.status(500).json({ message: "Failed to fetch portal page" });
+    }
+  });
+
   app.post("/api/public/register/:slug", async (req, res) => {
     try {
       const event = await storage.getEventBySlug(req.params.slug);
