@@ -101,6 +101,39 @@ Preferred communication style: Simple, everyday language.
   - `DELETE /api/events/:eventId/pages/:id` - Delete page
 - **Public Rendering**: `SectionRenderer` component in public-event.tsx renders saved sections
 
+### Invite Codes with Discounts
+- **Purpose**: Single invite codes can unlock packages AND apply discounts
+- **Database Fields**:
+  - `inviteCodes.discountType`: "percentage" or "fixed" (or null for no discount)
+  - `inviteCodes.discountValue`: decimal value (percentage 1-100, or fixed dollar amount)
+  - `inviteCodes.packageId`: links to a package to unlock when code is used
+- **Admin UI** (`/invite-codes`):
+  - Configure discount type (Percentage Off / Fixed Amount Off)
+  - Set discount value with appropriate input validation
+  - Select package to unlock (for code-only packages)
+  - Discount column displays formatted discount (e.g., "20% off" or "$50.00 off")
+- **Public Registration Integration**:
+  - Attendees enter invite code on registration page
+  - Valid codes unlock associated packages and apply discounts
+  - Discounted prices displayed with original price crossed out
+  - `inviteCodeId` stored with attendee registration for verification
+
+### Package Visibility
+- **Purpose**: Control which packages are visible during public registration
+- **Database Field**: `packages.isPublic` (boolean, defaults to true)
+- **Visibility Types**:
+  - **Public**: Visible to all attendees on registration page
+  - **Code-Only**: Hidden until unlocked by a valid invite code
+- **Admin UI** (`/packages`):
+  - Toggle visibility between "Public" and "Code-Only"
+  - Visibility column shows current status as badge
+- **Public Registration**:
+  - Only public packages shown by default
+  - Code-only packages appear after valid invite code is applied
+- **API Endpoints**:
+  - `GET /api/public/event/:slug/packages` - Returns only public, active, enabled packages
+  - `POST /api/public/validate-invite-code/:slug` - Validates invite code and returns unlocked package + discount info
+
 ## External Dependencies
 
 ### Database
