@@ -53,6 +53,20 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { Plus, Ticket, Trash2, ChevronDown, ChevronRight, Calendar } from "lucide-react";
 import type { InviteCode, Event, AttendeeType, Package } from "@shared/schema";
 
+const typeOptions = [
+  { value: "attendee", label: "Attendee" },
+  { value: "vendor", label: "Vendor" },
+  { value: "employee", label: "Employee" },
+  { value: "press & media", label: "Press & Media" },
+  { value: "analyst", label: "Analyst" },
+  { value: "sponsor", label: "Sponsor" },
+];
+
+const getTypeLabel = (typeValue: string) => {
+  const typeOption = typeOptions.find((t) => t.value === typeValue);
+  return typeOption?.label || typeValue;
+};
+
 const inviteCodeFormSchema = z.object({
   eventId: z.string().min(1, "Event is required"),
   code: z.string().min(1, "Code is required"),
@@ -414,7 +428,7 @@ export default function InviteCodes() {
                               <SelectItem value="none">None</SelectItem>
                               {attendeeTypes.map((type) => (
                                 <SelectItem key={type.id} value={type.id}>
-                                  {type.type}
+                                  {getTypeLabel(type.type)}
                                 </SelectItem>
                               ))}
                             </SelectContent>
