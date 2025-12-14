@@ -111,7 +111,22 @@ export async function registerRoutes(
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
       
-      const { name, stripePublishableKey, stripeSecretKey, paymentEnabled } = req.body;
+      const { 
+        name, 
+        stripePublishableKey, 
+        stripeSecretKey, 
+        paymentEnabled,
+        organizationType,
+        expectedEventsPerYear,
+        typicalEventSize,
+        phone,
+        website,
+        country,
+        timezone,
+        currency,
+        onboardingCompleted,
+        onboardingStep
+      } = req.body;
       
       const updateData: Record<string, any> = {};
       
@@ -134,6 +149,48 @@ export async function registerRoutes(
         updateData.paymentEnabled = Boolean(paymentEnabled);
       }
       
+      // Organization profile fields
+      if (organizationType !== undefined) {
+        updateData.organizationType = organizationType || null;
+      }
+      
+      if (expectedEventsPerYear !== undefined) {
+        updateData.expectedEventsPerYear = expectedEventsPerYear || null;
+      }
+      
+      if (typicalEventSize !== undefined) {
+        updateData.typicalEventSize = typicalEventSize || null;
+      }
+      
+      if (phone !== undefined) {
+        updateData.phone = phone || null;
+      }
+      
+      if (website !== undefined) {
+        updateData.website = website || null;
+      }
+      
+      if (country !== undefined) {
+        updateData.country = country || null;
+      }
+      
+      if (timezone !== undefined) {
+        updateData.timezone = timezone || null;
+      }
+      
+      if (currency !== undefined) {
+        updateData.currency = currency || null;
+      }
+      
+      // Onboarding tracking fields
+      if (onboardingCompleted !== undefined) {
+        updateData.onboardingCompleted = Boolean(onboardingCompleted);
+      }
+      
+      if (onboardingStep !== undefined) {
+        updateData.onboardingStep = parseInt(onboardingStep) || 1;
+      }
+      
       if (Object.keys(updateData).length === 0) {
         return res.status(400).json({ message: "No valid fields to update" });
       }
@@ -146,6 +203,216 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error updating organization:", error);
       res.status(500).json({ message: "Failed to update organization" });
+    }
+  });
+
+  // Onboarding routes
+  app.get('/api/onboarding/status', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const org = await storage.getOrganization(organizationId);
+      
+      if (!org) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+
+      // Calculate completion status based on org data and current step
+      const hasEvents = (await storage.getEvents(organizationId)).length > 0;
+      const hasPackages = (await storage.getPackages(organizationId)).length > 0;
+      const currentStep = org.onboardingStep || 1;
+      
+      // A step is considered complete if user has progressed past it OR met its criteria
+      const steps = [
+        { 
+          id: 1, 
+          title: "Organization Profile", 
+          description: "Tell us about your organization",
+          completed: !!(org.organizationType && org.expectedEventsPerYear),
+          skippable: false
+        },
+        { 
+          id: 2, 
+          title: "Create First Event", 
+          description: "Set up your first event",
+          completed: hasEvents,
+          skippable: false
+        },
+        { 
+          id: 3, 
+          title: "Setup Registration", 
+          description: "Configure your registration page",
+          completed: hasPackages || currentStep > 3,
+          skippable: true
+        },
+        { 
+          id: 4, 
+          title: "Branding", 
+          description: "Customize your event pages",
+          completed: currentStep > 4,
+          skippable: true
+        },
+        { 
+          id: 5, 
+          title: "Payment Setup", 
+          description: "Connect Stripe to accept payments",
+          completed: !!org.paymentEnabled || currentStep > 5,
+          skippable: true
+        },
+        { 
+          id: 6, 
+          title: "Invite Team", 
+          description: "Add team members to collaborate",
+          completed: org.onboardingCompleted || false,
+          skippable: true
+        }
+      ];
+
+      res.json({
+        currentStep: org.onboardingStep || 1,
+        onboardingCompleted: org.onboardingCompleted || false,
+        steps,
+        organization: sanitizeOrganization(org)
+      });
+    } catch (error) {
+      console.error("Error fetching onboarding status:", error);
+      res.status(500).json({ message: "Failed to fetch onboarding status" });
+    }
+  });
+
+  app.post('/api/onboarding/complete-step', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const { step, data } = req.body;
+      
+      // Validate step number
+      const stepNum = typeof step === 'number' ? step : parseInt(step, 10);
+      if (isNaN(stepNum) || stepNum < 1 || stepNum > 6) {
+        return res.status(400).json({ message: "Invalid step number" });
+      }
+
+      const org = await storage.getOrganization(organizationId);
+      if (!org) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+
+      const currentStep = org.onboardingStep || 1;
+      
+      // Only allow completing current step or previous steps (to allow re-completing)
+      if (stepNum > currentStep) {
+        return res.status(400).json({ message: "Cannot complete a future step" });
+      }
+
+      const updateData: Record<string, any> = {};
+
+      // Apply step-specific data updates with validation
+      if (stepNum === 1) {
+        // Step 1: Organization profile - validate required fields
+        if (!data?.organizationType || !data?.expectedEventsPerYear) {
+          return res.status(400).json({ 
+            message: "Organization type and expected events per year are required" 
+          });
+        }
+        
+        // Validate organizationType is a valid option
+        const validOrgTypes = ['conference', 'corporate', 'nonprofit', 'agency', 'education'];
+        if (!validOrgTypes.includes(data.organizationType)) {
+          return res.status(400).json({ message: "Invalid organization type" });
+        }
+        
+        // Validate expectedEventsPerYear is a valid option
+        const validEventRanges = ['1-5', '6-20', '21-50', '50+'];
+        if (!validEventRanges.includes(data.expectedEventsPerYear)) {
+          return res.status(400).json({ message: "Invalid expected events per year value" });
+        }
+        
+        updateData.organizationType = data.organizationType;
+        updateData.expectedEventsPerYear = data.expectedEventsPerYear;
+        if (data.typicalEventSize) updateData.typicalEventSize = data.typicalEventSize;
+        if (data.phone) updateData.phone = data.phone;
+        if (data.website) updateData.website = data.website;
+        if (data.country) updateData.country = data.country;
+        if (data.timezone) updateData.timezone = data.timezone;
+        if (data.currency) updateData.currency = data.currency;
+        if (data.name) updateData.name = data.name;
+      }
+
+      // Move to next step if completing current step
+      if (stepNum === currentStep) {
+        updateData.onboardingStep = Math.min(stepNum + 1, 6);
+      }
+
+      // Check if all required steps (1 and 2) are complete
+      const hasEvents = (await storage.getEvents(organizationId)).length > 0;
+      const hasProfile = !!(updateData.organizationType || org.organizationType) && 
+                         !!(updateData.expectedEventsPerYear || org.expectedEventsPerYear);
+      
+      // Mark as complete if steps 1 and 2 are done
+      if (hasProfile && hasEvents) {
+        updateData.onboardingCompleted = true;
+      }
+
+      const updated = await storage.updateOrganization(organizationId, updateData);
+      res.json(sanitizeOrganization(updated));
+    } catch (error) {
+      console.error("Error completing onboarding step:", error);
+      res.status(500).json({ message: "Failed to complete onboarding step" });
+    }
+  });
+
+  app.post('/api/onboarding/skip-step', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const { step } = req.body;
+      
+      if (!step || typeof step !== 'number' || step < 1 || step > 6) {
+        return res.status(400).json({ message: "Invalid step number" });
+      }
+
+      // Steps 1 and 2 are not skippable
+      if (step === 1 || step === 2) {
+        return res.status(400).json({ message: "This step cannot be skipped" });
+      }
+
+      const org = await storage.getOrganization(organizationId);
+      if (!org) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+
+      const currentStep = org.onboardingStep || 1;
+      if (step === currentStep) {
+        const updated = await storage.updateOrganization(organizationId, {
+          onboardingStep: Math.min(step + 1, 6)
+        });
+        res.json(sanitizeOrganization(updated));
+      } else {
+        res.json(sanitizeOrganization(org));
+      }
+    } catch (error) {
+      console.error("Error skipping onboarding step:", error);
+      res.status(500).json({ message: "Failed to skip onboarding step" });
+    }
+  });
+
+  app.post('/api/onboarding/dismiss', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      
+      const updated = await storage.updateOrganization(organizationId, {
+        onboardingCompleted: true
+      });
+      
+      if (!updated) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+      
+      res.json(sanitizeOrganization(updated));
+    } catch (error) {
+      console.error("Error dismissing onboarding:", error);
+      res.status(500).json({ message: "Failed to dismiss onboarding" });
     }
   });
 
