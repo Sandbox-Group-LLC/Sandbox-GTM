@@ -960,26 +960,6 @@ export default function PublicRegistration() {
                         )}
                       />
 
-                      <Button
-                        type="button"
-                        className="w-full"
-                        onClick={handleStep1Continue}
-                        data-testid="button-continue-step1"
-                        style={{
-                          backgroundColor: theme?.buttonStyle === "outline" ? "transparent" : (theme?.buttonColor || undefined),
-                          color: theme?.buttonStyle === "outline" ? (theme?.buttonColor || undefined) : (theme?.buttonTextColor || undefined),
-                          border: theme?.buttonStyle === "outline" ? `2px solid ${theme?.buttonColor || "#3b82f6"}` : undefined,
-                          borderRadius: theme?.borderRadius ? ({ none: "0px", small: "4px", medium: "8px", large: "16px", pill: "9999px" }[theme.borderRadius]) : undefined,
-                        }}
-                      >
-                        Continue
-                        <ArrowRight className="w-4 h-4 ml-2" />
-                      </Button>
-                    </div>
-                  )}
-
-                  {currentStep === 2 && (
-                    <div className="space-y-4">
                       <div className="space-y-2">
                         <FormLabel>Invite Code (optional)</FormLabel>
                         <div className="flex gap-2">
@@ -1013,6 +993,33 @@ export default function PublicRegistration() {
                           </div>
                         )}
                       </div>
+
+                      <Button
+                        type="button"
+                        className="w-full"
+                        onClick={handleStep1Continue}
+                        data-testid="button-continue-step1"
+                        style={{
+                          backgroundColor: theme?.buttonStyle === "outline" ? "transparent" : (theme?.buttonColor || undefined),
+                          color: theme?.buttonStyle === "outline" ? (theme?.buttonColor || undefined) : (theme?.buttonTextColor || undefined),
+                          border: theme?.buttonStyle === "outline" ? `2px solid ${theme?.buttonColor || "#3b82f6"}` : undefined,
+                          borderRadius: theme?.borderRadius ? ({ none: "0px", small: "4px", medium: "8px", large: "16px", pill: "9999px" }[theme.borderRadius]) : undefined,
+                        }}
+                      >
+                        Continue
+                        <ArrowRight className="w-4 h-4 ml-2" />
+                      </Button>
+                    </div>
+                  )}
+
+                  {currentStep === 2 && (
+                    <div className="space-y-4">
+                      {validatedCode && (
+                        <div className="flex items-center gap-2 text-sm text-green-600 p-3 bg-green-50 dark:bg-green-900/20 rounded-md">
+                          <Check className="h-4 w-4" />
+                          <span>Invite code applied{validatedCode.discountType && ` - ${validatedCode.discountType === "percentage" ? `${validatedCode.discountValue}% off` : `${formatPrice(validatedCode.discountValue)} off`}`}</span>
+                        </div>
+                      )}
 
                       {availablePackages.length > 0 && (
                         <div className="space-y-2">
