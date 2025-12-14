@@ -341,6 +341,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteEvent(organizationId: string, id: string): Promise<void> {
+    // Delete all related records first (cascade delete)
+    await db.delete(attendees).where(eq(attendees.eventId, id));
+    await db.delete(attendeeTypes).where(eq(attendeeTypes.eventId, id));
+    await db.delete(eventPackages).where(eq(eventPackages.eventId, id));
+    await db.delete(inviteCodes).where(eq(inviteCodes.eventId, id));
+    await db.delete(speakers).where(eq(speakers.eventId, id));
+    await db.delete(eventSessions).where(eq(eventSessions.eventId, id));
+    await db.delete(contentItems).where(eq(contentItems.eventId, id));
+    await db.delete(budgetItems).where(eq(budgetItems.eventId, id));
+    await db.delete(milestones).where(eq(milestones.eventId, id));
+    await db.delete(deliverables).where(eq(deliverables.eventId, id));
+    await db.delete(emailCampaigns).where(eq(emailCampaigns.eventId, id));
+    await db.delete(socialPosts).where(eq(socialPosts.eventId, id));
+    await db.delete(emailTemplates).where(eq(emailTemplates.eventId, id));
+    await db.delete(eventPages).where(eq(eventPages.eventId, id));
+    await db.delete(registrationConfigs).where(eq(registrationConfigs.eventId, id));
+    await db.delete(customFields).where(eq(customFields.eventId, id));
+    
+    // Now delete the event itself
     await db.delete(events).where(and(eq(events.organizationId, organizationId), eq(events.id, id)));
   }
 
