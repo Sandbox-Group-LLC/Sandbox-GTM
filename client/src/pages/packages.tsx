@@ -361,7 +361,7 @@ export default function Packages() {
               </DialogHeader>
               <ScrollArea className="flex-1 -mx-6 px-6">
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <form id="package-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                   <FormField
                     control={form.control}
                     name="name"
@@ -556,25 +556,26 @@ export default function Packages() {
                       </FormItem>
                     )}
                   />
-                  <div className="flex justify-end gap-2 pt-4">
-                    <Button type="button" variant="outline" onClick={handleDialogClose}>
-                      Cancel
-                    </Button>
-                    <Button
-                      type="submit"
-                      disabled={createMutation.isPending || updateMutation.isPending}
-                      data-testid="button-submit-package"
-                    >
-                      {createMutation.isPending || updateMutation.isPending
-                        ? "Saving..."
-                        : editingPackage
-                        ? "Update"
-                        : "Create Package"}
-                    </Button>
-                  </div>
                 </form>
               </Form>
               </ScrollArea>
+              <div className="flex justify-end gap-2 pt-4 border-t mt-4">
+                <Button type="button" variant="outline" onClick={handleDialogClose}>
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  form="package-form"
+                  disabled={createMutation.isPending || updateMutation.isPending}
+                  data-testid="button-submit-package"
+                >
+                  {createMutation.isPending || updateMutation.isPending
+                    ? "Saving..."
+                    : editingPackage
+                    ? "Update"
+                    : "Create Package"}
+                </Button>
+              </div>
             </DialogContent>
           </Dialog>
         }
