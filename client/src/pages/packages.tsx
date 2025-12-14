@@ -337,13 +337,14 @@ export default function Packages() {
                 Add Package
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-w-md max-h-[85vh] flex flex-col">
               <DialogHeader>
                 <DialogTitle>{editingPackage ? "Edit Package" : "Add New Package"}</DialogTitle>
                 <DialogDescription>
                   {editingPackage ? "Update package information" : "Create a new registration package"}
                 </DialogDescription>
               </DialogHeader>
+              <ScrollArea className="flex-1 -mx-6 px-6">
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                   <FormField
@@ -537,6 +538,7 @@ export default function Packages() {
                   </div>
                 </form>
               </Form>
+              </ScrollArea>
             </DialogContent>
           </Dialog>
         }
