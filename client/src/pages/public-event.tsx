@@ -599,6 +599,15 @@ function SectionRenderer({ section, event, sessions, speakers, theme }: { sectio
         </div>
       );
 
+    case "html":
+      const htmlContent = replaceMergeTags(String(config.content || ""), mergeTagContext);
+      return (
+        <div 
+          data-testid={`section-html-${section.id}`}
+          dangerouslySetInnerHTML={{ __html: htmlContent }}
+        />
+      );
+
     default:
       return null;
   }

@@ -46,13 +46,14 @@ import {
   Images,
   Palette,
   Paintbrush,
+  Code,
 } from "lucide-react";
 import type { Event, EventPage, EventPageTheme } from "@shared/schema";
 import { MergeTagPicker } from "@/components/merge-tag-picker";
 
 type PageType = "landing" | "registration" | "portal";
 
-type SectionType = "hero" | "text" | "cta" | "features" | "countdown" | "speakers" | "agenda" | "faq" | "testimonials" | "gallery";
+type SectionType = "hero" | "text" | "cta" | "features" | "countdown" | "speakers" | "agenda" | "faq" | "testimonials" | "gallery" | "html";
 
 interface Section {
   id: string;
@@ -78,6 +79,7 @@ const SECTION_TYPES: { type: SectionType; label: string; icon: React.ComponentTy
   { type: "faq", label: "FAQ Accordion", icon: HelpCircle, description: "Frequently asked questions" },
   { type: "testimonials", label: "Testimonials", icon: Quote, description: "Quotes from past attendees" },
   { type: "gallery", label: "Image Gallery", icon: Images, description: "Photo grid display" },
+  { type: "html", label: "Custom HTML", icon: Code, description: "Raw HTML code block" },
 ];
 
 const GOOGLE_FONTS = [
@@ -142,6 +144,8 @@ const getDefaultConfig = (type: SectionType): Record<string, unknown> => {
       return { heading: "What Attendees Say", items: [] };
     case "gallery":
       return { heading: "Event Gallery", images: [], columns: 3 };
+    case "html":
+      return { content: "" };
     default:
       return {};
   }
@@ -1088,6 +1092,32 @@ function SectionEditor({ section, onSave, onCancel }: SectionEditorProps) {
                 <Plus className="h-4 w-4 mr-2" />
                 Add Image
               </Button>
+            </div>
+          </>
+        );
+      case "html":
+        return (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="htmlContent">HTML Code</Label>
+              <div className="flex items-start gap-1">
+                <Textarea
+                  id="htmlContent"
+                  value={(config.content as string) || ""}
+                  onChange={(e) => updateConfig("content", e.target.value)}
+                  placeholder="<div>Your custom HTML here...</div>"
+                  rows={10}
+                  className="font-mono text-sm flex-1"
+                  data-testid="input-html-content"
+                />
+                <MergeTagPicker
+                  categories={["event", "organization"]}
+                  onInsert={(tag) => updateConfig("content", ((config.content as string) || "") + tag)}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Enter raw HTML code. Use merge tags to insert dynamic content.
+              </p>
             </div>
           </>
         );
