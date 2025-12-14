@@ -204,6 +204,21 @@ export const registrationConfigs = pgTable("registration_configs", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Custom Fields table - organization-wide field definitions for attendees
+export const customFields = pgTable("custom_fields", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  name: varchar("name", { length: 100 }).notNull(),
+  label: varchar("label", { length: 255 }).notNull(),
+  fieldType: varchar("field_type", { length: 50 }).notNull(),
+  required: boolean("required").default(false),
+  options: text("options").array(),
+  displayOrder: integer("display_order").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Attendees table
 export const attendees = pgTable("attendees", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -224,6 +239,7 @@ export const attendees = pgTable("attendees", {
   checkInTime: timestamp("check_in_time"),
   inviteCodeId: varchar("invite_code_id").references(() => inviteCodes.id),
   packageId: varchar("package_id").references(() => packages.id),
+  customData: jsonb("custom_data").$type<Record<string, string | boolean | string[]>>(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -554,6 +570,7 @@ export const insertEventPackageSchema = createInsertSchema(eventPackages).omit({
 export const insertInviteCodeSchema = createInsertSchema(inviteCodes).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertEventPageSchema = createInsertSchema(eventPages).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertRegistrationConfigSchema = createInsertSchema(registrationConfigs).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertCustomFieldSchema = createInsertSchema(customFields).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Types
 export type UpsertUser = typeof users.$inferInsert;
@@ -600,3 +617,5 @@ export type InsertEventPage = z.infer<typeof insertEventPageSchema>;
 export type EventPage = typeof eventPages.$inferSelect;
 export type InsertRegistrationConfig = z.infer<typeof insertRegistrationConfigSchema>;
 export type RegistrationConfig = typeof registrationConfigs.$inferSelect;
+export type InsertCustomField = z.infer<typeof insertCustomFieldSchema>;
+export type CustomField = typeof customFields.$inferSelect;
