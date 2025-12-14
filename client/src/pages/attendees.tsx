@@ -44,7 +44,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Plus, Users, Search, Download, Settings2, ArrowUpDown, ArrowUp, ArrowDown, Filter, X } from "lucide-react";
 import { EventSelectField } from "@/components/event-select-field";
-import type { Attendee, Event } from "@shared/schema";
+import type { Attendee, Event, CustomField } from "@shared/schema";
 
 const ATTENDEE_TYPE_OPTIONS = [
   { value: "attendee", label: "Attendee" },
@@ -131,6 +131,16 @@ export default function Attendees() {
   const { data: events = [] } = useQuery<Event[]>({
     queryKey: ["/api/events"],
   });
+
+  const { data: customFields = [] } = useQuery<CustomField[]>({
+    queryKey: ["/api/custom-fields"],
+  });
+
+  const activeCustomFields = useMemo(() => {
+    return customFields
+      .filter((f) => f.isActive)
+      .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+  }, [customFields]);
 
   const eventLookup = useMemo(() => {
     const lookup: Record<string, string> = {};
@@ -385,6 +395,31 @@ export default function Attendees() {
       return baseColumn;
     });
 
+    // Add custom field columns
+    activeCustomFields.forEach((customField) => {
+      const customFieldKey = `custom_${customField.name}`;
+      if (visibleColumns.includes(customFieldKey)) {
+        dynamicColumns.push({
+          key: customFieldKey,
+          header: customField.label,
+          cell: (attendee: Attendee) => {
+            const customData = attendee.customData as Record<string, string | boolean | string[]> | null | undefined;
+            if (!customData || customData[customField.name] === undefined || customData[customField.name] === null) {
+              return "-";
+            }
+            const value = customData[customField.name];
+            if (typeof value === "boolean") {
+              return value ? "Yes" : "No";
+            }
+            if (Array.isArray(value)) {
+              return value.join(", ");
+            }
+            return String(value) || "-";
+          },
+        });
+      }
+    });
+
     // Always add actions column at the end
     dynamicColumns.push({
       key: "actions",
@@ -405,7 +440,7 @@ export default function Attendees() {
     });
 
     return dynamicColumns;
-  }, [visibleColumns, sortConfig, eventLookup]);
+  }, [visibleColumns, sortConfig, eventLookup, activeCustomFields]);
 
   return (
     <div className="flex flex-col h-full">
@@ -697,7 +732,7 @@ export default function Attendees() {
                   Columns
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-56" align="end">
+              <PopoverContent className="w-56 max-h-80 overflow-y-auto" align="end">
                 <div className="space-y-2">
                   <h4 className="font-medium text-sm mb-3">Toggle Columns</h4>
                   {ALL_COLUMNS.map((column) => (
@@ -716,6 +751,32 @@ export default function Attendees() {
                       </label>
                     </div>
                   ))}
+                  {activeCustomFields.length > 0 && (
+                    <>
+                      <div className="border-t my-2 pt-2">
+                        <h4 className="font-medium text-sm text-muted-foreground mb-2">Custom Fields</h4>
+                      </div>
+                      {activeCustomFields.map((field) => {
+                        const fieldKey = `custom_${field.name}`;
+                        return (
+                          <div key={fieldKey} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`col-${fieldKey}`}
+                              checked={visibleColumns.includes(fieldKey)}
+                              onCheckedChange={() => toggleColumn(fieldKey)}
+                              data-testid={`checkbox-column-${fieldKey}`}
+                            />
+                            <label
+                              htmlFor={`col-${fieldKey}`}
+                              className="text-sm cursor-pointer"
+                            >
+                              {field.label}
+                            </label>
+                          </div>
+                        );
+                      })}
+                    </>
+                  )}
                 </div>
               </PopoverContent>
             </Popover>

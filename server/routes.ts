@@ -1326,7 +1326,8 @@ export async function registerRoutes(
         attendeeType,
         ticketType,
         inviteCodeId,
-        packageId
+        packageId,
+        customData: registrationData.customData || null
       });
       
       const attendee = await storage.createAttendee(data);

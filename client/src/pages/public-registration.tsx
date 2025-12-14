@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
 import { useForm } from "react-hook-form";
@@ -10,6 +10,15 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import {
   Form,
@@ -18,9 +27,10 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import { Calendar, MapPin, CheckCircle, AlertCircle, ArrowLeft, ArrowRight } from "lucide-react";
-import type { Event, Attendee, EventPage } from "@shared/schema";
+import type { Event, Attendee, EventPage, CustomField } from "@shared/schema";
 
 interface Section {
   id: string;
@@ -34,7 +44,7 @@ interface PublicRegistrationData {
   registrationPage: EventPage | null;
 }
 
-const registrationSchema = z.object({
+const baseRegistrationSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   email: z.string().email("Valid email is required"),
@@ -44,7 +54,43 @@ const registrationSchema = z.object({
   inviteCode: z.string().optional(),
 });
 
-type RegistrationFormData = z.infer<typeof registrationSchema>;
+function buildDynamicSchema(customFields: CustomField[]) {
+  const customDataShape: Record<string, z.ZodTypeAny> = {};
+  
+  customFields.forEach((field) => {
+    let fieldSchema: z.ZodTypeAny;
+    
+    switch (field.fieldType) {
+      case "checkbox":
+        fieldSchema = z.boolean();
+        break;
+      case "number":
+        fieldSchema = field.required 
+          ? z.string().min(1, `${field.label} is required`)
+          : z.string().optional();
+        break;
+      case "select":
+        fieldSchema = field.required 
+          ? z.string().min(1, `${field.label} is required`)
+          : z.string().optional();
+        break;
+      default:
+        fieldSchema = field.required 
+          ? z.string().min(1, `${field.label} is required`)
+          : z.string().optional();
+    }
+    
+    customDataShape[field.name] = fieldSchema;
+  });
+  
+  return baseRegistrationSchema.extend({
+    customData: z.object(customDataShape).optional(),
+  });
+}
+
+type RegistrationFormData = z.infer<typeof baseRegistrationSchema> & {
+  customData?: Record<string, string | boolean>;
+};
 
 export default function PublicRegistration() {
   const { slug } = useParams<{ slug: string }>();
@@ -62,8 +108,38 @@ export default function PublicRegistration() {
     enabled: !!slug,
   });
 
+  const { data: customFields = [] } = useQuery<CustomField[]>({
+    queryKey: ["/api/public/custom-fields", slug],
+    queryFn: async () => {
+      const res = await fetch(`/api/public/custom-fields/${slug}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!slug,
+  });
+
+  const sortedCustomFields = useMemo(() => {
+    return [...customFields].sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+  }, [customFields]);
+
+  const dynamicSchema = useMemo(() => {
+    return buildDynamicSchema(customFields);
+  }, [customFields]);
+
+  const defaultCustomData = useMemo(() => {
+    const data: Record<string, string | boolean> = {};
+    customFields.forEach((field) => {
+      if (field.fieldType === "checkbox") {
+        data[field.name] = false;
+      } else {
+        data[field.name] = "";
+      }
+    });
+    return data;
+  }, [customFields]);
+
   const form = useForm<RegistrationFormData>({
-    resolver: zodResolver(registrationSchema),
+    resolver: zodResolver(dynamicSchema),
     defaultValues: {
       firstName: "",
       lastName: "",
@@ -72,6 +148,7 @@ export default function PublicRegistration() {
       company: "",
       jobTitle: "",
       inviteCode: "",
+      customData: defaultCustomData,
     },
   });
 
@@ -327,6 +404,19 @@ export default function PublicRegistration() {
                     )}
                   />
 
+                  {sortedCustomFields.length > 0 && (
+                    <div className="space-y-4 pt-4 border-t">
+                      <h3 className="text-sm font-medium text-muted-foreground">Additional Information</h3>
+                      {sortedCustomFields.map((customField) => (
+                        <CustomFieldRenderer
+                          key={customField.id}
+                          customField={customField}
+                          control={form.control}
+                        />
+                      ))}
+                    </div>
+                  )}
+
                   <Button
                     type="submit"
                     className="w-full"
@@ -441,5 +531,148 @@ function SectionRenderer({ section, event, slug }: { section: Section; event: Ev
 
     default:
       return null;
+  }
+}
+
+function CustomFieldRenderer({ customField, control }: { customField: CustomField; control: any }) {
+  const fieldName = `customData.${customField.name}` as const;
+  const labelText = customField.required ? customField.label : `${customField.label} (optional)`;
+
+  switch (customField.fieldType) {
+    case "text":
+      return (
+        <FormField
+          control={control}
+          name={fieldName}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{labelText}</FormLabel>
+              <FormControl>
+                <Input 
+                  {...field} 
+                  value={field.value as string || ""}
+                  data-testid={`input-custom-${customField.name}`} 
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      );
+
+    case "textarea":
+      return (
+        <FormField
+          control={control}
+          name={fieldName}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{labelText}</FormLabel>
+              <FormControl>
+                <Textarea 
+                  {...field} 
+                  value={field.value as string || ""}
+                  data-testid={`textarea-custom-${customField.name}`} 
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      );
+
+    case "number":
+      return (
+        <FormField
+          control={control}
+          name={fieldName}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{labelText}</FormLabel>
+              <FormControl>
+                <Input 
+                  type="number" 
+                  {...field} 
+                  value={field.value as string || ""}
+                  data-testid={`input-custom-${customField.name}`} 
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      );
+
+    case "select":
+      const options = customField.options || [];
+      return (
+        <FormField
+          control={control}
+          name={fieldName}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{labelText}</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value as string || ""}>
+                <FormControl>
+                  <SelectTrigger data-testid={`select-custom-${customField.name}`}>
+                    <SelectValue placeholder={`Select ${customField.label.toLowerCase()}`} />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {options.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      );
+
+    case "checkbox":
+      return (
+        <FormField
+          control={control}
+          name={fieldName}
+          render={({ field }) => (
+            <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+              <FormControl>
+                <Checkbox
+                  checked={field.value as boolean || false}
+                  onCheckedChange={field.onChange}
+                  data-testid={`checkbox-custom-${customField.name}`}
+                />
+              </FormControl>
+              <div className="space-y-1 leading-none">
+                <FormLabel className="cursor-pointer">{customField.label}</FormLabel>
+              </div>
+            </FormItem>
+          )}
+        />
+      );
+
+    default:
+      return (
+        <FormField
+          control={control}
+          name={fieldName}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{labelText}</FormLabel>
+              <FormControl>
+                <Input 
+                  {...field} 
+                  value={field.value as string || ""}
+                  data-testid={`input-custom-${customField.name}`} 
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      );
   }
 }
