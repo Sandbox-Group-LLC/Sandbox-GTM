@@ -1544,8 +1544,9 @@ export async function registerRoutes(
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
       const eventId = req.params.eventId;
-      const data = insertEventPageSchema.parse({ ...req.body, organizationId, eventId });
-      const page = await storage.upsertEventPage(data);
+      const { theme, ...rest } = req.body;
+      const data = insertEventPageSchema.parse({ ...rest, organizationId, eventId });
+      const page = await storage.upsertEventPage({ ...data, theme });
       res.status(201).json(page);
     } catch (error) {
       console.error("Error creating/updating event page:", error);

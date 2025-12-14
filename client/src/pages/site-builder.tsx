@@ -44,8 +44,10 @@ import {
   HelpCircle,
   Quote,
   Images,
+  Palette,
+  Paintbrush,
 } from "lucide-react";
-import type { Event, EventPage } from "@shared/schema";
+import type { Event, EventPage, EventPageTheme } from "@shared/schema";
 
 type PageType = "landing" | "registration" | "portal";
 
@@ -75,6 +77,46 @@ const SECTION_TYPES: { type: SectionType; label: string; icon: React.ComponentTy
   { type: "faq", label: "FAQ Accordion", icon: HelpCircle, description: "Frequently asked questions" },
   { type: "testimonials", label: "Testimonials", icon: Quote, description: "Quotes from past attendees" },
   { type: "gallery", label: "Image Gallery", icon: Images, description: "Photo grid display" },
+];
+
+const GOOGLE_FONTS = [
+  { value: "Inter", label: "Inter" },
+  { value: "Roboto", label: "Roboto" },
+  { value: "Open Sans", label: "Open Sans" },
+  { value: "Lato", label: "Lato" },
+  { value: "Montserrat", label: "Montserrat" },
+  { value: "Poppins", label: "Poppins" },
+  { value: "Oswald", label: "Oswald" },
+  { value: "Playfair Display", label: "Playfair Display" },
+  { value: "Raleway", label: "Raleway" },
+  { value: "Source Sans Pro", label: "Source Sans Pro" },
+  { value: "Merriweather", label: "Merriweather" },
+  { value: "Nunito", label: "Nunito" },
+];
+
+const BORDER_RADIUS_OPTIONS = [
+  { value: "none", label: "None" },
+  { value: "small", label: "Small" },
+  { value: "medium", label: "Medium" },
+  { value: "large", label: "Large" },
+  { value: "pill", label: "Pill" },
+];
+
+const BUTTON_STYLE_OPTIONS = [
+  { value: "filled", label: "Filled" },
+  { value: "outline", label: "Outline" },
+];
+
+const CONTAINER_WIDTH_OPTIONS = [
+  { value: "narrow", label: "Narrow (768px)" },
+  { value: "standard", label: "Standard (1024px)" },
+  { value: "wide", label: "Wide (1280px)" },
+];
+
+const SECTION_SPACING_OPTIONS = [
+  { value: "compact", label: "Compact" },
+  { value: "normal", label: "Normal" },
+  { value: "relaxed", label: "Relaxed" },
 ];
 
 const getDefaultConfig = (type: SectionType): Record<string, unknown> => {
@@ -108,6 +150,7 @@ export default function SiteBuilder() {
   const { toast } = useToast();
   const [selectedEventId, setSelectedEventId] = useState<string>("");
   const [activeTab, setActiveTab] = useState<PageType>("landing");
+  const [activeSubTab, setActiveSubTab] = useState<"content" | "styles">("content");
   const [isAddSectionOpen, setIsAddSectionOpen] = useState(false);
   const [editingSection, setEditingSection] = useState<Section | null>(null);
   const [isSectionEditorOpen, setIsSectionEditorOpen] = useState(false);
@@ -125,12 +168,13 @@ export default function SiteBuilder() {
   const sections = (currentPage?.sections as Section[]) || [];
 
   const saveMutation = useMutation({
-    mutationFn: async (data: { pageType: PageType; sections: Section[]; isPublished?: boolean }) => {
+    mutationFn: async (data: { pageType: PageType; sections: Section[]; isPublished?: boolean; theme?: EventPageTheme }) => {
       return await apiRequest("POST", `/api/events/${selectedEventId}/pages`, {
         eventId: selectedEventId,
         pageType: data.pageType,
         sections: data.sections,
         isPublished: data.isPublished ?? currentPage?.isPublished ?? false,
+        theme: data.theme ?? currentPage?.theme,
       });
     },
     onSuccess: () => {
@@ -154,6 +198,7 @@ export default function SiteBuilder() {
         pageType: activeTab,
         sections: sections,
         isPublished,
+        theme: currentPage?.theme,
       });
     },
     onSuccess: (_, isPublished) => {
@@ -211,7 +256,16 @@ export default function SiteBuilder() {
     setEditingSection(null);
   };
 
+  const handleUpdateTheme = (updates: Partial<EventPageTheme>) => {
+    const newTheme: EventPageTheme = {
+      ...currentPage?.theme,
+      ...updates,
+    };
+    saveMutation.mutate({ pageType: activeTab, sections: sections, theme: newTheme });
+  };
+
   const selectedEvent = events.find((e) => e.id === selectedEventId);
+  const currentTheme = currentPage?.theme || {};
 
   const getSectionIcon = (type: SectionType) => {
     const sectionType = SECTION_TYPES.find((s) => s.type === type);
@@ -331,104 +385,137 @@ export default function SiteBuilder() {
 
                   {PAGE_TYPES.map((pt) => (
                     <TabsContent key={pt.value} value={pt.value} className="space-y-4">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-4 mb-4">
                         <div>
                           <h3 className="font-medium">{pt.label}</h3>
                           <p className="text-sm text-muted-foreground">{pt.description}</p>
                         </div>
-                        <Button
-                          size="sm"
-                          onClick={() => setIsAddSectionOpen(true)}
-                          data-testid="button-add-section"
-                        >
-                          <Plus className="h-4 w-4 mr-2" />
-                          Add Section
-                        </Button>
-                      </div>
-
-                      {sections.length === 0 ? (
-                        <div className="border-2 border-dashed rounded-md p-12 text-center">
-                          <Layout className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                          <h4 className="font-medium mb-2">No sections yet</h4>
-                          <p className="text-sm text-muted-foreground mb-4">
-                            Add sections to build your {pt.label.toLowerCase()}
-                          </p>
+                        <div className="flex items-center gap-2">
                           <Button
-                            variant="outline"
-                            onClick={() => setIsAddSectionOpen(true)}
-                            data-testid="button-add-first-section"
+                            variant={activeSubTab === "content" ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setActiveSubTab("content")}
+                            data-testid="tab-content"
                           >
-                            <Plus className="h-4 w-4 mr-2" />
-                            Add First Section
+                            <Layout className="h-4 w-4 mr-2" />
+                            Content
+                          </Button>
+                          <Button
+                            variant={activeSubTab === "styles" ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setActiveSubTab("styles")}
+                            data-testid="tab-styles"
+                          >
+                            <Palette className="h-4 w-4 mr-2" />
+                            Styles
                           </Button>
                         </div>
+                      </div>
+
+                      {activeSubTab === "content" ? (
+                        <>
+                          <div className="flex items-center justify-end">
+                            <Button
+                              size="sm"
+                              onClick={() => setIsAddSectionOpen(true)}
+                              data-testid="button-add-section"
+                            >
+                              <Plus className="h-4 w-4 mr-2" />
+                              Add Section
+                            </Button>
+                          </div>
+
+                          {sections.length === 0 ? (
+                            <div className="border-2 border-dashed rounded-md p-12 text-center">
+                              <Layout className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                              <h4 className="font-medium mb-2">No sections yet</h4>
+                              <p className="text-sm text-muted-foreground mb-4">
+                                Add sections to build your {pt.label.toLowerCase()}
+                              </p>
+                              <Button
+                                variant="outline"
+                                onClick={() => setIsAddSectionOpen(true)}
+                                data-testid="button-add-first-section"
+                              >
+                                <Plus className="h-4 w-4 mr-2" />
+                                Add First Section
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              {sections
+                                .sort((a, b) => a.order - b.order)
+                                .map((section, index) => {
+                                  const Icon = getSectionIcon(section.type);
+                                  return (
+                                    <div
+                                      key={section.id}
+                                      className="flex items-center gap-3 p-3 border rounded-md bg-card"
+                                      data-testid={`section-item-${section.id}`}
+                                    >
+                                      <div className="flex flex-col gap-1">
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-6 w-6"
+                                          onClick={() => handleMoveSection(section.id, "up")}
+                                          disabled={index === 0 || saveMutation.isPending}
+                                          data-testid={`button-move-up-${section.id}`}
+                                        >
+                                          <GripVertical className="h-4 w-4 rotate-90" />
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-6 w-6"
+                                          onClick={() => handleMoveSection(section.id, "down")}
+                                          disabled={index === sections.length - 1 || saveMutation.isPending}
+                                          data-testid={`button-move-down-${section.id}`}
+                                        >
+                                          <GripVertical className="h-4 w-4 rotate-90" />
+                                        </Button>
+                                      </div>
+                                      <Icon className="h-5 w-5 text-muted-foreground" />
+                                      <div className="flex-1">
+                                        <span className="font-medium">{getSectionLabel(section.type)}</span>
+                                        <Badge variant="outline" className="ml-2 text-xs">
+                                          {section.type}
+                                        </Badge>
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          onClick={() => {
+                                            setEditingSection(section);
+                                            setIsSectionEditorOpen(true);
+                                          }}
+                                          data-testid={`button-edit-${section.id}`}
+                                        >
+                                          <Settings className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          onClick={() => handleDeleteSection(section.id)}
+                                          disabled={saveMutation.isPending}
+                                          data-testid={`button-delete-${section.id}`}
+                                        >
+                                          <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                            </div>
+                          )}
+                        </>
                       ) : (
-                        <div className="space-y-2">
-                          {sections
-                            .sort((a, b) => a.order - b.order)
-                            .map((section, index) => {
-                              const Icon = getSectionIcon(section.type);
-                              return (
-                                <div
-                                  key={section.id}
-                                  className="flex items-center gap-3 p-3 border rounded-md bg-card"
-                                  data-testid={`section-item-${section.id}`}
-                                >
-                                  <div className="flex flex-col gap-1">
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-6 w-6"
-                                      onClick={() => handleMoveSection(section.id, "up")}
-                                      disabled={index === 0 || saveMutation.isPending}
-                                      data-testid={`button-move-up-${section.id}`}
-                                    >
-                                      <GripVertical className="h-4 w-4 rotate-90" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-6 w-6"
-                                      onClick={() => handleMoveSection(section.id, "down")}
-                                      disabled={index === sections.length - 1 || saveMutation.isPending}
-                                      data-testid={`button-move-down-${section.id}`}
-                                    >
-                                      <GripVertical className="h-4 w-4 rotate-90" />
-                                    </Button>
-                                  </div>
-                                  <Icon className="h-5 w-5 text-muted-foreground" />
-                                  <div className="flex-1">
-                                    <span className="font-medium">{getSectionLabel(section.type)}</span>
-                                    <Badge variant="outline" className="ml-2 text-xs">
-                                      {section.type}
-                                    </Badge>
-                                  </div>
-                                  <div className="flex items-center gap-1">
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={() => {
-                                        setEditingSection(section);
-                                        setIsSectionEditorOpen(true);
-                                      }}
-                                      data-testid={`button-edit-${section.id}`}
-                                    >
-                                      <Settings className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={() => handleDeleteSection(section.id)}
-                                      disabled={saveMutation.isPending}
-                                      data-testid={`button-delete-${section.id}`}
-                                    >
-                                      <Trash2 className="h-4 w-4 text-destructive" />
-                                    </Button>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                        </div>
+                        <StylesEditor
+                          theme={currentTheme}
+                          onUpdateTheme={handleUpdateTheme}
+                          isPending={saveMutation.isPending}
+                        />
                       )}
                     </TabsContent>
                   ))}
@@ -960,6 +1047,327 @@ function SectionEditor({ section, onSave, onCancel }: SectionEditorProps) {
         <Button onClick={() => onSave(config)} data-testid="button-save-section">
           Save Changes
         </Button>
+      </div>
+    </div>
+  );
+}
+
+interface StylesEditorProps {
+  theme: EventPageTheme;
+  onUpdateTheme: (updates: Partial<EventPageTheme>) => void;
+  isPending: boolean;
+}
+
+function StylesEditor({ theme, onUpdateTheme, isPending }: StylesEditorProps) {
+  return (
+    <div className="space-y-8">
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Type className="h-5 w-5 text-muted-foreground" />
+          <h4 className="font-medium">Typography</h4>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="headingFont">Heading Font</Label>
+            <Select
+              value={theme.headingFont || "Inter"}
+              onValueChange={(value) => onUpdateTheme({ headingFont: value })}
+              disabled={isPending}
+            >
+              <SelectTrigger data-testid="select-heading-font">
+                <SelectValue placeholder="Select font" />
+              </SelectTrigger>
+              <SelectContent>
+                {GOOGLE_FONTS.map((font) => (
+                  <SelectItem key={font.value} value={font.value}>
+                    {font.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="bodyFont">Body Font</Label>
+            <Select
+              value={theme.bodyFont || "Inter"}
+              onValueChange={(value) => onUpdateTheme({ bodyFont: value })}
+              disabled={isPending}
+            >
+              <SelectTrigger data-testid="select-body-font">
+                <SelectValue placeholder="Select font" />
+              </SelectTrigger>
+              <SelectContent>
+                {GOOGLE_FONTS.map((font) => (
+                  <SelectItem key={font.value} value={font.value}>
+                    {font.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Paintbrush className="h-5 w-5 text-muted-foreground" />
+          <h4 className="font-medium">Colors</h4>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="primaryColor">Primary</Label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                id="primaryColor"
+                value={theme.primaryColor || "#3b82f6"}
+                onChange={(e) => onUpdateTheme({ primaryColor: e.target.value })}
+                disabled={isPending}
+                className="h-9 w-12 rounded border cursor-pointer"
+                data-testid="input-primary-color"
+              />
+              <Input
+                value={theme.primaryColor || "#3b82f6"}
+                onChange={(e) => onUpdateTheme({ primaryColor: e.target.value })}
+                disabled={isPending}
+                className="flex-1 font-mono text-sm"
+                data-testid="input-primary-color-text"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="secondaryColor">Secondary</Label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                id="secondaryColor"
+                value={theme.secondaryColor || "#64748b"}
+                onChange={(e) => onUpdateTheme({ secondaryColor: e.target.value })}
+                disabled={isPending}
+                className="h-9 w-12 rounded border cursor-pointer"
+                data-testid="input-secondary-color"
+              />
+              <Input
+                value={theme.secondaryColor || "#64748b"}
+                onChange={(e) => onUpdateTheme({ secondaryColor: e.target.value })}
+                disabled={isPending}
+                className="flex-1 font-mono text-sm"
+                data-testid="input-secondary-color-text"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="backgroundColor">Background</Label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                id="backgroundColor"
+                value={theme.backgroundColor || "#ffffff"}
+                onChange={(e) => onUpdateTheme({ backgroundColor: e.target.value })}
+                disabled={isPending}
+                className="h-9 w-12 rounded border cursor-pointer"
+                data-testid="input-background-color"
+              />
+              <Input
+                value={theme.backgroundColor || "#ffffff"}
+                onChange={(e) => onUpdateTheme({ backgroundColor: e.target.value })}
+                disabled={isPending}
+                className="flex-1 font-mono text-sm"
+                data-testid="input-background-color-text"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="textColor">Text</Label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                id="textColor"
+                value={theme.textColor || "#1f2937"}
+                onChange={(e) => onUpdateTheme({ textColor: e.target.value })}
+                disabled={isPending}
+                className="h-9 w-12 rounded border cursor-pointer"
+                data-testid="input-text-color"
+              />
+              <Input
+                value={theme.textColor || "#1f2937"}
+                onChange={(e) => onUpdateTheme({ textColor: e.target.value })}
+                disabled={isPending}
+                className="flex-1 font-mono text-sm"
+                data-testid="input-text-color-text"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="textSecondaryColor">Text Secondary</Label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                id="textSecondaryColor"
+                value={theme.textSecondaryColor || "#6b7280"}
+                onChange={(e) => onUpdateTheme({ textSecondaryColor: e.target.value })}
+                disabled={isPending}
+                className="h-9 w-12 rounded border cursor-pointer"
+                data-testid="input-text-secondary-color"
+              />
+              <Input
+                value={theme.textSecondaryColor || "#6b7280"}
+                onChange={(e) => onUpdateTheme({ textSecondaryColor: e.target.value })}
+                disabled={isPending}
+                className="flex-1 font-mono text-sm"
+                data-testid="input-text-secondary-color-text"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="buttonColor">Button</Label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                id="buttonColor"
+                value={theme.buttonColor || "#3b82f6"}
+                onChange={(e) => onUpdateTheme({ buttonColor: e.target.value })}
+                disabled={isPending}
+                className="h-9 w-12 rounded border cursor-pointer"
+                data-testid="input-button-color"
+              />
+              <Input
+                value={theme.buttonColor || "#3b82f6"}
+                onChange={(e) => onUpdateTheme({ buttonColor: e.target.value })}
+                disabled={isPending}
+                className="flex-1 font-mono text-sm"
+                data-testid="input-button-color-text"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="buttonTextColor">Button Text</Label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                id="buttonTextColor"
+                value={theme.buttonTextColor || "#ffffff"}
+                onChange={(e) => onUpdateTheme({ buttonTextColor: e.target.value })}
+                disabled={isPending}
+                className="h-9 w-12 rounded border cursor-pointer"
+                data-testid="input-button-text-color"
+              />
+              <Input
+                value={theme.buttonTextColor || "#ffffff"}
+                onChange={(e) => onUpdateTheme({ buttonTextColor: e.target.value })}
+                disabled={isPending}
+                className="flex-1 font-mono text-sm"
+                data-testid="input-button-text-color-text"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="cardBackground">Card Background</Label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                id="cardBackground"
+                value={theme.cardBackground || "#f9fafb"}
+                onChange={(e) => onUpdateTheme({ cardBackground: e.target.value })}
+                disabled={isPending}
+                className="h-9 w-12 rounded border cursor-pointer"
+                data-testid="input-card-background"
+              />
+              <Input
+                value={theme.cardBackground || "#f9fafb"}
+                onChange={(e) => onUpdateTheme({ cardBackground: e.target.value })}
+                disabled={isPending}
+                className="flex-1 font-mono text-sm"
+                data-testid="input-card-background-text"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Layout className="h-5 w-5 text-muted-foreground" />
+          <h4 className="font-medium">Layout</h4>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="borderRadius">Border Radius</Label>
+            <Select
+              value={theme.borderRadius || "medium"}
+              onValueChange={(value) => onUpdateTheme({ borderRadius: value as EventPageTheme["borderRadius"] })}
+              disabled={isPending}
+            >
+              <SelectTrigger data-testid="select-border-radius">
+                <SelectValue placeholder="Select radius" />
+              </SelectTrigger>
+              <SelectContent>
+                {BORDER_RADIUS_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="buttonStyle">Button Style</Label>
+            <Select
+              value={theme.buttonStyle || "filled"}
+              onValueChange={(value) => onUpdateTheme({ buttonStyle: value as EventPageTheme["buttonStyle"] })}
+              disabled={isPending}
+            >
+              <SelectTrigger data-testid="select-button-style">
+                <SelectValue placeholder="Select style" />
+              </SelectTrigger>
+              <SelectContent>
+                {BUTTON_STYLE_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="containerWidth">Container Width</Label>
+            <Select
+              value={theme.containerWidth || "standard"}
+              onValueChange={(value) => onUpdateTheme({ containerWidth: value as EventPageTheme["containerWidth"] })}
+              disabled={isPending}
+            >
+              <SelectTrigger data-testid="select-container-width">
+                <SelectValue placeholder="Select width" />
+              </SelectTrigger>
+              <SelectContent>
+                {CONTAINER_WIDTH_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="sectionSpacing">Section Spacing</Label>
+            <Select
+              value={theme.sectionSpacing || "normal"}
+              onValueChange={(value) => onUpdateTheme({ sectionSpacing: value as EventPageTheme["sectionSpacing"] })}
+              disabled={isPending}
+            >
+              <SelectTrigger data-testid="select-section-spacing">
+                <SelectValue placeholder="Select spacing" />
+              </SelectTrigger>
+              <SelectContent>
+                {SECTION_SPACING_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -5,9 +5,66 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar, MapPin, Clock, Mic, AlertCircle, ArrowRight, ChevronDown, ChevronUp, Quote } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import type { Event, EventSession, Speaker, EventPage } from "@shared/schema";
+import type { Event, EventSession, Speaker, EventPage, EventPageTheme } from "@shared/schema";
+
+function GoogleFontsLoader({ fonts }: { fonts: string[] }) {
+  const uniqueFonts = useMemo(() => [...new Set(fonts.filter(Boolean))], [fonts]);
+  
+  if (uniqueFonts.length === 0) return null;
+  
+  const fontsParam = uniqueFonts
+    .map(font => `family=${font.replace(/ /g, "+")}:wght@400;500;600;700`)
+    .join("&");
+  
+  return (
+    <link
+      rel="stylesheet"
+      href={`https://fonts.googleapis.com/css2?${fontsParam}&display=swap`}
+    />
+  );
+}
+
+function getThemeStyles(theme: EventPageTheme | null | undefined): React.CSSProperties {
+  if (!theme) return {};
+  
+  const borderRadiusMap: Record<string, string> = {
+    none: "0px",
+    small: "4px",
+    medium: "8px",
+    large: "16px",
+    pill: "9999px",
+  };
+  
+  const containerWidthMap: Record<string, string> = {
+    narrow: "768px",
+    standard: "1024px",
+    wide: "1280px",
+  };
+  
+  const sectionSpacingMap: Record<string, string> = {
+    compact: "2rem",
+    normal: "3rem",
+    relaxed: "5rem",
+  };
+  
+  return {
+    "--theme-primary-color": theme.primaryColor || "#3b82f6",
+    "--theme-secondary-color": theme.secondaryColor || "#64748b",
+    "--theme-background-color": theme.backgroundColor || "#ffffff",
+    "--theme-text-color": theme.textColor || "#1f2937",
+    "--theme-text-secondary-color": theme.textSecondaryColor || "#6b7280",
+    "--theme-button-color": theme.buttonColor || "#3b82f6",
+    "--theme-button-text-color": theme.buttonTextColor || "#ffffff",
+    "--theme-card-background": theme.cardBackground || "#f9fafb",
+    "--theme-border-radius": borderRadiusMap[theme.borderRadius || "medium"],
+    "--theme-container-width": containerWidthMap[theme.containerWidth || "standard"],
+    "--theme-section-spacing": sectionSpacingMap[theme.sectionSpacing || "normal"],
+    "--theme-heading-font": theme.headingFont || "Inter",
+    "--theme-body-font": theme.bodyFont || "Inter",
+  } as React.CSSProperties;
+}
 
 interface Section {
   id: string;
@@ -67,16 +124,39 @@ export default function PublicEvent() {
 
   // If site builder has content, use that as the primary page layout
   if (hasSiteBuilderContent) {
+    const theme = landingPage?.theme;
+    const themeStyles = getThemeStyles(theme);
+    const fontsToLoad = [theme?.headingFont, theme?.bodyFont].filter(Boolean) as string[];
+    
     return (
-      <div className="min-h-screen bg-background overflow-y-auto">
-        <div className="max-w-4xl mx-auto px-6 py-12 space-y-12 pb-24">
-          {sections
-            .sort((a, b) => a.order - b.order)
-            .map((section) => (
-              <SectionRenderer key={section.id} section={section} event={event} sessions={sessions} speakers={speakers} />
-            ))}
+      <>
+        <GoogleFontsLoader fonts={fontsToLoad} />
+        <div 
+          className="min-h-screen overflow-y-auto"
+          style={{
+            ...themeStyles,
+            backgroundColor: theme?.backgroundColor || undefined,
+            color: theme?.textColor || undefined,
+            fontFamily: theme?.bodyFont ? `"${theme.bodyFont}", sans-serif` : undefined,
+          }}
+        >
+          <div 
+            className="mx-auto px-6 py-12 pb-24"
+            style={{
+              maxWidth: "var(--theme-container-width, 1024px)",
+              gap: "var(--theme-section-spacing, 3rem)",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            {sections
+              .sort((a, b) => a.order - b.order)
+              .map((section) => (
+                <SectionRenderer key={section.id} section={section} event={event} sessions={sessions} speakers={speakers} theme={theme} />
+              ))}
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
@@ -224,7 +304,7 @@ export default function PublicEvent() {
   );
 }
 
-function SectionRenderer({ section, event, sessions, speakers }: { section: Section; event: Event; sessions?: EventSession[]; speakers?: Speaker[] }) {
+function SectionRenderer({ section, event, sessions, speakers, theme }: { section: Section; event: Event; sessions?: EventSession[]; speakers?: Speaker[]; theme?: EventPageTheme | null }) {
   const config = section.config;
   const title = String(config.title || "");
   const subtitle = String(config.subtitle || "");
@@ -233,6 +313,39 @@ function SectionRenderer({ section, event, sessions, speakers }: { section: Sect
   const heading = String(config.heading || "");
   const content = String(config.content || "");
   const description = String(config.description || "");
+
+  const borderRadiusMap: Record<string, string> = {
+    none: "0px", small: "4px", medium: "8px", large: "16px", pill: "9999px",
+  };
+  const themeRadius = borderRadiusMap[theme?.borderRadius || "medium"];
+  const isOutlineButton = theme?.buttonStyle === "outline";
+
+  const buttonStyles: React.CSSProperties = isOutlineButton 
+    ? {
+        backgroundColor: "transparent",
+        color: theme?.buttonColor || "#3b82f6",
+        border: `2px solid ${theme?.buttonColor || "#3b82f6"}`,
+        borderRadius: themeRadius,
+      }
+    : {
+        backgroundColor: theme?.buttonColor || undefined,
+        color: theme?.buttonTextColor || undefined,
+        borderRadius: themeRadius,
+      };
+
+  const cardStyles: React.CSSProperties = {
+    backgroundColor: theme?.cardBackground || undefined,
+    borderRadius: themeRadius,
+  };
+
+  const headingStyles: React.CSSProperties = {
+    fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined,
+    color: theme?.textColor || undefined,
+  };
+
+  const secondaryTextStyles: React.CSSProperties = {
+    color: theme?.textSecondaryColor || undefined,
+  };
 
   const renderButton = (text: string, link: string, testId: string) => {
     if (!text) return null;
@@ -249,7 +362,7 @@ function SectionRenderer({ section, event, sessions, speakers }: { section: Sect
     
     if (link && (isExternal || isAnchor)) {
       return (
-        <Button size="lg" asChild data-testid={testId}>
+        <Button size="lg" asChild data-testid={testId} style={buttonStyles}>
           <a href={link} target={isExternal ? "_blank" : undefined} rel={isExternal ? "noopener noreferrer" : undefined}>
             {text}
             <ArrowRight className="ml-2 h-4 w-4" />
@@ -259,7 +372,7 @@ function SectionRenderer({ section, event, sessions, speakers }: { section: Sect
     }
     
     return (
-      <Button size="lg" asChild data-testid={testId}>
+      <Button size="lg" asChild data-testid={testId} style={buttonStyles}>
         <Link href={resolvedLink}>
           {text}
           <ArrowRight className="ml-2 h-4 w-4" />
@@ -271,10 +384,10 @@ function SectionRenderer({ section, event, sessions, speakers }: { section: Sect
   switch (section.type) {
     case "hero":
       return (
-        <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-lg p-8 text-center" data-testid={`section-hero-${section.id}`}>
-          <h2 className="text-3xl font-bold mb-4">{title || event.name}</h2>
+        <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-8 text-center" style={{ borderRadius: themeRadius }} data-testid={`section-hero-${section.id}`}>
+          <h2 className="text-3xl font-bold mb-4" style={headingStyles}>{title || event.name}</h2>
           {subtitle && (
-            <p className="text-lg text-muted-foreground mb-6">{subtitle}</p>
+            <p className="text-lg mb-6" style={secondaryTextStyles}>{subtitle}</p>
           )}
           {renderButton(buttonText, buttonLink, "button-hero-cta")}
         </div>
@@ -283,18 +396,18 @@ function SectionRenderer({ section, event, sessions, speakers }: { section: Sect
     case "text":
       return (
         <div className="prose dark:prose-invert max-w-none" data-testid={`section-text-${section.id}`}>
-          {heading && <h3 className="text-2xl font-semibold mb-4">{heading}</h3>}
-          {content && <p className="text-muted-foreground">{content}</p>}
+          {heading && <h3 className="text-2xl font-semibold mb-4" style={headingStyles}>{heading}</h3>}
+          {content && <p style={secondaryTextStyles}>{content}</p>}
         </div>
       );
 
     case "cta":
       return (
-        <Card className="bg-primary/5 border-primary/20" data-testid={`section-cta-${section.id}`}>
+        <Card className="bg-primary/5 border-primary/20" style={cardStyles} data-testid={`section-cta-${section.id}`}>
           <CardContent className="p-8 text-center">
-            <h3 className="text-2xl font-bold mb-2">{heading || "Ready to Join?"}</h3>
+            <h3 className="text-2xl font-bold mb-2" style={headingStyles}>{heading || "Ready to Join?"}</h3>
             {description && (
-              <p className="text-muted-foreground mb-6">{description}</p>
+              <p className="mb-6" style={secondaryTextStyles}>{description}</p>
             )}
             {renderButton(buttonText || "Get Started", buttonLink, "button-cta-action")}
           </CardContent>
@@ -306,64 +419,64 @@ function SectionRenderer({ section, event, sessions, speakers }: { section: Sect
       return (
         <div data-testid={`section-features-${section.id}`}>
           {heading && (
-            <h3 className="text-2xl font-semibold mb-6 text-center">{heading}</h3>
+            <h3 className="text-2xl font-semibold mb-6 text-center" style={headingStyles}>{heading}</h3>
           )}
           {rawFeatures.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {rawFeatures.map((feature, idx) => {
                 const isString = typeof feature === "string";
-                const title = isString ? feature : feature.title;
-                const description = isString ? "" : feature.description;
+                const featureTitle = isString ? feature : feature.title;
+                const featureDescription = isString ? "" : feature.description;
                 return (
-                  <Card key={idx}>
+                  <Card key={idx} style={cardStyles}>
                     <CardContent className="p-4">
-                      <h4 className="font-medium mb-2">{title}</h4>
-                      {description && <p className="text-sm text-muted-foreground">{description}</p>}
+                      <h4 className="font-medium mb-2" style={headingStyles}>{featureTitle}</h4>
+                      {featureDescription && <p className="text-sm" style={secondaryTextStyles}>{featureDescription}</p>}
                     </CardContent>
                   </Card>
                 );
               })}
             </div>
           ) : (
-            <p className="text-center text-muted-foreground">Feature items will appear here</p>
+            <p className="text-center" style={secondaryTextStyles}>Feature items will appear here</p>
           )}
         </div>
       );
 
     case "countdown":
-      return <CountdownSection config={config} event={event} sectionId={section.id} />;
+      return <CountdownSection config={config} event={event} sectionId={section.id} theme={theme} />;
 
     case "speakers":
       const showBio = config.showBio !== false;
       return (
         <div data-testid={`section-speakers-${section.id}`}>
-          {heading && <h3 className="text-2xl font-semibold mb-6 text-center">{heading}</h3>}
+          {heading && <h3 className="text-2xl font-semibold mb-6 text-center" style={headingStyles}>{heading}</h3>}
           {speakers && speakers.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {speakers.map((speaker) => (
-                <Card key={speaker.id}>
+                <Card key={speaker.id} style={cardStyles}>
                   <CardContent className="p-4 flex items-start gap-4">
                     <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
                       {speaker.photoUrl ? (
                         <img src={speaker.photoUrl} alt={`${speaker.firstName} ${speaker.lastName}`} className="w-full h-full rounded-full object-cover" />
                       ) : (
-                        <span className="text-xl font-semibold text-muted-foreground">
+                        <span className="text-xl font-semibold" style={secondaryTextStyles}>
                           {speaker.firstName[0]}{speaker.lastName[0]}
                         </span>
                       )}
                     </div>
                     <div>
-                      <p className="font-medium">{speaker.firstName} {speaker.lastName}</p>
-                      {speaker.jobTitle && <p className="text-sm text-muted-foreground">{speaker.jobTitle}</p>}
-                      {speaker.company && <p className="text-sm text-muted-foreground">{speaker.company}</p>}
-                      {showBio && speaker.bio && <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{speaker.bio}</p>}
+                      <p className="font-medium" style={headingStyles}>{speaker.firstName} {speaker.lastName}</p>
+                      {speaker.jobTitle && <p className="text-sm" style={secondaryTextStyles}>{speaker.jobTitle}</p>}
+                      {speaker.company && <p className="text-sm" style={secondaryTextStyles}>{speaker.company}</p>}
+                      {showBio && speaker.bio && <p className="text-sm mt-2 line-clamp-2" style={secondaryTextStyles}>{speaker.bio}</p>}
                     </div>
                   </CardContent>
                 </Card>
               ))}
             </div>
           ) : (
-            <p className="text-center text-muted-foreground">Speakers will appear here</p>
+            <p className="text-center" style={secondaryTextStyles}>Speakers will appear here</p>
           )}
         </div>
       );
@@ -373,24 +486,24 @@ function SectionRenderer({ section, event, sessions, speakers }: { section: Sect
       const showTrack = config.showTrack !== false;
       return (
         <div data-testid={`section-agenda-${section.id}`}>
-          {heading && <h3 className="text-2xl font-semibold mb-6 text-center">{heading}</h3>}
+          {heading && <h3 className="text-2xl font-semibold mb-6 text-center" style={headingStyles}>{heading}</h3>}
           {sessions && sessions.length > 0 ? (
             <div className="space-y-3">
               {sessions.map((session) => (
-                <Card key={session.id}>
+                <Card key={session.id} style={cardStyles}>
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <h4 className="font-medium">{session.title}</h4>
+                        <h4 className="font-medium" style={headingStyles}>{session.title}</h4>
                         {session.description && (
-                          <p className="text-sm text-muted-foreground mt-1">{session.description}</p>
+                          <p className="text-sm mt-1" style={secondaryTextStyles}>{session.description}</p>
                         )}
                         <div className="flex flex-wrap gap-2 mt-2">
                           {showTrack && session.track && <Badge variant="outline">{session.track}</Badge>}
                           {session.sessionType && <Badge variant="secondary">{session.sessionType}</Badge>}
                         </div>
                       </div>
-                      <div className="text-right text-sm text-muted-foreground whitespace-nowrap">
+                      <div className="text-right text-sm whitespace-nowrap" style={secondaryTextStyles}>
                         <p>{session.startTime} - {session.endTime}</p>
                         {showRoom && session.room && <p className="text-xs">{session.room}</p>}
                       </div>
@@ -400,7 +513,7 @@ function SectionRenderer({ section, event, sessions, speakers }: { section: Sect
               ))}
             </div>
           ) : (
-            <p className="text-center text-muted-foreground">Schedule will appear here</p>
+            <p className="text-center" style={secondaryTextStyles}>Schedule will appear here</p>
           )}
         </div>
       );
@@ -409,18 +522,18 @@ function SectionRenderer({ section, event, sessions, speakers }: { section: Sect
       const faqItems = (config.items as Array<{ question: string; answer: string }>) || [];
       return (
         <div data-testid={`section-faq-${section.id}`}>
-          {heading && <h3 className="text-2xl font-semibold mb-6 text-center">{heading}</h3>}
+          {heading && <h3 className="text-2xl font-semibold mb-6 text-center" style={headingStyles}>{heading}</h3>}
           {faqItems.length > 0 ? (
             <Accordion type="single" collapsible className="w-full">
               {faqItems.map((item, idx) => (
                 <AccordionItem key={idx} value={`faq-${idx}`}>
-                  <AccordionTrigger className="text-left">{item.question}</AccordionTrigger>
-                  <AccordionContent className="text-muted-foreground">{item.answer}</AccordionContent>
+                  <AccordionTrigger className="text-left" style={headingStyles}>{item.question}</AccordionTrigger>
+                  <AccordionContent style={secondaryTextStyles}>{item.answer}</AccordionContent>
                 </AccordionItem>
               ))}
             </Accordion>
           ) : (
-            <p className="text-center text-muted-foreground">FAQ items will appear here</p>
+            <p className="text-center" style={secondaryTextStyles}>FAQ items will appear here</p>
           )}
         </div>
       );
@@ -429,24 +542,24 @@ function SectionRenderer({ section, event, sessions, speakers }: { section: Sect
       const testimonialItems = (config.items as Array<{ quote: string; author: string; role: string }>) || [];
       return (
         <div data-testid={`section-testimonials-${section.id}`}>
-          {heading && <h3 className="text-2xl font-semibold mb-6 text-center">{heading}</h3>}
+          {heading && <h3 className="text-2xl font-semibold mb-6 text-center" style={headingStyles}>{heading}</h3>}
           {testimonialItems.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {testimonialItems.map((item, idx) => (
-                <Card key={idx}>
+                <Card key={idx} style={cardStyles}>
                   <CardContent className="p-6">
                     <Quote className="w-8 h-8 text-primary/30 mb-4" />
-                    <p className="text-muted-foreground mb-4 italic">{item.quote}</p>
+                    <p className="mb-4 italic" style={secondaryTextStyles}>{item.quote}</p>
                     <div>
-                      <p className="font-medium">{item.author}</p>
-                      {item.role && <p className="text-sm text-muted-foreground">{item.role}</p>}
+                      <p className="font-medium" style={headingStyles}>{item.author}</p>
+                      {item.role && <p className="text-sm" style={secondaryTextStyles}>{item.role}</p>}
                     </div>
                   </CardContent>
                 </Card>
               ))}
             </div>
           ) : (
-            <p className="text-center text-muted-foreground">Testimonials will appear here</p>
+            <p className="text-center" style={secondaryTextStyles}>Testimonials will appear here</p>
           )}
         </div>
       );
@@ -455,11 +568,11 @@ function SectionRenderer({ section, event, sessions, speakers }: { section: Sect
       const galleryImages = (config.images as Array<{ url: string; caption: string }>) || [];
       return (
         <div data-testid={`section-gallery-${section.id}`}>
-          {heading && <h3 className="text-2xl font-semibold mb-6 text-center">{heading}</h3>}
+          {heading && <h3 className="text-2xl font-semibold mb-6 text-center" style={headingStyles}>{heading}</h3>}
           {galleryImages.length > 0 ? (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {galleryImages.map((item, idx) => (
-                <div key={idx} className="relative aspect-video bg-muted rounded-md overflow-hidden">
+                <div key={idx} className="relative aspect-video bg-muted overflow-hidden" style={{ borderRadius: themeRadius }}>
                   <img src={item.url} alt={item.caption || `Gallery image ${idx + 1}`} className="w-full h-full object-cover" />
                   {item.caption && (
                     <div className="absolute bottom-0 left-0 right-0 bg-black/50 p-2">
@@ -470,7 +583,7 @@ function SectionRenderer({ section, event, sessions, speakers }: { section: Sect
               ))}
             </div>
           ) : (
-            <p className="text-center text-muted-foreground">Gallery images will appear here</p>
+            <p className="text-center" style={secondaryTextStyles}>Gallery images will appear here</p>
           )}
         </div>
       );
@@ -480,13 +593,32 @@ function SectionRenderer({ section, event, sessions, speakers }: { section: Sect
   }
 }
 
-function CountdownSection({ config, event, sectionId }: { config: Record<string, unknown>; event: Event; sectionId: string }) {
+function CountdownSection({ config, event, sectionId, theme }: { config: Record<string, unknown>; event: Event; sectionId: string; theme?: EventPageTheme | null }) {
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const heading = String(config.heading || "Event Starts In");
   const useEventDate = config.useEventDate !== false;
   const customDate = String(config.customDate || "");
   
   const targetDate = useEventDate ? new Date(event.startDate) : customDate ? new Date(customDate) : new Date(event.startDate);
+
+  const borderRadiusMap: Record<string, string> = {
+    none: "0px", small: "4px", medium: "8px", large: "16px", pill: "9999px",
+  };
+  const themeRadius = borderRadiusMap[theme?.borderRadius || "medium"];
+
+  const headingStyles: React.CSSProperties = {
+    fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined,
+    color: theme?.textColor || undefined,
+  };
+
+  const secondaryTextStyles: React.CSSProperties = {
+    color: theme?.textSecondaryColor || undefined,
+  };
+
+  const cardStyles: React.CSSProperties = {
+    backgroundColor: theme?.cardBackground || undefined,
+    borderRadius: themeRadius,
+  };
 
   useEffect(() => {
     const calculateTimeLeft = () => {
@@ -513,7 +645,7 @@ function CountdownSection({ config, event, sectionId }: { config: Record<string,
 
   return (
     <div className="text-center" data-testid={`section-countdown-${sectionId}`}>
-      {heading && <h3 className="text-2xl font-semibold mb-6">{heading}</h3>}
+      {heading && <h3 className="text-2xl font-semibold mb-6" style={headingStyles}>{heading}</h3>}
       <div className="flex justify-center gap-4">
         {[
           { value: timeLeft.days, label: "Days" },
@@ -521,9 +653,9 @@ function CountdownSection({ config, event, sectionId }: { config: Record<string,
           { value: timeLeft.minutes, label: "Minutes" },
           { value: timeLeft.seconds, label: "Seconds" },
         ].map((item) => (
-          <div key={item.label} className="bg-primary/10 rounded-lg p-4 min-w-[80px]">
-            <div className="text-3xl font-bold">{item.value}</div>
-            <div className="text-sm text-muted-foreground">{item.label}</div>
+          <div key={item.label} className="bg-primary/10 p-4 min-w-[80px]" style={cardStyles}>
+            <div className="text-3xl font-bold" style={headingStyles}>{item.value}</div>
+            <div className="text-sm" style={secondaryTextStyles}>{item.label}</div>
           </div>
         ))}
       </div>
