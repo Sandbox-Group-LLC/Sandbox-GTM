@@ -352,14 +352,14 @@ export default function Packages() {
                 Add Package
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md max-h-[85vh] flex flex-col">
-              <DialogHeader>
+            <DialogContent className="max-w-md max-h-[85vh] flex flex-col overflow-hidden">
+              <DialogHeader className="flex-shrink-0">
                 <DialogTitle>{editingPackage ? "Edit Package" : "Add New Package"}</DialogTitle>
                 <DialogDescription>
                   {editingPackage ? "Update package information" : "Create a new registration package"}
                 </DialogDescription>
               </DialogHeader>
-              <ScrollArea className="flex-1 -mx-6 px-6">
+              <div className="flex-1 overflow-y-auto -mx-6 px-6 min-h-0">
               <Form {...form}>
                 <form id="package-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                   <FormField
@@ -558,8 +558,8 @@ export default function Packages() {
                   />
                 </form>
               </Form>
-              </ScrollArea>
-              <div className="flex justify-end gap-2 pt-4 border-t mt-4">
+              </div>
+              <div className="flex-shrink-0 flex justify-end gap-2 pt-4 border-t mt-4">
                 <Button type="button" variant="outline" onClick={handleDialogClose}>
                   Cancel
                 </Button>
