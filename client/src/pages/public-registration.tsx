@@ -41,6 +41,7 @@ const registrationSchema = z.object({
   phone: z.string().optional(),
   company: z.string().optional(),
   jobTitle: z.string().optional(),
+  inviteCode: z.string().optional(),
 });
 
 type RegistrationFormData = z.infer<typeof registrationSchema>;
@@ -70,6 +71,7 @@ export default function PublicRegistration() {
       phone: "",
       company: "",
       jobTitle: "",
+      inviteCode: "",
     },
   });
 
@@ -305,6 +307,20 @@ export default function PublicRegistration() {
                         <FormLabel>Job Title (optional)</FormLabel>
                         <FormControl>
                           <Input data-testid="input-job-title" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="inviteCode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Invite Code (optional)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter invite code if you have one" data-testid="input-invite-code" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
