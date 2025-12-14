@@ -12,7 +12,7 @@ export default function PrivacyPolicy() {
             <section className="mb-8">
               <h2 className="text-xl font-semibold mb-4">1. Introduction</h2>
               <p>
-                Welcome to our Event Management Platform ("Platform", "we", "us", or "our"). We are committed to protecting your personal information and your right to privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our Platform.
+                Welcome to Sandbox ("Platform", "we", "us", or "our"). We are committed to protecting your personal information and your right to privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our Platform.
               </p>
               <p>
                 By using the Platform, you agree to the collection and use of information in accordance with this policy. If you do not agree with the terms of this Privacy Policy, please do not access the Platform.
