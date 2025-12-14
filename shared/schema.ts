@@ -157,6 +157,52 @@ export const eventPages = pgTable("event_pages", {
   uniqueIndex("IDX_event_page_unique").on(table.eventId, table.pageType),
 ]);
 
+// Registration Configs table - stores registration flow configuration per event
+export const registrationConfigs = pgTable("registration_configs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id).notNull().unique(),
+  steps: jsonb("steps").$type<Array<{
+    id: number;
+    title: string;
+    enabled: boolean;
+  }>>(),
+  step1Config: jsonb("step1_config").$type<{
+    collectFirstName?: boolean;
+    collectLastName?: boolean;
+    collectEmail?: boolean;
+    collectPhone?: boolean;
+    collectCompany?: boolean;
+    collectJobTitle?: boolean;
+    requirePassword?: boolean;
+    allowGoogleAuth?: boolean;
+  }>(),
+  step2Config: jsonb("step2_config").$type<{
+    rules?: Array<{
+      id: string;
+      field: string;
+      operator: string;
+      value: string;
+    }>;
+    ruleLogic?: 'all' | 'any';
+  }>(),
+  step3Config: jsonb("step3_config").$type<{
+    enabledPackages?: string[];
+    allowMultipleSelection?: boolean;
+  }>(),
+  step4Config: jsonb("step4_config").$type<{
+    requirePayment?: boolean;
+  }>(),
+  step5Config: jsonb("step5_config").$type<{
+    sendConfirmationEmail?: boolean;
+    generateQRCode?: boolean;
+    showCalendarAdd?: boolean;
+    customMessage?: string;
+  }>(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Attendees table
 export const attendees = pgTable("attendees", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -477,6 +523,11 @@ export const eventPagesRelations = relations(eventPages, ({ one }) => ({
   event: one(events, { fields: [eventPages.eventId], references: [events.id] }),
 }));
 
+export const registrationConfigsRelations = relations(registrationConfigs, ({ one }) => ({
+  organization: one(organizations, { fields: [registrationConfigs.organizationId], references: [organizations.id] }),
+  event: one(events, { fields: [registrationConfigs.eventId], references: [events.id] }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true, updatedAt: true });
 export const insertOrganizationSchema = createInsertSchema(organizations).omit({ id: true, createdAt: true, updatedAt: true });
@@ -499,6 +550,7 @@ export const insertPackageSchema = createInsertSchema(packages).omit({ id: true,
 export const insertEventPackageSchema = createInsertSchema(eventPackages).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertInviteCodeSchema = createInsertSchema(inviteCodes).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertEventPageSchema = createInsertSchema(eventPages).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertRegistrationConfigSchema = createInsertSchema(registrationConfigs).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Types
 export type UpsertUser = typeof users.$inferInsert;
@@ -543,3 +595,5 @@ export type InsertInviteCode = z.infer<typeof insertInviteCodeSchema>;
 export type InviteCode = typeof inviteCodes.$inferSelect;
 export type InsertEventPage = z.infer<typeof insertEventPageSchema>;
 export type EventPage = typeof eventPages.$inferSelect;
+export type InsertRegistrationConfig = z.infer<typeof insertRegistrationConfigSchema>;
+export type RegistrationConfig = typeof registrationConfigs.$inferSelect;
