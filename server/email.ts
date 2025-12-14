@@ -95,6 +95,55 @@ export async function sendCampaignEmails(params: CampaignEmailParams): Promise<S
   return result;
 }
 
+export interface SendTestEmailParams {
+  to: string;
+  subject: string;
+  content: string;
+  headerImageUrl?: string | null;
+}
+
+export async function sendTestEmail(params: SendTestEmailParams): Promise<{ success: boolean; error?: string }> {
+  const { to, subject, content, headerImageUrl } = params;
+  
+  if (!resend) {
+    console.log('[Email] Resend not configured - skipping test email');
+    return { success: false, error: 'Email service not configured' };
+  }
+
+  try {
+    const headerHtml = headerImageUrl 
+      ? `<div style="margin-bottom: 20px;">
+          <img src="${headerImageUrl}" alt="Email Header" style="max-width: 600px; width: 100%; height: auto; display: block;" />
+        </div>`
+      : '';
+
+    const { error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: to,
+      subject: `[TEST] ${subject}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          ${headerHtml}
+          ${content.replace(/\n/g, '<br/>')}
+          <hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;" />
+          <p style="color: #999; font-size: 12px;">This is a test email. Merge tags like {{attendee.firstName}} will be replaced with sample data.</p>
+        </div>
+      `,
+    });
+
+    if (error) {
+      console.error('[Email] Failed to send test email:', error);
+      return { success: false, error: error.message || 'Failed to send email' };
+    }
+
+    console.log('[Email] Test email sent successfully to:', to);
+    return { success: true };
+  } catch (err: any) {
+    console.error('[Email] Error sending test email:', err);
+    return { success: false, error: err.message || 'Unknown error' };
+  }
+}
+
 export async function sendNewOrganizationAlert(organizationName: string, organizationSlug: string, ownerEmail?: string): Promise<void> {
   if (!resend) {
     console.log('[Email] Resend not configured - skipping organization alert email');

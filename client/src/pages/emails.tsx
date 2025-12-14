@@ -37,7 +37,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Plus, Mail, Send, Clock, CheckCircle, FileText, Copy, Trash2 } from "lucide-react";
+import { Plus, Mail, Send, Clock, CheckCircle, FileText, Copy, Trash2, Upload, X, Image } from "lucide-react";
 import { EventSelectField } from "@/components/event-select-field";
 import { MergeTagPicker } from "@/components/merge-tag-picker";
 import type { EmailCampaign, EmailTemplate } from "@shared/schema";
@@ -56,6 +56,7 @@ const templateFormSchema = z.object({
   subject: z.string().min(1, "Subject is required"),
   content: z.string().min(1, "Content is required"),
   category: z.string().default("general"),
+  headerImageUrl: z.string().optional(),
 });
 
 type EmailFormData = z.infer<typeof emailFormSchema>;
@@ -82,6 +83,7 @@ export default function Emails() {
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
   const [editingEmail, setEditingEmail] = useState<EmailCampaign | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<EmailTemplate | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   const { data: emails = [], isLoading: emailsLoading } = useQuery<EmailCampaign[]>({
     queryKey: ["/api/emails"],
@@ -110,6 +112,7 @@ export default function Emails() {
       subject: "",
       content: "",
       category: "general",
+      headerImageUrl: "",
     },
   });
 
@@ -278,7 +281,9 @@ export default function Emails() {
       subject: template.subject,
       content: template.content,
       category: template.category || "general",
+      headerImageUrl: template.headerImageUrl || "",
     });
+    setImagePreview(template.headerImageUrl || null);
     setIsTemplateDialogOpen(true);
   };
 
@@ -305,7 +310,58 @@ export default function Emails() {
   const handleTemplateDialogClose = () => {
     setIsTemplateDialogOpen(false);
     setEditingTemplate(null);
+    setImagePreview(null);
     templateForm.reset();
+  };
+
+  const sendTestEmailMutation = useMutation({
+    mutationFn: async (templateId: string) => {
+      return await apiRequest("POST", `/api/email-templates/${templateId}/test-email`);
+    },
+    onSuccess: (data: any) => {
+      toast({ 
+        title: "Test email sent", 
+        description: `Check your inbox at ${data.email}` 
+      });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({ title: "Unauthorized", description: "You are logged out. Logging in again...", variant: "destructive" });
+        setTimeout(() => { window.location.href = "/api/login"; }, 500);
+        return;
+      }
+      toast({ title: "Failed to send test email", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({ title: "Invalid file type", description: "Please upload an image file", variant: "destructive" });
+      return;
+    }
+    
+    // Validate file size (500KB max for base64 storage)
+    if (file.size > 500 * 1024) {
+      toast({ title: "File too large", description: "Please upload an image smaller than 500KB", variant: "destructive" });
+      return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      templateForm.setValue("headerImageUrl", base64);
+      setImagePreview(base64);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveImage = () => {
+    templateForm.setValue("headerImageUrl", "");
+    setImagePreview(null);
   };
 
   const campaignColumns = [
@@ -707,10 +763,75 @@ export default function Emails() {
                         </FormItem>
                       )}
                     />
-                    <div className="flex justify-end gap-2 pt-4">
-                      <Button type="button" variant="outline" onClick={handleTemplateDialogClose}>
-                        Cancel
-                      </Button>
+                    <FormField
+                      control={templateForm.control}
+                      name="headerImageUrl"
+                      render={() => (
+                        <FormItem>
+                          <FormLabel>Header Image (Optional)</FormLabel>
+                          <FormControl>
+                            <div className="space-y-3">
+                              {imagePreview ? (
+                                <div className="relative">
+                                  <img
+                                    src={imagePreview}
+                                    alt="Header preview"
+                                    className="w-full max-h-40 object-contain rounded-md border"
+                                    data-testid="img-header-preview"
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="absolute top-2 right-2 bg-background/80"
+                                    onClick={handleRemoveImage}
+                                    data-testid="button-remove-header-image"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <label className="flex flex-col items-center justify-center w-full h-24 border border-dashed rounded-md cursor-pointer hover-elevate">
+                                  <div className="flex flex-col items-center justify-center py-4">
+                                    <Image className="h-6 w-6 text-muted-foreground mb-2" />
+                                    <p className="text-sm text-muted-foreground">Click to upload header image</p>
+                                  </div>
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={handleImageUpload}
+                                    data-testid="input-header-image"
+                                  />
+                                </label>
+                              )}
+                              <p className="text-xs text-muted-foreground">
+                                Recommended size: 600x150 pixels. Image will appear at the top of the email.
+                              </p>
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="flex justify-between gap-2 pt-4">
+                      <div className="flex gap-2">
+                        <Button type="button" variant="outline" onClick={handleTemplateDialogClose}>
+                          Cancel
+                        </Button>
+                        {editingTemplate && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => sendTestEmailMutation.mutate(editingTemplate.id)}
+                            disabled={sendTestEmailMutation.isPending}
+                            data-testid="button-send-test-email"
+                          >
+                            <Send className="h-4 w-4 mr-2" />
+                            {sendTestEmailMutation.isPending ? "Sending..." : "Send Test Email"}
+                          </Button>
+                        )}
+                      </div>
                       <Button
                         type="submit"
                         disabled={createTemplateMutation.isPending || updateTemplateMutation.isPending}

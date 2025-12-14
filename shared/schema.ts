@@ -427,6 +427,7 @@ export const emailTemplates = pgTable("email_templates", {
   name: varchar("name", { length: 100 }).notNull(),
   subject: varchar("subject", { length: 255 }).notNull(),
   content: text("content").notNull(),
+  headerImageUrl: text("header_image_url"),
   category: varchar("category", { length: 50 }).default("general"),
   isDefault: boolean("is_default").default(false),
   createdBy: varchar("created_by").references(() => users.id),

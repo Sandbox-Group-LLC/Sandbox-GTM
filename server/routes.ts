@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { sendNewOrganizationAlert, sendCampaignEmails } from "./email";
+import { sendNewOrganizationAlert, sendCampaignEmails, sendTestEmail } from "./email";
 import { createPaymentIntent, getPaymentIntent, calculateFinalPrice } from "./stripe";
 import {
   insertEventSchema,
@@ -1558,6 +1558,42 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting email template:", error);
       res.status(500).json({ message: "Failed to delete email template" });
+    }
+  });
+
+  app.post("/api/email-templates/:id/test-email", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      
+      // Get user's email
+      const user = await storage.getUser(userId);
+      if (!user?.email) {
+        return res.status(400).json({ message: "User email not found" });
+      }
+      
+      // Get the template with proper org scoping
+      const template = await storage.getEmailTemplate(organizationId, req.params.id);
+      if (!template) {
+        return res.status(404).json({ message: "Email template not found" });
+      }
+      
+      // Send test email
+      const result = await sendTestEmail({
+        to: user.email,
+        subject: template.subject,
+        content: template.content,
+        headerImageUrl: template.headerImageUrl,
+      });
+      
+      if (result.success) {
+        res.json({ message: "Test email sent successfully", email: user.email });
+      } else {
+        res.status(500).json({ message: result.error || "Failed to send test email" });
+      }
+    } catch (error) {
+      console.error("Error sending test email:", error);
+      res.status(500).json({ message: "Failed to send test email" });
     }
   });
 
