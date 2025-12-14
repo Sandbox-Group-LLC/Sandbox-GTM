@@ -25,7 +25,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { LogOut, User, Shield, Bell, Palette, CreditCard, AlertTriangle } from "lucide-react";
+import { LogOut, User, Shield, Bell, Palette, CreditCard, AlertTriangle, FileText } from "lucide-react";
+import { Link } from "wouter";
 import type { Organization } from "@shared/schema";
 
 const paymentSettingsSchema = z.object({
@@ -307,6 +308,21 @@ export default function Settings() {
               <p className="text-sm text-muted-foreground">
                 Use the theme toggle in the header to switch between light and dark modes.
               </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Legal
+              </CardTitle>
+              <CardDescription>Privacy and legal information</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href="/privacy-policy" className="text-sm text-primary hover:underline" data-testid="link-privacy-policy">
+                Privacy Policy
+              </Link>
             </CardContent>
           </Card>
         </div>
