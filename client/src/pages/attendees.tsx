@@ -92,6 +92,7 @@ type SortConfig = {
 
 const attendeeFormSchema = z.object({
   eventId: z.string().min(1, "Event is required"),
+  inviteCode: z.string().optional(),
   attendeeType: z.string().optional(),
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
@@ -143,6 +144,7 @@ export default function Attendees() {
     resolver: zodResolver(attendeeFormSchema),
     defaultValues: {
       eventId: "",
+      inviteCode: "",
       attendeeType: "",
       firstName: "",
       lastName: "",
@@ -428,6 +430,23 @@ export default function Attendees() {
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                   <EventSelectField control={form.control} />
+                  <FormField
+                    control={form.control}
+                    name="inviteCode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Invite Code (Optional)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            {...field} 
+                            placeholder="Enter invite code to auto-apply type and package"
+                            data-testid="input-invite-code" 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   <FormField
                     control={form.control}
                     name="attendeeType"

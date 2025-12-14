@@ -222,6 +222,8 @@ export const attendees = pgTable("attendees", {
   checkInCode: varchar("check_in_code", { length: 20 }).unique(),
   checkedIn: boolean("checked_in").default(false),
   checkInTime: timestamp("check_in_time"),
+  inviteCodeId: varchar("invite_code_id").references(() => inviteCodes.id),
+  packageId: varchar("package_id").references(() => packages.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

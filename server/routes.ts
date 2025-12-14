@@ -219,8 +219,78 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
-      const data = insertAttendeeSchema.parse({ ...req.body, organizationId });
+      const { inviteCode, ...attendeeData } = req.body;
+      
+      let inviteCodeId: string | undefined;
+      let attendeeType = attendeeData.attendeeType;
+      let ticketType = attendeeData.ticketType;
+      let packageId: string | undefined = attendeeData.packageId;
+      let foundInviteCode: any = null;
+      
+      // If invite code is provided, validate and apply associations
+      if (inviteCode && attendeeData.eventId) {
+        foundInviteCode = await storage.getInviteCodeByCode(
+          organizationId,
+          attendeeData.eventId,
+          inviteCode
+        );
+        
+        if (!foundInviteCode) {
+          return res.status(400).json({ message: "Invalid invite code" });
+        }
+        
+        if (!foundInviteCode.isActive) {
+          return res.status(400).json({ message: "Invite code is no longer active" });
+        }
+        
+        // Check quantity limit if set
+        if (foundInviteCode.quantity !== null && 
+            (foundInviteCode.usedCount || 0) >= foundInviteCode.quantity) {
+          return res.status(400).json({ message: "Invite code has reached its usage limit" });
+        }
+        
+        // Apply invite code associations
+        inviteCodeId = foundInviteCode.id;
+        
+        // Apply attendee type from invite code if it has one
+        if (foundInviteCode.attendeeTypeId) {
+          const inviteAttendeeType = await storage.getAttendeeType(organizationId, foundInviteCode.attendeeTypeId);
+          if (inviteAttendeeType) {
+            attendeeType = inviteAttendeeType.type;
+          }
+        }
+        
+        // Apply package from invite code if it has one
+        if (foundInviteCode.packageId) {
+          const invitePackage = await storage.getPackage(organizationId, foundInviteCode.packageId);
+          if (invitePackage) {
+            ticketType = invitePackage.name;
+            packageId = invitePackage.id;
+          }
+        }
+      }
+      
+      const data = insertAttendeeSchema.parse({ 
+        ...attendeeData, 
+        organizationId,
+        attendeeType,
+        ticketType,
+        inviteCodeId,
+        packageId
+      });
       const attendee = await storage.createAttendee(data);
+      
+      // Increment the used count AFTER successful attendee creation
+      if (foundInviteCode) {
+        try {
+          await storage.updateInviteCode(organizationId, foundInviteCode.id, {
+            usedCount: (foundInviteCode.usedCount || 0) + 1
+          });
+        } catch (e) {
+          console.error("Failed to update invite code usage count:", e);
+        }
+      }
+      
       res.status(201).json(attendee);
     } catch (error) {
       console.error("Error creating attendee:", error);
