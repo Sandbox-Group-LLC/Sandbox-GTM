@@ -20,6 +20,7 @@ import {
   organizations,
   organizationMembers,
   eventPages,
+  registrationConfigs,
   type User,
   type UpsertUser,
   type Event,
@@ -60,6 +61,8 @@ import {
   type InsertOrganizationMember,
   type EventPage,
   type InsertEventPage,
+  type RegistrationConfig,
+  type InsertRegistrationConfig,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and } from "drizzle-orm";
@@ -204,6 +207,10 @@ export interface IStorage {
   updateEventPage(organizationId: string, id: string, page: Partial<InsertEventPage>): Promise<EventPage | undefined>;
   upsertEventPage(page: InsertEventPage): Promise<EventPage>;
   deleteEventPage(organizationId: string, id: string): Promise<void>;
+
+  // Registration Config operations
+  getRegistrationConfig(organizationId: string, eventId: string): Promise<RegistrationConfig | undefined>;
+  upsertRegistrationConfig(config: InsertRegistrationConfig): Promise<RegistrationConfig>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -874,6 +881,34 @@ export class DatabaseStorage implements IStorage {
 
   async deleteEventPage(organizationId: string, id: string): Promise<void> {
     await db.delete(eventPages).where(and(eq(eventPages.organizationId, organizationId), eq(eventPages.id, id)));
+  }
+
+  // Registration Config operations
+  async getRegistrationConfig(organizationId: string, eventId: string): Promise<RegistrationConfig | undefined> {
+    const [config] = await db.select().from(registrationConfigs)
+      .where(and(eq(registrationConfigs.organizationId, organizationId), eq(registrationConfigs.eventId, eventId)));
+    return config;
+  }
+
+  async upsertRegistrationConfig(config: InsertRegistrationConfig): Promise<RegistrationConfig> {
+    const insertValue = config as typeof registrationConfigs.$inferInsert;
+    const [result] = await db
+      .insert(registrationConfigs)
+      .values(insertValue)
+      .onConflictDoUpdate({
+        target: registrationConfigs.eventId,
+        set: {
+          steps: insertValue.steps,
+          step1Config: insertValue.step1Config,
+          step2Config: insertValue.step2Config,
+          step3Config: insertValue.step3Config,
+          step4Config: insertValue.step4Config,
+          step5Config: insertValue.step5Config,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return result;
   }
 }
 
