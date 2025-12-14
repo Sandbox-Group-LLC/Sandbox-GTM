@@ -55,7 +55,8 @@ const eventFormSchema = z.object({
   phone: z.string().optional(),
   website: z.string().optional(),
   publicSlug: z.string().optional(),
-  isPublic: z.boolean().optional(),
+  isPublic: z.boolean().default(false),
+  registrationOpen: z.boolean().default(false),
   status: z.enum(["draft", "published", "cancelled", "completed"]),
 });
 
@@ -89,6 +90,7 @@ export default function Events() {
       website: "",
       publicSlug: "",
       isPublic: false,
+      registrationOpen: false,
       status: "draft",
     },
   });
@@ -172,6 +174,7 @@ export default function Events() {
         website: selectedEvent.website || "",
         publicSlug: selectedEvent.publicSlug || "",
         isPublic: selectedEvent.isPublic || false,
+        registrationOpen: selectedEvent.registrationOpen || false,
         status: selectedEvent.status as EventFormValues["status"],
       });
       setIsEditing(true);
@@ -474,6 +477,25 @@ export default function Events() {
                   />
                   <FormField
                     control={form.control}
+                    name="registrationOpen"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center justify-between">
+                        <div>
+                          <FormLabel>Open Registration</FormLabel>
+                          <p className="text-sm text-muted-foreground">Allow public registration for this event</p>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                            data-testid="switch-event-registration-open"
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
                     name="status"
                     render={({ field }) => (
                       <FormItem>
@@ -569,6 +591,11 @@ export default function Events() {
                         <Badge variant="outline">
                           <Globe className="h-3 w-3 mr-1" />
                           Public
+                        </Badge>
+                      )}
+                      {event.registrationOpen && (
+                        <Badge variant="outline" className="border-green-500 text-green-600 dark:text-green-400">
+                          Registration Open
                         </Badge>
                       )}
                     </div>
@@ -862,6 +889,25 @@ export default function Events() {
                     />
                     <FormField
                       control={form.control}
+                      name="registrationOpen"
+                      render={({ field }) => (
+                        <FormItem className="flex items-center justify-between">
+                          <div>
+                            <FormLabel>Open Registration</FormLabel>
+                            <p className="text-sm text-muted-foreground">Allow public registration for this event</p>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              data-testid="switch-edit-event-registration-open"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
                       name="status"
                       render={({ field }) => (
                         <FormItem>
@@ -915,6 +961,11 @@ export default function Events() {
                       <Badge variant="outline">
                         <Globe className="h-3 w-3 mr-1" />
                         Public
+                      </Badge>
+                    )}
+                    {selectedEvent.registrationOpen && (
+                      <Badge variant="outline" className="border-green-500 text-green-600 dark:text-green-400">
+                        Registration Open
                       </Badge>
                     )}
                   </div>
