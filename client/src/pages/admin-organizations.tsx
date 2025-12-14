@@ -19,12 +19,14 @@ interface OrganizationWithStats extends Organization {
 export default function AdminOrganizations() {
   const { user } = useAuth();
   
+  const isSuperAdmin = user?.email?.toLowerCase().endsWith("@makemysandbox.com") ?? false;
+  
   const { data: organizations, isLoading } = useQuery<OrganizationWithStats[]>({
     queryKey: ["/api/admin/organizations"],
-    enabled: !!user?.isAdmin,
+    enabled: isSuperAdmin,
   });
 
-  if (!user?.isAdmin) {
+  if (!isSuperAdmin) {
     return (
       <div className="flex flex-col h-full">
         <PageHeader 

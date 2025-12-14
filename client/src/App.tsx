@@ -31,6 +31,7 @@ import Packages from "@/pages/packages";
 import InviteCodes from "@/pages/invite-codes";
 import SiteBuilder from "@/pages/site-builder";
 import AdminOrganizations from "@/pages/admin-organizations";
+import MyOrganization from "@/pages/my-organization";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const sidebarStyle = {
@@ -94,6 +95,7 @@ function Router() {
         <Route path="/social" component={Social} />
         <Route path="/analytics" component={Analytics} />
         <Route path="/settings" component={Settings} />
+        <Route path="/my-organization" component={MyOrganization} />
         <Route path="/admin/organizations" component={AdminOrganizations} />
         <Route path="/event/:slug/register" component={PublicRegistration} />
         <Route path="/event/:slug/portal" component={PublicPortal} />

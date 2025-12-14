@@ -79,6 +79,8 @@ export function AppSidebar() {
 
   const isEventsActive = location === "/events" || location === "/registration" || location === "/site-builder";
   const isAttendeesActive = location === "/attendees" || location === "/attendee-types" || location === "/invite-codes" || location === "/packages";
+  
+  const isSuperAdmin = user?.email?.toLowerCase().endsWith("@makemysandbox.com") ?? false;
 
   const getInitials = () => {
     if (user?.firstName && user?.lastName) {
@@ -247,7 +249,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {user?.isAdmin && (
+        {isSuperAdmin && (
           <SidebarGroup>
             <SidebarGroupLabel>Admin</SidebarGroupLabel>
             <SidebarGroupContent>
@@ -290,6 +292,18 @@ export function AppSidebar() {
           </div>
         </div>
         <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              isActive={location === "/my-organization"}
+              data-testid="nav-my-organization"
+            >
+              <Link href="/my-organization">
+                <Building2 className="h-4 w-4" />
+                <span>My Organization</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton asChild data-testid="nav-settings">
               <Link href="/settings">

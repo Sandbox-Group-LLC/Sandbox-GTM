@@ -84,13 +84,35 @@ export async function registerRoutes(
     }
   });
 
+  app.patch('/api/auth/organization', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      
+      const { name } = req.body;
+      if (!name || typeof name !== 'string' || name.trim().length === 0) {
+        return res.status(400).json({ message: "Organization name is required" });
+      }
+      
+      const updated = await storage.updateOrganization(organizationId, { name: name.trim() });
+      if (!updated) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating organization:", error);
+      res.status(500).json({ message: "Failed to update organization" });
+    }
+  });
+
   // Super Admin routes
   app.get("/api/admin/organizations", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      if (!user?.isAdmin) {
+      const isSuperAdmin = user?.email?.toLowerCase().endsWith("@makemysandbox.com") ?? false;
+      if (!isSuperAdmin) {
         return res.status(403).json({ message: "Access denied. Admin privileges required." });
       }
       
