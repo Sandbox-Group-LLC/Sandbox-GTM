@@ -30,7 +30,64 @@ import {
   FormDescription,
 } from "@/components/ui/form";
 import { Calendar, MapPin, CheckCircle, AlertCircle, ArrowLeft, ArrowRight } from "lucide-react";
-import type { Event, Attendee, EventPage, CustomField } from "@shared/schema";
+import type { Event, Attendee, EventPage, EventPageTheme, CustomField } from "@shared/schema";
+
+function GoogleFontsLoader({ fonts }: { fonts: string[] }) {
+  const uniqueFonts = useMemo(() => [...new Set(fonts.filter(Boolean))], [fonts]);
+  
+  if (uniqueFonts.length === 0) return null;
+  
+  const fontsParam = uniqueFonts
+    .map(font => `family=${font.replace(/ /g, "+")}:wght@400;500;600;700`)
+    .join("&");
+  
+  return (
+    <link
+      rel="stylesheet"
+      href={`https://fonts.googleapis.com/css2?${fontsParam}&display=swap`}
+    />
+  );
+}
+
+function getThemeStyles(theme: EventPageTheme | null | undefined): React.CSSProperties {
+  if (!theme) return {};
+  
+  const borderRadiusMap: Record<string, string> = {
+    none: "0px",
+    small: "4px",
+    medium: "8px",
+    large: "16px",
+    pill: "9999px",
+  };
+  
+  const containerWidthMap: Record<string, string> = {
+    narrow: "768px",
+    standard: "1024px",
+    wide: "1280px",
+  };
+  
+  const sectionSpacingMap: Record<string, string> = {
+    compact: "2rem",
+    normal: "3rem",
+    relaxed: "5rem",
+  };
+  
+  return {
+    "--theme-primary-color": theme.primaryColor || "#3b82f6",
+    "--theme-secondary-color": theme.secondaryColor || "#64748b",
+    "--theme-background-color": theme.backgroundColor || "#ffffff",
+    "--theme-text-color": theme.textColor || "#1f2937",
+    "--theme-text-secondary-color": theme.textSecondaryColor || "#6b7280",
+    "--theme-button-color": theme.buttonColor || "#3b82f6",
+    "--theme-button-text-color": theme.buttonTextColor || "#ffffff",
+    "--theme-card-background": theme.cardBackground || "#f9fafb",
+    "--theme-border-radius": borderRadiusMap[theme.borderRadius || "medium"],
+    "--theme-container-width": containerWidthMap[theme.containerWidth || "standard"],
+    "--theme-section-spacing": sectionSpacingMap[theme.sectionSpacing || "normal"],
+    "--theme-heading-font": theme.headingFont || "Inter",
+    "--theme-body-font": theme.bodyFont || "Inter",
+  } as React.CSSProperties;
+}
 
 interface Section {
   id: string;
@@ -204,6 +261,9 @@ export default function PublicRegistration() {
 
   const { event, registrationPage } = data;
   const sections = (registrationPage?.sections as Section[]) || [];
+  const theme = registrationPage?.theme;
+  const themeStyles = getThemeStyles(theme);
+  const fontsToLoad = [theme?.headingFont, theme?.bodyFont].filter(Boolean) as string[];
 
   if (registrationComplete && registeredAttendee) {
     return (
@@ -253,33 +313,49 @@ export default function PublicRegistration() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="bg-gradient-to-b from-primary/10 to-background py-8 px-6">
-        <div className="max-w-2xl mx-auto">
-          <Button variant="ghost" size="sm" asChild className="mb-4">
-            <Link href={`/event/${slug}`}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Event
-            </Link>
-          </Button>
-          
-          <Badge variant="secondary" className="mb-4">Registration</Badge>
-          <h1 className="text-3xl font-bold mb-2" data-testid="text-event-name">{event.name}</h1>
-          
-          <div className="flex flex-wrap gap-4 text-muted-foreground text-sm">
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4" />
-              <span>{new Date(event.startDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</span>
-            </div>
-            {event.location && (
+    <>
+      <GoogleFontsLoader fonts={fontsToLoad} />
+      <div 
+        className="min-h-screen bg-background"
+        style={{
+          ...themeStyles,
+          backgroundColor: theme?.backgroundColor || undefined,
+          color: theme?.textColor || undefined,
+          fontFamily: theme?.bodyFont ? `"${theme.bodyFont}", sans-serif` : undefined,
+        }}
+      >
+        <div className="bg-gradient-to-b from-primary/10 to-background py-8 px-6">
+          <div className="max-w-2xl mx-auto">
+            <Button variant="ghost" size="sm" asChild className="mb-4">
+              <Link href={`/event/${slug}`}>
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Event
+              </Link>
+            </Button>
+            
+            <Badge variant="secondary" className="mb-4">Registration</Badge>
+            <h1 
+              className="text-3xl font-bold mb-2" 
+              data-testid="text-event-name"
+              style={{ fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined }}
+            >
+              {event.name}
+            </h1>
+            
+            <div className="flex flex-wrap gap-4 text-muted-foreground text-sm">
               <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4" />
-                <span>{event.location}</span>
+                <Calendar className="w-4 h-4" />
+                <span>{new Date(event.startDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</span>
               </div>
-            )}
+              {event.location && (
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4" />
+                  <span>{event.location}</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
 
       <div className="max-w-2xl mx-auto px-6 py-8">
         {sections.length > 0 && (
@@ -436,7 +512,8 @@ export default function PublicRegistration() {
           </CardContent>
         </Card>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 
