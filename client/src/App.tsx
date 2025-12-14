@@ -44,7 +44,7 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
     <SidebarProvider style={sidebarStyle as React.CSSProperties}>
       <div className="flex h-screen w-full">
         <AppSidebar />
-        <main className="flex-1 flex flex-col overflow-hidden">
+        <main className="flex-1 flex flex-col overflow-auto">
           {children}
         </main>
       </div>
