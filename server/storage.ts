@@ -831,8 +831,9 @@ export class DatabaseStorage implements IStorage {
 
   // Public event operations (public access - no organizationId needed)
   async getEventBySlug(slug: string): Promise<Event | undefined> {
-    // Use case-insensitive comparison with ilike for slug matching
-    const [event] = await db.select().from(events).where(ilike(events.publicSlug, slug));
+    // Trim whitespace and use case-insensitive comparison for slug matching
+    const trimmedSlug = slug.trim();
+    const [event] = await db.select().from(events).where(ilike(events.publicSlug, trimmedSlug));
     return event;
   }
 
