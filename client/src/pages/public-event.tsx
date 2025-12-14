@@ -58,7 +58,24 @@ export default function PublicEvent() {
 
   const { event, sessions, speakers, landingPage } = data;
   const sections = (landingPage?.sections as Section[]) || [];
+  const hasSiteBuilderContent = sections.length > 0;
 
+  // If site builder has content, use that as the primary page layout
+  if (hasSiteBuilderContent) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="max-w-4xl mx-auto px-6 py-12 space-y-12">
+          {sections
+            .sort((a, b) => a.order - b.order)
+            .map((section) => (
+              <SectionRenderer key={section.id} section={section} event={event} sessions={sessions} speakers={speakers} />
+            ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Default layout when no site builder content exists
   return (
     <div className="min-h-screen bg-background">
       <div className="bg-gradient-to-b from-primary/10 to-background py-12 px-6">
@@ -198,17 +215,6 @@ export default function PublicEvent() {
           </div>
         </div>
       </div>
-
-      {/* Render custom sections from Site Builder */}
-      {sections.length > 0 && (
-        <div className="max-w-4xl mx-auto px-6 pb-12 space-y-12">
-          {sections
-            .sort((a, b) => a.order - b.order)
-            .map((section) => (
-              <SectionRenderer key={section.id} section={section} event={event} sessions={sessions} speakers={speakers} />
-            ))}
-        </div>
-      )}
     </div>
   );
 }
