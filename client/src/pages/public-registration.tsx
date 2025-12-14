@@ -182,24 +182,25 @@ function buildDynamicSchema(customFields: CustomField[], registrationConfig?: St
   };
   
   // Build base schema dynamically based on required fields
+  // Use .trim() to match backend validation (rejects whitespace-only values)
   const baseSchema = z.object({
     firstName: isRequired.firstName 
-      ? z.string().min(1, "First name is required") 
+      ? z.string().trim().min(1, "First name is required") 
       : z.string().optional(),
     lastName: isRequired.lastName 
-      ? z.string().min(1, "Last name is required") 
+      ? z.string().trim().min(1, "Last name is required") 
       : z.string().optional(),
     email: isRequired.email 
-      ? z.string().email("Valid email is required") 
-      : z.string().email("Valid email is required").optional().or(z.literal("")),
+      ? z.string().trim().email("Valid email is required") 
+      : z.string().trim().email("Valid email is required").optional().or(z.literal("")),
     phone: isRequired.phone 
-      ? z.string().min(1, "Phone is required") 
+      ? z.string().trim().min(1, "Phone is required") 
       : z.string().optional(),
     company: isRequired.company 
-      ? z.string().min(1, "Company is required") 
+      ? z.string().trim().min(1, "Company is required") 
       : z.string().optional(),
     jobTitle: isRequired.jobTitle 
-      ? z.string().min(1, "Job title is required") 
+      ? z.string().trim().min(1, "Job title is required") 
       : z.string().optional(),
     inviteCode: z.string().optional(),
   });
@@ -215,17 +216,17 @@ function buildDynamicSchema(customFields: CustomField[], registrationConfig?: St
         break;
       case "number":
         fieldSchema = field.required 
-          ? z.string().min(1, `${field.label} is required`)
+          ? z.string().trim().min(1, `${field.label} is required`)
           : z.string().optional();
         break;
       case "select":
         fieldSchema = field.required 
-          ? z.string().min(1, `${field.label} is required`)
+          ? z.string().trim().min(1, `${field.label} is required`)
           : z.string().optional();
         break;
       default:
         fieldSchema = field.required 
-          ? z.string().min(1, `${field.label} is required`)
+          ? z.string().trim().min(1, `${field.label} is required`)
           : z.string().optional();
     }
     
