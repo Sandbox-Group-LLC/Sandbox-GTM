@@ -17,7 +17,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Form,
@@ -193,11 +192,11 @@ export default function CustomFields() {
   };
 
   const columns = [
-    { header: "Name", accessor: "name" as const },
-    { header: "Label", accessor: "label" as const },
+    { key: "name", header: "Name" },
+    { key: "label", header: "Label" },
     {
+      key: "fieldType",
       header: "Type",
-      accessor: "fieldType" as const,
       cell: (field: CustomField) => (
         <Badge variant="secondary" className="text-xs">
           {fieldTypeLabels[field.fieldType] || field.fieldType}
@@ -205,8 +204,8 @@ export default function CustomFields() {
       ),
     },
     {
+      key: "required",
       header: "Required",
-      accessor: "required" as const,
       cell: (field: CustomField) => (
         field.required ? (
           <Badge variant="default" className="text-xs">Required</Badge>
@@ -216,12 +215,12 @@ export default function CustomFields() {
       ),
     },
     {
+      key: "displayOrder",
       header: "Order",
-      accessor: "displayOrder" as const,
     },
     {
+      key: "isActive",
       header: "Status",
-      accessor: "isActive" as const,
       cell: (field: CustomField) => (
         field.isActive ? (
           <Badge variant="default" className="text-xs">Active</Badge>
@@ -230,28 +229,31 @@ export default function CustomFields() {
         )
       ),
     },
+    {
+      key: "actions",
+      header: "",
+      cell: (field: CustomField) => (
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => handleEdit(field)}
+            data-testid={`button-edit-field-${field.id}`}
+          >
+            <Settings2 className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => handleDelete(field.id)}
+            data-testid={`button-delete-field-${field.id}`}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      ),
+    },
   ];
-
-  const actions = (field: CustomField) => (
-    <div className="flex items-center gap-1">
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => handleEdit(field)}
-        data-testid={`button-edit-field-${field.id}`}
-      >
-        <Settings2 className="h-4 w-4" />
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => handleDelete(field.id)}
-        data-testid={`button-delete-field-${field.id}`}
-      >
-        <Trash2 className="h-4 w-4" />
-      </Button>
-    </div>
-  );
 
   if (isLoading) {
     return (
@@ -268,16 +270,17 @@ export default function CustomFields() {
     <div className="flex-1 flex flex-col overflow-hidden">
       <PageHeader
         title="Custom Fields"
-        description="Define custom fields for attendee registration"
-      >
-        <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-add-custom-field">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Field
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-md">
+        breadcrumbs={[{ label: "Attendees" }, { label: "Custom Fields" }]}
+        actions={
+          <Button onClick={() => setIsDialogOpen(true)} data-testid="button-add-custom-field">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Field
+          </Button>
+        }
+      />
+
+      <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
+        <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>{editingField ? "Edit Custom Field" : "Add Custom Field"}</DialogTitle>
               <DialogDescription>
@@ -442,7 +445,6 @@ export default function CustomFields() {
             </Form>
           </DialogContent>
         </Dialog>
-      </PageHeader>
 
       <div className="flex-1 overflow-auto p-6">
         {customFields.length === 0 ? (
@@ -450,18 +452,16 @@ export default function CustomFields() {
             icon={Settings2}
             title="No custom fields"
             description="Create custom fields to collect additional information from attendees during registration."
-            action={
-              <Button onClick={() => setIsDialogOpen(true)} data-testid="button-empty-add-field">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Field
-              </Button>
-            }
+            action={{
+              label: "Add Field",
+              onClick: () => setIsDialogOpen(true),
+            }}
           />
         ) : (
           <DataTable
             data={customFields}
             columns={columns}
-            actions={actions}
+            getRowKey={(field) => field.id}
           />
         )}
       </div>
