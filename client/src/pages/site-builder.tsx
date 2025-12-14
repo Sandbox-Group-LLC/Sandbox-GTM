@@ -367,25 +367,27 @@ export default function SiteBuilder() {
             <Card>
               <CardContent className="pt-6">
                 <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as PageType)}>
-                  <TabsList className="w-full justify-start mb-6">
-                    {PAGE_TYPES.map((pt) => (
-                      <TabsTrigger
-                        key={pt.value}
-                        value={pt.value}
-                        className="flex items-center gap-2"
-                        data-testid={`tab-${pt.value}`}
-                      >
-                        {pt.label}
-                        {pages.find((p) => p.pageType === pt.value)?.isPublished && (
-                          <Badge variant="secondary" className="text-xs">Live</Badge>
-                        )}
-                      </TabsTrigger>
-                    ))}
-                  </TabsList>
+                  <div className="overflow-x-auto -mx-2 px-2 mb-6">
+                    <TabsList className="w-auto inline-flex">
+                      {PAGE_TYPES.map((pt) => (
+                        <TabsTrigger
+                          key={pt.value}
+                          value={pt.value}
+                          className="flex items-center gap-2 whitespace-nowrap"
+                          data-testid={`tab-${pt.value}`}
+                        >
+                          {pt.label}
+                          {pages.find((p) => p.pageType === pt.value)?.isPublished && (
+                            <Badge variant="secondary" className="text-xs">Live</Badge>
+                          )}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+                  </div>
 
                   {PAGE_TYPES.map((pt) => (
                     <TabsContent key={pt.value} value={pt.value} className="space-y-4">
-                      <div className="flex items-center justify-between gap-4 mb-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                         <div>
                           <h3 className="font-medium">{pt.label}</h3>
                           <p className="text-sm text-muted-foreground">{pt.description}</p>
