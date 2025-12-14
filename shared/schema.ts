@@ -43,6 +43,10 @@ export const organizations = pgTable("organizations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: varchar("name", { length: 255 }).notNull(),
   slug: varchar("slug", { length: 100 }).unique().notNull(),
+  // Payment settings
+  stripePublishableKey: varchar("stripe_publishable_key", { length: 255 }),
+  stripeSecretKey: varchar("stripe_secret_key", { length: 255 }),
+  paymentEnabled: boolean("payment_enabled").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

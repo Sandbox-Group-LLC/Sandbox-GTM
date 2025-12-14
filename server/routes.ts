@@ -101,12 +101,34 @@ export async function registerRoutes(
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
       
-      const { name } = req.body;
-      if (!name || typeof name !== 'string' || name.trim().length === 0) {
-        return res.status(400).json({ message: "Organization name is required" });
+      const { name, stripePublishableKey, stripeSecretKey, paymentEnabled } = req.body;
+      
+      const updateData: Record<string, any> = {};
+      
+      if (name !== undefined) {
+        if (typeof name !== 'string' || name.trim().length === 0) {
+          return res.status(400).json({ message: "Organization name cannot be empty" });
+        }
+        updateData.name = name.trim();
       }
       
-      const updated = await storage.updateOrganization(organizationId, { name: name.trim() });
+      if (stripePublishableKey !== undefined) {
+        updateData.stripePublishableKey = stripePublishableKey || null;
+      }
+      
+      if (stripeSecretKey !== undefined) {
+        updateData.stripeSecretKey = stripeSecretKey || null;
+      }
+      
+      if (paymentEnabled !== undefined) {
+        updateData.paymentEnabled = Boolean(paymentEnabled);
+      }
+      
+      if (Object.keys(updateData).length === 0) {
+        return res.status(400).json({ message: "No valid fields to update" });
+      }
+      
+      const updated = await storage.updateOrganization(organizationId, updateData);
       if (!updated) {
         return res.status(404).json({ message: "Organization not found" });
       }

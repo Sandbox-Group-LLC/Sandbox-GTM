@@ -1,14 +1,84 @@
 import { useAuth } from "@/hooks/useAuth";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { LogOut, User, Shield, Bell, Palette } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { isUnauthorizedError } from "@/lib/authUtils";
+import { LogOut, User, Shield, Bell, Palette, CreditCard, AlertTriangle } from "lucide-react";
+import type { Organization } from "@shared/schema";
+
+const paymentSettingsSchema = z.object({
+  paymentEnabled: z.boolean(),
+  stripePublishableKey: z.string().optional(),
+  stripeSecretKey: z.string().optional(),
+});
+
+type PaymentSettingsFormData = z.infer<typeof paymentSettingsSchema>;
 
 export default function Settings() {
   const { user } = useAuth();
+  const { toast } = useToast();
+
+  const { data: organization, isLoading: isLoadingOrg } = useQuery<Organization>({
+    queryKey: ["/api/auth/organization"],
+  });
+
+  const form = useForm<PaymentSettingsFormData>({
+    resolver: zodResolver(paymentSettingsSchema),
+    defaultValues: {
+      paymentEnabled: false,
+      stripePublishableKey: "",
+      stripeSecretKey: "",
+    },
+    values: organization ? {
+      paymentEnabled: organization.paymentEnabled ?? false,
+      stripePublishableKey: organization.stripePublishableKey ?? "",
+      stripeSecretKey: organization.stripeSecretKey ?? "",
+    } : undefined,
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: PaymentSettingsFormData) => {
+      return await apiRequest("PATCH", "/api/auth/organization", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/organization"] });
+      toast({ title: "Payment settings saved successfully" });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({ title: "Unauthorized", description: "You are logged out. Logging in again...", variant: "destructive" });
+        setTimeout(() => { window.location.href = "/api/login"; }, 500);
+        return;
+      }
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const onSubmit = (data: PaymentSettingsFormData) => {
+    updateMutation.mutate(data);
+  };
 
   const getInitials = () => {
     if (user?.firstName && user?.lastName) {
@@ -45,12 +115,12 @@ export default function Settings() {
                   <AvatarFallback className="text-xl">{getInitials()}</AvatarFallback>
                 </Avatar>
                 <div>
-                  <h3 className="text-lg font-semibold">
+                  <h3 className="text-lg font-semibold" data-testid="text-user-name">
                     {user?.firstName && user?.lastName
                       ? `${user.firstName} ${user.lastName}`
                       : "User"}
                   </h3>
-                  <p className="text-muted-foreground">{user?.email}</p>
+                  <p className="text-muted-foreground" data-testid="text-user-email">{user?.email}</p>
                   <Badge variant="secondary" className="mt-2">Admin</Badge>
                 </div>
               </div>
@@ -73,6 +143,114 @@ export default function Settings() {
                   </div>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5" />
+                Payment Settings
+              </CardTitle>
+              <CardDescription>
+                Configure Stripe payment processing for your organization
+                {isLoadingOrg && " (Loading...)"}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoadingOrg ? (
+                <div className="space-y-4">
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-10 w-full" />
+                </div>
+              ) : (
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                    <Alert variant="destructive">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertTitle>Security Warning</AlertTitle>
+                      <AlertDescription>
+                        API keys are sensitive credentials. Keep them secure and never share them publicly. 
+                        Your Stripe secret key grants full access to your Stripe account.
+                      </AlertDescription>
+                    </Alert>
+
+                    <FormField
+                      control={form.control}
+                      name="paymentEnabled"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">Enable Payment Processing</FormLabel>
+                            <FormDescription>
+                              Allow attendees to pay for registration packages
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              data-testid="switch-payment-enabled"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="stripePublishableKey"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Stripe Publishable Key</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="pk_live_..."
+                              {...field}
+                              data-testid="input-stripe-publishable-key"
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Your Stripe publishable key (starts with pk_)
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="stripeSecretKey"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Stripe Secret Key</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="password"
+                              placeholder="sk_live_..."
+                              {...field}
+                              data-testid="input-stripe-secret-key"
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Your Stripe secret key (starts with sk_)
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <Button 
+                      type="submit" 
+                      disabled={updateMutation.isPending}
+                      data-testid="button-save-payment-settings"
+                    >
+                      {updateMutation.isPending ? "Saving..." : "Save Payment Settings"}
+                    </Button>
+                  </form>
+                </Form>
+              )}
             </CardContent>
           </Card>
 
