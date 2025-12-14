@@ -3,7 +3,7 @@ import { Resend } from 'resend';
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 const ADMIN_EMAIL = 'brian@makemysandbox.com';
-const FROM_EMAIL = 'notifications@resend.dev';
+const FROM_EMAIL = 'notifications@makemysandbox.com';
 
 export async function sendNewOrganizationAlert(organizationName: string, organizationSlug: string, ownerEmail?: string): Promise<void> {
   if (!resend) {
