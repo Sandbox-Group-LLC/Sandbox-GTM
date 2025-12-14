@@ -1,9 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { loadStripe, Stripe } from "@stripe/stripe-js";
+import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -29,7 +31,7 @@ import {
   FormMessage,
   FormDescription,
 } from "@/components/ui/form";
-import { Calendar, MapPin, CheckCircle, AlertCircle, ArrowLeft, ArrowRight, Tag, Check, Loader2 } from "lucide-react";
+import { Calendar, MapPin, CheckCircle, AlertCircle, ArrowLeft, ArrowRight, Tag, Check, Loader2, CreditCard } from "lucide-react";
 import type { Event, Attendee, EventPage, EventPageTheme, CustomField, Package } from "@shared/schema";
 
 interface PackageWithEffectivePrice extends Package {
@@ -44,6 +46,18 @@ interface ValidatedInviteCode {
   discountValue: string | null;
   packageId: string | null;
   attendeeTypeId: string | null;
+}
+
+interface PaymentConfig {
+  paymentEnabled: boolean;
+  stripePublishableKey: string | null;
+}
+
+interface PaymentIntentResponse {
+  paymentRequired: boolean;
+  clientSecret?: string;
+  paymentIntentId?: string;
+  finalPrice?: number;
 }
 
 const calculateDiscount = (price: number, discountType: string | null, discountValue: string | null): number => {
@@ -184,9 +198,136 @@ type RegistrationFormData = z.infer<typeof baseRegistrationSchema> & {
   customData?: Record<string, string | boolean>;
 };
 
+type RegistrationStep = 1 | 2 | 3 | 4;
+
+interface PaymentFormProps {
+  clientSecret: string;
+  paymentIntentId: string;
+  finalPrice: number;
+  onPaymentSuccess: () => void;
+  onPaymentError: (error: string) => void;
+  onBack: () => void;
+  isProcessing: boolean;
+  setIsProcessing: (val: boolean) => void;
+  theme?: EventPageTheme | null;
+  slug: string;
+}
+
+function PaymentForm({ 
+  clientSecret, 
+  paymentIntentId, 
+  finalPrice, 
+  onPaymentSuccess, 
+  onPaymentError, 
+  onBack,
+  isProcessing,
+  setIsProcessing,
+  theme,
+  slug,
+}: PaymentFormProps) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const { toast } = useToast();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!stripe || !elements) {
+      return;
+    }
+
+    setIsProcessing(true);
+
+    const { error } = await stripe.confirmPayment({
+      elements,
+      confirmParams: {
+        return_url: window.location.href,
+      },
+      redirect: "if_required",
+    });
+
+    if (error) {
+      setIsProcessing(false);
+      onPaymentError(error.message || "Payment failed");
+      return;
+    }
+
+    try {
+      const verifyRes = await fetch(`/api/public/event/${slug}/verify-payment`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paymentIntentId }),
+      });
+      const verifyResult = await verifyRes.json();
+
+      if (verifyResult.verified) {
+        onPaymentSuccess();
+      } else {
+        onPaymentError("Payment verification failed. Please contact support.");
+      }
+    } catch {
+      onPaymentError("Failed to verify payment. Please contact support.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="p-4 bg-muted/50 rounded-lg mb-4">
+        <div className="flex justify-between items-center">
+          <span className="text-sm text-muted-foreground">Amount to pay</span>
+          <span className="text-xl font-bold">{formatPrice(finalPrice)}</span>
+        </div>
+      </div>
+
+      <div className="border rounded-lg p-4">
+        <PaymentElement />
+      </div>
+
+      <div className="flex gap-3">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onBack}
+          disabled={isProcessing}
+          data-testid="button-payment-back"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back
+        </Button>
+        <Button
+          type="submit"
+          className="flex-1"
+          disabled={!stripe || isProcessing}
+          data-testid="button-pay"
+          style={{
+            backgroundColor: theme?.buttonStyle === "outline" ? "transparent" : (theme?.buttonColor || undefined),
+            color: theme?.buttonStyle === "outline" ? (theme?.buttonColor || undefined) : (theme?.buttonTextColor || undefined),
+            border: theme?.buttonStyle === "outline" ? `2px solid ${theme?.buttonColor || "#3b82f6"}` : undefined,
+          }}
+        >
+          {isProcessing ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Processing...
+            </>
+          ) : (
+            <>
+              <CreditCard className="w-4 h-4 mr-2" />
+              Pay {formatPrice(finalPrice)}
+            </>
+          )}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 export default function PublicRegistration() {
   const { slug } = useParams<{ slug: string }>();
   const { toast } = useToast();
+  const [currentStep, setCurrentStep] = useState<RegistrationStep>(1);
   const [registrationComplete, setRegistrationComplete] = useState(false);
   const [registeredAttendee, setRegisteredAttendee] = useState<Attendee | null>(null);
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
@@ -194,6 +335,12 @@ export default function PublicRegistration() {
   const [validatedCode, setValidatedCode] = useState<ValidatedInviteCode | null>(null);
   const [unlockedPackage, setUnlockedPackage] = useState<PackageWithEffectivePrice | null>(null);
   const [isValidatingCode, setIsValidatingCode] = useState(false);
+  const [stripePromise, setStripePromise] = useState<Promise<Stripe | null> | null>(null);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
+  const [finalPrice, setFinalPrice] = useState<number>(0);
+  const [isCreatingPaymentIntent, setIsCreatingPaymentIntent] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   const { data, isLoading, error } = useQuery<PublicRegistrationData>({
     queryKey: ["/api/public/event", slug, "registration"],
@@ -204,6 +351,22 @@ export default function PublicRegistration() {
     },
     enabled: !!slug,
   });
+
+  const { data: paymentConfig } = useQuery<PaymentConfig>({
+    queryKey: ["/api/public/event", slug, "payment-config"],
+    queryFn: async () => {
+      const res = await fetch(`/api/public/event/${slug}/payment-config`);
+      if (!res.ok) return { paymentEnabled: false, stripePublishableKey: null };
+      return res.json();
+    },
+    enabled: !!slug,
+  });
+
+  useEffect(() => {
+    if (paymentConfig?.paymentEnabled && paymentConfig?.stripePublishableKey) {
+      setStripePromise(loadStripe(paymentConfig.stripePublishableKey));
+    }
+  }, [paymentConfig]);
 
   const { data: customFields = [] } = useQuery<CustomField[]>({
     queryKey: ["/api/public/custom-fields", slug],
@@ -232,6 +395,23 @@ export default function PublicRegistration() {
     }
     return packages;
   }, [publicPackages, unlockedPackage]);
+
+  const selectedPackage = useMemo(() => {
+    return availablePackages.find(p => p.id === selectedPackageId) || null;
+  }, [availablePackages, selectedPackageId]);
+
+  const selectedPackagePrice = useMemo(() => {
+    if (!selectedPackage) return 0;
+    const basePrice = Number(selectedPackage.effectivePrice) || 0;
+    if (validatedCode?.discountType && validatedCode?.discountValue) {
+      return calculateDiscount(basePrice, validatedCode.discountType, validatedCode.discountValue);
+    }
+    return basePrice;
+  }, [selectedPackage, validatedCode]);
+
+  const requiresPayment = useMemo(() => {
+    return paymentConfig?.paymentEnabled && selectedPackagePrice > 0;
+  }, [paymentConfig, selectedPackagePrice]);
 
   const validateInviteCode = async () => {
     if (!inviteCodeInput.trim()) return;
@@ -303,12 +483,14 @@ export default function PublicRegistration() {
         ...formData,
         packageId: selectedPackageId,
         inviteCodeId: validatedCode?.id || undefined,
+        paymentIntentId: paymentIntentId || undefined,
       });
       return res.json();
     },
     onSuccess: (data) => {
       setRegistrationComplete(true);
       setRegisteredAttendee(data.attendee);
+      setCurrentStep(4);
       toast({ title: "Registration successful!", description: "You have been registered for the event." });
     },
     onError: () => {
@@ -316,8 +498,67 @@ export default function PublicRegistration() {
     },
   });
 
+  const createPaymentIntent = async () => {
+    setIsCreatingPaymentIntent(true);
+    try {
+      const res = await fetch(`/api/public/event/${slug}/create-payment-intent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          packageId: selectedPackageId,
+          inviteCodeId: validatedCode?.id || undefined,
+        }),
+      });
+      const result: PaymentIntentResponse = await res.json();
+
+      if (!result.paymentRequired) {
+        form.handleSubmit(onSubmit)();
+        return;
+      }
+
+      if (result.clientSecret && result.paymentIntentId) {
+        setClientSecret(result.clientSecret);
+        setPaymentIntentId(result.paymentIntentId);
+        setFinalPrice(result.finalPrice || 0);
+        setCurrentStep(3);
+      } else {
+        toast({ title: "Error", description: "Failed to initialize payment", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Error", description: "Failed to create payment", variant: "destructive" });
+    } finally {
+      setIsCreatingPaymentIntent(false);
+    }
+  };
+
   const onSubmit = (formData: RegistrationFormData) => {
     registerMutation.mutate(formData);
+  };
+
+  const handleStep1Continue = async () => {
+    const isValid = await form.trigger(["firstName", "lastName", "email", "phone", "company", "jobTitle"]);
+    if (isValid) {
+      setCurrentStep(2);
+    }
+  };
+
+  const handleStep2Continue = async () => {
+    const isCustomValid = await form.trigger();
+    if (!isCustomValid) return;
+
+    if (requiresPayment) {
+      await createPaymentIntent();
+    } else {
+      form.handleSubmit(onSubmit)();
+    }
+  };
+
+  const handlePaymentSuccess = () => {
+    form.handleSubmit(onSubmit)();
+  };
+
+  const handlePaymentError = (errorMessage: string) => {
+    toast({ title: "Payment failed", description: errorMessage, variant: "destructive" });
   };
 
   const getPackagePrice = (pkg: PackageWithEffectivePrice) => {
@@ -365,6 +606,9 @@ export default function PublicRegistration() {
   const themeStyles = getThemeStyles(theme);
   const fontsToLoad = [theme?.headingFont, theme?.bodyFont].filter(Boolean) as string[];
 
+  const stepTitles = ["Personal Info", "Select Package", "Payment", "Confirmation"];
+  const totalSteps = requiresPayment ? 4 : 3;
+
   if (registrationComplete && registeredAttendee) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
@@ -411,6 +655,44 @@ export default function PublicRegistration() {
       </div>
     );
   }
+
+  const renderStepIndicator = () => {
+    const displaySteps = requiresPayment 
+      ? stepTitles 
+      : stepTitles.filter((_, i) => i !== 2);
+    
+    return (
+      <div className="flex items-center justify-center gap-2 mb-6">
+        {displaySteps.map((title, index) => {
+          const stepNum = index + 1;
+          const isActive = currentStep === stepNum || (currentStep === 3 && !requiresPayment && stepNum === 3);
+          const isCompleted = currentStep > stepNum;
+          
+          return (
+            <div key={title} className="flex items-center gap-2">
+              <div 
+                className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium transition-colors ${
+                  isActive 
+                    ? "bg-primary text-primary-foreground" 
+                    : isCompleted 
+                      ? "bg-green-600 text-white" 
+                      : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {isCompleted ? <Check className="w-4 h-4" /> : stepNum}
+              </div>
+              <span className={`text-sm hidden sm:inline ${isActive ? "font-medium" : "text-muted-foreground"}`}>
+                {title}
+              </span>
+              {index < displaySteps.length - 1 && (
+                <div className={`w-8 h-0.5 ${isCompleted ? "bg-green-600" : "bg-muted"}`} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   return (
     <>
@@ -468,7 +750,7 @@ export default function PublicRegistration() {
         </div>
 
       <div className="max-w-2xl mx-auto px-6 py-8">
-        {sections.length > 0 && (
+        {sections.length > 0 && currentStep === 1 && (
           <div className="mb-8 space-y-6">
             {sections
               .sort((a, b) => a.order - b.order)
@@ -483,227 +765,310 @@ export default function PublicRegistration() {
           borderRadius: theme?.borderRadius ? ({ none: "0px", small: "4px", medium: "8px", large: "16px", pill: "9999px" }[theme.borderRadius]) : undefined,
         }}>
           <CardHeader>
-            <CardTitle style={{ fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined }}>Complete Your Registration</CardTitle>
+            <CardTitle style={{ fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined }}>
+              {currentStep === 1 && "Personal Information"}
+              {currentStep === 2 && "Select Your Package"}
+              {currentStep === 3 && "Complete Payment"}
+            </CardTitle>
             <CardDescription>
               {event.registrationOpen
-                ? "Fill out the form below to register for this event"
+                ? currentStep === 1 
+                  ? "Tell us about yourself" 
+                  : currentStep === 2 
+                    ? "Choose a registration package"
+                    : "Enter your payment details"
                 : "Registration is currently closed"}
             </CardDescription>
           </CardHeader>
           <CardContent>
             {event.registrationOpen ? (
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="firstName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>First Name</FormLabel>
-                          <FormControl>
-                            <Input data-testid="input-first-name" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="lastName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Last Name</FormLabel>
-                          <FormControl>
-                            <Input data-testid="input-last-name" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+              <>
+                {renderStepIndicator()}
+                
+                <Form {...form}>
+                  {currentStep === 1 && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="firstName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>First Name</FormLabel>
+                              <FormControl>
+                                <Input data-testid="input-first-name" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="lastName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Last Name</FormLabel>
+                              <FormControl>
+                                <Input data-testid="input-last-name" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
 
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
-                        <FormControl>
-                          <Input type="email" data-testid="input-email" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="phone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Phone (optional)</FormLabel>
-                        <FormControl>
-                          <Input data-testid="input-phone" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="company"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Company (optional)</FormLabel>
-                        <FormControl>
-                          <Input data-testid="input-company" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="jobTitle"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Job Title (optional)</FormLabel>
-                        <FormControl>
-                          <Input data-testid="input-job-title" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="space-y-2">
-                    <FormLabel>Invite Code (optional)</FormLabel>
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="Enter invite code"
-                        value={inviteCodeInput}
-                        onChange={(e) => setInviteCodeInput(e.target.value)}
-                        disabled={!!validatedCode}
-                        data-testid="input-invite-code"
+                      <FormField
+                        control={form.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Email</FormLabel>
+                            <FormControl>
+                              <Input type="email" data-testid="input-email" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
                       />
+
+                      <FormField
+                        control={form.control}
+                        name="phone"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Phone (optional)</FormLabel>
+                            <FormControl>
+                              <Input data-testid="input-phone" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="company"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Company (optional)</FormLabel>
+                            <FormControl>
+                              <Input data-testid="input-company" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="jobTitle"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Job Title (optional)</FormLabel>
+                            <FormControl>
+                              <Input data-testid="input-job-title" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
                       <Button
                         type="button"
-                        variant={validatedCode ? "secondary" : "outline"}
-                        onClick={validateInviteCode}
-                        disabled={!inviteCodeInput.trim() || isValidatingCode || !!validatedCode}
-                        data-testid="button-validate-code"
+                        className="w-full"
+                        onClick={handleStep1Continue}
+                        data-testid="button-continue-step1"
+                        style={{
+                          backgroundColor: theme?.buttonStyle === "outline" ? "transparent" : (theme?.buttonColor || undefined),
+                          color: theme?.buttonStyle === "outline" ? (theme?.buttonColor || undefined) : (theme?.buttonTextColor || undefined),
+                          border: theme?.buttonStyle === "outline" ? `2px solid ${theme?.buttonColor || "#3b82f6"}` : undefined,
+                          borderRadius: theme?.borderRadius ? ({ none: "0px", small: "4px", medium: "8px", large: "16px", pill: "9999px" }[theme.borderRadius]) : undefined,
+                        }}
                       >
-                        {isValidatingCode ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : validatedCode ? (
-                          <Check className="h-4 w-4" />
-                        ) : (
-                          "Apply"
-                        )}
+                        Continue
+                        <ArrowRight className="w-4 h-4 ml-2" />
                       </Button>
                     </div>
-                    {validatedCode && (
-                      <div className="flex items-center gap-2 text-sm text-green-600">
-                        <Check className="h-4 w-4" />
-                        <span>Code applied{validatedCode.discountType && ` - ${validatedCode.discountType === "percentage" ? `${validatedCode.discountValue}% off` : `${formatPrice(validatedCode.discountValue)} off`}`}</span>
-                      </div>
-                    )}
-                  </div>
+                  )}
 
-                  {availablePackages.length > 0 && (
-                    <div className="space-y-2">
-                      <FormLabel>Select Package</FormLabel>
-                      <div className="grid gap-3">
-                        {availablePackages.map((pkg) => {
-                          const originalPrice = Number(pkg.effectivePrice) || 0;
-                          const discountedPrice = getPackagePrice(pkg);
-                          const hasDiscount = discountedPrice < originalPrice;
-                          const isSelected = selectedPackageId === pkg.id;
-                          
-                          return (
-                            <div
-                              key={pkg.id}
-                              className={`p-4 border rounded-md cursor-pointer transition-colors ${
-                                isSelected ? "border-2 border-primary bg-primary/5" : "hover:bg-muted/50"
-                              }`}
-                              onClick={() => setSelectedPackageId(pkg.id)}
-                              data-testid={`package-option-${pkg.id}`}
-                            >
-                              <div className="flex items-start justify-between gap-4">
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-medium">{pkg.name}</span>
-                                    {unlockedPackage?.id === pkg.id && (
-                                      <Badge variant="secondary" className="text-xs">
-                                        <Tag className="h-3 w-3 mr-1" />
-                                        Unlocked
-                                      </Badge>
-                                    )}
-                                  </div>
-                                  {pkg.description && (
-                                    <p className="text-sm text-muted-foreground mt-1">{pkg.description}</p>
-                                  )}
-                                  {pkg.effectiveFeatures && pkg.effectiveFeatures.length > 0 && (
-                                    <div className="flex flex-wrap gap-1 mt-2">
-                                      {pkg.effectiveFeatures.slice(0, 3).map((feature, i) => (
-                                        <Badge key={i} variant="outline" className="text-xs">{feature}</Badge>
-                                      ))}
-                                      {pkg.effectiveFeatures.length > 3 && (
-                                        <Badge variant="outline" className="text-xs">+{pkg.effectiveFeatures.length - 3} more</Badge>
+                  {currentStep === 2 && (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <FormLabel>Invite Code (optional)</FormLabel>
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="Enter invite code"
+                            value={inviteCodeInput}
+                            onChange={(e) => setInviteCodeInput(e.target.value)}
+                            disabled={!!validatedCode}
+                            data-testid="input-invite-code"
+                          />
+                          <Button
+                            type="button"
+                            variant={validatedCode ? "secondary" : "outline"}
+                            onClick={validateInviteCode}
+                            disabled={!inviteCodeInput.trim() || isValidatingCode || !!validatedCode}
+                            data-testid="button-validate-code"
+                          >
+                            {isValidatingCode ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : validatedCode ? (
+                              <Check className="h-4 w-4" />
+                            ) : (
+                              "Apply"
+                            )}
+                          </Button>
+                        </div>
+                        {validatedCode && (
+                          <div className="flex items-center gap-2 text-sm text-green-600">
+                            <Check className="h-4 w-4" />
+                            <span>Code applied{validatedCode.discountType && ` - ${validatedCode.discountType === "percentage" ? `${validatedCode.discountValue}% off` : `${formatPrice(validatedCode.discountValue)} off`}`}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {availablePackages.length > 0 && (
+                        <div className="space-y-2">
+                          <FormLabel>Select Package</FormLabel>
+                          <div className="grid gap-3">
+                            {availablePackages.map((pkg) => {
+                              const originalPrice = Number(pkg.effectivePrice) || 0;
+                              const discountedPrice = getPackagePrice(pkg);
+                              const hasDiscount = discountedPrice < originalPrice;
+                              const isSelected = selectedPackageId === pkg.id;
+                              
+                              return (
+                                <div
+                                  key={pkg.id}
+                                  className={`p-4 border rounded-md cursor-pointer transition-colors ${
+                                    isSelected ? "border-2 border-primary bg-primary/5" : "hover:bg-muted/50"
+                                  }`}
+                                  onClick={() => setSelectedPackageId(pkg.id)}
+                                  data-testid={`package-option-${pkg.id}`}
+                                >
+                                  <div className="flex items-start justify-between gap-4">
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-medium">{pkg.name}</span>
+                                        {unlockedPackage?.id === pkg.id && (
+                                          <Badge variant="secondary" className="text-xs">
+                                            <Tag className="h-3 w-3 mr-1" />
+                                            Unlocked
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      {pkg.description && (
+                                        <p className="text-sm text-muted-foreground mt-1">{pkg.description}</p>
+                                      )}
+                                      {pkg.effectiveFeatures && pkg.effectiveFeatures.length > 0 && (
+                                        <div className="flex flex-wrap gap-1 mt-2">
+                                          {pkg.effectiveFeatures.slice(0, 3).map((feature, i) => (
+                                            <Badge key={i} variant="outline" className="text-xs">{feature}</Badge>
+                                          ))}
+                                          {pkg.effectiveFeatures.length > 3 && (
+                                            <Badge variant="outline" className="text-xs">+{pkg.effectiveFeatures.length - 3} more</Badge>
+                                          )}
+                                        </div>
                                       )}
                                     </div>
-                                  )}
+                                    <div className="text-right">
+                                      {hasDiscount ? (
+                                        <>
+                                          <span className="text-lg font-bold">{formatPrice(discountedPrice)}</span>
+                                          <span className="text-sm text-muted-foreground line-through ml-2">{formatPrice(originalPrice)}</span>
+                                        </>
+                                      ) : (
+                                        <span className="text-lg font-bold">{formatPrice(originalPrice)}</span>
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="text-right">
-                                  {hasDiscount ? (
-                                    <>
-                                      <span className="text-lg font-bold">{formatPrice(discountedPrice)}</span>
-                                      <span className="text-sm text-muted-foreground line-through ml-2">{formatPrice(originalPrice)}</span>
-                                    </>
-                                  ) : (
-                                    <span className="text-lg font-bold">{formatPrice(originalPrice)}</span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {sortedCustomFields.length > 0 && (
+                        <div className="space-y-4 pt-4 border-t">
+                          <h3 className="text-sm font-medium text-muted-foreground">Additional Information</h3>
+                          {sortedCustomFields.map((customField) => (
+                            <CustomFieldRenderer
+                              key={customField.id}
+                              customField={customField}
+                              control={form.control}
+                            />
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="flex gap-3 pt-4">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setCurrentStep(1)}
+                          data-testid="button-back-step2"
+                        >
+                          <ArrowLeft className="w-4 h-4 mr-2" />
+                          Back
+                        </Button>
+                        <Button
+                          type="button"
+                          className="flex-1"
+                          onClick={handleStep2Continue}
+                          disabled={registerMutation.isPending || isCreatingPaymentIntent}
+                          data-testid="button-continue-step2"
+                          style={{
+                            backgroundColor: theme?.buttonStyle === "outline" ? "transparent" : (theme?.buttonColor || undefined),
+                            color: theme?.buttonStyle === "outline" ? (theme?.buttonColor || undefined) : (theme?.buttonTextColor || undefined),
+                            border: theme?.buttonStyle === "outline" ? `2px solid ${theme?.buttonColor || "#3b82f6"}` : undefined,
+                            borderRadius: theme?.borderRadius ? ({ none: "0px", small: "4px", medium: "8px", large: "16px", pill: "9999px" }[theme.borderRadius]) : undefined,
+                          }}
+                        >
+                          {(registerMutation.isPending || isCreatingPaymentIntent) ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              {isCreatingPaymentIntent ? "Preparing Payment..." : "Registering..."}
+                            </>
+                          ) : requiresPayment ? (
+                            <>
+                              Continue to Payment
+                              <ArrowRight className="w-4 h-4 ml-2" />
+                            </>
+                          ) : (
+                            "Complete Registration"
+                          )}
+                        </Button>
                       </div>
                     </div>
                   )}
 
-                  {sortedCustomFields.length > 0 && (
-                    <div className="space-y-4 pt-4 border-t">
-                      <h3 className="text-sm font-medium text-muted-foreground">Additional Information</h3>
-                      {sortedCustomFields.map((customField) => (
-                        <CustomFieldRenderer
-                          key={customField.id}
-                          customField={customField}
-                          control={form.control}
-                        />
-                      ))}
-                    </div>
+                  {currentStep === 3 && clientSecret && stripePromise && (
+                    <Elements 
+                      stripe={stripePromise} 
+                      options={{ 
+                        clientSecret,
+                        appearance: {
+                          theme: 'stripe',
+                        },
+                      }}
+                    >
+                      <PaymentForm
+                        clientSecret={clientSecret}
+                        paymentIntentId={paymentIntentId || ""}
+                        finalPrice={finalPrice}
+                        onPaymentSuccess={handlePaymentSuccess}
+                        onPaymentError={handlePaymentError}
+                        onBack={() => setCurrentStep(2)}
+                        isProcessing={isProcessingPayment}
+                        setIsProcessing={setIsProcessingPayment}
+                        theme={theme}
+                        slug={slug || ""}
+                      />
+                    </Elements>
                   )}
-
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={registerMutation.isPending}
-                    data-testid="button-register"
-                    style={{
-                      backgroundColor: theme?.buttonStyle === "outline" ? "transparent" : (theme?.buttonColor || undefined),
-                      color: theme?.buttonStyle === "outline" ? (theme?.buttonColor || undefined) : (theme?.buttonTextColor || undefined),
-                      border: theme?.buttonStyle === "outline" ? `2px solid ${theme?.buttonColor || "#3b82f6"}` : undefined,
-                      borderRadius: theme?.borderRadius ? ({ none: "0px", small: "4px", medium: "8px", large: "16px", pill: "9999px" }[theme.borderRadius]) : undefined,
-                    }}
-                  >
-                    {registerMutation.isPending ? "Registering..." : "Complete Registration"}
-                  </Button>
-                </form>
-              </Form>
+                </Form>
+              </>
             ) : (
               <div className="text-center py-4">
                 <AlertCircle className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />

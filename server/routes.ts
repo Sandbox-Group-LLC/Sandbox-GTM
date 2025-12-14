@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { sendNewOrganizationAlert } from "./email";
+import { createPaymentIntent, getPaymentIntent, calculateFinalPrice } from "./stripe";
 import {
   insertEventSchema,
   insertAttendeeSchema,
@@ -65,13 +66,22 @@ export async function registerRoutes(
     }
   });
 
+  // Helper to sanitize organization before returning to client (masks secret key)
+  function sanitizeOrganization(org: any) {
+    if (!org) return org;
+    return {
+      ...org,
+      stripeSecretKey: org.stripeSecretKey ? "sk_****" : null,
+    };
+  }
+
   app.get('/api/auth/organization', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const memberships = await storage.getUserOrganizations(userId);
       if (memberships.length > 0) {
         const org = await storage.getOrganization(memberships[0].organizationId);
-        res.json(org);
+        res.json(sanitizeOrganization(org));
       } else {
         // Create default org for user if none exists
         const org = await storage.createOrganization({
@@ -88,7 +98,7 @@ export async function registerRoutes(
         const user = await storage.getUser(userId);
         sendNewOrganizationAlert(org.name, org.slug, user?.email || undefined);
         
-        res.json(org);
+        res.json(sanitizeOrganization(org));
       }
     } catch (error) {
       console.error("Error fetching organization:", error);
@@ -132,7 +142,7 @@ export async function registerRoutes(
       if (!updated) {
         return res.status(404).json({ message: "Organization not found" });
       }
-      res.json(updated);
+      res.json(sanitizeOrganization(updated));
     } catch (error) {
       console.error("Error updating organization:", error);
       res.status(500).json({ message: "Failed to update organization" });
@@ -151,7 +161,8 @@ export async function registerRoutes(
       }
       
       const organizations = await storage.getAllOrganizationsWithStats();
-      res.json(organizations);
+      // Sanitize all organizations to mask secret keys
+      res.json(organizations.map(sanitizeOrganization));
     } catch (error) {
       console.error("Error fetching all organizations:", error);
       res.status(500).json({ message: "Failed to fetch organizations" });
@@ -1812,6 +1823,127 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching public custom fields:", error);
       res.status(500).json({ message: "Failed to fetch custom fields" });
+    }
+  });
+
+  // Payment endpoints for public registration
+  app.get("/api/public/event/:slug/payment-config", async (req, res) => {
+    try {
+      const event = await storage.getEventBySlug(req.params.slug);
+      if (!event || !event.isPublic) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      const org = await storage.getOrganization(event.organizationId);
+      if (!org) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+      
+      res.json({
+        paymentEnabled: org.paymentEnabled ?? false,
+        stripePublishableKey: org.paymentEnabled ? org.stripePublishableKey : null,
+      });
+    } catch (error) {
+      console.error("Error fetching payment config:", error);
+      res.status(500).json({ message: "Failed to fetch payment configuration" });
+    }
+  });
+
+  app.post("/api/public/event/:slug/create-payment-intent", async (req, res) => {
+    try {
+      const event = await storage.getEventBySlug(req.params.slug);
+      if (!event || !event.isPublic || !event.registrationOpen) {
+        return res.status(404).json({ message: "Registration not available" });
+      }
+      
+      const { packageId, inviteCodeId } = req.body;
+      
+      if (!packageId) {
+        return res.status(400).json({ message: "Package is required for payment" });
+      }
+      
+      // Get package details
+      const pkg = await storage.getPackage(event.organizationId, packageId);
+      if (!pkg) {
+        return res.status(404).json({ message: "Package not found" });
+      }
+      
+      // Check for event-specific price override
+      const eventPackages = await storage.getEventPackages(event.organizationId, event.id);
+      const override = eventPackages.find(ep => ep.packageId === packageId);
+      let price = parseFloat(override?.priceOverride ?? pkg.price ?? "0");
+      
+      // Apply discount if invite code provided
+      if (inviteCodeId) {
+        const inviteCode = await storage.getInviteCode(event.organizationId, inviteCodeId);
+        if (inviteCode && inviteCode.isActive) {
+          price = calculateFinalPrice(price, inviteCode.discountType, inviteCode.discountValue);
+        }
+      }
+      
+      // If price is 0 or less, no payment needed
+      if (price <= 0) {
+        return res.json({ 
+          paymentRequired: false,
+          finalPrice: 0,
+        });
+      }
+      
+      // Create payment intent
+      const result = await createPaymentIntent(
+        event.organizationId,
+        price,
+        "usd",
+        {
+          eventId: event.id,
+          eventName: event.name,
+          packageId: pkg.id,
+          packageName: pkg.name,
+        }
+      );
+      
+      if (!result) {
+        return res.status(400).json({ message: "Payment processing is not configured for this organization" });
+      }
+      
+      res.json({
+        paymentRequired: true,
+        clientSecret: result.clientSecret,
+        paymentIntentId: result.paymentIntentId,
+        finalPrice: price,
+      });
+    } catch (error) {
+      console.error("Error creating payment intent:", error);
+      res.status(500).json({ message: "Failed to create payment" });
+    }
+  });
+
+  app.post("/api/public/event/:slug/verify-payment", async (req, res) => {
+    try {
+      const event = await storage.getEventBySlug(req.params.slug);
+      if (!event || !event.isPublic) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      const { paymentIntentId } = req.body;
+      
+      if (!paymentIntentId) {
+        return res.status(400).json({ message: "Payment intent ID is required" });
+      }
+      
+      const paymentIntent = await getPaymentIntent(event.organizationId, paymentIntentId);
+      
+      if (!paymentIntent) {
+        return res.status(400).json({ message: "Payment verification failed" });
+      }
+      
+      res.json({
+        verified: paymentIntent.status === "succeeded",
+        status: paymentIntent.status,
+      });
+    } catch (error) {
+      console.error("Error verifying payment:", error);
+      res.status(500).json({ message: "Failed to verify payment" });
     }
   });
 
