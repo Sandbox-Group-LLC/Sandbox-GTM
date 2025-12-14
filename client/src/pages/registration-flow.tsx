@@ -953,7 +953,6 @@ export default function RegistrationFlow() {
                         <Switch
                           checked={step.enabled}
                           onCheckedChange={() => handleStepToggle(step.id)}
-                          disabled={step.id === 4}
                           onClick={(e) => e.stopPropagation()}
                           data-testid={`switch-step-${step.id}`}
                         />
