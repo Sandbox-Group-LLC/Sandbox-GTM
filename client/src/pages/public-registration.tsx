@@ -144,23 +144,66 @@ interface Section {
   config: Record<string, unknown>;
 }
 
+interface Step1Config {
+  collectFirstName?: boolean;
+  collectLastName?: boolean;
+  collectEmail?: boolean;
+  collectPhone?: boolean;
+  collectCompany?: boolean;
+  collectJobTitle?: boolean;
+}
+
 interface PublicRegistrationData {
   event: Event;
   registrationPage: EventPage | null;
   landingTheme?: EventPageTheme | null;
+  registrationConfig?: Step1Config | null;
 }
 
-const baseRegistrationSchema = z.object({
-  firstName: z.string().min(1, "First name is required"),
-  lastName: z.string().min(1, "Last name is required"),
-  email: z.string().email("Valid email is required"),
-  phone: z.string().optional(),
-  company: z.string().optional(),
-  jobTitle: z.string().optional(),
-  inviteCode: z.string().optional(),
-});
-
-function buildDynamicSchema(customFields: CustomField[]) {
+function buildDynamicSchema(customFields: CustomField[], registrationConfig?: Step1Config | null) {
+  // Default required fields (backward compatibility)
+  const defaultRequired = {
+    firstName: true,
+    lastName: true,
+    email: true,
+    phone: false,
+    company: false,
+    jobTitle: false,
+  };
+  
+  // Determine which fields are required based on config or defaults
+  const isRequired = {
+    firstName: registrationConfig?.collectFirstName ?? defaultRequired.firstName,
+    lastName: registrationConfig?.collectLastName ?? defaultRequired.lastName,
+    email: registrationConfig?.collectEmail ?? defaultRequired.email,
+    phone: registrationConfig?.collectPhone ?? defaultRequired.phone,
+    company: registrationConfig?.collectCompany ?? defaultRequired.company,
+    jobTitle: registrationConfig?.collectJobTitle ?? defaultRequired.jobTitle,
+  };
+  
+  // Build base schema dynamically based on required fields
+  const baseSchema = z.object({
+    firstName: isRequired.firstName 
+      ? z.string().min(1, "First name is required") 
+      : z.string().optional(),
+    lastName: isRequired.lastName 
+      ? z.string().min(1, "Last name is required") 
+      : z.string().optional(),
+    email: isRequired.email 
+      ? z.string().email("Valid email is required") 
+      : z.string().email("Valid email is required").optional().or(z.literal("")),
+    phone: isRequired.phone 
+      ? z.string().min(1, "Phone is required") 
+      : z.string().optional(),
+    company: isRequired.company 
+      ? z.string().min(1, "Company is required") 
+      : z.string().optional(),
+    jobTitle: isRequired.jobTitle 
+      ? z.string().min(1, "Job title is required") 
+      : z.string().optional(),
+    inviteCode: z.string().optional(),
+  });
+  
   const customDataShape: Record<string, z.ZodTypeAny> = {};
   
   customFields.forEach((field) => {
@@ -189,12 +232,39 @@ function buildDynamicSchema(customFields: CustomField[]) {
     customDataShape[field.name] = fieldSchema;
   });
   
-  return baseRegistrationSchema.extend({
+  return baseSchema.extend({
     customData: z.object(customDataShape).optional(),
   });
 }
 
-type RegistrationFormData = z.infer<typeof baseRegistrationSchema> & {
+function getRequiredFields(registrationConfig?: Step1Config | null) {
+  const defaultRequired = {
+    firstName: true,
+    lastName: true,
+    email: true,
+    phone: false,
+    company: false,
+    jobTitle: false,
+  };
+  
+  return {
+    firstName: registrationConfig?.collectFirstName ?? defaultRequired.firstName,
+    lastName: registrationConfig?.collectLastName ?? defaultRequired.lastName,
+    email: registrationConfig?.collectEmail ?? defaultRequired.email,
+    phone: registrationConfig?.collectPhone ?? defaultRequired.phone,
+    company: registrationConfig?.collectCompany ?? defaultRequired.company,
+    jobTitle: registrationConfig?.collectJobTitle ?? defaultRequired.jobTitle,
+  };
+}
+
+type RegistrationFormData = {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  company?: string;
+  jobTitle?: string;
+  inviteCode?: string;
   customData?: Record<string, string | boolean>;
 };
 
@@ -448,8 +518,12 @@ export default function PublicRegistration() {
   }, [customFields]);
 
   const dynamicSchema = useMemo(() => {
-    return buildDynamicSchema(customFields);
-  }, [customFields]);
+    return buildDynamicSchema(customFields, data?.registrationConfig);
+  }, [customFields, data?.registrationConfig]);
+
+  const requiredFields = useMemo(() => {
+    return getRequiredFields(data?.registrationConfig);
+  }, [data?.registrationConfig]);
 
   const defaultCustomData = useMemo(() => {
     const data: Record<string, string | boolean> = {};
@@ -794,7 +868,9 @@ export default function PublicRegistration() {
                           name="firstName"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>First Name</FormLabel>
+                              <FormLabel>
+                                First Name{requiredFields.firstName && <span className="text-destructive ml-1">*</span>}
+                              </FormLabel>
                               <FormControl>
                                 <Input data-testid="input-first-name" {...field} />
                               </FormControl>
@@ -807,7 +883,9 @@ export default function PublicRegistration() {
                           name="lastName"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Last Name</FormLabel>
+                              <FormLabel>
+                                Last Name{requiredFields.lastName && <span className="text-destructive ml-1">*</span>}
+                              </FormLabel>
                               <FormControl>
                                 <Input data-testid="input-last-name" {...field} />
                               </FormControl>
@@ -822,7 +900,9 @@ export default function PublicRegistration() {
                         name="email"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Email</FormLabel>
+                            <FormLabel>
+                              Email{requiredFields.email && <span className="text-destructive ml-1">*</span>}
+                            </FormLabel>
                             <FormControl>
                               <Input type="email" data-testid="input-email" {...field} />
                             </FormControl>
@@ -836,7 +916,9 @@ export default function PublicRegistration() {
                         name="phone"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Phone (optional)</FormLabel>
+                            <FormLabel>
+                              Phone{requiredFields.phone ? <span className="text-destructive ml-1">*</span> : " (optional)"}
+                            </FormLabel>
                             <FormControl>
                               <Input data-testid="input-phone" {...field} />
                             </FormControl>
@@ -850,7 +932,9 @@ export default function PublicRegistration() {
                         name="company"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Company (optional)</FormLabel>
+                            <FormLabel>
+                              Company{requiredFields.company ? <span className="text-destructive ml-1">*</span> : " (optional)"}
+                            </FormLabel>
                             <FormControl>
                               <Input data-testid="input-company" {...field} />
                             </FormControl>
@@ -864,7 +948,9 @@ export default function PublicRegistration() {
                         name="jobTitle"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Job Title (optional)</FormLabel>
+                            <FormLabel>
+                              Job Title{requiredFields.jobTitle ? <span className="text-destructive ml-1">*</span> : " (optional)"}
+                            </FormLabel>
                             <FormControl>
                               <Input data-testid="input-job-title" {...field} />
                             </FormControl>

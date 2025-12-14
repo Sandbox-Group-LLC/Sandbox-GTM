@@ -1554,6 +1554,9 @@ export async function registerRoutes(
       const registrationPage = pages.find(p => p.pageType === "registration" && p.isPublished);
       const landingPage = pages.find(p => p.pageType === "landing" && p.isPublished);
       
+      // Fetch registration config to know which fields are required
+      const registrationConfig = await storage.getRegistrationConfig(event.organizationId, event.id);
+      
       // Use landing page theme as fallback if registration page has no theme
       // Also provide landing theme even if no registration page exists
       const landingTheme = landingPage?.theme || null;
@@ -1562,7 +1565,12 @@ export async function registerRoutes(
         theme: registrationPage.theme || landingTheme
       } : null;
       
-      res.json({ event, registrationPage: effectivePage, landingTheme });
+      res.json({ 
+        event, 
+        registrationPage: effectivePage, 
+        landingTheme,
+        registrationConfig: registrationConfig?.step1Config || null
+      });
     } catch (error) {
       console.error("Error fetching registration page:", error);
       res.status(500).json({ message: "Failed to fetch registration page" });
@@ -1704,6 +1712,57 @@ export async function registerRoutes(
       }
       
       const { inviteCode, ...registrationData } = req.body;
+      
+      // Fetch registration config and validate required fields
+      const registrationConfig = await storage.getRegistrationConfig(event.organizationId, event.id);
+      const step1Config = registrationConfig?.step1Config;
+      
+      // Default required fields (backward compatibility)
+      const defaultRequired = {
+        firstName: true,
+        lastName: true,
+        email: true,
+        phone: false,
+        company: false,
+        jobTitle: false,
+      };
+      
+      // Determine which fields are required based on config or defaults
+      const isRequired = {
+        firstName: step1Config?.collectFirstName ?? defaultRequired.firstName,
+        lastName: step1Config?.collectLastName ?? defaultRequired.lastName,
+        email: step1Config?.collectEmail ?? defaultRequired.email,
+        phone: step1Config?.collectPhone ?? defaultRequired.phone,
+        company: step1Config?.collectCompany ?? defaultRequired.company,
+        jobTitle: step1Config?.collectJobTitle ?? defaultRequired.jobTitle,
+      };
+      
+      // Validate required fields
+      const missingFields: string[] = [];
+      if (isRequired.firstName && !registrationData.firstName?.trim()) {
+        missingFields.push("First Name");
+      }
+      if (isRequired.lastName && !registrationData.lastName?.trim()) {
+        missingFields.push("Last Name");
+      }
+      if (isRequired.email && !registrationData.email?.trim()) {
+        missingFields.push("Email");
+      }
+      if (isRequired.phone && !registrationData.phone?.trim()) {
+        missingFields.push("Phone");
+      }
+      if (isRequired.company && !registrationData.company?.trim()) {
+        missingFields.push("Company");
+      }
+      if (isRequired.jobTitle && !registrationData.jobTitle?.trim()) {
+        missingFields.push("Job Title");
+      }
+      
+      if (missingFields.length > 0) {
+        return res.status(400).json({ 
+          message: `Missing required fields: ${missingFields.join(", ")}` 
+        });
+      }
       
       let inviteCodeId: string | undefined;
       let attendeeType = registrationData.attendeeType;
