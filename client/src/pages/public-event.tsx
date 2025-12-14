@@ -28,6 +28,11 @@ export default function PublicEvent() {
 
   const { data, isLoading, error } = useQuery<PublicEventData>({
     queryKey: ["/api/public/event", slug],
+    queryFn: async () => {
+      const res = await fetch(`/api/public/event/${slug}`);
+      if (!res.ok) throw new Error("Failed to fetch event");
+      return res.json();
+    },
     enabled: !!slug,
   });
 
