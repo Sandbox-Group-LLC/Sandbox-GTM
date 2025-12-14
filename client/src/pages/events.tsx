@@ -23,7 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { EventFormFields, eventFormSchema, type EventFormValues } from "@/components/event-form-fields";
-import type { Event } from "@shared/schema";
+import type { Event, Attendee, EventSession } from "@shared/schema";
 
 export default function Events() {
   const { toast } = useToast();
@@ -34,6 +34,24 @@ export default function Events() {
 
   const { data: events, isLoading } = useQuery<Event[]>({
     queryKey: ["/api/events"],
+  });
+
+  // Fetch attendees for selected event
+  const { data: eventAttendees, isLoading: attendeesLoading } = useQuery<Attendee[]>({
+    queryKey: ["/api/attendees", { eventId: selectedEvent?.id }],
+    enabled: !!selectedEvent,
+  });
+
+  // Fetch sessions for selected event
+  const { data: eventSessionsData, isLoading: sessionsLoading } = useQuery<EventSession[]>({
+    queryKey: ["/api/sessions", { eventId: selectedEvent?.id }],
+    enabled: !!selectedEvent,
+  });
+
+  // Fetch packages for selected event
+  const { data: eventPackages, isLoading: packagesLoading } = useQuery<any[]>({
+    queryKey: ["/api/events", selectedEvent?.id, "packages"],
+    enabled: !!selectedEvent,
   });
 
   const form = useForm<EventFormValues>({
@@ -501,33 +519,108 @@ export default function Events() {
                   </TabsContent>
 
                   <TabsContent value="attendees" className="flex-1 overflow-auto p-4 mt-0" data-testid="content-attendees">
-                    <div className="flex flex-col items-center justify-center py-12 text-center">
-                      <Users className="h-12 w-12 text-muted-foreground mb-4" />
-                      <h3 className="text-lg font-medium mb-2">No attendees yet</h3>
-                      <p className="text-sm text-muted-foreground max-w-xs">
-                        Attendees will appear here once they register for this event.
-                      </p>
-                    </div>
+                    {attendeesLoading ? (
+                      <div className="flex items-center justify-center py-12">
+                        <p className="text-muted-foreground">Loading attendees...</p>
+                      </div>
+                    ) : eventAttendees && eventAttendees.length > 0 ? (
+                      <div className="space-y-2">
+                        <p className="text-sm text-muted-foreground mb-4">{eventAttendees.length} attendee{eventAttendees.length !== 1 ? 's' : ''}</p>
+                        {eventAttendees.map((attendee) => (
+                          <div key={attendee.id} className="flex items-center gap-3 p-3 border rounded-md" data-testid={`attendee-row-${attendee.id}`}>
+                            <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium">
+                              {attendee.firstName?.[0]}{attendee.lastName?.[0]}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium truncate">{attendee.firstName} {attendee.lastName}</p>
+                              <p className="text-sm text-muted-foreground truncate">{attendee.email}</p>
+                            </div>
+                            <Badge variant={attendee.registrationStatus === 'registered' ? 'default' : 'secondary'}>
+                              {attendee.registrationStatus || 'pending'}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-12 text-center">
+                        <Users className="h-12 w-12 text-muted-foreground mb-4" />
+                        <h3 className="text-lg font-medium mb-2">No attendees yet</h3>
+                        <p className="text-sm text-muted-foreground max-w-xs">
+                          Attendees will appear here once they register for this event.
+                        </p>
+                      </div>
+                    )}
                   </TabsContent>
 
                   <TabsContent value="sessions" className="flex-1 overflow-auto p-4 mt-0" data-testid="content-sessions">
-                    <div className="flex flex-col items-center justify-center py-12 text-center">
-                      <Presentation className="h-12 w-12 text-muted-foreground mb-4" />
-                      <h3 className="text-lg font-medium mb-2">No sessions yet</h3>
-                      <p className="text-sm text-muted-foreground max-w-xs">
-                        Sessions for this event will be displayed here.
-                      </p>
-                    </div>
+                    {sessionsLoading ? (
+                      <div className="flex items-center justify-center py-12">
+                        <p className="text-muted-foreground">Loading sessions...</p>
+                      </div>
+                    ) : eventSessionsData && eventSessionsData.length > 0 ? (
+                      <div className="space-y-2">
+                        <p className="text-sm text-muted-foreground mb-4">{eventSessionsData.length} session{eventSessionsData.length !== 1 ? 's' : ''}</p>
+                        {eventSessionsData.map((session) => (
+                          <div key={session.id} className="p-3 border rounded-md" data-testid={`session-row-${session.id}`}>
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              <p className="font-medium">{session.title}</p>
+                              {session.sessionType && <Badge variant="secondary">{session.sessionType}</Badge>}
+                            </div>
+                            {session.sessionDate && (
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {format(new Date(session.sessionDate), "MMM d, yyyy")}
+                                {session.startTime && ` ${session.startTime}`}
+                                {session.endTime && ` - ${session.endTime}`}
+                              </p>
+                            )}
+                            {session.room && (
+                              <p className="text-sm text-muted-foreground">{session.room}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-12 text-center">
+                        <Presentation className="h-12 w-12 text-muted-foreground mb-4" />
+                        <h3 className="text-lg font-medium mb-2">No sessions yet</h3>
+                        <p className="text-sm text-muted-foreground max-w-xs">
+                          Sessions for this event will be displayed here.
+                        </p>
+                      </div>
+                    )}
                   </TabsContent>
 
                   <TabsContent value="packages" className="flex-1 overflow-auto p-4 mt-0" data-testid="content-packages">
-                    <div className="flex flex-col items-center justify-center py-12 text-center">
-                      <Package className="h-12 w-12 text-muted-foreground mb-4" />
-                      <h3 className="text-lg font-medium mb-2">No packages yet</h3>
-                      <p className="text-sm text-muted-foreground max-w-xs">
-                        Registration packages for this event will be shown here.
-                      </p>
-                    </div>
+                    {packagesLoading ? (
+                      <div className="flex items-center justify-center py-12">
+                        <p className="text-muted-foreground">Loading packages...</p>
+                      </div>
+                    ) : eventPackages && eventPackages.length > 0 ? (
+                      <div className="space-y-2">
+                        <p className="text-sm text-muted-foreground mb-4">{eventPackages.length} package{eventPackages.length !== 1 ? 's' : ''}</p>
+                        {eventPackages.map((pkg: any) => (
+                          <div key={pkg.id} className="p-3 border rounded-md" data-testid={`package-row-${pkg.id}`}>
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              <p className="font-medium">{pkg.name}</p>
+                              <Badge variant={pkg.isEnabled !== false ? 'default' : 'secondary'}>
+                                ${pkg.effectivePrice ?? pkg.price}
+                              </Badge>
+                            </div>
+                            {pkg.description && (
+                              <p className="text-sm text-muted-foreground mt-1">{pkg.description}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-12 text-center">
+                        <Package className="h-12 w-12 text-muted-foreground mb-4" />
+                        <h3 className="text-lg font-medium mb-2">No packages yet</h3>
+                        <p className="text-sm text-muted-foreground max-w-xs">
+                          Registration packages for this event will be shown here.
+                        </p>
+                      </div>
+                    )}
                   </TabsContent>
                 </Tabs>
               )}
