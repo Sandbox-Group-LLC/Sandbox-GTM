@@ -295,10 +295,9 @@ export default function SiteBuilder() {
       const savedPage = await response.json();
       if (savedPage?.id) {
         await apiRequest("POST", `/api/events/${selectedEventId}/pages/${savedPage.id}/versions`, {
-          label: null,
           sections: data.sections,
-          theme: data.theme ?? currentPage?.theme,
-          seo: data.seo ?? currentPage?.seo,
+          theme: data.theme ?? currentPage?.theme ?? {},
+          seo: data.seo ?? currentPage?.seo ?? {},
         });
       }
       return savedPage;
