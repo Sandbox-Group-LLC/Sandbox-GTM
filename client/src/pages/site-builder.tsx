@@ -2825,6 +2825,25 @@ function DebouncedColorInput({
 }
 
 function StylesEditor({ theme, onUpdateTheme, isPending, seo, onUpdateSeo }: StylesEditorProps) {
+  const [localCss, setLocalCss] = useState(theme.customCss || "");
+  const [cssHasChanges, setCssHasChanges] = useState(false);
+  
+  // Sync local CSS when theme changes from external source (e.g., template applied)
+  useEffect(() => {
+    setLocalCss(theme.customCss || "");
+    setCssHasChanges(false);
+  }, [theme.customCss]);
+  
+  const handleCssChange = (value: string) => {
+    setLocalCss(value);
+    setCssHasChanges(value !== (theme.customCss || ""));
+  };
+  
+  const handleSaveCss = () => {
+    onUpdateTheme({ customCss: localCss });
+    setCssHasChanges(false);
+  };
+  
   return (
     <div className="space-y-8">
       <div className="space-y-4">
@@ -3144,16 +3163,21 @@ function StylesEditor({ theme, onUpdateTheme, isPending, seo, onUpdateSeo }: Sty
       </div>
 
       <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <Code className="h-5 w-5 text-muted-foreground" />
-          <h4 className="font-medium">Custom CSS</h4>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Code className="h-5 w-5 text-muted-foreground" />
+            <h4 className="font-medium">Custom CSS</h4>
+          </div>
+          {cssHasChanges && (
+            <Badge variant="secondary" className="text-xs">Unsaved changes</Badge>
+          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="customCss">Custom Styles</Label>
           <Textarea
             id="customCss"
-            value={theme.customCss || ""}
-            onChange={(e) => onUpdateTheme({ customCss: e.target.value })}
+            value={localCss}
+            onChange={(e) => handleCssChange(e.target.value)}
             disabled={isPending}
             placeholder={`.event-page-custom h1 {
   /* Your custom styles */
@@ -3166,9 +3190,19 @@ function StylesEditor({ theme, onUpdateTheme, isPending, seo, onUpdateSeo }: Sty
             className="font-mono text-sm"
             data-testid="textarea-custom-css"
           />
-          <p className="text-xs text-muted-foreground">
-            Add custom CSS to style your event page. Use the <code className="bg-muted px-1 rounded">.event-page-custom</code> prefix to scope your styles to the event page only.
-          </p>
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <p className="text-xs text-muted-foreground">
+              Add custom CSS to style your event page. Use the <code className="bg-muted px-1 rounded">.event-page-custom</code> prefix to scope your styles.
+            </p>
+            <Button 
+              onClick={handleSaveCss} 
+              disabled={!cssHasChanges || isPending}
+              size="sm"
+              data-testid="button-save-custom-css"
+            >
+              Save CSS
+            </Button>
+          </div>
         </div>
       </div>
     </div>
