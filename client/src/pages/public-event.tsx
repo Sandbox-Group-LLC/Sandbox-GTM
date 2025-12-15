@@ -888,7 +888,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
 
     case "html":
       const htmlContent = replaceMergeTags(String(config.content || ""), mergeTagContext);
-      return (
+      return wrapWithMargins(
         <div 
           data-testid={`section-html-${section.id}`}
           dangerouslySetInnerHTML={{ __html: htmlContent }}
