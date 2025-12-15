@@ -26,6 +26,13 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -42,6 +49,7 @@ const speakerFormSchema = z.object({
   phone: z.string().optional(),
   company: z.string().optional(),
   jobTitle: z.string().optional(),
+  speakerRole: z.string().optional(),
   bio: z.string().optional(),
   photoUrl: z.string().url().optional().or(z.literal("")),
   linkedin: z.string().optional(),
@@ -72,6 +80,7 @@ export default function Speakers() {
       phone: "",
       company: "",
       jobTitle: "",
+      speakerRole: "",
       bio: "",
       photoUrl: "",
       linkedin: "",
@@ -160,6 +169,7 @@ export default function Speakers() {
       phone: speaker.phone || "",
       company: speaker.company || "",
       jobTitle: speaker.jobTitle || "",
+      speakerRole: speaker.speakerRole || "",
       bio: speaker.bio || "",
       photoUrl: speaker.photoUrl || "",
       linkedin: socialLinks?.linkedin || "",
@@ -277,19 +287,43 @@ export default function Speakers() {
                       )}
                     />
                   </div>
-                  <FormField
-                    control={form.control}
-                    name="phone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Phone</FormLabel>
-                        <FormControl>
-                          <Input {...field} data-testid="input-phone" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="phone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Phone</FormLabel>
+                          <FormControl>
+                            <Input {...field} data-testid="input-phone" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="speakerRole"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Speaker Role</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value || ""}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-speaker-role">
+                                <SelectValue placeholder="Select role" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="keynote">Keynote Speaker</SelectItem>
+                              <SelectItem value="breakout">Breakout Speaker</SelectItem>
+                              <SelectItem value="moderator">Moderator</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                   <FormField
                     control={form.control}
                     name="bio"

@@ -301,6 +301,7 @@ export const speakers = pgTable("speakers", {
   bio: text("bio"),
   photoUrl: varchar("photo_url", { length: 500 }),
   socialLinks: jsonb("social_links").$type<{ linkedin?: string; twitter?: string; website?: string }>(),
+  speakerRole: varchar("speaker_role", { length: 50 }),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
