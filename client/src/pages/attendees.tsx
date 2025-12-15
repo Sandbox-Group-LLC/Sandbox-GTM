@@ -246,8 +246,10 @@ export default function Attendees() {
 
   const handleEdit = (attendee: Attendee) => {
     setEditingAttendee(attendee);
+    const usedInviteCode = attendee.inviteCodeId ? inviteCodeLookup[attendee.inviteCodeId] || "" : "";
     form.reset({
       eventId: attendee.eventId,
+      inviteCode: usedInviteCode,
       attendeeType: attendee.attendeeType || "",
       firstName: attendee.firstName,
       lastName: attendee.lastName,
