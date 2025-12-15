@@ -19,7 +19,7 @@ import {
   Building2,
   Shield,
 } from "lucide-react";
-import logoImage from "@assets/Orange_bug_-_no_background_1765764672466.png";
+import logoImage from "@assets/Orange_bug_-_no_background_1765765097769.png";
 import { OnboardingChecklist } from "./onboarding-checklist";
 import { OnboardingWizard } from "./onboarding-wizard";
 import {

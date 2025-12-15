@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, Users, Mic2, FolderOpen, DollarSign, Mail, Share2, CheckCircle } from "lucide-react";
-import logoImage from "@assets/Orange_bug_-_no_background_1765764672466.png";
+import logoImage from "@assets/Orange_bug_-_no_background_1765765097769.png";
 
 const features = [
   {
