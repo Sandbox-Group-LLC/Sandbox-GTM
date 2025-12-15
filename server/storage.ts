@@ -1187,12 +1187,10 @@ export class DatabaseStorage implements IStorage {
   async getBudgetOffsets(organizationId: string, eventId?: string): Promise<BudgetOffset[]> {
     if (eventId) {
       return db.select().from(budgetOffsets)
-        .where(and(eq(budgetOffsets.organizationId, organizationId), eq(budgetOffsets.eventId, eventId)))
-        .orderBy(desc(budgetOffsets.createdAt));
+        .where(and(eq(budgetOffsets.organizationId, organizationId), eq(budgetOffsets.eventId, eventId)));
     }
     return db.select().from(budgetOffsets)
-      .where(eq(budgetOffsets.organizationId, organizationId))
-      .orderBy(desc(budgetOffsets.createdAt));
+      .where(eq(budgetOffsets.organizationId, organizationId));
   }
 
   async getBudgetOffset(organizationId: string, id: string): Promise<BudgetOffset | undefined> {

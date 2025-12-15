@@ -1192,7 +1192,12 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
-      const data = insertBudgetItemSchema.parse({ ...req.body, organizationId });
+      // Convert empty categoryId to null to avoid FK violation
+      const body = { ...req.body };
+      if (body.categoryId === "") {
+        body.categoryId = null;
+      }
+      const data = insertBudgetItemSchema.parse({ ...body, organizationId });
       const budget = await storage.createBudgetItem(data);
       res.status(201).json(budget);
     } catch (error) {
