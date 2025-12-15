@@ -35,9 +35,11 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Plus, DoorOpen, Trash2, Pencil, Search } from "lucide-react";
+import { EventSelectField } from "@/components/event-select-field";
 import type { SessionRoom } from "@shared/schema";
 
 const roomFormSchema = z.object({
+  eventId: z.string().min(1, "Event is required"),
   name: z.string().min(1, "Name is required"),
   capacity: z.coerce.number().min(0, "Capacity must be 0 or greater").optional(),
 });
@@ -57,6 +59,7 @@ export default function Rooms() {
   const form = useForm<RoomFormData>({
     resolver: zodResolver(roomFormSchema),
     defaultValues: {
+      eventId: "",
       name: "",
       capacity: 0,
     },
@@ -132,6 +135,7 @@ export default function Rooms() {
   const handleEdit = (room: SessionRoom) => {
     setEditingRoom(room);
     form.reset({
+      eventId: room.eventId,
       name: room.name,
       capacity: room.capacity || 0,
     });
@@ -153,6 +157,7 @@ export default function Rooms() {
   const openAddDialog = () => {
     setEditingRoom(null);
     form.reset({
+      eventId: "",
       name: "",
       capacity: 0,
     });
@@ -271,6 +276,7 @@ export default function Rooms() {
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <EventSelectField control={form.control} />
               <FormField
                 control={form.control}
                 name="name"

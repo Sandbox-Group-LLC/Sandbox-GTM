@@ -334,6 +334,7 @@ export const sessionSpeakers = pgTable("session_speakers", {
 export const sessionTracks = pgTable("session_tracks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id).notNull(),
   name: varchar("name", { length: 100 }).notNull(),
   description: text("description"),
   color: varchar("color", { length: 20 }),
@@ -345,6 +346,7 @@ export const sessionTracks = pgTable("session_tracks", {
 export const sessionRooms = pgTable("session_rooms", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id).notNull(),
   name: varchar("name", { length: 100 }).notNull(),
   location: varchar("location", { length: 255 }),
   capacity: integer("capacity"),

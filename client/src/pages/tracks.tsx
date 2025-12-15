@@ -37,9 +37,11 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Plus, Tag, Trash2, Pencil, Search } from "lucide-react";
 import { ColorPicker } from "@/components/color-picker";
+import { EventSelectField } from "@/components/event-select-field";
 import type { SessionTrack } from "@shared/schema";
 
 const trackFormSchema = z.object({
+  eventId: z.string().min(1, "Event is required"),
   name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
   color: z.string().optional(),
@@ -60,6 +62,7 @@ export default function Tracks() {
   const form = useForm<TrackFormData>({
     resolver: zodResolver(trackFormSchema),
     defaultValues: {
+      eventId: "",
       name: "",
       description: "",
       color: "#3B82F6",
@@ -136,6 +139,7 @@ export default function Tracks() {
   const handleEdit = (track: SessionTrack) => {
     setEditingTrack(track);
     form.reset({
+      eventId: track.eventId,
       name: track.name,
       description: track.description || "",
       color: track.color || "#3B82F6",
@@ -158,6 +162,7 @@ export default function Tracks() {
   const openAddDialog = () => {
     setEditingTrack(null);
     form.reset({
+      eventId: "",
       name: "",
       description: "",
       color: "#3B82F6",
@@ -287,6 +292,7 @@ export default function Tracks() {
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <EventSelectField control={form.control} />
               <FormField
                 control={form.control}
                 name="name"
