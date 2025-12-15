@@ -294,6 +294,7 @@ export interface IStorage {
   updateEventPage(organizationId: string, id: string, page: Partial<InsertEventPage>): Promise<EventPage | undefined>;
   upsertEventPage(page: InsertEventPage): Promise<EventPage>;
   deleteEventPage(organizationId: string, id: string): Promise<void>;
+  getPublishedLandingPagesForSitemap(): Promise<Array<{ slug: string | null; updatedAt: Date | null }>>;
 
   // Registration Config operations
   getRegistrationConfig(organizationId: string, eventId: string): Promise<RegistrationConfig | undefined>;
@@ -1274,6 +1275,17 @@ export class DatabaseStorage implements IStorage {
 
   async deleteEventPage(organizationId: string, id: string): Promise<void> {
     await db.delete(eventPages).where(and(eq(eventPages.organizationId, organizationId), eq(eventPages.id, id)));
+  }
+
+  async getPublishedLandingPagesForSitemap(): Promise<Array<{ slug: string | null; updatedAt: Date | null }>> {
+    const result = await db.select({
+      slug: events.publicSlug,
+      updatedAt: eventPages.updatedAt,
+    })
+    .from(eventPages)
+    .innerJoin(events, eq(eventPages.eventId, events.id))
+    .where(and(eq(eventPages.isPublished, true), eq(eventPages.pageType, 'landing')));
+    return result;
   }
 
   // Registration Config operations

@@ -61,6 +61,7 @@ import {
   Sparkles,
   AlertTriangle,
   Menu,
+  Search,
 } from "lucide-react";
 import type { Event, EventPage, EventPageTheme } from "@shared/schema";
 import { MergeTagPicker } from "@/components/merge-tag-picker";
@@ -270,13 +271,14 @@ export default function SiteBuilder() {
   }, [sections, currentPage?.theme]);
 
   const saveMutation = useMutation({
-    mutationFn: async (data: { pageType: PageType; sections: Section[]; isPublished?: boolean; theme?: EventPageTheme }) => {
+    mutationFn: async (data: { pageType: PageType; sections: Section[]; isPublished?: boolean; theme?: EventPageTheme; seo?: { title?: string; description?: string; ogImage?: string } }) => {
       return await apiRequest("POST", `/api/events/${selectedEventId}/pages`, {
         eventId: selectedEventId,
         pageType: data.pageType,
         sections: data.sections,
         isPublished: data.isPublished ?? currentPage?.isPublished ?? false,
         theme: data.theme ?? currentPage?.theme,
+        seo: data.seo ?? currentPage?.seo,
       });
     },
     onSuccess: async () => {
@@ -381,6 +383,11 @@ export default function SiteBuilder() {
     setPreviewTheme(newTheme);
     // Persist to server
     saveMutation.mutate({ pageType: activeTab, sections: sections, theme: newTheme });
+  };
+
+  const handleUpdateSeo = (updates: { title?: string; description?: string; ogImage?: string }) => {
+    const newSeo = { ...(currentPage?.seo ?? {}), ...updates };
+    saveMutation.mutate({ pageType: activeTab, sections, seo: newSeo });
   };
 
   const handleApplyTemplate = (template: EventTemplate) => {
@@ -781,6 +788,8 @@ export default function SiteBuilder() {
                           theme={previewTheme || currentTheme}
                           onUpdateTheme={handleUpdateTheme}
                           isPending={saveMutation.isPending}
+                          seo={currentPage?.seo}
+                          onUpdateSeo={handleUpdateSeo}
                         />
                       )}
                     </TabsContent>
@@ -2409,9 +2418,11 @@ interface StylesEditorProps {
   theme: EventPageTheme;
   onUpdateTheme: (updates: Partial<EventPageTheme>) => void;
   isPending: boolean;
+  seo?: { title?: string; description?: string; ogImage?: string };
+  onUpdateSeo: (updates: { title?: string; description?: string; ogImage?: string }) => void;
 }
 
-function StylesEditor({ theme, onUpdateTheme, isPending }: StylesEditorProps) {
+function StylesEditor({ theme, onUpdateTheme, isPending, seo, onUpdateSeo }: StylesEditorProps) {
   return (
     <div className="space-y-8">
       <div className="space-y-4">
@@ -2764,6 +2775,58 @@ function StylesEditor({ theme, onUpdateTheme, isPending }: StylesEditorProps) {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Search className="h-5 w-5 text-muted-foreground" />
+          <h4 className="font-medium">SEO & Social Sharing</h4>
+        </div>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="seoTitle">Meta Title</Label>
+            <Input
+              id="seoTitle"
+              value={seo?.title || ""}
+              onChange={(e) => onUpdateSeo({ title: e.target.value })}
+              disabled={isPending}
+              placeholder="Page title for search engines"
+              data-testid="input-seo-title"
+            />
+            <p className="text-xs text-muted-foreground">
+              Recommended: 50-60 characters (max 160)
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="seoDescription">Meta Description</Label>
+            <Textarea
+              id="seoDescription"
+              value={seo?.description || ""}
+              onChange={(e) => onUpdateSeo({ description: e.target.value })}
+              disabled={isPending}
+              placeholder="Brief description for search engine results"
+              rows={3}
+              data-testid="textarea-seo-description"
+            />
+            <p className="text-xs text-muted-foreground">
+              Recommended: 150-160 characters (max 320)
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="seoOgImage">Open Graph Image URL</Label>
+            <Input
+              id="seoOgImage"
+              value={seo?.ogImage || ""}
+              onChange={(e) => onUpdateSeo({ ogImage: e.target.value })}
+              disabled={isPending}
+              placeholder="https://example.com/image.jpg"
+              data-testid="input-seo-og-image"
+            />
+            <p className="text-xs text-muted-foreground">
+              Image displayed when shared on social media (recommended: 1200x630px)
+            </p>
           </div>
         </div>
       </div>

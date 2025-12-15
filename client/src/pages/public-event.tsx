@@ -217,6 +217,66 @@ export default function PublicEvent() {
     enabled: !!slug,
   });
 
+  // Inject SEO meta tags when data is loaded
+  useEffect(() => {
+    if (!data) return;
+    const { event, landingPage } = data;
+    const seo = landingPage?.seo;
+    
+    // Set document title
+    document.title = seo?.title || event.name;
+    
+    // Helper to set or remove meta tags
+    const setMeta = (name: string, content: string | undefined, isProperty = false) => {
+      const attr = isProperty ? 'property' : 'name';
+      let tag = document.querySelector(`meta[${attr}="${name}"]`) as HTMLMetaElement | null;
+      if (content) {
+        if (!tag) {
+          tag = document.createElement('meta');
+          tag.setAttribute(attr, name);
+          document.head.appendChild(tag);
+        }
+        tag.setAttribute('content', content);
+      } else if (tag) {
+        tag.remove();
+      }
+    };
+    
+    // Set canonical link
+    const setCanonical = (href: string) => {
+      let link = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
+      if (!link) {
+        link = document.createElement('link');
+        link.setAttribute('rel', 'canonical');
+        document.head.appendChild(link);
+      }
+      link.setAttribute('href', href);
+    };
+    
+    setMeta('description', seo?.description || event.description);
+    setMeta('og:title', seo?.title || event.name, true);
+    setMeta('og:description', seo?.description || event.description, true);
+    setMeta('og:image', seo?.ogImage, true);
+    setMeta('og:type', 'website', true);
+    setMeta('og:url', window.location.href, true);
+    setCanonical(window.location.href);
+    
+    // Cleanup function to remove tags on unmount
+    return () => {
+      document.title = 'Event';
+      ['description'].forEach(name => {
+        const tag = document.querySelector(`meta[name="${name}"]`);
+        if (tag) tag.remove();
+      });
+      ['og:title', 'og:description', 'og:image', 'og:type', 'og:url'].forEach(prop => {
+        const tag = document.querySelector(`meta[property="${prop}"]`);
+        if (tag) tag.remove();
+      });
+      const canonical = document.querySelector('link[rel="canonical"]');
+      if (canonical) canonical.remove();
+    };
+  }, [data]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background p-6">

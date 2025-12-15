@@ -2124,6 +2124,46 @@ export async function registerRoutes(
     }
   });
 
+  // Helper function to escape XML special characters
+  function escapeXml(str: string): string {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+  }
+
+  // Public sitemap endpoint
+  app.get("/sitemap.xml", async (req, res) => {
+    try {
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      // Get all published landing pages with their event slugs
+      const publishedPages = await storage.getPublishedLandingPagesForSitemap();
+      
+      // Filter out entries without valid slugs
+      const validPages = publishedPages.filter(p => p.slug);
+      const urls = validPages.map(p => ({
+        loc: escapeXml(`${baseUrl}/event/${p.slug}`),
+        lastmod: p.updatedAt ? new Date(p.updatedAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      }));
+      
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls.map(u => `  <url>
+    <loc>${u.loc}</loc>
+    <lastmod>${u.lastmod}</lastmod>
+  </url>`).join('\n')}
+</urlset>`;
+      
+      res.set('Content-Type', 'application/xml');
+      res.send(xml);
+    } catch (error) {
+      logError("Error generating sitemap:", error);
+      res.status(500).send('Error generating sitemap');
+    }
+  });
+
   // Public event registration routes (no auth required)
   app.get("/api/public/event/:slug", async (req, res) => {
     try {
