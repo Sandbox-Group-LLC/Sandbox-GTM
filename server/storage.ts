@@ -407,6 +407,11 @@ export class DatabaseStorage implements IStorage {
     await db.delete(deliverables).where(eq(deliverables.organizationId, id));
     await db.delete(milestones).where(eq(milestones.organizationId, id));
     await db.delete(contentItems).where(eq(contentItems.organizationId, id));
+    // Delete sessionSpeakers junction table entries before sessions/speakers
+    const orgSessions = await db.select({ id: eventSessions.id }).from(eventSessions).where(eq(eventSessions.organizationId, id));
+    for (const session of orgSessions) {
+      await db.delete(sessionSpeakers).where(eq(sessionSpeakers.sessionId, session.id));
+    }
     await db.delete(eventSessions).where(eq(eventSessions.organizationId, id));
     await db.delete(speakers).where(eq(speakers.organizationId, id));
     await db.delete(attendeeTypes).where(eq(attendeeTypes.organizationId, id));
