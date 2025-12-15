@@ -2608,7 +2608,7 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId }: S
                   data-testid="input-section-custom-class"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Add custom CSS classes to this section for advanced styling
+                  This class is applied to the section wrapper. To style content inside, use descendant selectors in Custom CSS (e.g., <code className="bg-muted px-1 rounded">.my-class img</code>).
                 </p>
               </div>
             </div>
@@ -3190,18 +3190,23 @@ function StylesEditor({ theme, onUpdateTheme, isPending, seo, onUpdateSeo }: Sty
             className="font-mono text-sm"
             data-testid="textarea-custom-css"
           />
-          <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="space-y-2">
             <p className="text-xs text-muted-foreground">
-              Add custom CSS to style your event page. Use the <code className="bg-muted px-1 rounded">.event-page-custom</code> prefix to scope your styles.
+              Add custom CSS to style your event page. Styles are automatically scoped to your event page using <code className="bg-muted px-1 rounded">.event-page-custom</code>.
             </p>
-            <Button 
-              onClick={handleSaveCss} 
-              disabled={!cssHasChanges || isPending}
-              size="sm"
-              data-testid="button-save-custom-css"
-            >
-              Save CSS
-            </Button>
+            <p className="text-xs text-muted-foreground">
+              To target a section with a Custom CSS Class, use the class name directly (e.g., <code className="bg-muted px-1 rounded">.banner</code>). To style content inside that section, use descendant selectors (e.g., <code className="bg-muted px-1 rounded">.banner img</code>).
+            </p>
+            <div className="flex justify-end">
+              <Button 
+                onClick={handleSaveCss} 
+                disabled={!cssHasChanges || isPending}
+                size="sm"
+                data-testid="button-save-custom-css"
+              >
+                Save CSS
+              </Button>
+            </div>
           </div>
         </div>
       </div>
