@@ -16,6 +16,9 @@ import {
   insertSessionSchema,
   insertContentItemSchema,
   insertBudgetItemSchema,
+  insertBudgetCategorySchema,
+  insertBudgetOffsetSchema,
+  insertBudgetPaymentSchema,
   insertMilestoneSchema,
   insertDeliverableSchema,
   insertEmailCampaignSchema,
@@ -1204,6 +1207,204 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting budget item:", error);
       res.status(500).json({ message: "Failed to delete budget item" });
+    }
+  });
+
+  // Budget Categories routes (org-scoped)
+  app.get("/api/budget-categories", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const categories = await storage.getBudgetCategories(organizationId);
+      res.json(categories);
+    } catch (error) {
+      console.error("Error fetching budget categories:", error);
+      res.status(500).json({ message: "Failed to fetch budget categories" });
+    }
+  });
+
+  app.post("/api/budget-categories", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const data = insertBudgetCategorySchema.parse({ ...req.body, organizationId });
+      const category = await storage.createBudgetCategory(data);
+      res.status(201).json(category);
+    } catch (error) {
+      console.error("Error creating budget category:", error);
+      res.status(400).json({ message: "Invalid budget category data" });
+    }
+  });
+
+  app.patch("/api/budget-categories/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const category = await storage.updateBudgetCategory(organizationId, req.params.id, req.body);
+      if (!category) {
+        return res.status(404).json({ message: "Budget category not found" });
+      }
+      res.json(category);
+    } catch (error) {
+      console.error("Error updating budget category:", error);
+      res.status(400).json({ message: "Failed to update budget category" });
+    }
+  });
+
+  app.delete("/api/budget-categories/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      await storage.deleteBudgetCategory(organizationId, req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting budget category:", error);
+      res.status(500).json({ message: "Failed to delete budget category" });
+    }
+  });
+
+  // Budget Offsets routes (event-scoped)
+  app.get("/api/budget-offsets", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const eventId = req.query.eventId as string | undefined;
+      const offsets = await storage.getBudgetOffsets(organizationId, eventId);
+      res.json(offsets);
+    } catch (error) {
+      console.error("Error fetching budget offsets:", error);
+      res.status(500).json({ message: "Failed to fetch budget offsets" });
+    }
+  });
+
+  app.post("/api/budget-offsets", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const data = insertBudgetOffsetSchema.parse({ ...req.body, organizationId });
+      const offset = await storage.createBudgetOffset(data);
+      res.status(201).json(offset);
+    } catch (error) {
+      console.error("Error creating budget offset:", error);
+      res.status(400).json({ message: "Invalid budget offset data" });
+    }
+  });
+
+  app.patch("/api/budget-offsets/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const offset = await storage.updateBudgetOffset(organizationId, req.params.id, req.body);
+      if (!offset) {
+        return res.status(404).json({ message: "Budget offset not found" });
+      }
+      res.json(offset);
+    } catch (error) {
+      console.error("Error updating budget offset:", error);
+      res.status(400).json({ message: "Failed to update budget offset" });
+    }
+  });
+
+  app.delete("/api/budget-offsets/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      await storage.deleteBudgetOffset(organizationId, req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting budget offset:", error);
+      res.status(500).json({ message: "Failed to delete budget offset" });
+    }
+  });
+
+  // Event Budget Settings routes
+  app.get("/api/events/:eventId/budget-settings", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const event = await storage.getEvent(organizationId, req.params.eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      const settings = await storage.getEventBudgetSettings(req.params.eventId);
+      res.json(settings || { eventId: req.params.eventId, budgetCap: null });
+    } catch (error) {
+      console.error("Error fetching event budget settings:", error);
+      res.status(500).json({ message: "Failed to fetch event budget settings" });
+    }
+  });
+
+  app.put("/api/events/:eventId/budget-settings", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const event = await storage.getEvent(organizationId, req.params.eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      const { budgetCap } = req.body;
+      const settings = await storage.upsertEventBudgetSettings({
+        eventId: req.params.eventId,
+        budgetCap: budgetCap ?? null,
+      });
+      res.json(settings);
+    } catch (error) {
+      console.error("Error updating event budget settings:", error);
+      res.status(400).json({ message: "Failed to update event budget settings" });
+    }
+  });
+
+  // Budget Payments routes (event-scoped)
+  app.get("/api/budget-payments", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const eventId = req.query.eventId as string | undefined;
+      const payments = await storage.getBudgetPayments(organizationId, eventId);
+      res.json(payments);
+    } catch (error) {
+      console.error("Error fetching budget payments:", error);
+      res.status(500).json({ message: "Failed to fetch budget payments" });
+    }
+  });
+
+  app.post("/api/budget-payments", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const data = insertBudgetPaymentSchema.parse({ ...req.body, organizationId });
+      const payment = await storage.createBudgetPayment(data);
+      res.status(201).json(payment);
+    } catch (error) {
+      console.error("Error creating budget payment:", error);
+      res.status(400).json({ message: "Invalid budget payment data" });
+    }
+  });
+
+  app.patch("/api/budget-payments/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const payment = await storage.updateBudgetPayment(organizationId, req.params.id, req.body);
+      if (!payment) {
+        return res.status(404).json({ message: "Budget payment not found" });
+      }
+      res.json(payment);
+    } catch (error) {
+      console.error("Error updating budget payment:", error);
+      res.status(400).json({ message: "Failed to update budget payment" });
+    }
+  });
+
+  app.delete("/api/budget-payments/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      await storage.deleteBudgetPayment(organizationId, req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting budget payment:", error);
+      res.status(500).json({ message: "Failed to delete budget payment" });
     }
   });
 
