@@ -118,6 +118,8 @@ export default function Landing() {
           Sandbox - Event Management Made Simple
           <span className="mx-2">|</span>
           <a href="/privacy-policy" className="hover:underline">Privacy Policy</a>
+          <span className="mx-2">|</span>
+          <a href="/security-whitepaper.md" className="hover:underline" data-testid="link-security-whitepaper">Security</a>
         </div>
       </footer>
     </div>

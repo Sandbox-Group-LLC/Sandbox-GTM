@@ -381,10 +381,17 @@ export default function Settings() {
               </CardTitle>
               <CardDescription>Privacy and legal information</CardDescription>
             </CardHeader>
-            <CardContent>
-              <Link href="/privacy-policy" className="text-sm text-primary hover:underline" data-testid="link-privacy-policy">
-                Privacy Policy
-              </Link>
+            <CardContent className="space-y-2">
+              <div>
+                <Link href="/privacy-policy" className="text-sm text-primary hover:underline" data-testid="link-privacy-policy">
+                  Privacy Policy
+                </Link>
+              </div>
+              <div>
+                <a href="/security-whitepaper.md" className="text-sm text-primary hover:underline" data-testid="link-security-whitepaper">
+                  Security Whitepaper
+                </a>
+              </div>
             </CardContent>
           </Card>
         </div>
