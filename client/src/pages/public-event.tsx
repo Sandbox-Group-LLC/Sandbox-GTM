@@ -1258,6 +1258,34 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
         </nav>
       );
 
+    case "registration-form":
+      const regHeading = config.heading as string || "";
+      const regDescription = config.description as string || "";
+      const showRegHeading = config.showHeading !== false;
+      
+      return wrapWithMargins(
+        <div data-testid={`section-registration-form-${section.id}`} className="registration-form-container">
+          {showRegHeading && regHeading && (
+            <h3 className="text-2xl font-semibold mb-4 text-center" style={headingStyles}>{regHeading}</h3>
+          )}
+          {showRegHeading && regDescription && (
+            <p className="text-center mb-6" style={secondaryTextStyles}>{regDescription}</p>
+          )}
+          <div className="max-w-2xl mx-auto">
+            <div className="p-6 rounded-lg border" style={{ ...cardStyles, borderRadius: themeRadius }}>
+              <p className="text-center" style={secondaryTextStyles}>
+                Registration form will be loaded here.
+              </p>
+              <div className="mt-4 text-center">
+                <Button asChild style={buttonStyles}>
+                  <a href={`/event/${event.publicSlug}/register`}>Go to Registration</a>
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+
     default:
       return null;
   }

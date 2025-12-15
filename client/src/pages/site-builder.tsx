@@ -70,6 +70,7 @@ import {
   Loader2,
   Columns2,
   LayoutGrid,
+  FileText,
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Event, EventPage, EventPageTheme } from "@shared/schema";
@@ -89,7 +90,7 @@ import {
 
 type PageType = "landing" | "registration" | "portal" | "confirmation";
 
-type SectionType = "hero" | "text" | "cta" | "features" | "countdown" | "speakers" | "agenda" | "faq" | "testimonials" | "gallery" | "html" | "sponsors" | "map" | "video" | "footer" | "navigation" | "columns" | "columns-flex";
+type SectionType = "hero" | "text" | "cta" | "features" | "countdown" | "speakers" | "agenda" | "faq" | "testimonials" | "gallery" | "html" | "sponsors" | "map" | "video" | "footer" | "navigation" | "columns" | "columns-flex" | "registration-form";
 
 interface SectionStyles {
   backgroundColor?: string;
@@ -135,6 +136,7 @@ const SECTION_TYPES: { type: SectionType; label: string; icon: React.ComponentTy
   { type: "navigation", label: "Navigation Bar", icon: Menu, description: "Header navigation with links" },
   { type: "columns", label: "Simple Columns", icon: Columns2, description: "Multi-column layout with text" },
   { type: "columns-flex", label: "Flexible Columns", icon: LayoutGrid, description: "Columns with icons, images, buttons" },
+  { type: "registration-form", label: "Registration Form", icon: FileText, description: "Embed the event registration form" },
 ];
 
 const GOOGLE_FONTS = [
@@ -258,6 +260,12 @@ const getDefaultConfig = (type: SectionType): Record<string, unknown> => {
           { icon: "zap", heading: "Feature 2", content: "Description here", imageUrl: "", buttonText: "", buttonLink: "" },
           { icon: "heart", heading: "Feature 3", content: "Description here", imageUrl: "", buttonText: "", buttonLink: "" },
         ]
+      };
+    case "registration-form":
+      return {
+        heading: "Register Now",
+        description: "Complete the form below to register for this event.",
+        showHeading: true,
       };
     default:
       return {};
@@ -567,6 +575,9 @@ export default function SiteBuilder() {
       case "columns-flex":
         const flexColCount = (config.columnCount as number) || 3;
         previewText = `${(config.heading as string) || "Flexible Columns"} (${flexColCount} columns)`;
+        break;
+      case "registration-form":
+        previewText = (config.heading as string) || "Registration form";
         break;
       default:
         previewText = "Section content";
@@ -2728,6 +2739,52 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId }: S
                   </div>
                 </Card>
               ))}
+            </div>
+          </>
+        );
+      case "registration-form":
+        return (
+          <>
+            <div className="flex items-center gap-2 mb-4">
+              <input
+                type="checkbox"
+                id="showHeading"
+                checked={(config.showHeading as boolean) ?? true}
+                onChange={(e) => updateConfig("showHeading", e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300"
+                data-testid="checkbox-show-heading"
+              />
+              <Label htmlFor="showHeading">Show Section Heading</Label>
+            </div>
+            {(config.showHeading as boolean) !== false && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="heading">Section Heading</Label>
+                  <Input
+                    id="heading"
+                    value={(config.heading as string) || ""}
+                    onChange={(e) => updateConfig("heading", e.target.value)}
+                    placeholder="Register Now"
+                    data-testid="input-registration-heading"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="description">Description (optional)</Label>
+                  <Textarea
+                    id="description"
+                    value={(config.description as string) || ""}
+                    onChange={(e) => updateConfig("description", e.target.value)}
+                    placeholder="Complete the form below to register for this event."
+                    rows={3}
+                    data-testid="textarea-registration-description"
+                  />
+                </div>
+              </>
+            )}
+            <div className="p-4 bg-muted rounded-md">
+              <p className="text-sm text-muted-foreground">
+                The registration form will be automatically embedded here with your event's configured registration fields and packages.
+              </p>
             </div>
           </>
         );
