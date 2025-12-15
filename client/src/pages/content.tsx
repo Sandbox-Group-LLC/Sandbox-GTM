@@ -43,9 +43,11 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { Plus, FolderOpen, Search, FileText, Video, Image, Link as LinkIcon, File, ExternalLink, Copy, Trash2, ImageIcon } from "lucide-react";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import type { ContentItem, ContentAsset } from "@shared/schema";
+import { EventSelectField } from "@/components/event-select-field";
 
 const contentFormSchema = z.object({
   title: z.string().min(1, "Title is required"),
+  eventId: z.string().min(1, "Event is required"),
   description: z.string().optional(),
   type: z.string().min(1, "Type is required"),
   fileUrl: z.string().optional(),
@@ -91,6 +93,7 @@ export default function Content() {
     resolver: zodResolver(contentFormSchema),
     defaultValues: {
       title: "",
+      eventId: "",
       description: "",
       type: "",
       fileUrl: "",
@@ -306,6 +309,7 @@ export default function Content() {
                             </FormItem>
                           )}
                         />
+                        <EventSelectField control={form.control} name="eventId" label="Event" required />
                         <FormField
                           control={form.control}
                           name="description"
