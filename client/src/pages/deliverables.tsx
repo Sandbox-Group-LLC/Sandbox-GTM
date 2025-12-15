@@ -36,6 +36,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { titleCase } from "@/lib/utils";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Plus, CheckSquare, Clock, AlertCircle, CheckCircle, Circle } from "lucide-react";
 import { EventSelectField } from "@/components/event-select-field";
@@ -348,7 +349,7 @@ export default function Deliverables() {
                             )}
                             <div className="flex items-center justify-between gap-2 flex-wrap">
                               <Badge variant={priorityColors[item.priority || "medium"]} className="text-xs">
-                                {item.priority || "medium"}
+                                {titleCase(item.priority || "medium")}
                               </Badge>
                               {item.dueDate && (
                                 <span className="text-xs text-muted-foreground">

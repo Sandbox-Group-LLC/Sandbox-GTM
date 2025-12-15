@@ -41,6 +41,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { titleCase } from "@/lib/utils";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Plus, Users, Search, Download, Settings2, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Trash2 } from "lucide-react";
 import { EventSelectField } from "@/components/event-select-field";
@@ -430,7 +431,7 @@ export default function Attendees() {
             case "status":
               return (
                 <Badge variant={statusColors[attendee.registrationStatus || "pending"]}>
-                  {attendee.registrationStatus || "pending"}
+                  {titleCase(attendee.registrationStatus || "pending")}
                 </Badge>
               );
             case "attendeeType":

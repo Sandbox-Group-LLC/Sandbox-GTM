@@ -9,6 +9,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import type { Event, EventSession, Speaker, EventPage, EventPageTheme, EventSponsor } from "@shared/schema";
 import { replaceMergeTags, type MergeTagContext } from "@shared/mergeTags";
+import { titleCase } from "@/lib/utils";
 import { sanitizeCustomCss } from "@shared/css-sanitizer";
 
 export { sanitizeCustomCss };
@@ -407,8 +408,8 @@ export default function PublicEvent() {
                               <p className="text-sm text-muted-foreground mt-1">{session.description}</p>
                             )}
                             <div className="flex flex-wrap gap-2 mt-2">
-                              {session.track && <Badge variant="outline">{session.track}</Badge>}
-                              {session.sessionType && <Badge variant="secondary">{session.sessionType}</Badge>}
+                              {session.track && <Badge variant="outline">{titleCase(session.track)}</Badge>}
+                              {session.sessionType && <Badge variant="secondary">{titleCase(session.sessionType)}</Badge>}
                             </div>
                           </div>
                           <div className="text-right text-sm text-muted-foreground whitespace-nowrap">
@@ -798,8 +799,8 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
                           <p className="text-sm mt-1" style={secondaryTextStyles}>{session.description}</p>
                         )}
                         <div className="flex flex-wrap gap-2 mt-2">
-                          {showTrack && session.track && <Badge variant="outline">{session.track}</Badge>}
-                          {session.sessionType && <Badge variant="secondary">{session.sessionType}</Badge>}
+                          {showTrack && session.track && <Badge variant="outline">{titleCase(session.track)}</Badge>}
+                          {session.sessionType && <Badge variant="secondary">{titleCase(session.sessionType)}</Badge>}
                         </div>
                       </div>
                       <div className="text-right text-sm whitespace-nowrap" style={secondaryTextStyles}>
@@ -1024,7 +1025,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
                       <span className="text-sm" style={secondaryTextStyles}>{sponsor.name}</span>
                     </div>
                   )}
-                  <Badge variant="outline" className="capitalize">{sponsor.tier}</Badge>
+                  <Badge variant="outline">{titleCase(sponsor.tier)}</Badge>
                   {sponsor.name && !sponsor.logoUrl && (
                     <span className="text-sm font-medium text-center" style={headingStyles}>{sponsor.name}</span>
                   )}

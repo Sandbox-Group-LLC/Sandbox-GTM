@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar, MapPin, Clock, Mic, AlertCircle, ArrowLeft, ArrowRight, User } from "lucide-react";
 import type { Event, EventSession, Speaker, EventPage, EventPageTheme } from "@shared/schema";
+import { titleCase } from "@/lib/utils";
 
 function GoogleFontsLoader({ fonts }: { fonts: string[] }) {
   const uniqueFonts = useMemo(() => [...new Set(fonts.filter(Boolean))], [fonts]);
@@ -175,8 +176,8 @@ export default function PublicPortal() {
                       <div>
                         <h3 className="font-medium text-sm">{session.title}</h3>
                         <div className="flex flex-wrap gap-2 mt-1">
-                          {session.track && <Badge variant="outline" className="text-xs">{session.track}</Badge>}
-                          {session.sessionType && <Badge variant="secondary" className="text-xs">{session.sessionType}</Badge>}
+                          {session.track && <Badge variant="outline" className="text-xs">{titleCase(session.track)}</Badge>}
+                          {session.sessionType && <Badge variant="secondary" className="text-xs">{titleCase(session.sessionType)}</Badge>}
                         </div>
                       </div>
                       <div className="text-right text-xs text-muted-foreground whitespace-nowrap">

@@ -39,6 +39,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { titleCase } from "@/lib/utils";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Plus, FolderOpen, Search, FileText, Video, Image, Link as LinkIcon, File, ExternalLink, Copy, Trash2, ImageIcon } from "lucide-react";
 import { ObjectUploader } from "@/components/ObjectUploader";
@@ -522,7 +523,7 @@ export default function Content() {
                                     </div>
                                   </div>
                                   <Badge variant={typeColors[item.type] || "outline"}>
-                                    {item.type}
+                                    {titleCase(item.type)}
                                   </Badge>
                                 </div>
                               </CardHeader>

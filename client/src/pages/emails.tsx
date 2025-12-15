@@ -36,6 +36,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { titleCase } from "@/lib/utils";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Plus, Mail, Send, Clock, CheckCircle, FileText, Copy, Trash2, X } from "lucide-react";
 import { EventSelectField } from "@/components/event-select-field";
@@ -353,7 +354,7 @@ export default function Emails() {
       key: "recipientType",
       header: "Recipients",
       cell: (email: EmailCampaign) => (
-        <Badge variant="outline">{email.recipientType || "all"}</Badge>
+        <Badge variant="outline">{titleCase(email.recipientType || "all")}</Badge>
       ),
     },
     {

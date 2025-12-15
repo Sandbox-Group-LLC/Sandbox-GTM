@@ -37,6 +37,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { titleCase } from "@/lib/utils";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Plus, Calendar, Clock, MapPin, Users, Search, FileText, ExternalLink } from "lucide-react";
 import { EventSelectField } from "@/components/event-select-field";
@@ -515,8 +516,8 @@ export default function Sessions() {
                                 <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                                 <span className="truncate">{content.title}</span>
                               </div>
-                              <Badge variant="outline" className="shrink-0 capitalize text-xs">
-                                {content.type}
+                              <Badge variant="outline" className="shrink-0 text-xs">
+                                {titleCase(content.type)}
                               </Badge>
                             </div>
                           ))}
@@ -605,8 +606,8 @@ export default function Sessions() {
                             <div className="flex items-start justify-between gap-2">
                               <CardTitle className="text-base line-clamp-2">{session.title}</CardTitle>
                               {session.sessionType && (
-                                <Badge variant={sessionTypeColors[session.sessionType] || "secondary"} className="shrink-0 capitalize">
-                                  {session.sessionType}
+                                <Badge variant={sessionTypeColors[session.sessionType] || "secondary"} className="shrink-0">
+                                  {titleCase(session.sessionType)}
                                 </Badge>
                               )}
                             </div>
@@ -634,7 +635,7 @@ export default function Sessions() {
                               )}
                             </div>
                             {session.track && (
-                              <Badge variant="outline" className="text-xs">{session.track}</Badge>
+                              <Badge variant="outline" className="text-xs">{titleCase(session.track)}</Badge>
                             )}
                           </CardContent>
                         </Card>

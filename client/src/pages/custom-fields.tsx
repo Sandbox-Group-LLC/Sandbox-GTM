@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { titleCase } from "@/lib/utils";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Plus, Settings2, Trash2 } from "lucide-react";
 import type { CustomField } from "@shared/schema";
@@ -199,7 +200,7 @@ export default function CustomFields() {
       header: "Type",
       cell: (field: CustomField) => (
         <Badge variant="secondary" className="text-xs">
-          {fieldTypeLabels[field.fieldType] || field.fieldType}
+          {fieldTypeLabels[field.fieldType] || titleCase(field.fieldType)}
         </Badge>
       ),
     },

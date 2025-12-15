@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { titleCase } from "@/lib/utils";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Plus, Package, Trash2, X } from "lucide-react";
 import type { Package as PackageType, Event } from "@shared/schema";
@@ -268,7 +269,7 @@ export default function Packages() {
           {pkg.features && pkg.features.length > 0 ? (
             pkg.features.slice(0, 3).map((feature, index) => (
               <Badge key={index} variant="secondary" className="text-xs">
-                {feature}
+                {titleCase(feature)}
               </Badge>
             ))
           ) : (

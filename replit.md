@@ -74,6 +74,17 @@ Preferred communication style: Simple, everyday language.
 - **API Request Helper**: Centralized `apiRequest` function with error handling
 - **Component Composition**: Reusable components like `PageHeader`, `DataTable`, `StatsCard`, `EmptyState`
 
+### Badge/Tag Title Case Convention
+**All badges and tags displaying dynamic content must use Title Case formatting.**
+- **Utility Function**: Use `titleCase()` from `@/lib/utils` for all dynamic badge content
+- **Examples**:
+  - `{titleCase(item.type)}` → "Document" instead of "document"
+  - `{titleCase(session.sessionType)}` → "Panel Discussion" instead of "panel_discussion"
+  - `{titleCase(attendee.registrationStatus)}` → "Confirmed" instead of "confirmed"
+- **Static text**: Static labels like "Live", "Admin", "Connected" don't need titleCase - they're already properly cased
+- **Do NOT use**: CSS `capitalize` class for dynamic values (inconsistent with underscores/hyphens)
+- **Import**: `import { titleCase } from "@/lib/utils";`
+
 ### Breadcrumb Styling Rules
 All breadcrumbs must follow this consistent format and style:
 - **Format**: `Home > Parent Menu > Current Page` (e.g., "Home > Attendees > Packages")
