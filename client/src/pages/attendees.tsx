@@ -105,6 +105,7 @@ const attendeeFormSchema = z.object({
   ticketType: z.string().optional(),
   registrationStatus: z.string().default("pending"),
   notes: z.string().optional(),
+  customData: z.record(z.union([z.string(), z.boolean(), z.array(z.string())])).optional(),
 });
 
 type AttendeeFormData = z.infer<typeof attendeeFormSchema>;
@@ -247,6 +248,7 @@ export default function Attendees() {
   const handleEdit = (attendee: Attendee) => {
     setEditingAttendee(attendee);
     const usedInviteCode = attendee.inviteCodeId ? inviteCodeLookup[attendee.inviteCodeId] || "" : "";
+    const existingCustomData = (attendee.customData as Record<string, string | boolean | string[]> | null) || {};
     form.reset({
       eventId: attendee.eventId,
       inviteCode: usedInviteCode,
@@ -260,6 +262,7 @@ export default function Attendees() {
       ticketType: attendee.ticketType || "",
       registrationStatus: attendee.registrationStatus || "pending",
       notes: attendee.notes || "",
+      customData: existingCustomData,
     });
     setIsDialogOpen(true);
   };
@@ -674,6 +677,69 @@ export default function Attendees() {
                       </FormItem>
                     )}
                   />
+
+                  {activeCustomFields.length > 0 && (
+                    <div className="space-y-4 pt-4 border-t">
+                      <h4 className="text-sm font-medium text-muted-foreground">Custom Fields</h4>
+                      {activeCustomFields.map((customField) => (
+                        <FormField
+                          key={customField.id}
+                          control={form.control}
+                          name={`customData.${customField.name}` as const}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{customField.label}</FormLabel>
+                              <FormControl>
+                                {customField.fieldType === "checkbox" ? (
+                                  <div className="flex items-center">
+                                    <Checkbox
+                                      checked={field.value as boolean || false}
+                                      onCheckedChange={field.onChange}
+                                      data-testid={`checkbox-custom-${customField.name}`}
+                                    />
+                                    <span className="ml-2 text-sm text-muted-foreground">
+                                      {field.value ? "Yes" : "No"}
+                                    </span>
+                                  </div>
+                                ) : customField.fieldType === "select" ? (
+                                  <Select
+                                    onValueChange={field.onChange}
+                                    value={(field.value as string) || ""}
+                                  >
+                                    <SelectTrigger data-testid={`select-custom-${customField.name}`}>
+                                      <SelectValue placeholder={`Select ${customField.label}`} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {(customField.options || []).map((option) => (
+                                        <SelectItem key={option} value={option}>
+                                          {option}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                ) : customField.fieldType === "textarea" ? (
+                                  <Textarea
+                                    {...field}
+                                    value={(field.value as string) || ""}
+                                    data-testid={`textarea-custom-${customField.name}`}
+                                  />
+                                ) : (
+                                  <Input
+                                    {...field}
+                                    type={customField.fieldType === "number" ? "number" : "text"}
+                                    value={(field.value as string) || ""}
+                                    data-testid={`input-custom-${customField.name}`}
+                                  />
+                                )}
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      ))}
+                    </div>
+                  )}
+
                   <div className="flex justify-end gap-2 pt-4">
                     <Button type="button" variant="outline" onClick={handleDialogClose}>
                       Cancel
