@@ -200,6 +200,7 @@ export default function Content() {
     setEditingContent(item);
     form.reset({
       title: item.title,
+      eventId: item.eventId,
       description: item.description || "",
       type: item.type,
       fileUrl: item.fileUrl || "",
@@ -535,7 +536,7 @@ export default function Content() {
                 </div>
                 <ObjectUploader
                   onComplete={handleUploadComplete}
-                  accept={["image/*"]}
+                  accept="image/*"
                   buttonText="Upload Image"
                 />
               </div>
