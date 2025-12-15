@@ -360,7 +360,7 @@ export const budgetItems = pgTable("budget_items", {
   category: varchar("category", { length: 100 }).notNull(),
   categoryId: varchar("category_id").references(() => budgetCategories.id),
   description: varchar("description", { length: 255 }).notNull(),
-  plannedAmount: decimal("planned_amount", { precision: 10, scale: 2 }).notNull(),
+  plannedAmount: decimal("planned_amount", { precision: 10, scale: 2 }).default("0"),
   actualAmount: decimal("actual_amount", { precision: 10, scale: 2 }),
   estimateAmount: decimal("estimate_amount", { precision: 10, scale: 2 }).default("0"),
   forecastAmount: decimal("forecast_amount", { precision: 10, scale: 2 }).default("0"),
