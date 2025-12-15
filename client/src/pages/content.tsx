@@ -108,7 +108,12 @@ export default function Content() {
   const selectedEventId = form.watch("eventId");
 
   const { data: eventSessions = [] } = useQuery<EventSession[]>({
-    queryKey: ["/api/sessions", { eventId: selectedEventId }],
+    queryKey: ["/api/sessions", selectedEventId],
+    queryFn: async () => {
+      const res = await fetch(`/api/sessions?eventId=${selectedEventId}`);
+      if (!res.ok) throw new Error("Failed to fetch sessions");
+      return res.json();
+    },
     enabled: !!selectedEventId,
   });
 
