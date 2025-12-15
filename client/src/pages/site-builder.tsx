@@ -877,7 +877,7 @@ export default function SiteBuilder() {
             </div>
             <ScrollArea className="h-[calc(100%-48px)]">
               <div 
-                className="event-page-custom p-4 mx-auto"
+                className={`event-page-custom ${previewTheme?.pagePadding === 'none' ? '' : 'p-4'} mx-auto`}
                 style={{
                   ...getThemeStyles(previewTheme),
                   backgroundColor: previewTheme?.backgroundColor || undefined,
@@ -3087,6 +3087,25 @@ function StylesEditor({ theme, onUpdateTheme, isPending, seo, onUpdateSeo }: Sty
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="pagePadding">Page Padding</Label>
+            <Select
+              value={theme.pagePadding || "standard"}
+              onValueChange={(value) => onUpdateTheme({ pagePadding: value as EventPageTheme["pagePadding"] })}
+              disabled={isPending}
+            >
+              <SelectTrigger data-testid="select-page-padding">
+                <SelectValue placeholder="Select padding" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="standard">Standard</SelectItem>
+                <SelectItem value="none">None (Edge-to-Edge)</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Set to "None" for full-bleed sections that extend to the page edges.
+            </p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="textDecoration">Text Decoration</Label>

@@ -330,7 +330,7 @@ export default function PublicEvent() {
           }}
         >
           <div 
-            className="mx-auto px-6 py-12 pb-24"
+            className={`mx-auto ${theme?.pagePadding === 'none' ? '' : 'px-6 py-12'} pb-24`}
             style={{
               maxWidth: "var(--theme-container-width, 1024px)",
               gap: "var(--theme-section-spacing, 3rem)",

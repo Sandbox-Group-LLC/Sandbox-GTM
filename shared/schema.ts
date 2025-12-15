@@ -185,6 +185,7 @@ export const eventPages = pgTable("event_pages", {
     buttonStyle?: 'filled' | 'outline';
     containerWidth?: 'narrow' | 'standard' | 'wide' | 'full';
     sectionSpacing?: 'compact' | 'normal' | 'relaxed';
+    pagePadding?: 'standard' | 'none';
     textDecoration?: 'none' | 'underline' | 'uppercase' | 'capitalize';
     customCss?: string;
   }>(),
@@ -245,6 +246,7 @@ export const pageVersions = pgTable("page_versions", {
     buttonStyle?: 'filled' | 'outline';
     containerWidth?: 'narrow' | 'standard' | 'wide' | 'full';
     sectionSpacing?: 'compact' | 'normal' | 'relaxed';
+    pagePadding?: 'standard' | 'none';
     textDecoration?: 'none' | 'underline' | 'uppercase' | 'capitalize';
     customCss?: string;
   }>(),
