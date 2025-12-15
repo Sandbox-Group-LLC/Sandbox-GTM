@@ -342,19 +342,67 @@ export const contentItems = pgTable("content_items", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Budget Categories - pre-defined categories per organization
+export const budgetCategories = pgTable("budget_categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  name: varchar("name", { length: 100 }).notNull(),
+  sortOrder: integer("sort_order").default(0),
+  isDefault: boolean("is_default").default(false),
+});
+
 // Budget items table
 export const budgetItems = pgTable("budget_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
   eventId: varchar("event_id").references(() => events.id).notNull(),
   category: varchar("category", { length: 100 }).notNull(),
+  categoryId: varchar("category_id").references(() => budgetCategories.id),
   description: varchar("description", { length: 255 }).notNull(),
   plannedAmount: decimal("planned_amount", { precision: 10, scale: 2 }).notNull(),
   actualAmount: decimal("actual_amount", { precision: 10, scale: 2 }),
+  estimateAmount: decimal("estimate_amount", { precision: 10, scale: 2 }).default("0"),
+  forecastAmount: decimal("forecast_amount", { precision: 10, scale: 2 }).default("0"),
+  onsiteAmount: decimal("onsite_amount", { precision: 10, scale: 2 }).default("0"),
+  finalAmount: decimal("final_amount", { precision: 10, scale: 2 }).default("0"),
   status: varchar("status", { length: 50 }).default("pending"),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Budget Offsets - Revenue/Credits that reduce net budget
+export const budgetOffsets = pgTable("budget_offsets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id).notNull(),
+  name: varchar("name", { length: 100 }).notNull(),
+  estimateAmount: decimal("estimate_amount", { precision: 10, scale: 2 }).default("0"),
+  forecastAmount: decimal("forecast_amount", { precision: 10, scale: 2 }).default("0"),
+  onsiteAmount: decimal("onsite_amount", { precision: 10, scale: 2 }).default("0"),
+  finalAmount: decimal("final_amount", { precision: 10, scale: 2 }).default("0"),
+  notes: text("notes"),
+});
+
+// Event Budget Settings - Budget cap per event
+export const eventBudgetSettings = pgTable("event_budget_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").references(() => events.id).notNull().unique(),
+  budgetCap: decimal("budget_cap", { precision: 10, scale: 2 }),
+});
+
+// Budget Payments - Invoice tracker
+export const budgetPayments = pgTable("budget_payments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id).notNull(),
+  budgetItemId: varchar("budget_item_id").references(() => budgetItems.id),
+  invoiceNumber: varchar("invoice_number", { length: 50 }).notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  status: varchar("status", { length: 50 }).default("pending"),
+  paidDate: timestamp("paid_date"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Timeline/Milestones table
@@ -527,9 +575,30 @@ export const contentItemsRelations = relations(contentItems, ({ one }) => ({
   event: one(events, { fields: [contentItems.eventId], references: [events.id] }),
 }));
 
+export const budgetCategoriesRelations = relations(budgetCategories, ({ one, many }) => ({
+  organization: one(organizations, { fields: [budgetCategories.organizationId], references: [organizations.id] }),
+  budgetItems: many(budgetItems),
+}));
+
 export const budgetItemsRelations = relations(budgetItems, ({ one }) => ({
   organization: one(organizations, { fields: [budgetItems.organizationId], references: [organizations.id] }),
   event: one(events, { fields: [budgetItems.eventId], references: [events.id] }),
+  category: one(budgetCategories, { fields: [budgetItems.categoryId], references: [budgetCategories.id] }),
+}));
+
+export const budgetOffsetsRelations = relations(budgetOffsets, ({ one }) => ({
+  organization: one(organizations, { fields: [budgetOffsets.organizationId], references: [organizations.id] }),
+  event: one(events, { fields: [budgetOffsets.eventId], references: [events.id] }),
+}));
+
+export const eventBudgetSettingsRelations = relations(eventBudgetSettings, ({ one }) => ({
+  event: one(events, { fields: [eventBudgetSettings.eventId], references: [events.id] }),
+}));
+
+export const budgetPaymentsRelations = relations(budgetPayments, ({ one }) => ({
+  organization: one(organizations, { fields: [budgetPayments.organizationId], references: [organizations.id] }),
+  event: one(events, { fields: [budgetPayments.eventId], references: [events.id] }),
+  budgetItem: one(budgetItems, { fields: [budgetPayments.budgetItemId], references: [budgetItems.id] }),
 }));
 
 export const milestonesRelations = relations(milestones, ({ one, many }) => ({
@@ -616,6 +685,10 @@ export const insertSessionSchema = createInsertSchema(eventSessions).omit({ id: 
 export const insertSessionSpeakerSchema = createInsertSchema(sessionSpeakers).omit({ id: true });
 export const insertContentItemSchema = createInsertSchema(contentItems).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertBudgetItemSchema = createInsertSchema(budgetItems).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertBudgetCategorySchema = createInsertSchema(budgetCategories).omit({ id: true });
+export const insertBudgetOffsetSchema = createInsertSchema(budgetOffsets).omit({ id: true });
+export const insertEventBudgetSettingsSchema = createInsertSchema(eventBudgetSettings).omit({ id: true });
+export const insertBudgetPaymentSchema = createInsertSchema(budgetPayments).omit({ id: true, createdAt: true });
 export const insertMilestoneSchema = createInsertSchema(milestones).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertDeliverableSchema = createInsertSchema(deliverables).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertEmailCampaignSchema = createInsertSchema(emailCampaigns).omit({ id: true, createdAt: true, updatedAt: true });
@@ -652,6 +725,14 @@ export type InsertContentItem = z.infer<typeof insertContentItemSchema>;
 export type ContentItem = typeof contentItems.$inferSelect;
 export type InsertBudgetItem = z.infer<typeof insertBudgetItemSchema>;
 export type BudgetItem = typeof budgetItems.$inferSelect;
+export type InsertBudgetCategory = z.infer<typeof insertBudgetCategorySchema>;
+export type BudgetCategory = typeof budgetCategories.$inferSelect;
+export type InsertBudgetOffset = z.infer<typeof insertBudgetOffsetSchema>;
+export type BudgetOffset = typeof budgetOffsets.$inferSelect;
+export type InsertEventBudgetSettings = z.infer<typeof insertEventBudgetSettingsSchema>;
+export type EventBudgetSettings = typeof eventBudgetSettings.$inferSelect;
+export type InsertBudgetPayment = z.infer<typeof insertBudgetPaymentSchema>;
+export type BudgetPayment = typeof budgetPayments.$inferSelect;
 export type InsertMilestone = z.infer<typeof insertMilestoneSchema>;
 export type Milestone = typeof milestones.$inferSelect;
 export type InsertDeliverable = z.infer<typeof insertDeliverableSchema>;
