@@ -81,10 +81,10 @@ Sandbox uses OpenID Connect (OIDC) for authentication, providing:
 
 | Control | Implementation |
 |---------|----------------|
-| Session Storage | PostgreSQL-backed session store |
-| Session Timeout | Configurable expiration periods |
-| Cookie Security | HttpOnly, Secure, SameSite=Strict |
-| CSRF Protection | Origin validation on state-changing requests |
+| Session Storage | PostgreSQL-backed session store (connect-pg-simple) |
+| Session Timeout | 7-day session expiration |
+| Cookie Security | HttpOnly, Secure, SameSite=Lax |
+| Session Secrets | Environment-based secret management |
 
 ### Role-Based Access Control (RBAC)
 
@@ -224,13 +224,13 @@ Before processing any payment:
 ### Encryption
 
 **In Transit:**
-- All connections use TLS 1.2 or higher
-- HTTP Strict Transport Security (HSTS) enforced
-- Strong cipher suites only
+- All connections use TLS encryption (managed by hosting provider)
+- HTTPS enforced for all web traffic
 
 **At Rest:**
-- Database encryption managed by cloud provider
+- Database encryption managed by cloud provider (Neon PostgreSQL)
 - Sensitive configuration stored in secure secrets management
+- API keys and credentials never stored in code
 
 ### Data Minimization
 
@@ -343,7 +343,7 @@ The following table maps PCI DSS requirements to our platform controls:
 | 6.5 | Application Security | OWASP Top 10 protections implemented |
 | 7.1 | Access Control | Role-based access with least privilege |
 | 8.1 | User Identification | Unique user IDs via OIDC authentication |
-| 8.3 | Authentication | Multi-factor authentication supported via OIDC |
+| 8.3 | Authentication | Strong authentication via OIDC provider |
 | 10.1 | Audit Logging | All access and changes logged |
 | 10.2 | Log Content | Security events captured with timestamps |
 | 10.5 | Log Security | Logs protected with access controls |
