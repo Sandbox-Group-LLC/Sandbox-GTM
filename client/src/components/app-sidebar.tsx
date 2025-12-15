@@ -19,6 +19,7 @@ import {
   Building2,
   Shield,
 } from "lucide-react";
+import logoImage from "@assets/Black_bug_-_no_background_1765764359900.png";
 import { OnboardingChecklist } from "./onboarding-checklist";
 import { OnboardingWizard } from "./onboarding-wizard";
 import {
@@ -101,7 +102,7 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="p-4 border-b border-sidebar-border">
         <div className="flex items-center gap-2">
-          <Calendar className="h-6 w-6 text-sidebar-primary" />
+          <img src={logoImage} alt="Sandbox" className="h-6 w-6 dark:invert" />
           <span className="font-semibold text-lg">Sandbox</span>
         </div>
       </SidebarHeader>
