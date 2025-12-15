@@ -20,6 +20,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -359,6 +360,9 @@ export default function Speakers() {
                         <FormControl>
                           <Input {...field} placeholder="https://..." data-testid="input-photo-url" />
                         </FormControl>
+                        <FormDescription>
+                          Enter a URL to an image. Recommended size: 1000x1000 pixels.
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
