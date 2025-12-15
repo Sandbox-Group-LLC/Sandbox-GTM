@@ -758,14 +758,14 @@ export default function Budget() {
                         <Table>
                           <TableHeader>
                             <TableRow className="bg-muted/50">
-                              <TableHead className="w-[300px]">Category / Description</TableHead>
-                              <TableHead className="text-right w-[120px]">Estimate</TableHead>
-                              <TableHead className="text-right w-[120px]">Forecast</TableHead>
-                              <TableHead className="text-right w-[120px]">Onsite</TableHead>
-                              <TableHead className="text-right w-[120px]">Final</TableHead>
-                              <TableHead className="text-right w-[80px]">% Budget</TableHead>
-                              <TableHead className="text-right w-[120px]">Variance</TableHead>
-                              <TableHead className="w-[80px]"></TableHead>
+                              <TableHead className="min-w-[300px]">Category / Description</TableHead>
+                              <TableHead className="text-right min-w-[120px]">Estimate</TableHead>
+                              <TableHead className="text-right min-w-[120px]">Forecast</TableHead>
+                              <TableHead className="text-right min-w-[120px]">Onsite</TableHead>
+                              <TableHead className="text-right min-w-[120px]">Final</TableHead>
+                              <TableHead className="text-right min-w-[80px]">% Budget</TableHead>
+                              <TableHead className="text-right min-w-[120px]">Variance</TableHead>
+                              <TableHead className="w-full"></TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -937,13 +937,13 @@ export default function Budget() {
                       <Table>
                         <TableHeader>
                           <TableRow className="bg-muted/50">
-                            <TableHead className="w-[300px]">Name</TableHead>
-                            <TableHead className="text-right w-[120px]">Estimate</TableHead>
-                            <TableHead className="text-right w-[120px]">Forecast</TableHead>
-                            <TableHead className="text-right w-[120px]">Onsite</TableHead>
-                            <TableHead className="text-right w-[120px]">Final</TableHead>
-                            <TableHead className="w-[200px]"></TableHead>
-                            <TableHead className="w-[80px]"></TableHead>
+                            <TableHead className="min-w-[300px]">Name</TableHead>
+                            <TableHead className="text-right min-w-[120px]">Estimate</TableHead>
+                            <TableHead className="text-right min-w-[120px]">Forecast</TableHead>
+                            <TableHead className="text-right min-w-[120px]">Onsite</TableHead>
+                            <TableHead className="text-right min-w-[120px]">Final</TableHead>
+                            <TableHead className="min-w-[200px]"></TableHead>
+                            <TableHead className="w-full"></TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
