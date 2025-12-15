@@ -62,6 +62,9 @@ import {
   AlertTriangle,
   Menu,
   Search,
+  Monitor,
+  Tablet,
+  Smartphone,
 } from "lucide-react";
 import type { Event, EventPage, EventPageTheme } from "@shared/schema";
 import { MergeTagPicker } from "@/components/merge-tag-picker";
@@ -88,6 +91,8 @@ interface SectionStyles {
   paddingTop?: 'none' | 'small' | 'medium' | 'large';
   paddingBottom?: 'none' | 'small' | 'medium' | 'large';
   customClass?: string;
+  hideOnMobile?: boolean;
+  hideOnDesktop?: boolean;
 }
 
 interface Section {
@@ -247,6 +252,7 @@ export default function SiteBuilder() {
   const [templateCategoryFilter, setTemplateCategoryFilter] = useState<TemplateCategory | 'all'>('all');
   const [pendingTemplate, setPendingTemplate] = useState<EventTemplate | null>(null);
   const [isTemplateConfirmOpen, setIsTemplateConfirmOpen] = useState(false);
+  const [previewDevice, setPreviewDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const justAppliedTemplateRef = useRef(false);
 
   const { data: events = [], isLoading: eventsLoading } = useQuery<Event[]>({
@@ -807,14 +813,45 @@ export default function SiteBuilder() {
             className="w-1/2 border-l bg-background overflow-auto"
           >
             <div className="p-4 border-b sticky top-0 bg-background/95 backdrop-blur z-10">
-              <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-                <Eye className="h-3 w-3" />
-                Live Preview
+              <div className="flex items-center justify-between gap-4">
+                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                  <Eye className="h-3 w-3" />
+                  Live Preview
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    size="icon"
+                    variant={previewDevice === 'desktop' ? 'default' : 'ghost'}
+                    onClick={() => setPreviewDevice('desktop')}
+                    data-testid="button-preview-desktop"
+                    title="Desktop view"
+                  >
+                    <Monitor className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant={previewDevice === 'tablet' ? 'default' : 'ghost'}
+                    onClick={() => setPreviewDevice('tablet')}
+                    data-testid="button-preview-tablet"
+                    title="Tablet view (768px)"
+                  >
+                    <Tablet className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant={previewDevice === 'mobile' ? 'default' : 'ghost'}
+                    onClick={() => setPreviewDevice('mobile')}
+                    data-testid="button-preview-mobile"
+                    title="Mobile view (375px)"
+                  >
+                    <Smartphone className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </div>
             <ScrollArea className="h-[calc(100%-48px)]">
               <div 
-                className="event-page-custom p-4"
+                className="event-page-custom p-4 mx-auto"
                 style={{
                   ...getThemeStyles(previewTheme),
                   backgroundColor: previewTheme?.backgroundColor || undefined,
@@ -823,6 +860,9 @@ export default function SiteBuilder() {
                   gap: "1.5rem",
                   display: "flex",
                   flexDirection: "column",
+                  width: previewDevice === 'desktop' ? '100%' : previewDevice === 'tablet' ? '768px' : '375px',
+                  maxWidth: '100%',
+                  transition: 'width 0.2s ease-in-out',
                 }}
               >
                 <GoogleFontsLoader fonts={[previewTheme?.headingFont, previewTheme?.bodyFont].filter(Boolean) as string[]} />
@@ -832,15 +872,24 @@ export default function SiteBuilder() {
                 {previewSections.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">Add sections to see preview</div>
                 ) : (
-                  previewSections.sort((a, b) => a.order - b.order).map((section) => (
-                    <div
-                      key={section.id}
-                      data-testid={`preview-section-${section.id}`}
-                      className={editingSection?.id === section.id ? "ring-2 ring-primary ring-offset-2 rounded-md" : ""}
-                    >
-                      <SectionRenderer section={section} event={previewEvent} theme={previewTheme} isHighlighted={editingSection?.id === section.id} />
-                    </div>
-                  ))
+                  previewSections
+                    .filter((section) => {
+                      const isMobilePreview = previewDevice === 'mobile';
+                      const isDesktopPreview = previewDevice === 'desktop' || previewDevice === 'tablet';
+                      if (isMobilePreview && section.styles?.hideOnMobile) return false;
+                      if (isDesktopPreview && section.styles?.hideOnDesktop) return false;
+                      return true;
+                    })
+                    .sort((a, b) => a.order - b.order)
+                    .map((section) => (
+                      <div
+                        key={section.id}
+                        data-testid={`preview-section-${section.id}`}
+                        className={editingSection?.id === section.id ? "ring-2 ring-primary ring-offset-2 rounded-md" : ""}
+                      >
+                        <SectionRenderer section={section} event={previewEvent} theme={previewTheme} isHighlighted={editingSection?.id === section.id} isPreview={true} />
+                      </div>
+                    ))
                 )}
               </div>
             </ScrollArea>
@@ -1119,7 +1168,7 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId }: S
     onConfigChange?.(newConfig, styles);
   };
 
-  const updateStyles = (key: keyof SectionStyles, value: string | undefined) => {
+  const updateStyles = (key: keyof SectionStyles, value: string | boolean | undefined) => {
     const newStyles = { ...styles, [key]: value };
     setStyles(newStyles);
     onConfigChange?.(config, newStyles);
@@ -2338,6 +2387,46 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId }: S
                 <p className="text-xs text-muted-foreground">
                   Add custom CSS classes to this section for advanced styling
                 </p>
+              </div>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+        <AccordionItem value="visibility">
+          <AccordionTrigger data-testid="accordion-visibility">
+            <div className="flex items-center gap-2">
+              <Eye className="h-4 w-4" />
+              Visibility
+            </div>
+          </AccordionTrigger>
+          <AccordionContent>
+            <div className="space-y-4 pt-2">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="hide-mobile">Hide on Mobile</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Section will be hidden on mobile devices
+                  </p>
+                </div>
+                <Switch
+                  id="hide-mobile"
+                  checked={styles.hideOnMobile || false}
+                  onCheckedChange={(checked) => updateStyles("hideOnMobile", checked)}
+                  data-testid="switch-hide-mobile"
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="hide-desktop">Hide on Desktop</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Section will be hidden on desktop devices
+                  </p>
+                </div>
+                <Switch
+                  id="hide-desktop"
+                  checked={styles.hideOnDesktop || false}
+                  onCheckedChange={(checked) => updateStyles("hideOnDesktop", checked)}
+                  data-testid="switch-hide-desktop"
+                />
               </div>
             </div>
           </AccordionContent>

@@ -186,6 +186,8 @@ export interface SectionStyles {
   paddingTop?: 'none' | 'small' | 'medium' | 'large';
   paddingBottom?: 'none' | 'small' | 'medium' | 'large';
   customClass?: string;
+  hideOnMobile?: boolean;
+  hideOnDesktop?: boolean;
 }
 
 export interface Section {
@@ -498,7 +500,7 @@ const SECTION_PADDING_MAP: Record<string, string> = {
   large: "4rem",
 };
 
-export function SectionRenderer({ section, event, sessions, speakers, sponsors, theme, isHighlighted }: { section: Section; event: Event; sessions?: EventSession[]; speakers?: Speaker[]; sponsors?: EventSponsor[]; theme?: EventPageTheme | null; isHighlighted?: boolean }) {
+export function SectionRenderer({ section, event, sessions, speakers, sponsors, theme, isHighlighted, isPreview }: { section: Section; event: Event; sessions?: EventSession[]; speakers?: Speaker[]; sponsors?: EventSponsor[]; theme?: EventPageTheme | null; isHighlighted?: boolean; isPreview?: boolean }) {
   const config = section.config;
   const styles = section.styles;
   const isFullWidth = theme?.containerWidth === "full";
@@ -516,10 +518,23 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
     if (isFullWidth && !isHtmlSection) {
       wrapped = <div style={{ marginLeft: "10%", marginRight: "10%" }}>{wrapped}</div>;
     }
+    
+    // Build visibility classes based on hideOnMobile/hideOnDesktop settings
+    // Skip in preview mode - filtering is handled by site-builder.tsx based on simulated device width
+    const visibilityClasses: string[] = [];
+    if (!isPreview) {
+      if (styles?.hideOnMobile) {
+        visibilityClasses.push('hidden md:block'); // Hide on mobile, show on md and up
+      }
+      if (styles?.hideOnDesktop) {
+        visibilityClasses.push('md:hidden'); // Hide on md and up (desktop)
+      }
+    }
+    
     // Always wrap sections consistently with section-type class for styling hooks
     wrapped = (
       <div 
-        className={`section-${section.type} ${styles?.customClass || ""}`.trim()}
+        className={`section-${section.type} ${styles?.customClass || ""} ${visibilityClasses.join(' ')}`.trim()}
         style={sectionWrapperStyles}
       >
         {wrapped}
