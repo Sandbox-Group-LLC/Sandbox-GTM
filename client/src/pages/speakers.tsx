@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -40,7 +41,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Plus, Mic2, Search, Mail, Building, Linkedin, Twitter, Globe } from "lucide-react";
 import { EventSelectField } from "@/components/event-select-field";
-import type { Speaker } from "@shared/schema";
+import type { Speaker, EventSession, SessionSpeaker } from "@shared/schema";
 
 const speakerFormSchema = z.object({
   eventId: z.string().min(1, "Event is required"),
@@ -57,6 +58,7 @@ const speakerFormSchema = z.object({
   twitter: z.string().optional(),
   website: z.string().optional(),
   notes: z.string().optional(),
+  sessionIds: z.array(z.string()).optional(),
 });
 
 type SpeakerFormData = z.infer<typeof speakerFormSchema>;
@@ -66,9 +68,14 @@ export default function Speakers() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [editingSpeaker, setEditingSpeaker] = useState<Speaker | null>(null);
+  const [selectedSessionIds, setSelectedSessionIds] = useState<string[]>([]);
 
   const { data: speakers = [], isLoading } = useQuery<Speaker[]>({
     queryKey: ["/api/speakers"],
+  });
+
+  const { data: allSessions = [] } = useQuery<EventSession[]>({
+    queryKey: ["/api/sessions"],
   });
 
   const form = useForm<SpeakerFormData>({
@@ -88,8 +95,18 @@ export default function Speakers() {
       twitter: "",
       website: "",
       notes: "",
+      sessionIds: [],
     },
   });
+
+  const watchedEventId = form.watch("eventId");
+  const filteredSessions = allSessions.filter(s => s.eventId === watchedEventId);
+
+  useEffect(() => {
+    if (!watchedEventId) {
+      setSelectedSessionIds([]);
+    }
+  }, [watchedEventId]);
 
   const createMutation = useMutation({
     mutationFn: async (data: SpeakerFormData) => {
@@ -102,7 +119,11 @@ export default function Speakers() {
           website: data.website || undefined,
         },
       };
-      return await apiRequest("POST", "/api/speakers", payload);
+      const speaker = await apiRequest("POST", "/api/speakers", payload);
+      if (selectedSessionIds.length > 0 && speaker.id) {
+        await apiRequest("PUT", `/api/speakers/${speaker.id}/sessions`, { sessionIds: selectedSessionIds });
+      }
+      return speaker;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/speakers"] });
@@ -110,6 +131,7 @@ export default function Speakers() {
       toast({ title: "Speaker added successfully" });
       setIsDialogOpen(false);
       form.reset();
+      setSelectedSessionIds([]);
     },
     onError: (error: Error) => {
       if (isUnauthorizedError(error)) {
@@ -132,7 +154,9 @@ export default function Speakers() {
           website: data.website || undefined,
         },
       };
-      return await apiRequest("PATCH", `/api/speakers/${id}`, payload);
+      const speaker = await apiRequest("PATCH", `/api/speakers/${id}`, payload);
+      await apiRequest("PUT", `/api/speakers/${id}/sessions`, { sessionIds: selectedSessionIds });
+      return speaker;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/speakers"] });
@@ -140,6 +164,7 @@ export default function Speakers() {
       setIsDialogOpen(false);
       setEditingSpeaker(null);
       form.reset();
+      setSelectedSessionIds([]);
     },
     onError: (error: Error) => {
       if (isUnauthorizedError(error)) {
@@ -159,7 +184,7 @@ export default function Speakers() {
     }
   };
 
-  const handleEdit = (speaker: Speaker) => {
+  const handleEdit = async (speaker: Speaker) => {
     setEditingSpeaker(speaker);
     const socialLinks = speaker.socialLinks as { linkedin?: string; twitter?: string; website?: string } | null;
     form.reset({
@@ -177,7 +202,17 @@ export default function Speakers() {
       twitter: socialLinks?.twitter || "",
       website: socialLinks?.website || "",
       notes: speaker.notes || "",
+      sessionIds: [],
     });
+    try {
+      const response = await fetch(`/api/speakers/${speaker.id}/sessions`, { credentials: 'include' });
+      if (response.ok) {
+        const speakerSessions: SessionSpeaker[] = await response.json();
+        setSelectedSessionIds(speakerSessions.map(ss => ss.sessionId));
+      }
+    } catch (error) {
+      console.error("Failed to load speaker sessions:", error);
+    }
     setIsDialogOpen(true);
   };
 
@@ -185,6 +220,15 @@ export default function Speakers() {
     setIsDialogOpen(false);
     setEditingSpeaker(null);
     form.reset();
+    setSelectedSessionIds([]);
+  };
+
+  const toggleSession = (sessionId: string) => {
+    setSelectedSessionIds(prev =>
+      prev.includes(sessionId)
+        ? prev.filter(id => id !== sessionId)
+        : [...prev, sessionId]
+    );
   };
 
   const filteredSpeakers = speakers.filter((speaker) => {
@@ -351,6 +395,34 @@ export default function Speakers() {
                       </FormItem>
                     )}
                   />
+                  <FormItem>
+                    <FormLabel>Sessions</FormLabel>
+                    {!watchedEventId ? (
+                      <p className="text-sm text-muted-foreground">Select an event first to assign sessions</p>
+                    ) : filteredSessions.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No sessions available for this event</p>
+                    ) : (
+                      <div className="border rounded-md p-3 space-y-2 max-h-40 overflow-y-auto" data-testid="sessions-list">
+                        {filteredSessions.map((session) => (
+                          <div key={session.id} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`session-${session.id}`}
+                              checked={selectedSessionIds.includes(session.id)}
+                              onCheckedChange={() => toggleSession(session.id)}
+                              data-testid={`checkbox-session-${session.id}`}
+                            />
+                            <label
+                              htmlFor={`session-${session.id}`}
+                              className="text-sm cursor-pointer"
+                            >
+                              {session.title}
+                              {session.sessionDate && <span className="text-muted-foreground ml-1">({session.sessionDate})</span>}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </FormItem>
                   <FormField
                     control={form.control}
                     name="photoUrl"

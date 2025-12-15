@@ -1237,6 +1237,77 @@ export async function registerRoutes(
     }
   });
 
+  // Session-Speaker relationship routes
+  app.get("/api/sessions/:sessionId/speakers", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const session = await storage.getSession(organizationId, req.params.sessionId);
+      if (!session) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+      const sessionSpeakers = await storage.getSessionSpeakersBySession(organizationId, req.params.sessionId);
+      res.json(sessionSpeakers);
+    } catch (error) {
+      logError("Error fetching session speakers:", error);
+      res.status(500).json({ message: "Failed to fetch session speakers" });
+    }
+  });
+
+  app.put("/api/sessions/:sessionId/speakers", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const { speakerIds } = req.body;
+      if (!Array.isArray(speakerIds)) {
+        return res.status(400).json({ message: "speakerIds must be an array" });
+      }
+      await storage.setSessionSpeakers(organizationId, req.params.sessionId, speakerIds);
+      res.json({ success: true });
+    } catch (error: any) {
+      if (error.message?.includes("not found") || error.message?.includes("do not belong")) {
+        return res.status(404).json({ message: error.message });
+      }
+      logError("Error setting session speakers:", error);
+      res.status(500).json({ message: "Failed to set session speakers" });
+    }
+  });
+
+  app.get("/api/speakers/:speakerId/sessions", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const speaker = await storage.getSpeaker(organizationId, req.params.speakerId);
+      if (!speaker) {
+        return res.status(404).json({ message: "Speaker not found" });
+      }
+      const speakerSessions = await storage.getSessionSpeakersBySpeaker(organizationId, req.params.speakerId);
+      res.json(speakerSessions);
+    } catch (error) {
+      logError("Error fetching speaker sessions:", error);
+      res.status(500).json({ message: "Failed to fetch speaker sessions" });
+    }
+  });
+
+  app.put("/api/speakers/:speakerId/sessions", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const { sessionIds } = req.body;
+      if (!Array.isArray(sessionIds)) {
+        return res.status(400).json({ message: "sessionIds must be an array" });
+      }
+      await storage.setSpeakerSessions(organizationId, req.params.speakerId, sessionIds);
+      res.json({ success: true });
+    } catch (error: any) {
+      if (error.message?.includes("not found") || error.message?.includes("do not belong")) {
+        return res.status(404).json({ message: error.message });
+      }
+      logError("Error setting speaker sessions:", error);
+      res.status(500).json({ message: "Failed to set speaker sessions" });
+    }
+  });
+
   // Content routes
   app.get("/api/content", isAuthenticated, async (req: any, res) => {
     try {

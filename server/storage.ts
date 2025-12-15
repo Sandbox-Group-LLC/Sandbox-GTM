@@ -51,6 +51,8 @@ import {
   type InsertSessionTrack,
   type SessionRoom,
   type InsertSessionRoom,
+  type SessionSpeaker,
+  type InsertSessionSpeaker,
   type ContentItem,
   type InsertContentItem,
   type BudgetItem,
@@ -176,6 +178,14 @@ export interface IStorage {
   createSessionRoom(room: InsertSessionRoom): Promise<SessionRoom>;
   updateSessionRoom(organizationId: string, id: string, room: Partial<InsertSessionRoom>): Promise<SessionRoom | undefined>;
   deleteSessionRoom(organizationId: string, id: string): Promise<void>;
+
+  // Session Speaker operations (junction table)
+  getSessionSpeakersBySession(organizationId: string, sessionId: string): Promise<SessionSpeaker[]>;
+  getSessionSpeakersBySpeaker(organizationId: string, speakerId: string): Promise<SessionSpeaker[]>;
+  createSessionSpeaker(sessionSpeaker: InsertSessionSpeaker): Promise<SessionSpeaker>;
+  deleteSessionSpeaker(sessionId: string, speakerId: string): Promise<void>;
+  setSessionSpeakers(organizationId: string, sessionId: string, speakerIds: string[]): Promise<void>;
+  setSpeakerSessions(organizationId: string, speakerId: string, sessionIds: string[]): Promise<void>;
 
   // Content operations
   getContentItems(organizationId: string, eventId?: string): Promise<ContentItem[]>;
@@ -793,6 +803,80 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSessionRoom(organizationId: string, id: string): Promise<void> {
     await db.delete(sessionRooms).where(and(eq(sessionRooms.organizationId, organizationId), eq(sessionRooms.id, id)));
+  }
+
+  // Session Speaker operations
+  async getSessionSpeakersBySession(organizationId: string, sessionId: string): Promise<SessionSpeaker[]> {
+    const [session] = await db.select().from(eventSessions)
+      .where(and(eq(eventSessions.organizationId, organizationId), eq(eventSessions.id, sessionId)));
+    if (!session) {
+      return [];
+    }
+    return db.select().from(sessionSpeakers).where(eq(sessionSpeakers.sessionId, sessionId));
+  }
+
+  async getSessionSpeakersBySpeaker(organizationId: string, speakerId: string): Promise<SessionSpeaker[]> {
+    const [speaker] = await db.select().from(speakers)
+      .where(and(eq(speakers.organizationId, organizationId), eq(speakers.id, speakerId)));
+    if (!speaker) {
+      return [];
+    }
+    return db.select().from(sessionSpeakers).where(eq(sessionSpeakers.speakerId, speakerId));
+  }
+
+  async createSessionSpeaker(sessionSpeaker: InsertSessionSpeaker): Promise<SessionSpeaker> {
+    const [newSessionSpeaker] = await db.insert(sessionSpeakers).values(sessionSpeaker).returning();
+    return newSessionSpeaker;
+  }
+
+  async deleteSessionSpeaker(sessionId: string, speakerId: string): Promise<void> {
+    await db.delete(sessionSpeakers).where(
+      and(eq(sessionSpeakers.sessionId, sessionId), eq(sessionSpeakers.speakerId, speakerId))
+    );
+  }
+
+  async setSessionSpeakers(organizationId: string, sessionId: string, speakerIds: string[]): Promise<void> {
+    const [session] = await db.select().from(eventSessions)
+      .where(and(eq(eventSessions.organizationId, organizationId), eq(eventSessions.id, sessionId)));
+    if (!session) {
+      throw new Error("Session not found or does not belong to organization");
+    }
+    if (speakerIds.length > 0) {
+      const validSpeakers = await db.select().from(speakers)
+        .where(and(eq(speakers.organizationId, organizationId)));
+      const validSpeakerIds = new Set(validSpeakers.map(s => s.id));
+      for (const speakerId of speakerIds) {
+        if (!validSpeakerIds.has(speakerId)) {
+          throw new Error("One or more speakers do not belong to organization");
+        }
+      }
+    }
+    await db.delete(sessionSpeakers).where(eq(sessionSpeakers.sessionId, sessionId));
+    if (speakerIds.length > 0) {
+      await db.insert(sessionSpeakers).values(speakerIds.map(speakerId => ({ sessionId, speakerId })));
+    }
+  }
+
+  async setSpeakerSessions(organizationId: string, speakerId: string, sessionIds: string[]): Promise<void> {
+    const [speaker] = await db.select().from(speakers)
+      .where(and(eq(speakers.organizationId, organizationId), eq(speakers.id, speakerId)));
+    if (!speaker) {
+      throw new Error("Speaker not found or does not belong to organization");
+    }
+    if (sessionIds.length > 0) {
+      const validSessions = await db.select().from(eventSessions)
+        .where(and(eq(eventSessions.organizationId, organizationId)));
+      const validSessionIds = new Set(validSessions.map(s => s.id));
+      for (const sessionId of sessionIds) {
+        if (!validSessionIds.has(sessionId)) {
+          throw new Error("One or more sessions do not belong to organization");
+        }
+      }
+    }
+    await db.delete(sessionSpeakers).where(eq(sessionSpeakers.speakerId, speakerId));
+    if (sessionIds.length > 0) {
+      await db.insert(sessionSpeakers).values(sessionIds.map(sessionId => ({ sessionId, speakerId })));
+    }
   }
 
   // Content operations

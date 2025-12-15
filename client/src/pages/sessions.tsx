@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -39,7 +40,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Plus, Calendar, Clock, MapPin, Users, Search } from "lucide-react";
 import { EventSelectField } from "@/components/event-select-field";
-import type { EventSession, SessionRoom, SessionTrack } from "@shared/schema";
+import type { EventSession, SessionRoom, SessionTrack, Speaker, SessionSpeaker } from "@shared/schema";
 
 const sessionFormSchema = z.object({
   eventId: z.string().min(1, "Event is required"),
@@ -52,6 +53,7 @@ const sessionFormSchema = z.object({
   capacity: z.string().optional(),
   track: z.string().optional(),
   sessionType: z.string().optional(),
+  speakerIds: z.array(z.string()).optional(),
 });
 
 type SessionFormData = z.infer<typeof sessionFormSchema>;
@@ -68,6 +70,7 @@ export default function Sessions() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [editingSession, setEditingSession] = useState<EventSession | null>(null);
+  const [selectedSpeakerIds, setSelectedSpeakerIds] = useState<string[]>([]);
 
   const { data: sessions = [], isLoading } = useQuery<EventSession[]>({
     queryKey: ["/api/sessions"],
@@ -79,6 +82,10 @@ export default function Sessions() {
 
   const { data: tracks = [] } = useQuery<SessionTrack[]>({
     queryKey: ["/api/session-tracks"],
+  });
+
+  const { data: allSpeakers = [] } = useQuery<Speaker[]>({
+    queryKey: ["/api/speakers"],
   });
 
   const form = useForm<SessionFormData>({
@@ -94,8 +101,18 @@ export default function Sessions() {
       capacity: "",
       track: "",
       sessionType: "",
+      speakerIds: [],
     },
   });
+
+  const watchedEventId = form.watch("eventId");
+  const filteredSpeakers = allSpeakers.filter(s => s.eventId === watchedEventId);
+
+  useEffect(() => {
+    if (!watchedEventId) {
+      setSelectedSpeakerIds([]);
+    }
+  }, [watchedEventId]);
 
   const createMutation = useMutation({
     mutationFn: async (data: SessionFormData) => {
@@ -103,7 +120,11 @@ export default function Sessions() {
         ...data,
         capacity: data.capacity ? parseInt(data.capacity) : null,
       };
-      return await apiRequest("POST", "/api/sessions", payload);
+      const session = await apiRequest("POST", "/api/sessions", payload);
+      if (selectedSpeakerIds.length > 0 && session.id) {
+        await apiRequest("PUT", `/api/sessions/${session.id}/speakers`, { speakerIds: selectedSpeakerIds });
+      }
+      return session;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
@@ -111,6 +132,7 @@ export default function Sessions() {
       toast({ title: "Session created successfully" });
       setIsDialogOpen(false);
       form.reset();
+      setSelectedSpeakerIds([]);
     },
     onError: (error: Error) => {
       if (isUnauthorizedError(error)) {
@@ -128,7 +150,9 @@ export default function Sessions() {
         ...data,
         capacity: data.capacity ? parseInt(data.capacity) : null,
       };
-      return await apiRequest("PATCH", `/api/sessions/${id}`, payload);
+      const session = await apiRequest("PATCH", `/api/sessions/${id}`, payload);
+      await apiRequest("PUT", `/api/sessions/${id}/speakers`, { speakerIds: selectedSpeakerIds });
+      return session;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
@@ -136,6 +160,7 @@ export default function Sessions() {
       setIsDialogOpen(false);
       setEditingSession(null);
       form.reset();
+      setSelectedSpeakerIds([]);
     },
     onError: (error: Error) => {
       if (isUnauthorizedError(error)) {
@@ -155,7 +180,7 @@ export default function Sessions() {
     }
   };
 
-  const handleEdit = (session: EventSession) => {
+  const handleEdit = async (session: EventSession) => {
     setEditingSession(session);
     form.reset({
       eventId: session.eventId,
@@ -168,7 +193,17 @@ export default function Sessions() {
       capacity: session.capacity?.toString() || "",
       track: session.track || "",
       sessionType: session.sessionType || "",
+      speakerIds: [],
     });
+    try {
+      const response = await fetch(`/api/sessions/${session.id}/speakers`, { credentials: 'include' });
+      if (response.ok) {
+        const sessionSpeakers: SessionSpeaker[] = await response.json();
+        setSelectedSpeakerIds(sessionSpeakers.map(ss => ss.speakerId));
+      }
+    } catch (error) {
+      console.error("Failed to load session speakers:", error);
+    }
     setIsDialogOpen(true);
   };
 
@@ -176,6 +211,15 @@ export default function Sessions() {
     setIsDialogOpen(false);
     setEditingSession(null);
     form.reset();
+    setSelectedSpeakerIds([]);
+  };
+
+  const toggleSpeaker = (speakerId: string) => {
+    setSelectedSpeakerIds(prev =>
+      prev.includes(speakerId)
+        ? prev.filter(id => id !== speakerId)
+        : [...prev, speakerId]
+    );
   };
 
   const filteredSessions = sessions.filter((session) => {
@@ -393,6 +437,34 @@ export default function Sessions() {
                       )}
                     />
                   </div>
+                  <FormItem>
+                    <FormLabel>Speakers</FormLabel>
+                    {!watchedEventId ? (
+                      <p className="text-sm text-muted-foreground">Select an event first to assign speakers</p>
+                    ) : filteredSpeakers.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No speakers available for this event</p>
+                    ) : (
+                      <div className="border rounded-md p-3 space-y-2 max-h-40 overflow-y-auto" data-testid="speakers-list">
+                        {filteredSpeakers.map((speaker) => (
+                          <div key={speaker.id} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`speaker-${speaker.id}`}
+                              checked={selectedSpeakerIds.includes(speaker.id)}
+                              onCheckedChange={() => toggleSpeaker(speaker.id)}
+                              data-testid={`checkbox-speaker-${speaker.id}`}
+                            />
+                            <label
+                              htmlFor={`speaker-${speaker.id}`}
+                              className="text-sm cursor-pointer"
+                            >
+                              {speaker.firstName} {speaker.lastName}
+                              {speaker.company && <span className="text-muted-foreground ml-1">({speaker.company})</span>}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </FormItem>
                   <div className="flex justify-end gap-2 pt-4">
                     <Button type="button" variant="outline" onClick={handleDialogClose}>
                       Cancel
