@@ -1261,13 +1261,29 @@ function SectionRenderer({ section, event, slug, theme }: { section: Section; ev
 
   switch (section.type) {
     case "hero":
+      const eventDate = event.startDate ? new Date(event.startDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : "";
       return wrapWithMargins(
-        <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-8 text-center" style={{ borderRadius: themeRadius }} data-testid={`section-hero-${section.id}`}>
-          <h2 className="text-3xl font-bold mb-4" style={headingStyles}>{title || event.name}</h2>
-          {subtitle && (
-            <p className="text-lg mb-6" style={secondaryTextStyles}>{subtitle}</p>
+        <div className="bg-gradient-to-b from-zinc-900 to-zinc-800 p-8 py-12" style={{ borderRadius: themeRadius }} data-testid={`section-hero-${section.id}`}>
+          <Badge variant="secondary" className="mb-4 bg-zinc-700 text-zinc-100">Public Event</Badge>
+          <h1 className="text-4xl font-bold mb-4 text-white">{title || event.name}</h1>
+          <div className="flex flex-wrap gap-4 text-zinc-300 mb-4">
+            {eventDate && (
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4" />
+                <span>{eventDate}</span>
+              </div>
+            )}
+            {event.location && (
+              <div className="flex items-center gap-2">
+                <MapPin className="w-4 h-4" />
+                <span>{event.location}</span>
+              </div>
+            )}
+          </div>
+          {(subtitle || event.description) && (
+            <p className="text-lg text-zinc-300 mb-6">{subtitle || event.description}</p>
           )}
-          {renderButton(buttonText, buttonLink, "button-hero-cta")}
+          {renderButton(buttonText || "Register Now", buttonLink || `/event/${slug}/register`, "button-hero-cta")}
         </div>
       );
 
