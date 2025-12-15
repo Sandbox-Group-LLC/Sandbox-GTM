@@ -212,10 +212,10 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>Project Management</SidebarGroupLabel>
+          <SidebarGroupLabel>Marketing</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {projectMenuItems.map((item) => (
+              {marketingMenuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
@@ -234,10 +234,10 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>Marketing</SidebarGroupLabel>
+          <SidebarGroupLabel>Project Management</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {marketingMenuItems.map((item) => (
+              {projectMenuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
