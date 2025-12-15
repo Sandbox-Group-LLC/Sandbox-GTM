@@ -47,13 +47,17 @@ import {
   Palette,
   Paintbrush,
   Code,
+  Award,
+  MapPin,
+  Video,
+  Mail,
 } from "lucide-react";
 import type { Event, EventPage, EventPageTheme } from "@shared/schema";
 import { MergeTagPicker } from "@/components/merge-tag-picker";
 
 type PageType = "landing" | "registration" | "portal";
 
-type SectionType = "hero" | "text" | "cta" | "features" | "countdown" | "speakers" | "agenda" | "faq" | "testimonials" | "gallery" | "html";
+type SectionType = "hero" | "text" | "cta" | "features" | "countdown" | "speakers" | "agenda" | "faq" | "testimonials" | "gallery" | "html" | "sponsors" | "map" | "video" | "footer";
 
 interface Section {
   id: string;
@@ -80,6 +84,10 @@ const SECTION_TYPES: { type: SectionType; label: string; icon: React.ComponentTy
   { type: "testimonials", label: "Testimonials", icon: Quote, description: "Quotes from past attendees" },
   { type: "gallery", label: "Image Gallery", icon: Images, description: "Photo grid display" },
   { type: "html", label: "Custom HTML", icon: Code, description: "Raw HTML code block" },
+  { type: "sponsors", label: "Sponsors", icon: Award, description: "Sponsor logos with tier levels" },
+  { type: "map", label: "Event Map", icon: MapPin, description: "Embedded Google Maps location" },
+  { type: "video", label: "Video", icon: Video, description: "Embedded YouTube/Vimeo video" },
+  { type: "footer", label: "Footer", icon: Mail, description: "Contact info, links, social media" },
 ];
 
 const GOOGLE_FONTS = [
@@ -154,6 +162,26 @@ const getDefaultConfig = (type: SectionType): Record<string, unknown> => {
       return { heading: "Event Gallery", images: [], columns: 3 };
     case "html":
       return { content: "" };
+    case "sponsors":
+      return { heading: "Our Sponsors", sponsors: [] };
+    case "map":
+      return { heading: "Event Location", embedUrl: "", useEventAddress: true };
+    case "video":
+      return { heading: "", videoUrl: "", autoplay: false };
+    case "footer":
+      return { 
+        showContactInfo: true, 
+        email: "", 
+        phone: "", 
+        address: "",
+        links: [],
+        showSocialIcons: true,
+        facebookUrl: "",
+        twitterUrl: "",
+        linkedinUrl: "",
+        instagramUrl: "",
+        copyright: ""
+      };
     default:
       return {};
   }
@@ -288,6 +316,77 @@ export default function SiteBuilder() {
   const getSectionLabel = (type: SectionType) => {
     const sectionType = SECTION_TYPES.find((s) => s.type === type);
     return sectionType?.label || type;
+  };
+
+  const SectionPreview = ({ section }: { section: Section }) => {
+    const config = section.config;
+    let previewText = "";
+    
+    switch (section.type) {
+      case "hero":
+        previewText = (config.title as string) || "Hero section";
+        break;
+      case "text":
+        const textContent = (config.content as string) || "";
+        previewText = (config.heading as string) || (textContent.length > 50 ? textContent.substring(0, 50) + "..." : textContent) || "Text block";
+        break;
+      case "cta":
+        previewText = `${(config.heading as string) || "Call to Action"}${(config.buttonText as string) ? ` - "${config.buttonText}"` : ""}`;
+        break;
+      case "features":
+        const features = (config.features as Array<unknown>) || [];
+        previewText = `${(config.heading as string) || "Features"} (${features.length} items)`;
+        break;
+      case "countdown":
+        previewText = (config.heading as string) || "Countdown timer";
+        break;
+      case "speakers":
+        previewText = (config.heading as string) || "Speakers grid";
+        break;
+      case "agenda":
+        previewText = (config.heading as string) || "Event schedule";
+        break;
+      case "faq":
+        const faqItems = (config.items as Array<unknown>) || [];
+        previewText = `${(config.heading as string) || "FAQ"} (${faqItems.length} items)`;
+        break;
+      case "testimonials":
+        const testimonials = (config.items as Array<unknown>) || [];
+        previewText = `${(config.heading as string) || "Testimonials"} (${testimonials.length} items)`;
+        break;
+      case "gallery":
+        const images = (config.images as Array<unknown>) || [];
+        previewText = `${(config.heading as string) || "Gallery"} (${images.length} images)`;
+        break;
+      case "html":
+        previewText = "Custom HTML block";
+        break;
+      case "sponsors":
+        const sponsors = (config.sponsors as Array<unknown>) || [];
+        previewText = `${(config.heading as string) || "Sponsors"} (${sponsors.length} sponsors)`;
+        break;
+      case "map":
+        previewText = (config.heading as string) || "Event location map";
+        break;
+      case "video":
+        previewText = (config.heading as string) || (config.videoUrl as string) || "Video embed";
+        break;
+      case "footer":
+        const footerParts = [];
+        if (config.email) footerParts.push("email");
+        if (config.phone) footerParts.push("phone");
+        if (config.showSocialIcons) footerParts.push("social");
+        previewText = footerParts.length > 0 ? `Footer: ${footerParts.join(", ")}` : "Footer section";
+        break;
+      default:
+        previewText = "Section content";
+    }
+    
+    return (
+      <p className="text-sm text-muted-foreground truncate" data-testid={`section-preview-${section.id}`}>
+        {previewText}
+      </p>
+    );
   };
 
   return (
@@ -465,10 +564,10 @@ export default function SiteBuilder() {
                                   return (
                                     <div
                                       key={section.id}
-                                      className="flex items-center gap-3 p-3 border rounded-md bg-card"
+                                      className="flex items-start gap-3 p-3 border rounded-md bg-card"
                                       data-testid={`section-item-${section.id}`}
                                     >
-                                      <div className="flex flex-col gap-1">
+                                      <div className="flex flex-col gap-1 pt-1">
                                         <Button
                                           variant="ghost"
                                           size="icon"
@@ -490,12 +589,15 @@ export default function SiteBuilder() {
                                           <GripVertical className="h-4 w-4 rotate-90" />
                                         </Button>
                                       </div>
-                                      <Icon className="h-5 w-5 text-muted-foreground" />
-                                      <div className="flex-1">
-                                        <span className="font-medium">{getSectionLabel(section.type)}</span>
-                                        <Badge variant="outline" className="ml-2 text-xs">
-                                          {section.type}
-                                        </Badge>
+                                      <Icon className="h-5 w-5 text-muted-foreground mt-1" />
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <span className="font-medium">{getSectionLabel(section.type)}</span>
+                                          <Badge variant="outline" className="text-xs">
+                                            {section.type}
+                                          </Badge>
+                                        </div>
+                                        <SectionPreview section={section} />
                                       </div>
                                       <div className="flex items-center gap-1">
                                         <Button
@@ -1126,6 +1228,321 @@ function SectionEditor({ section, onSave, onCancel }: SectionEditorProps) {
               <p className="text-xs text-muted-foreground">
                 Enter raw HTML code. Use merge tags to insert dynamic content.
               </p>
+            </div>
+          </>
+        );
+      case "sponsors":
+        const sponsorItems = (config.sponsors as Array<{ name: string; logoUrl: string; tier: string; url: string }>) || [];
+        return (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="heading">Section Heading</Label>
+              <Input
+                id="heading"
+                value={(config.heading as string) || ""}
+                onChange={(e) => updateConfig("heading", e.target.value)}
+                placeholder="Our Sponsors"
+                data-testid="input-sponsors-heading"
+              />
+            </div>
+            <div className="space-y-3">
+              <Label>Sponsors</Label>
+              {sponsorItems.map((item, index) => (
+                <div key={index} className="space-y-2 p-3 border rounded-md">
+                  <Input
+                    placeholder="Sponsor name"
+                    value={item.name}
+                    onChange={(e) => {
+                      const newItems = [...sponsorItems];
+                      newItems[index] = { ...item, name: e.target.value };
+                      updateConfig("sponsors", newItems);
+                    }}
+                    data-testid={`input-sponsor-name-${index}`}
+                  />
+                  <Input
+                    placeholder="Logo URL"
+                    value={item.logoUrl}
+                    onChange={(e) => {
+                      const newItems = [...sponsorItems];
+                      newItems[index] = { ...item, logoUrl: e.target.value };
+                      updateConfig("sponsors", newItems);
+                    }}
+                    data-testid={`input-sponsor-logo-${index}`}
+                  />
+                  <Select
+                    value={item.tier || "gold"}
+                    onValueChange={(value) => {
+                      const newItems = [...sponsorItems];
+                      newItems[index] = { ...item, tier: value };
+                      updateConfig("sponsors", newItems);
+                    }}
+                  >
+                    <SelectTrigger data-testid={`select-sponsor-tier-${index}`}>
+                      <SelectValue placeholder="Select tier" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="gold">Gold</SelectItem>
+                      <SelectItem value="silver">Silver</SelectItem>
+                      <SelectItem value="bronze">Bronze</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    placeholder="Website URL (optional)"
+                    value={item.url || ""}
+                    onChange={(e) => {
+                      const newItems = [...sponsorItems];
+                      newItems[index] = { ...item, url: e.target.value };
+                      updateConfig("sponsors", newItems);
+                    }}
+                    data-testid={`input-sponsor-url-${index}`}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const newItems = sponsorItems.filter((_, i) => i !== index);
+                      updateConfig("sponsors", newItems);
+                    }}
+                    data-testid={`button-remove-sponsor-${index}`}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Remove
+                  </Button>
+                </div>
+              ))}
+              <Button
+                variant="outline"
+                onClick={() => updateConfig("sponsors", [...sponsorItems, { name: "", logoUrl: "", tier: "gold", url: "" }])}
+                data-testid="button-add-sponsor"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Sponsor
+              </Button>
+            </div>
+          </>
+        );
+      case "map":
+        return (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="heading">Section Heading</Label>
+              <Input
+                id="heading"
+                value={(config.heading as string) || ""}
+                onChange={(e) => updateConfig("heading", e.target.value)}
+                placeholder="Event Location"
+                data-testid="input-map-heading"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="useEventAddress"
+                checked={(config.useEventAddress as boolean) ?? true}
+                onChange={(e) => updateConfig("useEventAddress", e.target.checked)}
+                className="h-4 w-4"
+                data-testid="checkbox-use-event-address"
+              />
+              <Label htmlFor="useEventAddress">Use event address for map</Label>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="embedUrl">Google Maps Embed URL (optional)</Label>
+              <Input
+                id="embedUrl"
+                value={(config.embedUrl as string) || ""}
+                onChange={(e) => updateConfig("embedUrl", e.target.value)}
+                placeholder="https://www.google.com/maps/embed?..."
+                data-testid="input-map-embed-url"
+              />
+              <p className="text-xs text-muted-foreground">
+                Paste the embed URL from Google Maps. Leave blank to auto-generate from event address.
+              </p>
+            </div>
+          </>
+        );
+      case "video":
+        return (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="heading">Section Heading (optional)</Label>
+              <Input
+                id="heading"
+                value={(config.heading as string) || ""}
+                onChange={(e) => updateConfig("heading", e.target.value)}
+                placeholder="Watch Our Promo Video"
+                data-testid="input-video-heading"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="videoUrl">Video URL</Label>
+              <Input
+                id="videoUrl"
+                value={(config.videoUrl as string) || ""}
+                onChange={(e) => updateConfig("videoUrl", e.target.value)}
+                placeholder="https://www.youtube.com/watch?v=... or https://vimeo.com/..."
+                data-testid="input-video-url"
+              />
+              <p className="text-xs text-muted-foreground">
+                Paste a YouTube or Vimeo URL. The video will be embedded automatically.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="autoplay"
+                checked={(config.autoplay as boolean) ?? false}
+                onChange={(e) => updateConfig("autoplay", e.target.checked)}
+                className="h-4 w-4"
+                data-testid="checkbox-video-autoplay"
+              />
+              <Label htmlFor="autoplay">Autoplay (muted)</Label>
+            </div>
+          </>
+        );
+      case "footer":
+        const footerLinks = (config.links as Array<{ label: string; url: string }>) || [];
+        return (
+          <>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="showContactInfo"
+                checked={(config.showContactInfo as boolean) ?? true}
+                onChange={(e) => updateConfig("showContactInfo", e.target.checked)}
+                className="h-4 w-4"
+                data-testid="checkbox-show-contact-info"
+              />
+              <Label htmlFor="showContactInfo">Show contact information</Label>
+            </div>
+            {(config.showContactInfo as boolean) !== false && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={(config.email as string) || ""}
+                    onChange={(e) => updateConfig("email", e.target.value)}
+                    placeholder="contact@example.com"
+                    data-testid="input-footer-email"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone</Label>
+                  <Input
+                    id="phone"
+                    value={(config.phone as string) || ""}
+                    onChange={(e) => updateConfig("phone", e.target.value)}
+                    placeholder="+1 (555) 123-4567"
+                    data-testid="input-footer-phone"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="address">Address</Label>
+                  <Textarea
+                    id="address"
+                    value={(config.address as string) || ""}
+                    onChange={(e) => updateConfig("address", e.target.value)}
+                    placeholder="123 Main St, City, State 12345"
+                    data-testid="input-footer-address"
+                  />
+                </div>
+              </>
+            )}
+            <div className="space-y-3">
+              <Label>Footer Links</Label>
+              {footerLinks.map((item, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <Input
+                    placeholder="Label"
+                    value={item.label}
+                    onChange={(e) => {
+                      const newItems = [...footerLinks];
+                      newItems[index] = { ...item, label: e.target.value };
+                      updateConfig("links", newItems);
+                    }}
+                    data-testid={`input-footer-link-label-${index}`}
+                  />
+                  <Input
+                    placeholder="URL"
+                    value={item.url}
+                    onChange={(e) => {
+                      const newItems = [...footerLinks];
+                      newItems[index] = { ...item, url: e.target.value };
+                      updateConfig("links", newItems);
+                    }}
+                    data-testid={`input-footer-link-url-${index}`}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      const newItems = footerLinks.filter((_, i) => i !== index);
+                      updateConfig("links", newItems);
+                    }}
+                    data-testid={`button-remove-footer-link-${index}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+              <Button
+                variant="outline"
+                onClick={() => updateConfig("links", [...footerLinks, { label: "", url: "" }])}
+                data-testid="button-add-footer-link"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Link
+              </Button>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="showSocialIcons"
+                checked={(config.showSocialIcons as boolean) ?? true}
+                onChange={(e) => updateConfig("showSocialIcons", e.target.checked)}
+                className="h-4 w-4"
+                data-testid="checkbox-show-social-icons"
+              />
+              <Label htmlFor="showSocialIcons">Show social media icons</Label>
+            </div>
+            {(config.showSocialIcons as boolean) !== false && (
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  placeholder="Facebook URL"
+                  value={(config.facebookUrl as string) || ""}
+                  onChange={(e) => updateConfig("facebookUrl", e.target.value)}
+                  data-testid="input-footer-facebook"
+                />
+                <Input
+                  placeholder="Twitter/X URL"
+                  value={(config.twitterUrl as string) || ""}
+                  onChange={(e) => updateConfig("twitterUrl", e.target.value)}
+                  data-testid="input-footer-twitter"
+                />
+                <Input
+                  placeholder="LinkedIn URL"
+                  value={(config.linkedinUrl as string) || ""}
+                  onChange={(e) => updateConfig("linkedinUrl", e.target.value)}
+                  data-testid="input-footer-linkedin"
+                />
+                <Input
+                  placeholder="Instagram URL"
+                  value={(config.instagramUrl as string) || ""}
+                  onChange={(e) => updateConfig("instagramUrl", e.target.value)}
+                  data-testid="input-footer-instagram"
+                />
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="copyright">Copyright Text</Label>
+              <Input
+                id="copyright"
+                value={(config.copyright as string) || ""}
+                onChange={(e) => updateConfig("copyright", e.target.value)}
+                placeholder="© 2024 Your Company. All rights reserved."
+                data-testid="input-footer-copyright"
+              />
             </div>
           </>
         );
