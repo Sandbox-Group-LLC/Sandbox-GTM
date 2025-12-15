@@ -15,7 +15,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Form,
@@ -47,7 +46,6 @@ const trackFormSchema = z.object({
 });
 
 type TrackFormData = z.infer<typeof trackFormSchema>;
-
 
 export default function Tracks() {
   const { toast } = useToast();
@@ -156,6 +154,16 @@ export default function Tracks() {
     form.reset();
   };
 
+  const openAddDialog = () => {
+    setEditingTrack(null);
+    form.reset({
+      name: "",
+      description: "",
+      color: "#3B82F6",
+    });
+    setIsDialogOpen(true);
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -170,84 +178,10 @@ export default function Tracks() {
         title="Session Tracks"
         description="Organize your sessions by topic or theme"
         action={
-          <Dialog open={isDialogOpen} onOpenChange={(open) => {
-            if (!open) handleDialogClose();
-            else setIsDialogOpen(true);
-          }}>
-            <DialogTrigger asChild>
-              <Button data-testid="button-add-track">
-                <Plus className="mr-2 h-4 w-4" />
-                Add Track
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>{editingTrack ? "Edit Track" : "Add Track"}</DialogTitle>
-                <DialogDescription>
-                  {editingTrack ? "Update the track details below" : "Create a new session track for organizing your sessions"}
-                </DialogDescription>
-              </DialogHeader>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., Technical, Business, Workshop" {...field} data-testid="input-track-name" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="description"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Description</FormLabel>
-                        <FormControl>
-                          <Textarea placeholder="Brief description of this track" {...field} data-testid="input-track-description" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="color"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Color</FormLabel>
-                        <FormControl>
-                          <div className="flex items-center gap-3">
-                            <ColorPicker
-                              value={field.value || "#3B82F6"}
-                              onChange={field.onChange}
-                            />
-                            <span className="text-sm text-muted-foreground">
-                              Click to choose a color
-                            </span>
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <div className="flex justify-end gap-2">
-                    <Button type="button" variant="outline" onClick={handleDialogClose} data-testid="button-cancel">
-                      Cancel
-                    </Button>
-                    <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-submit">
-                      {createMutation.isPending || updateMutation.isPending ? "Saving..." : editingTrack ? "Update" : "Create"}
-                    </Button>
-                  </div>
-                </form>
-              </Form>
-            </DialogContent>
-          </Dialog>
+          <Button onClick={openAddDialog} data-testid="button-add-track">
+            <Plus className="mr-2 h-4 w-4" />
+            Add Track
+          </Button>
         }
       />
 
@@ -259,7 +193,7 @@ export default function Tracks() {
             description="Create your first session track to organize your sessions by topic or theme"
             action={{
               label: "Create Track",
-              onClick: () => setIsDialogOpen(true)
+              onClick: openAddDialog
             }}
           />
         ) : (
@@ -318,6 +252,76 @@ export default function Tracks() {
           </Card>
         )}
       </div>
+
+      <Dialog open={isDialogOpen} onOpenChange={(open) => open ? setIsDialogOpen(true) : handleDialogClose()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingTrack ? "Edit Track" : "Add Track"}</DialogTitle>
+            <DialogDescription>
+              {editingTrack ? "Update the track details below" : "Create a new session track for organizing your sessions"}
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., Technical, Business, Workshop" {...field} data-testid="input-track-name" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Brief description of this track" {...field} data-testid="input-track-description" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="color"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Color</FormLabel>
+                    <FormControl>
+                      <div className="flex items-center gap-3">
+                        <ColorPicker
+                          value={field.value || "#3B82F6"}
+                          onChange={field.onChange}
+                        />
+                        <span className="text-sm text-muted-foreground">
+                          Click to choose a color
+                        </span>
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={handleDialogClose} data-testid="button-cancel">
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-submit">
+                  {createMutation.isPending || updateMutation.isPending ? "Saving..." : editingTrack ? "Update" : "Create"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
