@@ -142,7 +142,7 @@ Preferred communication style: Simple, everyday language.
     - Event tags: {{event.name}}, {{event.date}}, {{event.location}}, {{event.description}}
     - Attendee tags: {{attendee.firstName}}, {{attendee.lastName}}, {{attendee.email}}, {{attendee.company}}, {{attendee.checkInCode}}
     - Organization tags: {{organization.name}}
-  - **Header Image**: Upload 600x150 px header image (stored as base64, max 500KB)
+  - **Header Image**: URL input for header image (use Media Library to host images)
   - **Test Email**: Send test email to logged-in admin's email address
 - **API Endpoints**:
   - `GET /api/email-templates` - List all templates for organization
@@ -150,6 +150,27 @@ Preferred communication style: Simple, everyday language.
   - `PATCH /api/email-templates/:id` - Update template
   - `DELETE /api/email-templates/:id` - Delete template
   - `POST /api/email-templates/:id/test-email` - Send test email to admin
+
+### Media Library
+- **Purpose**: Host images for use in email templates and content
+- **Database**: `contentAssets` table stores metadata for uploaded files
+- **Object Storage**: Uses Replit Object Storage with public ACL for email rendering
+- **Features**:
+  - Upload images via presigned URLs (direct to object storage)
+  - Copy public URL for use in email templates
+  - Delete uploaded images
+  - Grid view with thumbnails
+- **API Endpoints**:
+  - `POST /api/content/assets/upload` - Get presigned upload URL
+  - `POST /api/content/assets` - Create asset record after upload (sets public ACL)
+  - `GET /api/content/assets` - List assets for organization
+  - `DELETE /api/content/assets/:id` - Delete asset
+  - `GET /objects/*` - Serve uploaded objects (public access)
+- **Key Files**:
+  - `server/objectStorage.ts` - Object storage service with presigned URL generation
+  - `server/objectAcl.ts` - ACL policy management for public/private access
+  - `client/src/components/ObjectUploader.tsx` - File upload component
+  - Media Library tab in `client/src/pages/content.tsx`
 
 ## External Dependencies
 
