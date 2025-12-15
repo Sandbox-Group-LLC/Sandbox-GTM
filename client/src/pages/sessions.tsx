@@ -63,6 +63,12 @@ const sessionTypeColors: Record<string, "default" | "secondary" | "outline"> = {
   workshop: "secondary",
   panel: "outline",
   breakout: "secondary",
+  networking: "secondary",
+  reception: "outline",
+  breakfast: "outline",
+  lunch: "outline",
+  dinner: "outline",
+  registration: "default",
 };
 
 export default function Sessions() {
@@ -430,6 +436,12 @@ export default function Sessions() {
                               <SelectItem value="workshop">Workshop</SelectItem>
                               <SelectItem value="panel">Panel Discussion</SelectItem>
                               <SelectItem value="breakout">Breakout Session</SelectItem>
+                              <SelectItem value="networking">Networking</SelectItem>
+                              <SelectItem value="reception">Reception</SelectItem>
+                              <SelectItem value="breakfast">Breakfast</SelectItem>
+                              <SelectItem value="lunch">Lunch</SelectItem>
+                              <SelectItem value="dinner">Dinner</SelectItem>
+                              <SelectItem value="registration">Registration</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />
