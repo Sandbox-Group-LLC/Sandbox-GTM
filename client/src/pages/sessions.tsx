@@ -97,7 +97,14 @@ export default function Sessions() {
   });
 
   const { data: associatedContent = [] } = useQuery<ContentItem[]>({
-    queryKey: ["/api/content", { sessionId: editingSession?.id }],
+    queryKey: ["/api/content", "session", editingSession?.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/content?sessionId=${editingSession?.id}`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to fetch content");
+      return res.json();
+    },
     enabled: !!editingSession?.id,
   });
 
