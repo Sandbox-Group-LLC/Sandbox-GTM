@@ -311,8 +311,25 @@ export const speakers = pgTable("speakers", {
   socialLinks: jsonb("social_links").$type<{ linkedin?: string; twitter?: string; website?: string }>(),
   speakerRole: varchar("speaker_role", { length: 50 }),
   notes: text("notes"),
+  isFeatured: boolean("is_featured").default(false),
+  displayOrder: integer("display_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Event Sponsors table
+export const eventSponsors = pgTable("event_sponsors", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  logoUrl: varchar("logo_url", { length: 500 }),
+  tier: varchar("tier", { length: 50 }).default("bronze"),
+  websiteUrl: varchar("website_url", { length: 500 }),
+  description: text("description"),
+  displayOrder: integer("display_order").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Sessions table
@@ -598,6 +615,11 @@ export const speakersRelations = relations(speakers, ({ one, many }) => ({
   sessionSpeakers: many(sessionSpeakers),
 }));
 
+export const eventSponsorsRelations = relations(eventSponsors, ({ one }) => ({
+  organization: one(organizations, { fields: [eventSponsors.organizationId], references: [organizations.id] }),
+  event: one(events, { fields: [eventSponsors.eventId], references: [events.id] }),
+}));
+
 export const eventSessionsRelations = relations(eventSessions, ({ one, many }) => ({
   organization: one(organizations, { fields: [eventSessions.organizationId], references: [organizations.id] }),
   event: one(events, { fields: [eventSessions.eventId], references: [events.id] }),
@@ -744,6 +766,7 @@ export const insertEventPageSchema = createInsertSchema(eventPages).omit({ id: t
 export const insertRegistrationConfigSchema = createInsertSchema(registrationConfigs).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertCustomFieldSchema = createInsertSchema(customFields).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertContentAssetSchema = createInsertSchema(contentAssets).omit({ id: true, createdAt: true });
+export const insertEventSponsorSchema = createInsertSchema(eventSponsors).omit({ id: true, createdAt: true });
 
 // Types
 export type UpsertUser = typeof users.$inferInsert;
@@ -807,3 +830,5 @@ export type InsertCustomField = z.infer<typeof insertCustomFieldSchema>;
 export type CustomField = typeof customFields.$inferSelect;
 export type InsertContentAsset = z.infer<typeof insertContentAssetSchema>;
 export type ContentAsset = typeof contentAssets.$inferSelect;
+export type InsertEventSponsor = z.infer<typeof insertEventSponsorSchema>;
+export type EventSponsor = typeof eventSponsors.$inferSelect;

@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar, MapPin, Clock, Mic, AlertCircle, ArrowRight, ChevronDown, ChevronUp, Quote } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import type { Event, EventSession, Speaker, EventPage, EventPageTheme } from "@shared/schema";
+import type { Event, EventSession, Speaker, EventPage, EventPageTheme, EventSponsor } from "@shared/schema";
 import { replaceMergeTags, type MergeTagContext } from "@shared/mergeTags";
 import { sanitizeCustomCss } from "@shared/css-sanitizer";
 
@@ -200,6 +200,7 @@ interface PublicEventData {
   event: Event;
   sessions: EventSession[];
   speakers: Speaker[];
+  sponsors: EventSponsor[];
   landingPage: EventPage | null;
 }
 
@@ -241,7 +242,7 @@ export default function PublicEvent() {
     );
   }
 
-  const { event, sessions, speakers, landingPage } = data;
+  const { event, sessions, speakers, sponsors, landingPage } = data;
   const sections = (landingPage?.sections as Section[]) || [];
   const hasSiteBuilderContent = sections.length > 0;
 
@@ -278,7 +279,7 @@ export default function PublicEvent() {
             {sections
               .sort((a, b) => a.order - b.order)
               .map((section) => (
-                <SectionRenderer key={section.id} section={section} event={event} sessions={sessions} speakers={speakers} theme={theme} />
+                <SectionRenderer key={section.id} section={section} event={event} sessions={sessions} speakers={speakers} sponsors={sponsors} theme={theme} />
               ))}
           </div>
         </div>
@@ -437,7 +438,7 @@ const SECTION_PADDING_MAP: Record<string, string> = {
   large: "4rem",
 };
 
-export function SectionRenderer({ section, event, sessions, speakers, theme, isHighlighted }: { section: Section; event: Event; sessions?: EventSession[]; speakers?: Speaker[]; theme?: EventPageTheme | null; isHighlighted?: boolean }) {
+export function SectionRenderer({ section, event, sessions, speakers, sponsors, theme, isHighlighted }: { section: Section; event: Event; sessions?: EventSession[]; speakers?: Speaker[]; sponsors?: EventSponsor[]; theme?: EventPageTheme | null; isHighlighted?: boolean }) {
   const config = section.config;
   const styles = section.styles;
   const isFullWidth = theme?.containerWidth === "full";
@@ -641,12 +642,25 @@ export function SectionRenderer({ section, event, sessions, speakers, theme, isH
 
     case "speakers":
       const showBio = config.showBio !== false;
+      const speakersDataSource = config.dataSource as string || "dynamic";
+      const speakersDynamicFilters = config.dynamicFilters as { limit?: number; showFeaturedOnly?: boolean } || {};
+      
+      let displaySpeakers = speakers || [];
+      if (speakersDataSource === "dynamic" && displaySpeakers.length > 0) {
+        if (speakersDynamicFilters.showFeaturedOnly) {
+          displaySpeakers = displaySpeakers.filter((s: Speaker) => (s as Speaker & { isFeatured?: boolean }).isFeatured);
+        }
+        if (speakersDynamicFilters.limit && speakersDynamicFilters.limit > 0) {
+          displaySpeakers = displaySpeakers.slice(0, speakersDynamicFilters.limit);
+        }
+      }
+      
       return wrapWithMargins(
         <div data-testid={`section-speakers-${section.id}`}>
           {heading && <h3 className="text-2xl font-semibold mb-6 text-center" style={headingStyles}>{heading}</h3>}
-          {speakers && speakers.length > 0 ? (
+          {displaySpeakers.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {speakers.map((speaker) => (
+              {displaySpeakers.map((speaker) => (
                 <Card key={speaker.id} style={cardStyles}>
                   <CardContent className="p-4 flex items-start gap-4">
                     <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
@@ -677,12 +691,28 @@ export function SectionRenderer({ section, event, sessions, speakers, theme, isH
     case "agenda":
       const showRoom = config.showRoom !== false;
       const showTrack = config.showTrack !== false;
+      const agendaDataSource = config.dataSource as string || "dynamic";
+      const agendaDynamicFilters = config.dynamicFilters as { limit?: number; filterByTrack?: string; filterByDay?: string } || {};
+      
+      let displaySessions = sessions || [];
+      if (agendaDataSource === "dynamic" && displaySessions.length > 0) {
+        if (agendaDynamicFilters.filterByTrack) {
+          displaySessions = displaySessions.filter((s: EventSession) => s.track === agendaDynamicFilters.filterByTrack);
+        }
+        if (agendaDynamicFilters.filterByDay) {
+          displaySessions = displaySessions.filter((s: EventSession) => s.day === agendaDynamicFilters.filterByDay);
+        }
+        if (agendaDynamicFilters.limit && agendaDynamicFilters.limit > 0) {
+          displaySessions = displaySessions.slice(0, agendaDynamicFilters.limit);
+        }
+      }
+      
       return wrapWithMargins(
         <div data-testid={`section-agenda-${section.id}`}>
           {heading && <h3 className="text-2xl font-semibold mb-6 text-center" style={headingStyles}>{heading}</h3>}
-          {sessions && sessions.length > 0 ? (
+          {displaySessions.length > 0 ? (
             <div className="space-y-3">
-              {sessions.map((session) => (
+              {displaySessions.map((session) => (
                 <Card key={session.id} style={cardStyles}>
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-4">
@@ -791,14 +821,42 @@ export function SectionRenderer({ section, event, sessions, speakers, theme, isH
       );
 
     case "sponsors":
-      const sponsorsList = (config.sponsors as Array<{ name: string; logoUrl: string; tier: string; url?: string }>) || [];
+      const sponsorsDataSource = config.dataSource as string || "dynamic";
+      const sponsorsDynamicFilters = config.dynamicFilters as { limit?: number; filterByTier?: string; sortOrder?: string } || {};
       const tierOrder: Record<string, number> = { gold: 0, silver: 1, bronze: 2 };
-      const sortedSponsors = [...sponsorsList].sort((a, b) => (tierOrder[a.tier] ?? 3) - (tierOrder[b.tier] ?? 3));
       const tierColors: Record<string, string> = {
         gold: "bg-yellow-100 dark:bg-yellow-900/30 border-yellow-400",
         silver: "bg-gray-100 dark:bg-gray-800 border-gray-400",
         bronze: "bg-orange-100 dark:bg-orange-900/30 border-orange-400",
       };
+      
+      let displaySponsors: Array<{ name: string; logoUrl: string; tier: string; url?: string; websiteUrl?: string }> = [];
+      
+      if (sponsorsDataSource === "dynamic" && sponsors && sponsors.length > 0) {
+        displaySponsors = sponsors.map(s => ({
+          name: s.name,
+          logoUrl: s.logoUrl || "",
+          tier: s.tier || "bronze",
+          url: s.websiteUrl || "",
+          websiteUrl: s.websiteUrl || "",
+        }));
+        if (sponsorsDynamicFilters.filterByTier) {
+          displaySponsors = displaySponsors.filter(s => s.tier === sponsorsDynamicFilters.filterByTier);
+        }
+        if (sponsorsDynamicFilters.limit && sponsorsDynamicFilters.limit > 0) {
+          displaySponsors = displaySponsors.slice(0, sponsorsDynamicFilters.limit);
+        }
+      } else {
+        displaySponsors = (config.sponsors as Array<{ name: string; logoUrl: string; tier: string; url?: string }>) || [];
+      }
+      
+      const sortedSponsors = [...displaySponsors].sort((a, b) => {
+        if (sponsorsDynamicFilters.sortOrder === "name") {
+          return a.name.localeCompare(b.name);
+        }
+        return (tierOrder[a.tier] ?? 3) - (tierOrder[b.tier] ?? 3);
+      });
+      
       return wrapWithMargins(
         <div data-testid={`section-sponsors-${section.id}`}>
           {heading && <h3 className="text-2xl font-semibold mb-6 text-center" style={headingStyles}>{heading}</h3>}
@@ -812,8 +870,8 @@ export function SectionRenderer({ section, event, sessions, speakers, theme, isH
                   data-testid={`sponsor-item-${idx}`}
                 >
                   {sponsor.logoUrl ? (
-                    sponsor.url ? (
-                      <a href={sponsor.url} target="_blank" rel="noopener noreferrer" className="w-full">
+                    (sponsor.url || sponsor.websiteUrl) ? (
+                      <a href={sponsor.url || sponsor.websiteUrl} target="_blank" rel="noopener noreferrer" className="w-full">
                         <img src={sponsor.logoUrl} alt={sponsor.name} className="h-16 w-full object-contain" />
                       </a>
                     ) : (

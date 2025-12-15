@@ -29,6 +29,7 @@ import {
   registrationConfigs,
   customFields,
   contentAssets,
+  eventSponsors,
   type User,
   type UpsertUser,
   type Event,
@@ -89,6 +90,8 @@ import {
   type InsertCustomField,
   type ContentAsset,
   type InsertContentAsset,
+  type EventSponsor,
+  type InsertEventSponsor,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, ilike, or, isNull } from "drizzle-orm";
@@ -157,6 +160,13 @@ export interface IStorage {
   createSpeaker(speaker: InsertSpeaker): Promise<Speaker>;
   updateSpeaker(organizationId: string, id: string, speaker: Partial<InsertSpeaker>): Promise<Speaker | undefined>;
   deleteSpeaker(organizationId: string, id: string): Promise<void>;
+
+  // Event Sponsor operations
+  getEventSponsors(organizationId: string, eventId: string, options?: { tier?: string; limit?: number; activeOnly?: boolean }): Promise<EventSponsor[]>;
+  getEventSponsor(organizationId: string, id: string): Promise<EventSponsor | undefined>;
+  createEventSponsor(sponsor: InsertEventSponsor): Promise<EventSponsor>;
+  updateEventSponsor(organizationId: string, id: string, sponsor: Partial<InsertEventSponsor>): Promise<EventSponsor | undefined>;
+  deleteEventSponsor(organizationId: string, id: string): Promise<void>;
 
   // Session operations
   getSessions(organizationId: string, eventId?: string): Promise<EventSession[]>;
@@ -443,6 +453,7 @@ export class DatabaseStorage implements IStorage {
       await db.delete(sessionSpeakers).where(eq(sessionSpeakers.sessionId, session.id));
     }
     await db.delete(eventSessions).where(eq(eventSessions.organizationId, id));
+    await db.delete(eventSponsors).where(eq(eventSponsors.organizationId, id));
     await db.delete(speakers).where(eq(speakers.organizationId, id));
     await db.delete(attendeeTypes).where(eq(attendeeTypes.organizationId, id));
     await db.delete(attendees).where(eq(attendees.organizationId, id));
@@ -482,6 +493,7 @@ export class DatabaseStorage implements IStorage {
     await db.delete(attendeeTypes).where(eq(attendeeTypes.eventId, id));
     await db.delete(eventPackages).where(eq(eventPackages.eventId, id));
     await db.delete(inviteCodes).where(eq(inviteCodes.eventId, id));
+    await db.delete(eventSponsors).where(eq(eventSponsors.eventId, id));
     await db.delete(speakers).where(eq(speakers.eventId, id));
     await db.delete(eventSessions).where(eq(eventSessions.eventId, id));
     await db.delete(contentItems).where(eq(contentItems.eventId, id));
@@ -713,6 +725,49 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSpeaker(organizationId: string, id: string): Promise<void> {
     await db.delete(speakers).where(and(eq(speakers.organizationId, organizationId), eq(speakers.id, id)));
+  }
+
+  // Event Sponsor operations
+  async getEventSponsors(organizationId: string, eventId: string, options?: { tier?: string; limit?: number; activeOnly?: boolean }): Promise<EventSponsor[]> {
+    let results = await db.select().from(eventSponsors)
+      .where(and(eq(eventSponsors.organizationId, organizationId), eq(eventSponsors.eventId, eventId)))
+      .orderBy(eventSponsors.displayOrder);
+    
+    let filtered = results;
+    if (options?.activeOnly) {
+      filtered = filtered.filter(s => s.isActive);
+    }
+    if (options?.tier) {
+      filtered = filtered.filter(s => s.tier === options.tier);
+    }
+    if (options?.limit) {
+      filtered = filtered.slice(0, options.limit);
+    }
+    return filtered;
+  }
+
+  async getEventSponsor(organizationId: string, id: string): Promise<EventSponsor | undefined> {
+    const [sponsor] = await db.select().from(eventSponsors)
+      .where(and(eq(eventSponsors.organizationId, organizationId), eq(eventSponsors.id, id)));
+    return sponsor;
+  }
+
+  async createEventSponsor(sponsor: InsertEventSponsor): Promise<EventSponsor> {
+    const [newSponsor] = await db.insert(eventSponsors).values(sponsor).returning();
+    return newSponsor;
+  }
+
+  async updateEventSponsor(organizationId: string, id: string, sponsor: Partial<InsertEventSponsor>): Promise<EventSponsor | undefined> {
+    const [updated] = await db
+      .update(eventSponsors)
+      .set(sponsor)
+      .where(and(eq(eventSponsors.organizationId, organizationId), eq(eventSponsors.id, id)))
+      .returning();
+    return updated;
+  }
+
+  async deleteEventSponsor(organizationId: string, id: string): Promise<void> {
+    await db.delete(eventSponsors).where(and(eq(eventSponsors.organizationId, organizationId), eq(eventSponsors.id, id)));
   }
 
   // Session operations

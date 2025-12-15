@@ -1249,6 +1249,8 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange }: SectionEdi
           </>
         );
       case "speakers":
+        const speakersDataSource = (config.dataSource as string) || "dynamic";
+        const speakersDynamicFilters = (config.dynamicFilters as { limit?: number; showFeaturedOnly?: boolean }) || {};
         return (
           <>
             <div className="space-y-2">
@@ -1272,12 +1274,56 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange }: SectionEdi
               />
               <Label htmlFor="showBio">Show speaker bios</Label>
             </div>
+            <div className="space-y-2">
+              <Label>Data Source</Label>
+              <Select
+                value={speakersDataSource}
+                onValueChange={(value) => updateConfig("dataSource", value)}
+              >
+                <SelectTrigger data-testid="select-speakers-data-source">
+                  <SelectValue placeholder="Select data source" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="dynamic">Dynamic (from database)</SelectItem>
+                  <SelectItem value="manual">Manual (static config)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {speakersDataSource === "dynamic" && (
+              <div className="space-y-3 p-3 border rounded-md">
+                <Label className="text-sm font-medium">Dynamic Filters</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="speakersLimit">Limit (0 = no limit)</Label>
+                  <Input
+                    id="speakersLimit"
+                    type="number"
+                    min={0}
+                    value={speakersDynamicFilters.limit || 0}
+                    onChange={(e) => updateConfig("dynamicFilters", { ...speakersDynamicFilters, limit: parseInt(e.target.value) || 0 })}
+                    data-testid="input-speakers-limit"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="showFeaturedOnly"
+                    checked={speakersDynamicFilters.showFeaturedOnly ?? false}
+                    onChange={(e) => updateConfig("dynamicFilters", { ...speakersDynamicFilters, showFeaturedOnly: e.target.checked })}
+                    className="h-4 w-4"
+                    data-testid="checkbox-speakers-featured-only"
+                  />
+                  <Label htmlFor="showFeaturedOnly">Show featured speakers only</Label>
+                </div>
+              </div>
+            )}
             <p className="text-sm text-muted-foreground">
-              Speakers are automatically pulled from event data
+              {speakersDataSource === "dynamic" ? "Speakers are automatically pulled from event data" : "Configure speakers manually in the database"}
             </p>
           </>
         );
       case "agenda":
+        const agendaDataSource = (config.dataSource as string) || "dynamic";
+        const agendaDynamicFilters = (config.dynamicFilters as { limit?: number; filterByTrack?: string; filterByDay?: string }) || {};
         return (
           <>
             <div className="space-y-2">
@@ -1312,8 +1358,59 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange }: SectionEdi
               />
               <Label htmlFor="showTrack">Show track badges</Label>
             </div>
+            <div className="space-y-2">
+              <Label>Data Source</Label>
+              <Select
+                value={agendaDataSource}
+                onValueChange={(value) => updateConfig("dataSource", value)}
+              >
+                <SelectTrigger data-testid="select-agenda-data-source">
+                  <SelectValue placeholder="Select data source" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="dynamic">Dynamic (from database)</SelectItem>
+                  <SelectItem value="manual">Manual (static config)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {agendaDataSource === "dynamic" && (
+              <div className="space-y-3 p-3 border rounded-md">
+                <Label className="text-sm font-medium">Dynamic Filters</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="agendaLimit">Limit (0 = no limit)</Label>
+                  <Input
+                    id="agendaLimit"
+                    type="number"
+                    min={0}
+                    value={agendaDynamicFilters.limit || 0}
+                    onChange={(e) => updateConfig("dynamicFilters", { ...agendaDynamicFilters, limit: parseInt(e.target.value) || 0 })}
+                    data-testid="input-agenda-limit"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="filterByTrack">Filter by Track</Label>
+                  <Input
+                    id="filterByTrack"
+                    value={agendaDynamicFilters.filterByTrack || ""}
+                    onChange={(e) => updateConfig("dynamicFilters", { ...agendaDynamicFilters, filterByTrack: e.target.value })}
+                    placeholder="Leave empty for all tracks"
+                    data-testid="input-agenda-filter-track"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="filterByDay">Filter by Day</Label>
+                  <Input
+                    id="filterByDay"
+                    value={agendaDynamicFilters.filterByDay || ""}
+                    onChange={(e) => updateConfig("dynamicFilters", { ...agendaDynamicFilters, filterByDay: e.target.value })}
+                    placeholder="e.g., Day 1, Monday"
+                    data-testid="input-agenda-filter-day"
+                  />
+                </div>
+              </div>
+            )}
             <p className="text-sm text-muted-foreground">
-              Sessions are automatically pulled from event data
+              {agendaDataSource === "dynamic" ? "Sessions are automatically pulled from event data" : "Configure sessions manually in the database"}
             </p>
           </>
         );
@@ -1544,6 +1641,8 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange }: SectionEdi
         );
       case "sponsors":
         const sponsorItems = (config.sponsors as Array<{ name: string; logoUrl: string; tier: string; url: string }>) || [];
+        const sponsorsDataSource = (config.dataSource as string) || "dynamic";
+        const sponsorsDynamicFilters = (config.dynamicFilters as { limit?: number; filterByTier?: string; sortOrder?: string }) || {};
         return (
           <>
             <div className="space-y-2">
@@ -1556,80 +1655,148 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange }: SectionEdi
                 data-testid="input-sponsors-heading"
               />
             </div>
-            <div className="space-y-3">
-              <Label>Sponsors</Label>
-              {sponsorItems.map((item, index) => (
-                <div key={index} className="space-y-2 p-3 border rounded-md">
+            <div className="space-y-2">
+              <Label>Data Source</Label>
+              <Select
+                value={sponsorsDataSource}
+                onValueChange={(value) => updateConfig("dataSource", value)}
+              >
+                <SelectTrigger data-testid="select-sponsors-data-source">
+                  <SelectValue placeholder="Select data source" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="dynamic">Dynamic (from database)</SelectItem>
+                  <SelectItem value="manual">Manual (static config)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {sponsorsDataSource === "dynamic" && (
+              <div className="space-y-3 p-3 border rounded-md">
+                <Label className="text-sm font-medium">Dynamic Filters</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="sponsorsLimit">Limit (0 = no limit)</Label>
                   <Input
-                    placeholder="Sponsor name"
-                    value={item.name}
-                    onChange={(e) => {
-                      const newItems = [...sponsorItems];
-                      newItems[index] = { ...item, name: e.target.value };
-                      updateConfig("sponsors", newItems);
-                    }}
-                    data-testid={`input-sponsor-name-${index}`}
+                    id="sponsorsLimit"
+                    type="number"
+                    min={0}
+                    value={sponsorsDynamicFilters.limit || 0}
+                    onChange={(e) => updateConfig("dynamicFilters", { ...sponsorsDynamicFilters, limit: parseInt(e.target.value) || 0 })}
+                    data-testid="input-sponsors-limit"
                   />
-                  <Input
-                    placeholder="Logo URL"
-                    value={item.logoUrl}
-                    onChange={(e) => {
-                      const newItems = [...sponsorItems];
-                      newItems[index] = { ...item, logoUrl: e.target.value };
-                      updateConfig("sponsors", newItems);
-                    }}
-                    data-testid={`input-sponsor-logo-${index}`}
-                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="filterByTier">Filter by Tier</Label>
                   <Select
-                    value={item.tier || "gold"}
-                    onValueChange={(value) => {
-                      const newItems = [...sponsorItems];
-                      newItems[index] = { ...item, tier: value };
-                      updateConfig("sponsors", newItems);
-                    }}
+                    value={sponsorsDynamicFilters.filterByTier || ""}
+                    onValueChange={(value) => updateConfig("dynamicFilters", { ...sponsorsDynamicFilters, filterByTier: value === "all" ? "" : value })}
                   >
-                    <SelectTrigger data-testid={`select-sponsor-tier-${index}`}>
-                      <SelectValue placeholder="Select tier" />
+                    <SelectTrigger data-testid="select-sponsors-filter-tier">
+                      <SelectValue placeholder="All tiers" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="all">All Tiers</SelectItem>
                       <SelectItem value="gold">Gold</SelectItem>
                       <SelectItem value="silver">Silver</SelectItem>
                       <SelectItem value="bronze">Bronze</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Input
-                    placeholder="Website URL (optional)"
-                    value={item.url || ""}
-                    onChange={(e) => {
-                      const newItems = [...sponsorItems];
-                      newItems[index] = { ...item, url: e.target.value };
-                      updateConfig("sponsors", newItems);
-                    }}
-                    data-testid={`input-sponsor-url-${index}`}
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const newItems = sponsorItems.filter((_, i) => i !== index);
-                      updateConfig("sponsors", newItems);
-                    }}
-                    data-testid={`button-remove-sponsor-${index}`}
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Remove
-                  </Button>
                 </div>
-              ))}
-              <Button
-                variant="outline"
-                onClick={() => updateConfig("sponsors", [...sponsorItems, { name: "", logoUrl: "", tier: "gold", url: "" }])}
-                data-testid="button-add-sponsor"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Sponsor
-              </Button>
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="sortOrder">Sort Order</Label>
+                  <Select
+                    value={sponsorsDynamicFilters.sortOrder || "tier"}
+                    onValueChange={(value) => updateConfig("dynamicFilters", { ...sponsorsDynamicFilters, sortOrder: value })}
+                  >
+                    <SelectTrigger data-testid="select-sponsors-sort-order">
+                      <SelectValue placeholder="Select sort order" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="tier">By Tier (Gold first)</SelectItem>
+                      <SelectItem value="name">By Name (A-Z)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Sponsors are automatically pulled from event data
+                </p>
+              </div>
+            )}
+            {sponsorsDataSource === "manual" && (
+              <div className="space-y-3">
+                <Label>Sponsors</Label>
+                {sponsorItems.map((item, index) => (
+                  <div key={index} className="space-y-2 p-3 border rounded-md">
+                    <Input
+                      placeholder="Sponsor name"
+                      value={item.name}
+                      onChange={(e) => {
+                        const newItems = [...sponsorItems];
+                        newItems[index] = { ...item, name: e.target.value };
+                        updateConfig("sponsors", newItems);
+                      }}
+                      data-testid={`input-sponsor-name-${index}`}
+                    />
+                    <Input
+                      placeholder="Logo URL"
+                      value={item.logoUrl}
+                      onChange={(e) => {
+                        const newItems = [...sponsorItems];
+                        newItems[index] = { ...item, logoUrl: e.target.value };
+                        updateConfig("sponsors", newItems);
+                      }}
+                      data-testid={`input-sponsor-logo-${index}`}
+                    />
+                    <Select
+                      value={item.tier || "gold"}
+                      onValueChange={(value) => {
+                        const newItems = [...sponsorItems];
+                        newItems[index] = { ...item, tier: value };
+                        updateConfig("sponsors", newItems);
+                      }}
+                    >
+                      <SelectTrigger data-testid={`select-sponsor-tier-${index}`}>
+                        <SelectValue placeholder="Select tier" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="gold">Gold</SelectItem>
+                        <SelectItem value="silver">Silver</SelectItem>
+                        <SelectItem value="bronze">Bronze</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      placeholder="Website URL (optional)"
+                      value={item.url || ""}
+                      onChange={(e) => {
+                        const newItems = [...sponsorItems];
+                        newItems[index] = { ...item, url: e.target.value };
+                        updateConfig("sponsors", newItems);
+                      }}
+                      data-testid={`input-sponsor-url-${index}`}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const newItems = sponsorItems.filter((_, i) => i !== index);
+                        updateConfig("sponsors", newItems);
+                      }}
+                      data-testid={`button-remove-sponsor-${index}`}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  variant="outline"
+                  onClick={() => updateConfig("sponsors", [...sponsorItems, { name: "", logoUrl: "", tier: "gold", url: "" }])}
+                  data-testid="button-add-sponsor"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Sponsor
+                </Button>
+              </div>
+            )}
           </>
         );
       case "map":

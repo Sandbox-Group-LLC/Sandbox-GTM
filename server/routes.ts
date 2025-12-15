@@ -36,6 +36,7 @@ import {
   insertEventPageSchema,
   insertCustomFieldSchema,
   insertContentAssetSchema,
+  insertEventSponsorSchema,
 } from "@shared/schema";
 import { sanitizeCustomCss } from "@shared/css-sanitizer";
 
@@ -1076,6 +1077,64 @@ export async function registerRoutes(
     }
   });
 
+  // Event Sponsor routes
+  app.get("/api/events/:eventId/sponsors", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const { tier, limit, activeOnly } = req.query;
+      const options: { tier?: string; limit?: number; activeOnly?: boolean } = {};
+      if (tier) options.tier = tier as string;
+      if (limit) options.limit = parseInt(limit as string, 10);
+      if (activeOnly === 'true') options.activeOnly = true;
+      const sponsors = await storage.getEventSponsors(organizationId, req.params.eventId, options);
+      res.json(sponsors);
+    } catch (error) {
+      logError("Error fetching event sponsors:", error);
+      res.status(500).json({ message: "Failed to fetch sponsors" });
+    }
+  });
+
+  app.post("/api/events/:eventId/sponsors", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const data = insertEventSponsorSchema.parse({ ...req.body, organizationId, eventId: req.params.eventId });
+      const sponsor = await storage.createEventSponsor(data);
+      res.status(201).json(sponsor);
+    } catch (error) {
+      logError("Error creating event sponsor:", error);
+      res.status(400).json({ message: "Invalid sponsor data" });
+    }
+  });
+
+  app.patch("/api/events/:eventId/sponsors/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const sponsor = await storage.updateEventSponsor(organizationId, req.params.id, req.body);
+      if (!sponsor) {
+        return res.status(404).json({ message: "Sponsor not found" });
+      }
+      res.json(sponsor);
+    } catch (error) {
+      logError("Error updating event sponsor:", error);
+      res.status(400).json({ message: "Failed to update sponsor" });
+    }
+  });
+
+  app.delete("/api/events/:eventId/sponsors/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      await storage.deleteEventSponsor(organizationId, req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting event sponsor:", error);
+      res.status(500).json({ message: "Failed to delete sponsor" });
+    }
+  });
+
   // Session routes
   app.get("/api/sessions", isAuthenticated, async (req: any, res) => {
     try {
@@ -2084,14 +2143,15 @@ export async function registerRoutes(
       
       const sessions = await storage.getSessions(event.organizationId, event.id);
       const speakers = await storage.getSpeakers(event.organizationId, event.id);
+      const sponsors = await storage.getEventSponsors(event.organizationId, event.id, { activeOnly: true });
       
       // Also fetch the landing page configuration if published
       const pages = await storage.getEventPages(event.organizationId, event.id);
       const landingPage = pages.find(p => p.pageType === "landing" && p.isPublished);
       
-      logInfo(`[Public Event] Sessions: ${sessions.length}, Speakers: ${speakers.length}, Pages: ${pages.length}, Landing published: ${!!landingPage}`);
+      logInfo(`[Public Event] Sessions: ${sessions.length}, Speakers: ${speakers.length}, Sponsors: ${sponsors.length}, Pages: ${pages.length}, Landing published: ${!!landingPage}`);
       
-      res.json({ event, sessions, speakers, landingPage: landingPage || null });
+      res.json({ event, sessions, speakers, sponsors, landingPage: landingPage || null });
     } catch (error) {
       logError("[Public Event] Error fetching public event:", error);
       res.status(500).json({ message: "Failed to fetch event" });
