@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Calendar, MapPin, Clock, Mic, AlertCircle, ArrowRight, ChevronDown, ChevronUp, Quote } from "lucide-react";
+import { Calendar, MapPin, Clock, Mic, AlertCircle, ArrowRight, ChevronDown, ChevronUp, Quote, Star, Zap, Heart, Check, Award, Target, Users, Mail, Phone, Globe } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import type { Event, EventSession, Speaker, EventPage, EventPageTheme, EventSponsor } from "@shared/schema";
@@ -893,6 +893,72 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
           data-testid={`section-html-${section.id}`}
           dangerouslySetInnerHTML={{ __html: htmlContent }}
         />
+      );
+
+    case "columns":
+      const simpleColumns = (config.columns as Array<{ heading: string; content: string }>) || [];
+      const columnCount = (config.columnCount as number) || 2;
+      const gridColsClass = columnCount === 2 ? "md:grid-cols-2" : columnCount === 3 ? "md:grid-cols-3" : "md:grid-cols-4";
+      return wrapWithMargins(
+        <div data-testid={`section-columns-${section.id}`}>
+          {heading && <h3 className="text-2xl font-semibold mb-6 text-center" style={headingStyles}>{heading}</h3>}
+          <div className={`grid grid-cols-1 ${gridColsClass} gap-6`}>
+            {simpleColumns.slice(0, columnCount).map((col, idx) => (
+              <div key={idx} className="space-y-2">
+                {col.heading && <h4 className="text-lg font-semibold" style={headingStyles}>{col.heading}</h4>}
+                {col.content && <p style={secondaryTextStyles}>{col.content}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+
+    case "columns-flex":
+      const flexColumns = (config.columns as Array<{ icon: string; heading: string; content: string; imageUrl: string; buttonText: string; buttonLink: string }>) || [];
+      const flexColumnCount = (config.columnCount as number) || 3;
+      const flexGridColsClass = flexColumnCount === 2 ? "md:grid-cols-2" : flexColumnCount === 3 ? "md:grid-cols-3" : "md:grid-cols-4";
+      
+      const getIconComponent = (iconName: string) => {
+        const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+          star: Star, zap: Zap, heart: Heart, check: Check, award: Award,
+          target: Target, users: Users, calendar: Calendar, mail: Mail,
+          phone: Phone, globe: Globe, "map-pin": MapPin,
+        };
+        return iconMap[iconName] || Star;
+      };
+      
+      return wrapWithMargins(
+        <div data-testid={`section-columns-flex-${section.id}`}>
+          {heading && <h3 className="text-2xl font-semibold mb-6 text-center" style={headingStyles}>{heading}</h3>}
+          <div className={`grid grid-cols-1 ${flexGridColsClass} gap-6`}>
+            {flexColumns.slice(0, flexColumnCount).map((col, idx) => {
+              const IconComponent = getIconComponent(col.icon);
+              return (
+                <Card key={idx} style={cardStyles}>
+                  <CardContent className="p-6 space-y-4">
+                    {col.imageUrl && (
+                      <img src={col.imageUrl} alt={col.heading} className="w-full h-40 object-cover rounded-md" />
+                    )}
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 rounded-lg" style={{ backgroundColor: theme?.primaryColor || "#3b82f6" }}>
+                        <IconComponent className="h-5 w-5 text-white" />
+                      </div>
+                      <div className="flex-1 space-y-2">
+                        {col.heading && <h4 className="text-lg font-semibold" style={headingStyles}>{col.heading}</h4>}
+                        {col.content && <p className="text-sm" style={secondaryTextStyles}>{col.content}</p>}
+                      </div>
+                    </div>
+                    {col.buttonText && col.buttonLink && (
+                      <Button asChild style={buttonStyles}>
+                        <a href={col.buttonLink}>{col.buttonText}</a>
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
       );
 
     case "sponsors":

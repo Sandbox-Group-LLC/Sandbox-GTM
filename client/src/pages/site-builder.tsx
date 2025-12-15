@@ -68,6 +68,8 @@ import {
   History,
   RotateCcw,
   Loader2,
+  Columns2,
+  LayoutGrid,
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Event, EventPage, EventPageTheme } from "@shared/schema";
@@ -87,7 +89,7 @@ import {
 
 type PageType = "landing" | "registration" | "portal" | "confirmation";
 
-type SectionType = "hero" | "text" | "cta" | "features" | "countdown" | "speakers" | "agenda" | "faq" | "testimonials" | "gallery" | "html" | "sponsors" | "map" | "video" | "footer" | "navigation";
+type SectionType = "hero" | "text" | "cta" | "features" | "countdown" | "speakers" | "agenda" | "faq" | "testimonials" | "gallery" | "html" | "sponsors" | "map" | "video" | "footer" | "navigation" | "columns" | "columns-flex";
 
 interface SectionStyles {
   backgroundColor?: string;
@@ -131,6 +133,8 @@ const SECTION_TYPES: { type: SectionType; label: string; icon: React.ComponentTy
   { type: "video", label: "Video", icon: Video, description: "Embedded YouTube/Vimeo video" },
   { type: "footer", label: "Footer", icon: Mail, description: "Contact info, links, social media" },
   { type: "navigation", label: "Navigation Bar", icon: Menu, description: "Header navigation with links" },
+  { type: "columns", label: "Simple Columns", icon: Columns2, description: "Multi-column layout with text" },
+  { type: "columns-flex", label: "Flexible Columns", icon: LayoutGrid, description: "Columns with icons, images, buttons" },
 ];
 
 const GOOGLE_FONTS = [
@@ -235,6 +239,25 @@ const getDefaultConfig = (type: SectionType): Record<string, unknown> => {
         showEventTitle: true,
         sticky: false,
         style: "light"
+      };
+    case "columns":
+      return {
+        heading: "",
+        columnCount: 2,
+        columns: [
+          { heading: "Column 1", content: "Add your content here" },
+          { heading: "Column 2", content: "Add your content here" },
+        ]
+      };
+    case "columns-flex":
+      return {
+        heading: "",
+        columnCount: 3,
+        columns: [
+          { icon: "star", heading: "Feature 1", content: "Description here", imageUrl: "", buttonText: "", buttonLink: "" },
+          { icon: "zap", heading: "Feature 2", content: "Description here", imageUrl: "", buttonText: "", buttonLink: "" },
+          { icon: "heart", heading: "Feature 3", content: "Description here", imageUrl: "", buttonText: "", buttonLink: "" },
+        ]
       };
     default:
       return {};
@@ -536,6 +559,14 @@ export default function SiteBuilder() {
       case "navigation":
         const navLinks = (config.links as Array<{ label: string; url: string }>) || [];
         previewText = `Navigation bar (${navLinks.length} links)`;
+        break;
+      case "columns":
+        const simpleColCount = (config.columnCount as number) || 2;
+        previewText = `${(config.heading as string) || "Columns"} (${simpleColCount} columns)`;
+        break;
+      case "columns-flex":
+        const flexColCount = (config.columnCount as number) || 3;
+        previewText = `${(config.heading as string) || "Flexible Columns"} (${flexColCount} columns)`;
         break;
       default:
         previewText = "Section content";
@@ -2496,6 +2527,207 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId }: S
                 placeholder="© 2024 Your Company. All rights reserved."
                 data-testid="input-footer-copyright"
               />
+            </div>
+          </>
+        );
+      case "columns":
+        const simpleColumns = (config.columns as Array<{ heading: string; content: string }>) || [];
+        const columnCount = (config.columnCount as number) || 2;
+        return (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="columns-heading">Section Heading</Label>
+              <Input
+                id="columns-heading"
+                value={(config.heading as string) || ""}
+                onChange={(e) => updateConfig("heading", e.target.value)}
+                placeholder="Optional section heading"
+                data-testid="input-columns-heading"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Number of Columns</Label>
+              <Select
+                value={String(columnCount)}
+                onValueChange={(value) => {
+                  const newCount = parseInt(value);
+                  const currentColumns = [...simpleColumns];
+                  while (currentColumns.length < newCount) {
+                    currentColumns.push({ heading: `Column ${currentColumns.length + 1}`, content: "Add your content here" });
+                  }
+                  updateConfig("columnCount", newCount);
+                  updateConfig("columns", currentColumns.slice(0, newCount));
+                }}
+              >
+                <SelectTrigger data-testid="select-column-count">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="2">2 Columns</SelectItem>
+                  <SelectItem value="3">3 Columns</SelectItem>
+                  <SelectItem value="4">4 Columns</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-4">
+              <Label>Column Content</Label>
+              {simpleColumns.slice(0, columnCount).map((col, index) => (
+                <Card key={index} className="p-3">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-medium">Column {index + 1}</span>
+                    </div>
+                    <Input
+                      placeholder="Column heading"
+                      value={col.heading}
+                      onChange={(e) => {
+                        const newCols = [...simpleColumns];
+                        newCols[index] = { ...col, heading: e.target.value };
+                        updateConfig("columns", newCols);
+                      }}
+                      data-testid={`input-column-heading-${index}`}
+                    />
+                    <Textarea
+                      placeholder="Column content..."
+                      value={col.content}
+                      onChange={(e) => {
+                        const newCols = [...simpleColumns];
+                        newCols[index] = { ...col, content: e.target.value };
+                        updateConfig("columns", newCols);
+                      }}
+                      rows={3}
+                      data-testid={`textarea-column-content-${index}`}
+                    />
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </>
+        );
+      case "columns-flex":
+        const flexColumns = (config.columns as Array<{ icon: string; heading: string; content: string; imageUrl: string; buttonText: string; buttonLink: string }>) || [];
+        const flexColumnCount = (config.columnCount as number) || 3;
+        const iconOptions = ["star", "zap", "heart", "check", "award", "target", "users", "calendar", "mail", "phone", "globe", "map-pin"];
+        return (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="flex-columns-heading">Section Heading</Label>
+              <Input
+                id="flex-columns-heading"
+                value={(config.heading as string) || ""}
+                onChange={(e) => updateConfig("heading", e.target.value)}
+                placeholder="Optional section heading"
+                data-testid="input-flex-columns-heading"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Number of Columns</Label>
+              <Select
+                value={String(flexColumnCount)}
+                onValueChange={(value) => {
+                  const newCount = parseInt(value);
+                  const currentColumns = [...flexColumns];
+                  while (currentColumns.length < newCount) {
+                    currentColumns.push({ icon: "star", heading: `Feature ${currentColumns.length + 1}`, content: "Description here", imageUrl: "", buttonText: "", buttonLink: "" });
+                  }
+                  updateConfig("columnCount", newCount);
+                  updateConfig("columns", currentColumns.slice(0, newCount));
+                }}
+              >
+                <SelectTrigger data-testid="select-flex-column-count">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="2">2 Columns</SelectItem>
+                  <SelectItem value="3">3 Columns</SelectItem>
+                  <SelectItem value="4">4 Columns</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-4">
+              <Label>Column Content</Label>
+              {flexColumns.slice(0, flexColumnCount).map((col, index) => (
+                <Card key={index} className="p-3">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-medium">Column {index + 1}</span>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs">Icon</Label>
+                      <Select
+                        value={col.icon || "star"}
+                        onValueChange={(value) => {
+                          const newCols = [...flexColumns];
+                          newCols[index] = { ...col, icon: value };
+                          updateConfig("columns", newCols);
+                        }}
+                      >
+                        <SelectTrigger data-testid={`select-column-icon-${index}`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {iconOptions.map((icon) => (
+                            <SelectItem key={icon} value={icon}>{icon}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Input
+                      placeholder="Heading"
+                      value={col.heading}
+                      onChange={(e) => {
+                        const newCols = [...flexColumns];
+                        newCols[index] = { ...col, heading: e.target.value };
+                        updateConfig("columns", newCols);
+                      }}
+                      data-testid={`input-flex-column-heading-${index}`}
+                    />
+                    <Textarea
+                      placeholder="Description..."
+                      value={col.content}
+                      onChange={(e) => {
+                        const newCols = [...flexColumns];
+                        newCols[index] = { ...col, content: e.target.value };
+                        updateConfig("columns", newCols);
+                      }}
+                      rows={2}
+                      data-testid={`textarea-flex-column-content-${index}`}
+                    />
+                    <Input
+                      placeholder="Image URL (optional)"
+                      value={col.imageUrl}
+                      onChange={(e) => {
+                        const newCols = [...flexColumns];
+                        newCols[index] = { ...col, imageUrl: e.target.value };
+                        updateConfig("columns", newCols);
+                      }}
+                      data-testid={`input-flex-column-image-${index}`}
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        placeholder="Button text"
+                        value={col.buttonText}
+                        onChange={(e) => {
+                          const newCols = [...flexColumns];
+                          newCols[index] = { ...col, buttonText: e.target.value };
+                          updateConfig("columns", newCols);
+                        }}
+                        data-testid={`input-flex-column-button-text-${index}`}
+                      />
+                      <Input
+                        placeholder="Button link"
+                        value={col.buttonLink}
+                        onChange={(e) => {
+                          const newCols = [...flexColumns];
+                          newCols[index] = { ...col, buttonLink: e.target.value };
+                          updateConfig("columns", newCols);
+                        }}
+                        data-testid={`input-flex-column-button-link-${index}`}
+                      />
+                    </div>
+                  </div>
+                </Card>
+              ))}
             </div>
           </>
         );
