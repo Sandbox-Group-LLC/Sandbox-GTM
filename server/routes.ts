@@ -1210,7 +1210,12 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
-      const budget = await storage.updateBudgetItem(organizationId, req.params.id, req.body);
+      // Convert empty categoryId to null to avoid FK violation
+      const body = { ...req.body };
+      if (body.categoryId === "") {
+        body.categoryId = null;
+      }
+      const budget = await storage.updateBudgetItem(organizationId, req.params.id, body);
       if (!budget) {
         return res.status(404).json({ message: "Budget item not found" });
       }
