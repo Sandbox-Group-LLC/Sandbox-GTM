@@ -186,25 +186,25 @@ export default function Tracks() {
       <PageHeader
         title="Tracks"
         breadcrumbs={[{ label: "Sessions", href: "/sessions" }, { label: "Tracks" }]}
+        actions={
+          <Button size="sm" onClick={openAddDialog} data-testid="button-add-track">
+            <Plus className="h-4 w-4 mr-2" />
+            Track
+          </Button>
+        }
       />
 
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-7xl mx-auto space-y-6">
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search tracks..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-                data-testid="input-search"
-              />
-            </div>
-            <Button size="sm" onClick={openAddDialog} data-testid="button-add-track">
-              <Plus className="h-4 w-4 mr-2" />
-              Track
-            </Button>
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search tracks..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+              data-testid="input-search"
+            />
           </div>
 
           {tracks.length === 0 ? (
