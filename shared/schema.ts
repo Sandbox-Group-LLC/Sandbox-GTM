@@ -59,6 +59,7 @@ export const organizations = pgTable("organizations", {
   stripePublishableKey: varchar("stripe_publishable_key", { length: 255 }),
   stripeSecretKey: varchar("stripe_secret_key", { length: 255 }),
   paymentEnabled: boolean("payment_enabled").default(false),
+  isArchived: boolean("is_archived").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
