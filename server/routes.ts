@@ -39,6 +39,7 @@ import {
   insertEventSponsorSchema,
 } from "@shared/schema";
 import { sanitizeCustomCss } from "@shared/css-sanitizer";
+import { generateSectionContent } from "./ai";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -3031,6 +3032,61 @@ export async function registerRoutes(
     } catch (error) {
       logError("Error deleting content asset:", error);
       res.status(500).json({ message: "Failed to delete content asset" });
+    }
+  });
+
+  // AI Content Generation endpoint
+  app.post("/api/ai/generate-content", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      
+      const { sectionType, eventId, customPrompt } = req.body;
+      
+      if (!sectionType || !eventId) {
+        return res.status(400).json({ message: "sectionType and eventId are required" });
+      }
+      
+      // Validate section type
+      const validSectionTypes = ["hero", "text", "cta", "features", "faq", "testimonials"];
+      if (!validSectionTypes.includes(sectionType)) {
+        return res.status(400).json({ message: `Invalid section type. Supported types: ${validSectionTypes.join(", ")}` });
+      }
+      
+      // Fetch event details
+      const event = await storage.getEvent(eventId, organizationId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      // Build location string
+      const locationParts = [event.location, event.city, event.state, event.country].filter(Boolean);
+      const eventLocation = locationParts.length > 0 ? locationParts.join(", ") : undefined;
+      
+      // Format date
+      const eventDate = event.startDate ? new Date(event.startDate).toLocaleDateString("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      }) : undefined;
+      
+      // Generate content using AI
+      const generatedContent = await generateSectionContent({
+        sectionType,
+        eventName: event.name,
+        eventDescription: event.description || undefined,
+        eventDate,
+        eventLocation,
+        prompt: customPrompt,
+      });
+      
+      logInfo(`AI content generated for event ${eventId}, section type: ${sectionType}`);
+      
+      res.json(generatedContent);
+    } catch (error: any) {
+      logError("Error generating AI content:", error);
+      res.status(500).json({ message: error.message || "Failed to generate content" });
     }
   });
 

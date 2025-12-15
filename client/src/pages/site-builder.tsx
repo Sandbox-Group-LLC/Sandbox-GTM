@@ -25,6 +25,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -867,6 +868,7 @@ export default function SiteBuilder() {
                   s.id === editingSection.id ? { ...s, config, styles } : s
                 ));
               }}
+              eventId={selectedEventId}
             />
           )}
         </DialogContent>
@@ -1000,11 +1002,88 @@ interface SectionEditorProps {
   onSave: (config: Record<string, unknown>, styles?: SectionStyles) => void;
   onCancel: () => void;
   onConfigChange?: (config: Record<string, unknown>, styles?: SectionStyles) => void;
+  eventId?: string;
 }
 
-function SectionEditor({ section, onSave, onCancel, onConfigChange }: SectionEditorProps) {
+const AI_SUPPORTED_SECTIONS: SectionType[] = ["hero", "text", "cta", "features", "faq", "testimonials"];
+
+function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId }: SectionEditorProps) {
+  const { toast } = useToast();
   const [config, setConfig] = useState<Record<string, unknown>>(section.config);
   const [styles, setStyles] = useState<SectionStyles>(section.styles || {});
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
+  const [aiPromptOpen, setAiPromptOpen] = useState(false);
+  const [customPrompt, setCustomPrompt] = useState("");
+
+  const supportsAiGeneration = AI_SUPPORTED_SECTIONS.includes(section.type);
+
+  const handleAiGenerate = async () => {
+    if (!eventId) {
+      toast({ title: "Error", description: "Please select an event first", variant: "destructive" });
+      return;
+    }
+
+    setIsAiGenerating(true);
+    try {
+      const response = await apiRequest("POST", "/api/ai/generate-content", {
+        sectionType: section.type,
+        eventId,
+        customPrompt: customPrompt || undefined,
+      });
+      
+      const generatedContent = await response.json();
+      
+      // Merge generated content with existing config
+      const newConfig = { ...config };
+      
+      switch (section.type) {
+        case "hero":
+          if (generatedContent.title) newConfig.title = generatedContent.title;
+          if (generatedContent.subtitle) newConfig.subtitle = generatedContent.subtitle;
+          if (generatedContent.buttonText) newConfig.buttonText = generatedContent.buttonText;
+          break;
+        case "text":
+          if (generatedContent.heading) newConfig.heading = generatedContent.heading;
+          if (generatedContent.content) newConfig.content = generatedContent.content;
+          break;
+        case "cta":
+          if (generatedContent.heading) newConfig.heading = generatedContent.heading;
+          if (generatedContent.description) newConfig.description = generatedContent.description;
+          if (generatedContent.buttonText) newConfig.buttonText = generatedContent.buttonText;
+          break;
+        case "features":
+          if (generatedContent.heading) newConfig.heading = generatedContent.heading;
+          if (generatedContent.features) newConfig.features = generatedContent.features;
+          break;
+        case "faq":
+          if (generatedContent.heading) newConfig.heading = generatedContent.heading;
+          if (generatedContent.items) newConfig.items = generatedContent.items;
+          break;
+        case "testimonials":
+          if (generatedContent.heading) newConfig.heading = generatedContent.heading;
+          if (generatedContent.items) newConfig.items = generatedContent.items;
+          break;
+      }
+      
+      setConfig(newConfig);
+      onConfigChange?.(newConfig, styles);
+      setAiPromptOpen(false);
+      setCustomPrompt("");
+      
+      const disclaimerMsg = section.type === "testimonials" 
+        ? " Note: These are sample testimonials - replace with real ones." 
+        : "";
+      toast({ title: "Content generated", description: `AI content applied to ${section.type} section.${disclaimerMsg}` });
+    } catch (error: any) {
+      toast({ 
+        title: "Generation failed", 
+        description: error.message || "Failed to generate content", 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsAiGenerating(false);
+    }
+  };
 
   const updateConfig = (key: string, value: unknown) => {
     const newConfig = { ...config, [key]: value };
@@ -2141,13 +2220,71 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange }: SectionEdi
         </AccordionItem>
       </Accordion>
 
-      <div className="flex justify-end gap-2 pt-4">
-        <Button variant="outline" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button onClick={() => onSave(config, styles)} data-testid="button-save-section">
-          Save Changes
-        </Button>
+      <div className="flex justify-between gap-2 pt-4">
+        <div>
+          {supportsAiGeneration && (
+            <Popover open={aiPromptOpen} onOpenChange={setAiPromptOpen}>
+              <PopoverTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  disabled={isAiGenerating || !eventId}
+                  data-testid="button-ai-generate"
+                >
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  {isAiGenerating ? "Generating..." : "AI Generate"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80" align="start">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <h4 className="font-medium flex items-center gap-2">
+                      <Sparkles className="h-4 w-4" />
+                      AI Content Generator
+                    </h4>
+                    <p className="text-sm text-muted-foreground">
+                      Generate content for this {section.type} section based on your event details.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="ai-prompt">Custom Instructions (optional)</Label>
+                    <Textarea
+                      id="ai-prompt"
+                      placeholder="Add specific instructions for the AI..."
+                      value={customPrompt}
+                      onChange={(e) => setCustomPrompt(e.target.value)}
+                      rows={3}
+                      data-testid="input-ai-prompt"
+                    />
+                  </div>
+                  {section.type === "testimonials" && (
+                    <div className="flex items-start gap-2 p-2 rounded-md bg-muted">
+                      <AlertTriangle className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                      <p className="text-xs text-muted-foreground">
+                        Generated testimonials are examples only. Replace with real testimonials before publishing.
+                      </p>
+                    </div>
+                  )}
+                  <Button 
+                    onClick={handleAiGenerate} 
+                    disabled={isAiGenerating}
+                    className="w-full"
+                    data-testid="button-confirm-ai-generate"
+                  >
+                    {isAiGenerating ? "Generating..." : "Generate Content"}
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button onClick={() => onSave(config, styles)} data-testid="button-save-section">
+            Save Changes
+          </Button>
+        </div>
       </div>
     </div>
   );
