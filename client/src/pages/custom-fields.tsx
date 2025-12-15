@@ -270,7 +270,7 @@ export default function CustomFields() {
     <div className="flex-1 flex flex-col overflow-hidden">
       <PageHeader
         title="Custom Fields"
-        breadcrumbs={[{ label: "Attendees" }, { label: "Custom Fields" }]}
+        breadcrumbs={[{ label: "Events", href: "/events" }, { label: "Custom Fields" }]}
         actions={
           <Button onClick={() => setIsDialogOpen(true)} data-testid="button-add-custom-field">
             <Plus className="h-4 w-4 mr-2" />

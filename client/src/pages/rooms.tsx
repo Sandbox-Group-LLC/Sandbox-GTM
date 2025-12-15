@@ -194,9 +194,9 @@ export default function Rooms() {
   return (
     <div className="flex flex-col h-full">
       <PageHeader
-        title="Session Rooms"
-        description="Manage venues and locations for your sessions"
-        action={
+        title="Rooms"
+        breadcrumbs={[{ label: "Sessions", href: "/sessions" }, { label: "Rooms" }]}
+        actions={
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
             if (!open) handleDialogClose();
             else setIsDialogOpen(true);

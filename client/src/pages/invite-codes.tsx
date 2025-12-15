@@ -318,7 +318,7 @@ export default function InviteCodes() {
     <div className="flex flex-col h-full">
       <PageHeader
         title="Invite Codes"
-        breadcrumbs={[{ label: "Invite Codes" }]}
+        breadcrumbs={[{ label: "Attendees", href: "/attendees" }, { label: "Invite Codes" }]}
         actions={
           <div className="flex items-center gap-2">
             <Select value={selectedEventId || "all"} onValueChange={(value) => setSelectedEventId(value === "all" ? "" : value)}>
