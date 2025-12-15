@@ -39,7 +39,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Plus, Calendar, Clock, MapPin, Users, Search } from "lucide-react";
 import { EventSelectField } from "@/components/event-select-field";
-import type { EventSession } from "@shared/schema";
+import type { EventSession, SessionRoom, SessionTrack } from "@shared/schema";
 
 const sessionFormSchema = z.object({
   eventId: z.string().min(1, "Event is required"),
@@ -71,6 +71,14 @@ export default function Sessions() {
 
   const { data: sessions = [], isLoading } = useQuery<EventSession[]>({
     queryKey: ["/api/sessions"],
+  });
+
+  const { data: rooms = [] } = useQuery<SessionRoom[]>({
+    queryKey: ["/api/session-rooms"],
+  });
+
+  const { data: tracks = [] } = useQuery<SessionTrack[]>({
+    queryKey: ["/api/session-tracks"],
   });
 
   const form = useForm<SessionFormData>({
@@ -287,9 +295,20 @@ export default function Sessions() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Room</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="e.g., Main Hall" data-testid="input-room" />
-                          </FormControl>
+                          <Select onValueChange={field.onChange} value={field.value || ""}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-room">
+                                <SelectValue placeholder="Select room" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {rooms.map((room) => (
+                                <SelectItem key={room.id} value={room.name}>
+                                  {room.name}{room.capacity ? ` (${room.capacity})` : ""}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -315,9 +334,28 @@ export default function Sessions() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Track</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="e.g., Technical, Business" data-testid="input-track" />
-                          </FormControl>
+                          <Select onValueChange={field.onChange} value={field.value || ""}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-track">
+                                <SelectValue placeholder="Select track" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {tracks.map((track) => (
+                                <SelectItem key={track.id} value={track.name}>
+                                  <div className="flex items-center gap-2">
+                                    {track.color && (
+                                      <div
+                                        className="w-3 h-3 rounded-sm shrink-0"
+                                        style={{ backgroundColor: track.color }}
+                                      />
+                                    )}
+                                    {track.name}
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                           <FormMessage />
                         </FormItem>
                       )}
