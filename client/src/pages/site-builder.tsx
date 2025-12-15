@@ -924,27 +924,31 @@ export default function SiteBuilder() {
       </div>
 
       <Dialog open={isAddSectionOpen} onOpenChange={setIsAddSectionOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-3xl max-h-[80vh]">
           <DialogHeader>
             <DialogTitle>Add Section</DialogTitle>
             <DialogDescription>
               Choose a section type to add to your page
             </DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-3 pt-4">
-            {SECTION_TYPES.map((st) => (
-              <button
-                key={st.type}
-                onClick={() => handleAddSection(st.type)}
-                className="flex flex-col items-center gap-2 p-4 border rounded-md hover-elevate text-center"
-                data-testid={`button-section-${st.type}`}
-              >
-                <st.icon className="h-8 w-8 text-muted-foreground" />
-                <span className="font-medium">{st.label}</span>
-                <span className="text-xs text-muted-foreground">{st.description}</span>
-              </button>
-            ))}
-          </div>
+          <ScrollArea className="max-h-[60vh] pr-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 pt-4">
+              {SECTION_TYPES.map((st) => (
+                <button
+                  key={st.type}
+                  onClick={() => handleAddSection(st.type)}
+                  className="flex flex-row items-center gap-3 p-3 border rounded-md hover-elevate text-left md:flex-col md:text-center md:p-4"
+                  data-testid={`button-section-${st.type}`}
+                >
+                  <st.icon className="h-6 w-6 flex-shrink-0 text-muted-foreground md:h-8 md:w-8" />
+                  <div className="min-w-0 flex-1 md:flex-none">
+                    <span className="font-medium text-sm block">{st.label}</span>
+                    <span className="text-xs text-muted-foreground line-clamp-2">{st.description}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </ScrollArea>
         </DialogContent>
       </Dialog>
 
