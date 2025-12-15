@@ -154,6 +154,7 @@ interface Step1Config {
   collectPhone?: boolean;
   collectCompany?: boolean;
   collectJobTitle?: boolean;
+  requirePassword?: boolean;
 }
 
 interface PublicRegistrationData {
@@ -184,6 +185,9 @@ function buildDynamicSchema(customFields: CustomField[], registrationConfig?: St
     jobTitle: registrationConfig?.collectJobTitle ?? defaultRequired.jobTitle,
   };
   
+  // Check if password is required
+  const requirePassword = registrationConfig?.requirePassword ?? false;
+  
   // Build base schema dynamically based on required fields
   // Use .trim() to match backend validation (rejects whitespace-only values)
   const baseSchema = z.object({
@@ -206,6 +210,12 @@ function buildDynamicSchema(customFields: CustomField[], registrationConfig?: St
       ? z.string().trim().min(1, "Job title is required") 
       : z.string().optional(),
     inviteCode: z.string().optional(),
+    password: requirePassword
+      ? z.string().min(8, "Password must be at least 8 characters")
+      : z.string().optional(),
+    confirmPassword: requirePassword
+      ? z.string().min(1, "Please confirm your password")
+      : z.string().optional(),
   });
   
   const customDataShape: Record<string, z.ZodTypeAny> = {};
@@ -236,9 +246,19 @@ function buildDynamicSchema(customFields: CustomField[], registrationConfig?: St
     customDataShape[field.name] = fieldSchema;
   });
   
-  return baseSchema.extend({
+  const extendedSchema = baseSchema.extend({
     customData: z.object(customDataShape).optional(),
   });
+  
+  // Add password confirmation validation if password is required
+  if (requirePassword) {
+    return extendedSchema.refine((data) => data.password === data.confirmPassword, {
+      message: "Passwords do not match",
+      path: ["confirmPassword"],
+    });
+  }
+  
+  return extendedSchema;
 }
 
 function getRequiredFields(registrationConfig?: Step1Config | null) {
@@ -269,6 +289,8 @@ type RegistrationFormData = {
   company?: string;
   jobTitle?: string;
   inviteCode?: string;
+  password?: string;
+  confirmPassword?: string;
   customData?: Record<string, string | boolean>;
 };
 
@@ -532,6 +554,8 @@ export default function PublicRegistration() {
     return getRequiredFields(data?.registrationConfig);
   }, [data?.registrationConfig]);
 
+  const requirePassword = data?.registrationConfig?.requirePassword ?? false;
+
   const defaultCustomData = useMemo(() => {
     const data: Record<string, string | boolean> = {};
     customFields.forEach((field) => {
@@ -554,6 +578,8 @@ export default function PublicRegistration() {
       company: "",
       jobTitle: "",
       inviteCode: "",
+      password: "",
+      confirmPassword: "",
       customData: defaultCustomData,
     },
   });
@@ -874,6 +900,41 @@ export default function PublicRegistration() {
                           </FormItem>
                         )}
                       />
+
+                      {requirePassword && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <FormField
+                            control={form.control}
+                            name="password"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>
+                                  Password<span className="text-destructive ml-1">*</span>
+                                </FormLabel>
+                                <FormControl>
+                                  <Input type="password" data-testid="input-password" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="confirmPassword"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>
+                                  Confirm Password<span className="text-destructive ml-1">*</span>
+                                </FormLabel>
+                                <FormControl>
+                                  <Input type="password" data-testid="input-confirm-password" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      )}
 
                       <FormField
                         control={form.control}
