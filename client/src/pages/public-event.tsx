@@ -10,7 +10,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import type { Event, EventSession, Speaker, EventPage, EventPageTheme } from "@shared/schema";
 import { replaceMergeTags, type MergeTagContext } from "@shared/mergeTags";
 
-function GoogleFontsLoader({ fonts }: { fonts: string[] }) {
+export function GoogleFontsLoader({ fonts }: { fonts: string[] }) {
   const uniqueFonts = useMemo(() => [...new Set(fonts.filter(Boolean))], [fonts]);
   
   if (uniqueFonts.length === 0) return null;
@@ -27,7 +27,7 @@ function GoogleFontsLoader({ fonts }: { fonts: string[] }) {
   );
 }
 
-function getThemeStyles(theme: EventPageTheme | null | undefined): React.CSSProperties {
+export function getThemeStyles(theme: EventPageTheme | null | undefined): React.CSSProperties {
   if (!theme) return {};
   
   const borderRadiusMap: Record<string, string> = {
@@ -68,7 +68,7 @@ function getThemeStyles(theme: EventPageTheme | null | undefined): React.CSSProp
   } as React.CSSProperties;
 }
 
-interface Section {
+export interface Section {
   id: string;
   type: string;
   order: number;
@@ -306,7 +306,7 @@ export default function PublicEvent() {
   );
 }
 
-function SectionRenderer({ section, event, sessions, speakers, theme }: { section: Section; event: Event; sessions?: EventSession[]; speakers?: Speaker[]; theme?: EventPageTheme | null }) {
+export function SectionRenderer({ section, event, sessions, speakers, theme, isHighlighted }: { section: Section; event: Event; sessions?: EventSession[]; speakers?: Speaker[]; theme?: EventPageTheme | null; isHighlighted?: boolean }) {
   const config = section.config;
   const isFullWidth = theme?.containerWidth === "full";
   const isHtmlSection = section.type === "html";

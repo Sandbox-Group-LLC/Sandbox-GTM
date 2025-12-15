@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
@@ -23,6 +23,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -33,6 +34,7 @@ import {
   Trash2,
   Settings,
   Eye,
+  EyeOff,
   Globe,
   Type,
   Image,
@@ -51,9 +53,12 @@ import {
   MapPin,
   Video,
   Mail,
+  PanelRightClose,
+  PanelRight,
 } from "lucide-react";
 import type { Event, EventPage, EventPageTheme } from "@shared/schema";
 import { MergeTagPicker } from "@/components/merge-tag-picker";
+import { SectionRenderer, GoogleFontsLoader, getThemeStyles } from "@/pages/public-event";
 
 type PageType = "landing" | "registration" | "portal";
 
@@ -195,6 +200,9 @@ export default function SiteBuilder() {
   const [isAddSectionOpen, setIsAddSectionOpen] = useState(false);
   const [editingSection, setEditingSection] = useState<Section | null>(null);
   const [isSectionEditorOpen, setIsSectionEditorOpen] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewSections, setPreviewSections] = useState<Section[]>([]);
+  const [previewTheme, setPreviewTheme] = useState<EventPageTheme | undefined>();
 
   const { data: events = [], isLoading: eventsLoading } = useQuery<Event[]>({
     queryKey: ["/api/events"],
@@ -207,6 +215,11 @@ export default function SiteBuilder() {
 
   const currentPage = pages.find((p) => p.pageType === activeTab);
   const sections = (currentPage?.sections as Section[]) || [];
+
+  useEffect(() => {
+    setPreviewSections(sections);
+    setPreviewTheme(currentPage?.theme);
+  }, [sections, currentPage?.theme]);
 
   const saveMutation = useMutation({
     mutationFn: async (data: { pageType: PageType; sections: Section[]; isPublished?: boolean; theme?: EventPageTheme }) => {
@@ -299,14 +312,31 @@ export default function SiteBuilder() {
 
   const handleUpdateTheme = (updates: Partial<EventPageTheme>) => {
     const newTheme: EventPageTheme = {
-      ...currentPage?.theme,
+      ...(previewTheme ?? currentPage?.theme ?? {}),
       ...updates,
     };
+    // Update preview immediately for real-time feedback
+    setPreviewTheme(newTheme);
+    // Persist to server
     saveMutation.mutate({ pageType: activeTab, sections: sections, theme: newTheme });
   };
 
   const selectedEvent = events.find((e) => e.id === selectedEventId);
   const currentTheme = currentPage?.theme || {};
+
+  const previewEvent: Event = selectedEvent || {
+    id: "preview",
+    organizationId: "",
+    name: "Preview Event",
+    description: "Preview of your event page",
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: new Date().toISOString().split('T')[0],
+    location: "Event Location",
+    publicSlug: "preview",
+    registrationOpen: true,
+    isPublic: true,
+    status: "draft",
+  };
 
   const getSectionIcon = (type: SectionType) => {
     const sectionType = SECTION_TYPES.find((s) => s.type === type);
@@ -398,6 +428,15 @@ export default function SiteBuilder() {
           selectedEventId && (
             <div className="flex items-center gap-1">
               <Button
+                variant={showPreview ? "default" : "outline"}
+                size="icon"
+                onClick={() => setShowPreview(!showPreview)}
+                data-testid="button-toggle-preview"
+                title={showPreview ? "Hide Preview" : "Show Preview"}
+              >
+                {showPreview ? <PanelRightClose className="h-4 w-4" /> : <PanelRight className="h-4 w-4" />}
+              </Button>
+              <Button
                 variant="outline"
                 size="icon"
                 onClick={() => {
@@ -418,7 +457,7 @@ export default function SiteBuilder() {
                   }
                 }}
                 data-testid="button-preview"
-                title="Preview"
+                title="Preview in new tab"
               >
                 <Eye className="h-4 w-4" />
               </Button>
@@ -437,8 +476,9 @@ export default function SiteBuilder() {
         }
       />
 
-      <div className="flex-1 overflow-auto p-6">
-        <div className="max-w-5xl mx-auto space-y-6">
+      <div className="flex-1 flex overflow-hidden">
+        <div className={`${showPreview ? 'w-1/2' : 'w-full'} overflow-auto p-6 transition-all duration-300`}>
+          <div className="max-w-5xl mx-auto space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -629,7 +669,7 @@ export default function SiteBuilder() {
                         </>
                       ) : (
                         <StylesEditor
-                          theme={currentTheme}
+                          theme={previewTheme || currentTheme}
                           onUpdateTheme={handleUpdateTheme}
                           isPending={saveMutation.isPending}
                         />
@@ -640,7 +680,51 @@ export default function SiteBuilder() {
               </CardContent>
             </Card>
           )}
+          </div>
         </div>
+
+        {showPreview && (
+          <div
+            data-testid="preview-pane"
+            className="w-1/2 border-l bg-background overflow-auto"
+          >
+            <div className="p-4 border-b sticky top-0 bg-background/95 backdrop-blur z-10">
+              <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                <Eye className="h-3 w-3" />
+                Live Preview
+              </div>
+            </div>
+            <ScrollArea className="h-[calc(100%-48px)]">
+              <div 
+                className="p-4"
+                style={{
+                  ...getThemeStyles(previewTheme),
+                  backgroundColor: previewTheme?.backgroundColor || undefined,
+                  color: previewTheme?.textColor || undefined,
+                  fontFamily: previewTheme?.bodyFont ? `"${previewTheme.bodyFont}", sans-serif` : undefined,
+                  gap: "1.5rem",
+                  display: "flex",
+                  flexDirection: "column",
+                }}
+              >
+                <GoogleFontsLoader fonts={[previewTheme?.headingFont, previewTheme?.bodyFont].filter(Boolean) as string[]} />
+                {previewSections.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">Add sections to see preview</div>
+                ) : (
+                  previewSections.sort((a, b) => a.order - b.order).map((section) => (
+                    <div
+                      key={section.id}
+                      data-testid={`preview-section-${section.id}`}
+                      className={editingSection?.id === section.id ? "ring-2 ring-primary ring-offset-2 rounded-md" : ""}
+                    >
+                      <SectionRenderer section={section} event={previewEvent} theme={previewTheme} isHighlighted={editingSection?.id === section.id} />
+                    </div>
+                  ))
+                )}
+              </div>
+            </ScrollArea>
+          </div>
+        )}
       </div>
 
       <Dialog open={isAddSectionOpen} onOpenChange={setIsAddSectionOpen}>
@@ -686,6 +770,11 @@ export default function SiteBuilder() {
                 setIsSectionEditorOpen(false);
                 setEditingSection(null);
               }}
+              onConfigChange={(config) => {
+                setPreviewSections(prev => prev.map(s => 
+                  s.id === editingSection.id ? { ...s, config } : s
+                ));
+              }}
             />
           )}
         </DialogContent>
@@ -698,13 +787,16 @@ interface SectionEditorProps {
   section: Section;
   onSave: (config: Record<string, unknown>) => void;
   onCancel: () => void;
+  onConfigChange?: (config: Record<string, unknown>) => void;
 }
 
-function SectionEditor({ section, onSave, onCancel }: SectionEditorProps) {
+function SectionEditor({ section, onSave, onCancel, onConfigChange }: SectionEditorProps) {
   const [config, setConfig] = useState<Record<string, unknown>>(section.config);
 
   const updateConfig = (key: string, value: unknown) => {
-    setConfig((prev) => ({ ...prev, [key]: value }));
+    const newConfig = { ...config, [key]: value };
+    setConfig(newConfig);
+    onConfigChange?.(newConfig);
   };
 
   const renderFields = () => {
