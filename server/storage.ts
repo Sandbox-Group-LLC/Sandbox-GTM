@@ -11,6 +11,10 @@ import {
   sessionSpeakers,
   contentItems,
   budgetItems,
+  budgetCategories,
+  budgetOffsets,
+  eventBudgetSettings,
+  budgetPayments,
   milestones,
   deliverables,
   emailCampaigns,
@@ -45,6 +49,14 @@ import {
   type InsertContentItem,
   type BudgetItem,
   type InsertBudgetItem,
+  type BudgetCategory,
+  type InsertBudgetCategory,
+  type BudgetOffset,
+  type InsertBudgetOffset,
+  type EventBudgetSettings,
+  type InsertEventBudgetSettings,
+  type BudgetPayment,
+  type InsertBudgetPayment,
   type Milestone,
   type InsertMilestone,
   type Deliverable,
@@ -157,6 +169,31 @@ export interface IStorage {
   createBudgetItem(item: InsertBudgetItem): Promise<BudgetItem>;
   updateBudgetItem(organizationId: string, id: string, item: Partial<InsertBudgetItem>): Promise<BudgetItem | undefined>;
   deleteBudgetItem(organizationId: string, id: string): Promise<void>;
+
+  // Budget Category operations
+  getBudgetCategories(organizationId: string): Promise<BudgetCategory[]>;
+  getBudgetCategory(organizationId: string, id: string): Promise<BudgetCategory | undefined>;
+  createBudgetCategory(category: InsertBudgetCategory): Promise<BudgetCategory>;
+  updateBudgetCategory(organizationId: string, id: string, category: Partial<InsertBudgetCategory>): Promise<BudgetCategory | undefined>;
+  deleteBudgetCategory(organizationId: string, id: string): Promise<void>;
+
+  // Budget Offset operations
+  getBudgetOffsets(organizationId: string, eventId?: string): Promise<BudgetOffset[]>;
+  getBudgetOffset(organizationId: string, id: string): Promise<BudgetOffset | undefined>;
+  createBudgetOffset(offset: InsertBudgetOffset): Promise<BudgetOffset>;
+  updateBudgetOffset(organizationId: string, id: string, offset: Partial<InsertBudgetOffset>): Promise<BudgetOffset | undefined>;
+  deleteBudgetOffset(organizationId: string, id: string): Promise<void>;
+
+  // Event Budget Settings operations
+  getEventBudgetSettings(eventId: string): Promise<EventBudgetSettings | undefined>;
+  upsertEventBudgetSettings(settings: InsertEventBudgetSettings): Promise<EventBudgetSettings>;
+
+  // Budget Payment operations
+  getBudgetPayments(organizationId: string, eventId?: string): Promise<BudgetPayment[]>;
+  getBudgetPayment(organizationId: string, id: string): Promise<BudgetPayment | undefined>;
+  createBudgetPayment(payment: InsertBudgetPayment): Promise<BudgetPayment>;
+  updateBudgetPayment(organizationId: string, id: string, payment: Partial<InsertBudgetPayment>): Promise<BudgetPayment | undefined>;
+  deleteBudgetPayment(organizationId: string, id: string): Promise<void>;
 
   // Milestone operations
   getMilestones(organizationId: string, eventId?: string): Promise<Milestone[]>;
@@ -359,6 +396,9 @@ export class DatabaseStorage implements IStorage {
     await db.delete(eventSessions).where(eq(eventSessions.eventId, id));
     await db.delete(contentItems).where(eq(contentItems.eventId, id));
     await db.delete(budgetItems).where(eq(budgetItems.eventId, id));
+    await db.delete(budgetOffsets).where(eq(budgetOffsets.eventId, id));
+    await db.delete(eventBudgetSettings).where(eq(eventBudgetSettings.eventId, id));
+    await db.delete(budgetPayments).where(eq(budgetPayments.eventId, id));
     await db.delete(milestones).where(eq(milestones.eventId, id));
     await db.delete(deliverables).where(eq(deliverables.eventId, id));
     await db.delete(emailCampaigns).where(eq(emailCampaigns.eventId, id));
@@ -1050,6 +1090,133 @@ export class DatabaseStorage implements IStorage {
   async deleteContentAsset(id: string, organizationId: string): Promise<void> {
     await db.delete(contentAssets)
       .where(and(eq(contentAssets.id, id), eq(contentAssets.organizationId, organizationId)));
+  }
+
+  // Budget Category operations
+  async getBudgetCategories(organizationId: string): Promise<BudgetCategory[]> {
+    return db.select().from(budgetCategories)
+      .where(eq(budgetCategories.organizationId, organizationId))
+      .orderBy(budgetCategories.sortOrder);
+  }
+
+  async getBudgetCategory(organizationId: string, id: string): Promise<BudgetCategory | undefined> {
+    const [category] = await db.select().from(budgetCategories)
+      .where(and(eq(budgetCategories.organizationId, organizationId), eq(budgetCategories.id, id)));
+    return category;
+  }
+
+  async createBudgetCategory(category: InsertBudgetCategory): Promise<BudgetCategory> {
+    const [newCategory] = await db.insert(budgetCategories).values(category).returning();
+    return newCategory;
+  }
+
+  async updateBudgetCategory(organizationId: string, id: string, category: Partial<InsertBudgetCategory>): Promise<BudgetCategory | undefined> {
+    const [updated] = await db
+      .update(budgetCategories)
+      .set(category)
+      .where(and(eq(budgetCategories.organizationId, organizationId), eq(budgetCategories.id, id)))
+      .returning();
+    return updated;
+  }
+
+  async deleteBudgetCategory(organizationId: string, id: string): Promise<void> {
+    await db.delete(budgetCategories).where(and(eq(budgetCategories.organizationId, organizationId), eq(budgetCategories.id, id)));
+  }
+
+  // Budget Offset operations
+  async getBudgetOffsets(organizationId: string, eventId?: string): Promise<BudgetOffset[]> {
+    if (eventId) {
+      return db.select().from(budgetOffsets)
+        .where(and(eq(budgetOffsets.organizationId, organizationId), eq(budgetOffsets.eventId, eventId)))
+        .orderBy(desc(budgetOffsets.createdAt));
+    }
+    return db.select().from(budgetOffsets)
+      .where(eq(budgetOffsets.organizationId, organizationId))
+      .orderBy(desc(budgetOffsets.createdAt));
+  }
+
+  async getBudgetOffset(organizationId: string, id: string): Promise<BudgetOffset | undefined> {
+    const [offset] = await db.select().from(budgetOffsets)
+      .where(and(eq(budgetOffsets.organizationId, organizationId), eq(budgetOffsets.id, id)));
+    return offset;
+  }
+
+  async createBudgetOffset(offset: InsertBudgetOffset): Promise<BudgetOffset> {
+    const [newOffset] = await db.insert(budgetOffsets).values(offset).returning();
+    return newOffset;
+  }
+
+  async updateBudgetOffset(organizationId: string, id: string, offset: Partial<InsertBudgetOffset>): Promise<BudgetOffset | undefined> {
+    const [updated] = await db
+      .update(budgetOffsets)
+      .set({ ...offset, updatedAt: new Date() })
+      .where(and(eq(budgetOffsets.organizationId, organizationId), eq(budgetOffsets.id, id)))
+      .returning();
+    return updated;
+  }
+
+  async deleteBudgetOffset(organizationId: string, id: string): Promise<void> {
+    await db.delete(budgetOffsets).where(and(eq(budgetOffsets.organizationId, organizationId), eq(budgetOffsets.id, id)));
+  }
+
+  // Event Budget Settings operations
+  async getEventBudgetSettings(eventId: string): Promise<EventBudgetSettings | undefined> {
+    const [settings] = await db.select().from(eventBudgetSettings)
+      .where(eq(eventBudgetSettings.eventId, eventId));
+    return settings;
+  }
+
+  async upsertEventBudgetSettings(settings: InsertEventBudgetSettings): Promise<EventBudgetSettings> {
+    const [result] = await db
+      .insert(eventBudgetSettings)
+      .values(settings)
+      .onConflictDoUpdate({
+        target: eventBudgetSettings.eventId,
+        set: {
+          totalBudget: settings.totalBudget,
+          currency: settings.currency,
+          fiscalYearStart: settings.fiscalYearStart,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return result;
+  }
+
+  // Budget Payment operations
+  async getBudgetPayments(organizationId: string, eventId?: string): Promise<BudgetPayment[]> {
+    if (eventId) {
+      return db.select().from(budgetPayments)
+        .where(and(eq(budgetPayments.organizationId, organizationId), eq(budgetPayments.eventId, eventId)))
+        .orderBy(desc(budgetPayments.createdAt));
+    }
+    return db.select().from(budgetPayments)
+      .where(eq(budgetPayments.organizationId, organizationId))
+      .orderBy(desc(budgetPayments.createdAt));
+  }
+
+  async getBudgetPayment(organizationId: string, id: string): Promise<BudgetPayment | undefined> {
+    const [payment] = await db.select().from(budgetPayments)
+      .where(and(eq(budgetPayments.organizationId, organizationId), eq(budgetPayments.id, id)));
+    return payment;
+  }
+
+  async createBudgetPayment(payment: InsertBudgetPayment): Promise<BudgetPayment> {
+    const [newPayment] = await db.insert(budgetPayments).values(payment).returning();
+    return newPayment;
+  }
+
+  async updateBudgetPayment(organizationId: string, id: string, payment: Partial<InsertBudgetPayment>): Promise<BudgetPayment | undefined> {
+    const [updated] = await db
+      .update(budgetPayments)
+      .set({ ...payment, updatedAt: new Date() })
+      .where(and(eq(budgetPayments.organizationId, organizationId), eq(budgetPayments.id, id)))
+      .returning();
+    return updated;
+  }
+
+  async deleteBudgetPayment(organizationId: string, id: string): Promise<void> {
+    await db.delete(budgetPayments).where(and(eq(budgetPayments.organizationId, organizationId), eq(budgetPayments.id, id)));
   }
 }
 
