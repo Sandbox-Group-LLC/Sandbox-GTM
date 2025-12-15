@@ -74,6 +74,23 @@ Preferred communication style: Simple, everyday language.
 - **API Request Helper**: Centralized `apiRequest` function with error handling
 - **Component Composition**: Reusable components like `PageHeader`, `DataTable`, `StatsCard`, `EmptyState`
 
+### Breadcrumb Styling Rules
+All breadcrumbs must follow this consistent format and style:
+- **Format**: `Home > Parent Menu > Current Page` (e.g., "Home > Attendees > Packages")
+- **Styling**: All breadcrumb links (Home, parent items) and separators use `text-foreground` color
+- **Current Page**: The last item (current page) uses `text-foreground` and is not clickable
+- **Separator**: ChevronRight icon (`>`) matches the link color
+- **Parent Links**: Must include `href` to link back to parent menu (e.g., `{ label: "Attendees", href: "/attendees" }`)
+- **Component**: Use `PageHeader` with `breadcrumbs` prop following sidebar menu structure
+- **Example**:
+  ```jsx
+  <PageHeader
+    title="Packages"
+    breadcrumbs={[{ label: "Attendees", href: "/attendees" }, { label: "Packages" }]}
+    actions={...}
+  />
+  ```
+
 ### Event-Specific Package Overrides
 - **Packages** are global templates scoped to the organization
 - **Event Packages** (`eventPackages` table) store per-event overrides for price, features, and enabled status
