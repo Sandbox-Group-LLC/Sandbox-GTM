@@ -949,7 +949,7 @@ export default function SiteBuilder() {
       </Dialog>
 
       <Dialog open={isSectionEditorOpen} onOpenChange={setIsSectionEditorOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               Edit {editingSection ? getSectionLabel(editingSection.type) : "Section"}
