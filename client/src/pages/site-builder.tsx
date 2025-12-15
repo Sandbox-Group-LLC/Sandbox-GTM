@@ -2734,6 +2734,96 @@ interface StylesEditorProps {
   onUpdateSeo: (updates: { title?: string; description?: string; ogImage?: string }) => void;
 }
 
+// Debounced color input component to prevent saving on every keystroke
+function DebouncedColorInput({ 
+  id, 
+  value, 
+  defaultValue,
+  onChange, 
+  disabled, 
+  testId 
+}: { 
+  id: string; 
+  value: string | undefined; 
+  defaultValue: string;
+  onChange: (value: string) => void; 
+  disabled?: boolean; 
+  testId: string;
+}) {
+  const [localValue, setLocalValue] = useState(value || defaultValue);
+  const [colorPickerValue, setColorPickerValue] = useState(value || defaultValue);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Sync local value when prop changes (e.g., from external updates)
+  useEffect(() => {
+    setLocalValue(value || defaultValue);
+    setColorPickerValue(value || defaultValue);
+  }, [value, defaultValue]);
+  
+  const isValidHex = (hex: string) => /^#[0-9A-Fa-f]{6}$/.test(hex);
+  
+  const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    setLocalValue(newValue);
+    
+    // Clear existing timeout
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    
+    // Only save if it's a valid hex code (6 digits after #)
+    if (isValidHex(newValue)) {
+      setColorPickerValue(newValue);
+      debounceRef.current = setTimeout(() => {
+        onChange(newValue);
+      }, 500);
+    }
+  };
+  
+  const handleColorPickerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    setLocalValue(newValue);
+    setColorPickerValue(newValue);
+    // Color picker always returns valid hex, save immediately
+    onChange(newValue);
+  };
+  
+  const handleBlur = () => {
+    // On blur, save if valid, otherwise revert to last valid value
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    if (isValidHex(localValue)) {
+      onChange(localValue);
+    } else {
+      // Revert to the prop value if invalid
+      setLocalValue(value || defaultValue);
+    }
+  };
+  
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        type="color"
+        id={id}
+        value={colorPickerValue}
+        onChange={handleColorPickerChange}
+        disabled={disabled}
+        className="h-9 w-12 rounded border cursor-pointer"
+        data-testid={testId}
+      />
+      <Input
+        value={localValue}
+        onChange={handleTextChange}
+        onBlur={handleBlur}
+        disabled={disabled}
+        className="flex-1 font-mono text-sm"
+        data-testid={`${testId}-text`}
+      />
+    </div>
+  );
+}
+
 function StylesEditor({ theme, onUpdateTheme, isPending, seo, onUpdateSeo }: StylesEditorProps) {
   return (
     <div className="space-y-8">
@@ -2792,192 +2882,102 @@ function StylesEditor({ theme, onUpdateTheme, isPending, seo, onUpdateSeo }: Sty
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="space-y-2">
             <Label htmlFor="primaryColor">Primary</Label>
-            <div className="flex items-center gap-2">
-              <input
-                type="color"
-                id="primaryColor"
-                value={theme.primaryColor || "#3b82f6"}
-                onChange={(e) => onUpdateTheme({ primaryColor: e.target.value })}
-                disabled={isPending}
-                className="h-9 w-12 rounded border cursor-pointer"
-                data-testid="input-primary-color"
-              />
-              <Input
-                value={theme.primaryColor || "#3b82f6"}
-                onChange={(e) => onUpdateTheme({ primaryColor: e.target.value })}
-                disabled={isPending}
-                className="flex-1 font-mono text-sm"
-                data-testid="input-primary-color-text"
-              />
-            </div>
+            <DebouncedColorInput
+              id="primaryColor"
+              value={theme.primaryColor}
+              defaultValue="#3b82f6"
+              onChange={(value) => onUpdateTheme({ primaryColor: value })}
+              disabled={isPending}
+              testId="input-primary-color"
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="secondaryColor">Secondary</Label>
-            <div className="flex items-center gap-2">
-              <input
-                type="color"
-                id="secondaryColor"
-                value={theme.secondaryColor || "#64748b"}
-                onChange={(e) => onUpdateTheme({ secondaryColor: e.target.value })}
-                disabled={isPending}
-                className="h-9 w-12 rounded border cursor-pointer"
-                data-testid="input-secondary-color"
-              />
-              <Input
-                value={theme.secondaryColor || "#64748b"}
-                onChange={(e) => onUpdateTheme({ secondaryColor: e.target.value })}
-                disabled={isPending}
-                className="flex-1 font-mono text-sm"
-                data-testid="input-secondary-color-text"
-              />
-            </div>
+            <DebouncedColorInput
+              id="secondaryColor"
+              value={theme.secondaryColor}
+              defaultValue="#64748b"
+              onChange={(value) => onUpdateTheme({ secondaryColor: value })}
+              disabled={isPending}
+              testId="input-secondary-color"
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="backgroundColor">Background</Label>
-            <div className="flex items-center gap-2">
-              <input
-                type="color"
-                id="backgroundColor"
-                value={theme.backgroundColor || "#ffffff"}
-                onChange={(e) => onUpdateTheme({ backgroundColor: e.target.value })}
-                disabled={isPending}
-                className="h-9 w-12 rounded border cursor-pointer"
-                data-testid="input-background-color"
-              />
-              <Input
-                value={theme.backgroundColor || "#ffffff"}
-                onChange={(e) => onUpdateTheme({ backgroundColor: e.target.value })}
-                disabled={isPending}
-                className="flex-1 font-mono text-sm"
-                data-testid="input-background-color-text"
-              />
-            </div>
+            <DebouncedColorInput
+              id="backgroundColor"
+              value={theme.backgroundColor}
+              defaultValue="#ffffff"
+              onChange={(value) => onUpdateTheme({ backgroundColor: value })}
+              disabled={isPending}
+              testId="input-background-color"
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="textColor">Text</Label>
-            <div className="flex items-center gap-2">
-              <input
-                type="color"
-                id="textColor"
-                value={theme.textColor || "#1f2937"}
-                onChange={(e) => onUpdateTheme({ textColor: e.target.value })}
-                disabled={isPending}
-                className="h-9 w-12 rounded border cursor-pointer"
-                data-testid="input-text-color"
-              />
-              <Input
-                value={theme.textColor || "#1f2937"}
-                onChange={(e) => onUpdateTheme({ textColor: e.target.value })}
-                disabled={isPending}
-                className="flex-1 font-mono text-sm"
-                data-testid="input-text-color-text"
-              />
-            </div>
+            <DebouncedColorInput
+              id="textColor"
+              value={theme.textColor}
+              defaultValue="#1f2937"
+              onChange={(value) => onUpdateTheme({ textColor: value })}
+              disabled={isPending}
+              testId="input-text-color"
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="textSecondaryColor">Text Secondary</Label>
-            <div className="flex items-center gap-2">
-              <input
-                type="color"
-                id="textSecondaryColor"
-                value={theme.textSecondaryColor || "#6b7280"}
-                onChange={(e) => onUpdateTheme({ textSecondaryColor: e.target.value })}
-                disabled={isPending}
-                className="h-9 w-12 rounded border cursor-pointer"
-                data-testid="input-text-secondary-color"
-              />
-              <Input
-                value={theme.textSecondaryColor || "#6b7280"}
-                onChange={(e) => onUpdateTheme({ textSecondaryColor: e.target.value })}
-                disabled={isPending}
-                className="flex-1 font-mono text-sm"
-                data-testid="input-text-secondary-color-text"
-              />
-            </div>
+            <DebouncedColorInput
+              id="textSecondaryColor"
+              value={theme.textSecondaryColor}
+              defaultValue="#6b7280"
+              onChange={(value) => onUpdateTheme({ textSecondaryColor: value })}
+              disabled={isPending}
+              testId="input-text-secondary-color"
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="buttonColor">Button</Label>
-            <div className="flex items-center gap-2">
-              <input
-                type="color"
-                id="buttonColor"
-                value={theme.buttonColor || "#3b82f6"}
-                onChange={(e) => onUpdateTheme({ buttonColor: e.target.value })}
-                disabled={isPending}
-                className="h-9 w-12 rounded border cursor-pointer"
-                data-testid="input-button-color"
-              />
-              <Input
-                value={theme.buttonColor || "#3b82f6"}
-                onChange={(e) => onUpdateTheme({ buttonColor: e.target.value })}
-                disabled={isPending}
-                className="flex-1 font-mono text-sm"
-                data-testid="input-button-color-text"
-              />
-            </div>
+            <DebouncedColorInput
+              id="buttonColor"
+              value={theme.buttonColor}
+              defaultValue="#3b82f6"
+              onChange={(value) => onUpdateTheme({ buttonColor: value })}
+              disabled={isPending}
+              testId="input-button-color"
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="buttonTextColor">Button Text</Label>
-            <div className="flex items-center gap-2">
-              <input
-                type="color"
-                id="buttonTextColor"
-                value={theme.buttonTextColor || "#ffffff"}
-                onChange={(e) => onUpdateTheme({ buttonTextColor: e.target.value })}
-                disabled={isPending}
-                className="h-9 w-12 rounded border cursor-pointer"
-                data-testid="input-button-text-color"
-              />
-              <Input
-                value={theme.buttonTextColor || "#ffffff"}
-                onChange={(e) => onUpdateTheme({ buttonTextColor: e.target.value })}
-                disabled={isPending}
-                className="flex-1 font-mono text-sm"
-                data-testid="input-button-text-color-text"
-              />
-            </div>
+            <DebouncedColorInput
+              id="buttonTextColor"
+              value={theme.buttonTextColor}
+              defaultValue="#ffffff"
+              onChange={(value) => onUpdateTheme({ buttonTextColor: value })}
+              disabled={isPending}
+              testId="input-button-text-color"
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="cardBackground">Card Background</Label>
-            <div className="flex items-center gap-2">
-              <input
-                type="color"
-                id="cardBackground"
-                value={theme.cardBackground || "#f9fafb"}
-                onChange={(e) => onUpdateTheme({ cardBackground: e.target.value })}
-                disabled={isPending}
-                className="h-9 w-12 rounded border cursor-pointer"
-                data-testid="input-card-background"
-              />
-              <Input
-                value={theme.cardBackground || "#f9fafb"}
-                onChange={(e) => onUpdateTheme({ cardBackground: e.target.value })}
-                disabled={isPending}
-                className="flex-1 font-mono text-sm"
-                data-testid="input-card-background-text"
-              />
-            </div>
+            <DebouncedColorInput
+              id="cardBackground"
+              value={theme.cardBackground}
+              defaultValue="#f9fafb"
+              onChange={(value) => onUpdateTheme({ cardBackground: value })}
+              disabled={isPending}
+              testId="input-card-background"
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="borderColor">Border Color</Label>
-            <div className="flex items-center gap-2">
-              <input
-                type="color"
-                id="borderColor"
-                value={theme.borderColor || "#e5e7eb"}
-                onChange={(e) => onUpdateTheme({ borderColor: e.target.value })}
-                disabled={isPending}
-                className="h-9 w-12 rounded border cursor-pointer"
-                data-testid="input-border-color"
-              />
-              <Input
-                value={theme.borderColor || "#e5e7eb"}
-                onChange={(e) => onUpdateTheme({ borderColor: e.target.value })}
-                disabled={isPending}
-                className="flex-1 font-mono text-sm"
-                data-testid="input-border-color-text"
-              />
-            </div>
+            <DebouncedColorInput
+              id="borderColor"
+              value={theme.borderColor}
+              defaultValue="#e5e7eb"
+              onChange={(value) => onUpdateTheme({ borderColor: value })}
+              disabled={isPending}
+              testId="input-border-color"
+            />
           </div>
         </div>
       </div>
