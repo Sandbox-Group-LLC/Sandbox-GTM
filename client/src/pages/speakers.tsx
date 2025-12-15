@@ -47,6 +47,7 @@ const speakerFormSchema = z.object({
   linkedin: z.string().optional(),
   twitter: z.string().optional(),
   website: z.string().optional(),
+  notes: z.string().optional(),
 });
 
 type SpeakerFormData = z.infer<typeof speakerFormSchema>;
@@ -76,6 +77,7 @@ export default function Speakers() {
       linkedin: "",
       twitter: "",
       website: "",
+      notes: "",
     },
   });
 
@@ -83,6 +85,7 @@ export default function Speakers() {
     mutationFn: async (data: SpeakerFormData) => {
       const payload = {
         ...data,
+        notes: data.notes || null,
         socialLinks: {
           linkedin: data.linkedin || undefined,
           twitter: data.twitter || undefined,
@@ -112,6 +115,7 @@ export default function Speakers() {
     mutationFn: async ({ id, data }: { id: string; data: SpeakerFormData }) => {
       const payload = {
         ...data,
+        notes: data.notes || null,
         socialLinks: {
           linkedin: data.linkedin || undefined,
           twitter: data.twitter || undefined,
@@ -161,6 +165,7 @@ export default function Speakers() {
       linkedin: socialLinks?.linkedin || "",
       twitter: socialLinks?.twitter || "",
       website: socialLinks?.website || "",
+      notes: speaker.notes || "",
     });
     setIsDialogOpen(true);
   };
@@ -290,9 +295,22 @@ export default function Speakers() {
                     name="bio"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Bio</FormLabel>
+                        <FormLabel>Speaker Bio</FormLabel>
                         <FormControl>
                           <Textarea rows={4} {...field} data-testid="input-bio" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="notes"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Notes</FormLabel>
+                        <FormControl>
+                          <Textarea rows={2} {...field} placeholder="Internal notes (not visible to speaker)" data-testid="input-notes" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
