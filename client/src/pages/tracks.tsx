@@ -37,6 +37,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Plus, Tag, Trash2, Pencil } from "lucide-react";
+import { ColorPicker } from "@/components/color-picker";
 import type { SessionTrack } from "@shared/schema";
 
 const trackFormSchema = z.object({
@@ -47,16 +48,6 @@ const trackFormSchema = z.object({
 
 type TrackFormData = z.infer<typeof trackFormSchema>;
 
-const colorOptions = [
-  { value: "#3B82F6", label: "Blue" },
-  { value: "#10B981", label: "Green" },
-  { value: "#F59E0B", label: "Amber" },
-  { value: "#EF4444", label: "Red" },
-  { value: "#8B5CF6", label: "Purple" },
-  { value: "#EC4899", label: "Pink" },
-  { value: "#06B6D4", label: "Cyan" },
-  { value: "#F97316", label: "Orange" },
-];
 
 export default function Tracks() {
   const { toast } = useToast();
@@ -231,20 +222,14 @@ export default function Tracks() {
                       <FormItem>
                         <FormLabel>Color</FormLabel>
                         <FormControl>
-                          <div className="flex flex-wrap gap-2">
-                            {colorOptions.map((color) => (
-                              <button
-                                key={color.value}
-                                type="button"
-                                onClick={() => field.onChange(color.value)}
-                                className={`w-8 h-8 rounded-md border-2 transition-all ${
-                                  field.value === color.value ? "border-foreground scale-110" : "border-transparent"
-                                }`}
-                                style={{ backgroundColor: color.value }}
-                                title={color.label}
-                                data-testid={`button-color-${color.label.toLowerCase()}`}
-                              />
-                            ))}
+                          <div className="flex items-center gap-3">
+                            <ColorPicker
+                              value={field.value || "#3B82F6"}
+                              onChange={field.onChange}
+                            />
+                            <span className="text-sm text-muted-foreground">
+                              Click to choose a color
+                            </span>
                           </div>
                         </FormControl>
                         <FormMessage />
@@ -272,12 +257,10 @@ export default function Tracks() {
             icon={Tag}
             title="No tracks yet"
             description="Create your first session track to organize your sessions by topic or theme"
-            action={
-              <Button onClick={() => setIsDialogOpen(true)} data-testid="button-create-first-track">
-                <Plus className="mr-2 h-4 w-4" />
-                Create Track
-              </Button>
-            }
+            action={{
+              label: "Create Track",
+              onClick: () => setIsDialogOpen(true)
+            }}
           />
         ) : (
           <Card>
