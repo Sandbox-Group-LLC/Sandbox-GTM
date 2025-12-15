@@ -9,6 +9,8 @@ import {
   speakers,
   eventSessions,
   sessionSpeakers,
+  sessionTracks,
+  sessionRooms,
   contentItems,
   budgetItems,
   budgetCategories,
@@ -45,6 +47,10 @@ import {
   type InsertSpeaker,
   type EventSession,
   type InsertSession,
+  type SessionTrack,
+  type InsertSessionTrack,
+  type SessionRoom,
+  type InsertSessionRoom,
   type ContentItem,
   type InsertContentItem,
   type BudgetItem,
@@ -156,6 +162,20 @@ export interface IStorage {
   createSession(session: InsertSession): Promise<EventSession>;
   updateSession(organizationId: string, id: string, session: Partial<InsertSession>): Promise<EventSession | undefined>;
   deleteSession(organizationId: string, id: string): Promise<void>;
+
+  // Session Track operations
+  getSessionTracks(organizationId: string): Promise<SessionTrack[]>;
+  getSessionTrack(organizationId: string, id: string): Promise<SessionTrack | undefined>;
+  createSessionTrack(track: InsertSessionTrack): Promise<SessionTrack>;
+  updateSessionTrack(organizationId: string, id: string, track: Partial<InsertSessionTrack>): Promise<SessionTrack | undefined>;
+  deleteSessionTrack(organizationId: string, id: string): Promise<void>;
+
+  // Session Room operations
+  getSessionRooms(organizationId: string): Promise<SessionRoom[]>;
+  getSessionRoom(organizationId: string, id: string): Promise<SessionRoom | undefined>;
+  createSessionRoom(room: InsertSessionRoom): Promise<SessionRoom>;
+  updateSessionRoom(organizationId: string, id: string, room: Partial<InsertSessionRoom>): Promise<SessionRoom | undefined>;
+  deleteSessionRoom(organizationId: string, id: string): Promise<void>;
 
   // Content operations
   getContentItems(organizationId: string, eventId?: string): Promise<ContentItem[]>;
@@ -715,6 +735,64 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSession(organizationId: string, id: string): Promise<void> {
     await db.delete(eventSessions).where(and(eq(eventSessions.organizationId, organizationId), eq(eventSessions.id, id)));
+  }
+
+  // Session Track operations
+  async getSessionTracks(organizationId: string): Promise<SessionTrack[]> {
+    return db.select().from(sessionTracks).where(eq(sessionTracks.organizationId, organizationId)).orderBy(sessionTracks.name);
+  }
+
+  async getSessionTrack(organizationId: string, id: string): Promise<SessionTrack | undefined> {
+    const [track] = await db.select().from(sessionTracks)
+      .where(and(eq(sessionTracks.organizationId, organizationId), eq(sessionTracks.id, id)));
+    return track;
+  }
+
+  async createSessionTrack(track: InsertSessionTrack): Promise<SessionTrack> {
+    const [newTrack] = await db.insert(sessionTracks).values(track).returning();
+    return newTrack;
+  }
+
+  async updateSessionTrack(organizationId: string, id: string, track: Partial<InsertSessionTrack>): Promise<SessionTrack | undefined> {
+    const [updated] = await db
+      .update(sessionTracks)
+      .set({ ...track, updatedAt: new Date() })
+      .where(and(eq(sessionTracks.organizationId, organizationId), eq(sessionTracks.id, id)))
+      .returning();
+    return updated;
+  }
+
+  async deleteSessionTrack(organizationId: string, id: string): Promise<void> {
+    await db.delete(sessionTracks).where(and(eq(sessionTracks.organizationId, organizationId), eq(sessionTracks.id, id)));
+  }
+
+  // Session Room operations
+  async getSessionRooms(organizationId: string): Promise<SessionRoom[]> {
+    return db.select().from(sessionRooms).where(eq(sessionRooms.organizationId, organizationId)).orderBy(sessionRooms.name);
+  }
+
+  async getSessionRoom(organizationId: string, id: string): Promise<SessionRoom | undefined> {
+    const [room] = await db.select().from(sessionRooms)
+      .where(and(eq(sessionRooms.organizationId, organizationId), eq(sessionRooms.id, id)));
+    return room;
+  }
+
+  async createSessionRoom(room: InsertSessionRoom): Promise<SessionRoom> {
+    const [newRoom] = await db.insert(sessionRooms).values(room).returning();
+    return newRoom;
+  }
+
+  async updateSessionRoom(organizationId: string, id: string, room: Partial<InsertSessionRoom>): Promise<SessionRoom | undefined> {
+    const [updated] = await db
+      .update(sessionRooms)
+      .set({ ...room, updatedAt: new Date() })
+      .where(and(eq(sessionRooms.organizationId, organizationId), eq(sessionRooms.id, id)))
+      .returning();
+    return updated;
+  }
+
+  async deleteSessionRoom(organizationId: string, id: string): Promise<void> {
+    await db.delete(sessionRooms).where(and(eq(sessionRooms.organizationId, organizationId), eq(sessionRooms.id, id)));
   }
 
   // Content operations
