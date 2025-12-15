@@ -38,9 +38,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Plus, Calendar, Clock, MapPin, Users, Search } from "lucide-react";
+import { Plus, Calendar, Clock, MapPin, Users, Search, FileText, ExternalLink } from "lucide-react";
 import { EventSelectField } from "@/components/event-select-field";
-import type { EventSession, SessionRoom, SessionTrack, Speaker, SessionSpeaker } from "@shared/schema";
+import { Link } from "wouter";
+import type { EventSession, SessionRoom, SessionTrack, Speaker, SessionSpeaker, ContentItem } from "@shared/schema";
 
 const sessionFormSchema = z.object({
   eventId: z.string().min(1, "Event is required"),
@@ -94,6 +95,11 @@ export default function Sessions() {
     queryKey: ["/api/speakers"],
   });
 
+  const { data: associatedContent = [] } = useQuery<ContentItem[]>({
+    queryKey: ["/api/content", { sessionId: editingSession?.id }],
+    enabled: !!editingSession?.id,
+  });
+
   const form = useForm<SessionFormData>({
     resolver: zodResolver(sessionFormSchema),
     defaultValues: {
@@ -126,7 +132,8 @@ export default function Sessions() {
         ...data,
         capacity: data.capacity ? parseInt(data.capacity) : null,
       };
-      const session = await apiRequest("POST", "/api/sessions", payload);
+      const response = await apiRequest("POST", "/api/sessions", payload);
+      const session = await response.json();
       if (selectedSpeakerIds.length > 0 && session.id) {
         await apiRequest("PUT", `/api/sessions/${session.id}/speakers`, { speakerIds: selectedSpeakerIds });
       }
@@ -477,6 +484,47 @@ export default function Sessions() {
                       </div>
                     )}
                   </FormItem>
+
+                  {editingSession && (
+                    <div className="pt-4 border-t">
+                      <div className="flex items-center justify-between gap-2 mb-3">
+                        <h4 className="text-sm font-medium flex items-center gap-2">
+                          <FileText className="h-4 w-4" />
+                          Associated Content
+                        </h4>
+                        <Link href="/content">
+                          <Button variant="ghost" size="sm" type="button" className="gap-1">
+                            <ExternalLink className="h-3 w-3" />
+                            Manage Content
+                          </Button>
+                        </Link>
+                      </div>
+                      {associatedContent.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          No content linked to this session. Go to Content to associate items.
+                        </p>
+                      ) : (
+                        <div className="space-y-2 max-h-32 overflow-y-auto">
+                          {associatedContent.map((content) => (
+                            <div
+                              key={content.id}
+                              className="flex items-center justify-between gap-2 p-2 bg-muted/50 rounded-md text-sm"
+                              data-testid={`content-item-${content.id}`}
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                <span className="truncate">{content.title}</span>
+                              </div>
+                              <Badge variant="outline" className="shrink-0 capitalize text-xs">
+                                {content.type}
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="flex justify-end gap-2 pt-4">
                     <Button type="button" variant="outline" onClick={handleDialogClose}>
                       Cancel

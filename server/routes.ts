@@ -1380,7 +1380,8 @@ export async function registerRoutes(
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
       const eventId = req.query.eventId as string | undefined;
-      const content = await storage.getContentItems(organizationId, eventId);
+      const sessionId = req.query.sessionId as string | undefined;
+      const content = await storage.getContentItems(organizationId, eventId, sessionId);
       res.json(content);
     } catch (error) {
       logError("Error fetching content:", error);

@@ -201,7 +201,7 @@ export interface IStorage {
   setSpeakerSessions(organizationId: string, speakerId: string, sessionIds: string[]): Promise<void>;
 
   // Content operations
-  getContentItems(organizationId: string, eventId?: string): Promise<ContentItem[]>;
+  getContentItems(organizationId: string, eventId?: string, sessionId?: string): Promise<ContentItem[]>;
   getContentItem(organizationId: string, id: string): Promise<ContentItem | undefined>;
   createContentItem(item: InsertContentItem): Promise<ContentItem>;
   updateContentItem(organizationId: string, id: string, item: Partial<InsertContentItem>): Promise<ContentItem | undefined>;
@@ -945,11 +945,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Content operations
-  async getContentItems(organizationId: string, eventId?: string): Promise<ContentItem[]> {
+  async getContentItems(organizationId: string, eventId?: string, sessionId?: string): Promise<ContentItem[]> {
+    const conditions = [eq(contentItems.organizationId, organizationId)];
     if (eventId) {
-      return db.select().from(contentItems).where(and(eq(contentItems.organizationId, organizationId), eq(contentItems.eventId, eventId))).orderBy(desc(contentItems.createdAt));
+      conditions.push(eq(contentItems.eventId, eventId));
     }
-    return db.select().from(contentItems).where(eq(contentItems.organizationId, organizationId)).orderBy(desc(contentItems.createdAt));
+    if (sessionId) {
+      conditions.push(eq(contentItems.sessionId, sessionId));
+    }
+    return db.select().from(contentItems).where(and(...conditions)).orderBy(desc(contentItems.createdAt));
   }
 
   async getContentItem(organizationId: string, id: string): Promise<ContentItem | undefined> {
