@@ -35,7 +35,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Plus, Tag, Trash2, Pencil } from "lucide-react";
+import { Plus, Tag, Trash2, Pencil, Search } from "lucide-react";
 import { ColorPicker } from "@/components/color-picker";
 import type { SessionTrack } from "@shared/schema";
 
@@ -51,6 +51,7 @@ export default function Tracks() {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTrack, setEditingTrack] = useState<SessionTrack | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const { data: tracks = [], isLoading } = useQuery<SessionTrack[]>({
     queryKey: ["/api/session-tracks"],
@@ -164,6 +165,14 @@ export default function Tracks() {
     setIsDialogOpen(true);
   };
 
+  const filteredTracks = tracks.filter((track) => {
+    const searchLower = searchQuery.toLowerCase();
+    return (
+      track.name.toLowerCase().includes(searchLower) ||
+      (track.description?.toLowerCase().includes(searchLower) ?? false)
+    );
+  });
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -175,82 +184,97 @@ export default function Tracks() {
   return (
     <div className="flex flex-col h-full">
       <PageHeader
-        title="Session Tracks"
-        description="Organize your sessions by topic or theme"
-        action={
-          <Button onClick={openAddDialog} data-testid="button-add-track">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Track
-          </Button>
-        }
+        title="Tracks"
+        breadcrumbs={[{ label: "Sessions", href: "/sessions" }, { label: "Tracks" }]}
       />
 
-      <div className="flex-1 p-6 overflow-auto">
-        {tracks.length === 0 ? (
-          <EmptyState
-            icon={Tag}
-            title="No tracks yet"
-            description="Create your first session track to organize your sessions by topic or theme"
-            action={{
-              label: "Create Track",
-              onClick: openAddDialog
-            }}
-          />
-        ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle>All Tracks</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Color</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {tracks.map((track) => (
-                    <TableRow key={track.id} data-testid={`row-track-${track.id}`}>
-                      <TableCell>
-                        <div
-                          className="w-6 h-6 rounded-md"
-                          style={{ backgroundColor: track.color || "#3B82F6" }}
-                        />
-                      </TableCell>
-                      <TableCell className="font-medium">{track.name}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {track.description || "-"}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEdit(track)}
-                            data-testid={`button-edit-track-${track.id}`}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(track.id)}
-                            data-testid={`button-delete-track-${track.id}`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
+      <div className="flex-1 overflow-auto p-6">
+        <div className="max-w-7xl mx-auto space-y-6">
+          <div className="flex items-center gap-4">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search tracks..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+                data-testid="input-search"
+              />
+            </div>
+            <Button size="sm" onClick={openAddDialog} data-testid="button-add-track">
+              <Plus className="h-4 w-4 mr-2" />
+              Track
+            </Button>
+          </div>
+
+          {tracks.length === 0 ? (
+            <EmptyState
+              icon={Tag}
+              title="No tracks yet"
+              description="Create your first session track to organize your sessions by topic or theme"
+              action={{
+                label: "Create Track",
+                onClick: openAddDialog
+              }}
+            />
+          ) : filteredTracks.length === 0 ? (
+            <p className="text-center text-muted-foreground py-12">No tracks match your search</p>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>All Tracks</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Color</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        )}
+                  </TableHeader>
+                  <TableBody>
+                    {filteredTracks.map((track) => (
+                      <TableRow key={track.id} data-testid={`row-track-${track.id}`}>
+                        <TableCell>
+                          <div
+                            className="w-6 h-6 rounded-md"
+                            style={{ backgroundColor: track.color || "#3B82F6" }}
+                          />
+                        </TableCell>
+                        <TableCell className="font-medium">{track.name}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {track.description || "-"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEdit(track)}
+                              data-testid={`button-edit-track-${track.id}`}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDelete(track.id)}
+                              data-testid={`button-delete-track-${track.id}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={(open) => open ? setIsDialogOpen(true) : handleDialogClose()}>
