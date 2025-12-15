@@ -3209,6 +3209,17 @@ function StylesEditor({ theme, onUpdateTheme, isPending, seo, onUpdateSeo }: Sty
             />
           </div>
           <div className="space-y-2">
+            <Label htmlFor="buttonBorderColor">Button Border</Label>
+            <DebouncedColorInput
+              id="buttonBorderColor"
+              value={theme.buttonBorderColor}
+              defaultValue=""
+              onChange={(value) => onUpdateTheme({ buttonBorderColor: value })}
+              disabled={isPending}
+              testId="input-button-border-color"
+            />
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="cardBackground">Card Background</Label>
             <DebouncedColorInput
               id="cardBackground"

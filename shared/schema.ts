@@ -178,6 +178,7 @@ export const eventPages = pgTable("event_pages", {
     textSecondaryColor?: string;
     buttonColor?: string;
     buttonTextColor?: string;
+    buttonBorderColor?: string;
     cardBackground?: string;
     borderColor?: string;
     // Layout
@@ -240,6 +241,7 @@ export const pageVersions = pgTable("page_versions", {
     textSecondaryColor?: string;
     buttonColor?: string;
     buttonTextColor?: string;
+    buttonBorderColor?: string;
     cardBackground?: string;
     borderColor?: string;
     borderRadius?: 'none' | 'small' | 'medium' | 'large' | 'pill';

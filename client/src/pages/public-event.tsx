@@ -570,13 +570,14 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
     ? {
         backgroundColor: "transparent",
         color: theme?.buttonColor || "#3b82f6",
-        border: `2px solid ${theme?.buttonColor || "#3b82f6"}`,
+        border: `2px solid ${theme?.buttonBorderColor || theme?.buttonColor || "#3b82f6"}`,
         borderRadius: themeRadius,
       }
     : {
         backgroundColor: theme?.buttonColor || undefined,
         color: theme?.buttonTextColor || undefined,
         borderRadius: themeRadius,
+        border: theme?.buttonBorderColor ? `2px solid ${theme.buttonBorderColor}` : undefined,
       };
 
   const cardStyles: React.CSSProperties = {
