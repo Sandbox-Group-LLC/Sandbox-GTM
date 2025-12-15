@@ -83,7 +83,7 @@ import {
   type InsertContentAsset,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, ilike } from "drizzle-orm";
+import { eq, desc, and, ilike, or, isNull } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (MANDATORY for Replit Auth)
@@ -98,6 +98,7 @@ export interface IStorage {
   getUserOrganizations(userId: string): Promise<OrganizationMember[]>;
   addOrganizationMember(member: InsertOrganizationMember): Promise<OrganizationMember>;
   getAllOrganizationsWithStats(): Promise<Array<Organization & { memberCount: number; eventCount: number; attendeeCount: number }>>;
+  deleteOrganization(id: string): Promise<void>;
 
   // Event operations
   getEvents(organizationId: string): Promise<Event[]>;
@@ -334,7 +335,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserOrganizations(userId: string): Promise<OrganizationMember[]> {
-    return db.select().from(organizationMembers).where(eq(organizationMembers.userId, userId));
+    return db
+      .select({
+        id: organizationMembers.id,
+        organizationId: organizationMembers.organizationId,
+        userId: organizationMembers.userId,
+        role: organizationMembers.role,
+        createdAt: organizationMembers.createdAt,
+      })
+      .from(organizationMembers)
+      .innerJoin(organizations, eq(organizationMembers.organizationId, organizations.id))
+      .where(
+        and(
+          eq(organizationMembers.userId, userId),
+          or(eq(organizations.isArchived, false), isNull(organizations.isArchived))
+        )
+      );
   }
 
   async addOrganizationMember(member: InsertOrganizationMember): Promise<OrganizationMember> {
@@ -343,7 +359,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllOrganizationsWithStats(): Promise<Array<Organization & { memberCount: number; eventCount: number; attendeeCount: number }>> {
-    const allOrgs = await db.select().from(organizations).orderBy(desc(organizations.createdAt));
+    const allOrgs = await db
+      .select()
+      .from(organizations)
+      .where(or(eq(organizations.isArchived, false), isNull(organizations.isArchived)))
+      .orderBy(desc(organizations.createdAt));
     
     const orgsWithStats = await Promise.all(allOrgs.map(async (org) => {
       const members = await db.select().from(organizationMembers).where(eq(organizationMembers.organizationId, org.id));
@@ -359,6 +379,41 @@ export class DatabaseStorage implements IStorage {
     }));
     
     return orgsWithStats;
+  }
+
+  async deleteOrganization(id: string): Promise<void> {
+    await db.delete(budgetPayments).where(eq(budgetPayments.organizationId, id));
+    await db.delete(budgetOffsets).where(eq(budgetOffsets.organizationId, id));
+    await db.delete(budgetItems).where(eq(budgetItems.organizationId, id));
+    await db.delete(budgetCategories).where(eq(budgetCategories.organizationId, id));
+    const orgEvents = await db.select({ id: events.id }).from(events).where(eq(events.organizationId, id));
+    for (const event of orgEvents) {
+      await db.delete(eventBudgetSettings).where(eq(eventBudgetSettings.eventId, event.id));
+    }
+    await db.delete(eventPackages).where(eq(eventPackages.organizationId, id));
+    await db.delete(packages).where(eq(packages.organizationId, id));
+    await db.delete(inviteCodes).where(eq(inviteCodes.organizationId, id));
+    await db.delete(eventPages).where(eq(eventPages.organizationId, id));
+    await db.delete(registrationConfigs).where(eq(registrationConfigs.organizationId, id));
+    await db.delete(customFields).where(eq(customFields.organizationId, id));
+    await db.delete(contentAssets).where(eq(contentAssets.organizationId, id));
+    await db.delete(emailTemplates).where(eq(emailTemplates.organizationId, id));
+    await db.delete(emailCampaigns).where(eq(emailCampaigns.organizationId, id));
+    await db.delete(socialPosts).where(eq(socialPosts.organizationId, id));
+    const orgMembers = await db.select({ userId: organizationMembers.userId }).from(organizationMembers).where(eq(organizationMembers.organizationId, id));
+    for (const member of orgMembers) {
+      await db.delete(socialConnections).where(eq(socialConnections.userId, member.userId));
+    }
+    await db.delete(deliverables).where(eq(deliverables.organizationId, id));
+    await db.delete(milestones).where(eq(milestones.organizationId, id));
+    await db.delete(contentItems).where(eq(contentItems.organizationId, id));
+    await db.delete(eventSessions).where(eq(eventSessions.organizationId, id));
+    await db.delete(speakers).where(eq(speakers.organizationId, id));
+    await db.delete(attendeeTypes).where(eq(attendeeTypes.organizationId, id));
+    await db.delete(attendees).where(eq(attendees.organizationId, id));
+    await db.delete(events).where(eq(events.organizationId, id));
+    await db.delete(organizationMembers).where(eq(organizationMembers.organizationId, id));
+    await db.delete(organizations).where(eq(organizations.id, id));
   }
 
   // Event operations

@@ -453,6 +453,24 @@ export async function registerRoutes(
     }
   });
 
+  app.delete("/api/organizations/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      const isSuperAdmin = user?.email?.toLowerCase().endsWith("@makemysandbox.com") ?? false;
+      if (!isSuperAdmin) {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+      
+      await storage.deleteOrganization(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting organization:", error);
+      res.status(500).json({ message: "Failed to delete organization" });
+    }
+  });
+
   // Event routes
   app.get("/api/events", isAuthenticated, async (req: any, res) => {
     try {
