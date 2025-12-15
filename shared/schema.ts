@@ -435,6 +435,19 @@ export const emailTemplates = pgTable("email_templates", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Content Assets table - for media library (images, files for email templates)
+export const contentAssets = pgTable("content_assets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  fileName: text("file_name").notNull(),
+  mimeType: text("mime_type").notNull(),
+  byteSize: integer("byte_size").notNull(),
+  objectPath: text("object_path").notNull(),
+  publicUrl: text("public_url").notNull(),
+  uploadedBy: varchar("uploaded_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Social connections table
 export const socialConnections = pgTable("social_connections", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -587,6 +600,11 @@ export const registrationConfigsRelations = relations(registrationConfigs, ({ on
   event: one(events, { fields: [registrationConfigs.eventId], references: [events.id] }),
 }));
 
+export const contentAssetsRelations = relations(contentAssets, ({ one }) => ({
+  organization: one(organizations, { fields: [contentAssets.organizationId], references: [organizations.id] }),
+  uploadedByUser: one(users, { fields: [contentAssets.uploadedBy], references: [users.id] }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true, updatedAt: true });
 export const insertOrganizationSchema = createInsertSchema(organizations).omit({ id: true, createdAt: true, updatedAt: true });
@@ -611,6 +629,7 @@ export const insertInviteCodeSchema = createInsertSchema(inviteCodes).omit({ id:
 export const insertEventPageSchema = createInsertSchema(eventPages).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertRegistrationConfigSchema = createInsertSchema(registrationConfigs).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertCustomFieldSchema = createInsertSchema(customFields).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertContentAssetSchema = createInsertSchema(contentAssets).omit({ id: true, createdAt: true });
 
 // Types
 export type UpsertUser = typeof users.$inferInsert;
@@ -660,3 +679,5 @@ export type InsertRegistrationConfig = z.infer<typeof insertRegistrationConfigSc
 export type RegistrationConfig = typeof registrationConfigs.$inferSelect;
 export type InsertCustomField = z.infer<typeof insertCustomFieldSchema>;
 export type CustomField = typeof customFields.$inferSelect;
+export type InsertContentAsset = z.infer<typeof insertContentAssetSchema>;
+export type ContentAsset = typeof contentAssets.$inferSelect;

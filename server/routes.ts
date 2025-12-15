@@ -4,6 +4,8 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { sendNewOrganizationAlert, sendCampaignEmails, sendTestEmail } from "./email";
 import { createPaymentIntent, getPaymentIntent, calculateFinalPrice } from "./stripe";
+import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
+import { ObjectPermission } from "./objectAcl";
 import {
   insertEventSchema,
   insertAttendeeSchema,
@@ -21,6 +23,7 @@ import {
   insertEmailTemplateSchema,
   insertEventPageSchema,
   insertCustomFieldSchema,
+  insertContentAssetSchema,
 } from "@shared/schema";
 
 export async function registerRoutes(
@@ -2404,6 +2407,116 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error verifying payment:", error);
       res.status(500).json({ message: "Failed to verify payment" });
+    }
+  });
+
+  // Object Storage routes
+  const objectStorageService = new ObjectStorageService();
+
+  // Serve uploaded objects (public access for email rendering)
+  app.get("/objects/*", async (req, res) => {
+    try {
+      const objectPath = `/objects/${req.params[0]}`;
+      const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
+      
+      const canAccess = await objectStorageService.canAccessObjectEntity({
+        objectFile,
+        requestedPermission: ObjectPermission.READ,
+      });
+      
+      if (!canAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      await objectStorageService.downloadObject(objectFile, res);
+    } catch (error) {
+      if (error instanceof ObjectNotFoundError) {
+        return res.status(404).json({ message: "Object not found" });
+      }
+      console.error("Error serving object:", error);
+      res.status(500).json({ message: "Failed to serve object" });
+    }
+  });
+
+  // Get presigned upload URL
+  app.post("/api/content/assets/upload", isAuthenticated, async (req: any, res) => {
+    try {
+      const uploadUrl = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadUrl });
+    } catch (error) {
+      console.error("Error getting upload URL:", error);
+      res.status(500).json({ message: "Failed to get upload URL" });
+    }
+  });
+
+  // Create content asset record after upload
+  app.post("/api/content/assets", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      
+      const { fileName, mimeType, byteSize, uploadUrl } = req.body;
+      
+      if (!fileName || !mimeType || !uploadUrl) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+      
+      // Normalize the upload URL to an object path and set ACL to public
+      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(uploadUrl, {
+        owner: userId,
+        visibility: "public",
+      });
+      
+      // Construct public URL
+      const publicUrl = `${req.protocol}://${req.get("host")}${objectPath}`;
+      
+      const data = insertContentAssetSchema.parse({
+        organizationId,
+        fileName,
+        mimeType,
+        byteSize: byteSize || 0,
+        objectPath,
+        publicUrl,
+        uploadedBy: userId,
+      });
+      
+      const asset = await storage.createContentAsset(data);
+      res.status(201).json(asset);
+    } catch (error: any) {
+      console.error("Error creating content asset:", error);
+      res.status(400).json({ message: error.message || "Failed to create content asset" });
+    }
+  });
+
+  // List all content assets for the organization
+  app.get("/api/content/assets", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const assets = await storage.getContentAssets(organizationId);
+      res.json(assets);
+    } catch (error) {
+      console.error("Error fetching content assets:", error);
+      res.status(500).json({ message: "Failed to fetch content assets" });
+    }
+  });
+
+  // Delete a content asset
+  app.delete("/api/content/assets/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      
+      const asset = await storage.getContentAsset(req.params.id, organizationId);
+      if (!asset) {
+        return res.status(404).json({ message: "Asset not found" });
+      }
+      
+      await storage.deleteContentAsset(req.params.id, organizationId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting content asset:", error);
+      res.status(500).json({ message: "Failed to delete content asset" });
     }
   });
 

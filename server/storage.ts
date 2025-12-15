@@ -22,6 +22,7 @@ import {
   eventPages,
   registrationConfigs,
   customFields,
+  contentAssets,
   type User,
   type UpsertUser,
   type Event,
@@ -66,6 +67,8 @@ import {
   type InsertRegistrationConfig,
   type CustomField,
   type InsertCustomField,
+  type ContentAsset,
+  type InsertContentAsset,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, ilike } from "drizzle-orm";
@@ -225,6 +228,12 @@ export interface IStorage {
   updateCustomField(organizationId: string, id: string, field: Partial<InsertCustomField>): Promise<CustomField | undefined>;
   deleteCustomField(organizationId: string, id: string): Promise<void>;
   getActiveCustomFieldsByEventSlug(slug: string): Promise<CustomField[]>;
+
+  // Content Asset operations
+  createContentAsset(asset: InsertContentAsset): Promise<ContentAsset>;
+  getContentAssets(organizationId: string): Promise<ContentAsset[]>;
+  getContentAsset(id: string, organizationId: string): Promise<ContentAsset | undefined>;
+  deleteContentAsset(id: string, organizationId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1018,6 +1027,29 @@ export class DatabaseStorage implements IStorage {
         eq(customFields.isActive, true)
       ))
       .orderBy(customFields.displayOrder);
+  }
+
+  // Content Asset operations
+  async createContentAsset(asset: InsertContentAsset): Promise<ContentAsset> {
+    const [newAsset] = await db.insert(contentAssets).values(asset).returning();
+    return newAsset;
+  }
+
+  async getContentAssets(organizationId: string): Promise<ContentAsset[]> {
+    return db.select().from(contentAssets)
+      .where(eq(contentAssets.organizationId, organizationId))
+      .orderBy(desc(contentAssets.createdAt));
+  }
+
+  async getContentAsset(id: string, organizationId: string): Promise<ContentAsset | undefined> {
+    const [asset] = await db.select().from(contentAssets)
+      .where(and(eq(contentAssets.id, id), eq(contentAssets.organizationId, organizationId)));
+    return asset;
+  }
+
+  async deleteContentAsset(id: string, organizationId: string): Promise<void> {
+    await db.delete(contentAssets)
+      .where(and(eq(contentAssets.id, id), eq(contentAssets.organizationId, organizationId)));
   }
 }
 
