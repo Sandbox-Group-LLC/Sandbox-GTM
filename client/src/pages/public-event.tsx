@@ -308,6 +308,15 @@ export default function PublicEvent() {
 
 function SectionRenderer({ section, event, sessions, speakers, theme }: { section: Section; event: Event; sessions?: EventSession[]; speakers?: Speaker[]; theme?: EventPageTheme | null }) {
   const config = section.config;
+  const isFullWidth = theme?.containerWidth === "full";
+  const isHtmlSection = section.type === "html";
+  
+  const wrapWithMargins = (content: React.ReactNode) => {
+    if (isFullWidth && !isHtmlSection) {
+      return <div style={{ marginLeft: "10%", marginRight: "10%" }}>{content}</div>;
+    }
+    return content;
+  };
   
   const mergeTagContext: MergeTagContext = {
     event: {
@@ -395,7 +404,7 @@ function SectionRenderer({ section, event, sessions, speakers, theme }: { sectio
 
   switch (section.type) {
     case "hero":
-      return (
+      return wrapWithMargins(
         <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-8 text-center" style={{ borderRadius: themeRadius }} data-testid={`section-hero-${section.id}`}>
           <h2 className="text-3xl font-bold mb-4" style={headingStyles}>{title || event.name}</h2>
           {subtitle && (
@@ -406,7 +415,7 @@ function SectionRenderer({ section, event, sessions, speakers, theme }: { sectio
       );
 
     case "text":
-      return (
+      return wrapWithMargins(
         <div className="prose dark:prose-invert max-w-none" data-testid={`section-text-${section.id}`}>
           {heading && <h3 className="text-2xl font-semibold mb-4" style={headingStyles}>{heading}</h3>}
           {content && <p style={secondaryTextStyles}>{content}</p>}
@@ -414,7 +423,7 @@ function SectionRenderer({ section, event, sessions, speakers, theme }: { sectio
       );
 
     case "cta":
-      return (
+      return wrapWithMargins(
         <Card className="bg-primary/5 border-primary/20" style={cardStyles} data-testid={`section-cta-${section.id}`}>
           <CardContent className="p-8 text-center">
             <h3 className="text-2xl font-bold mb-2" style={headingStyles}>{heading || "Ready to Join?"}</h3>
@@ -428,7 +437,7 @@ function SectionRenderer({ section, event, sessions, speakers, theme }: { sectio
 
     case "features":
       const rawFeatures = (config.features as Array<string | { title: string; description: string }>) || [];
-      return (
+      return wrapWithMargins(
         <div data-testid={`section-features-${section.id}`}>
           {heading && (
             <h3 className="text-2xl font-semibold mb-6 text-center" style={headingStyles}>{heading}</h3>
@@ -456,11 +465,11 @@ function SectionRenderer({ section, event, sessions, speakers, theme }: { sectio
       );
 
     case "countdown":
-      return <CountdownSection config={config} event={event} sectionId={section.id} theme={theme} />;
+      return wrapWithMargins(<CountdownSection config={config} event={event} sectionId={section.id} theme={theme} />);
 
     case "speakers":
       const showBio = config.showBio !== false;
-      return (
+      return wrapWithMargins(
         <div data-testid={`section-speakers-${section.id}`}>
           {heading && <h3 className="text-2xl font-semibold mb-6 text-center" style={headingStyles}>{heading}</h3>}
           {speakers && speakers.length > 0 ? (
@@ -496,7 +505,7 @@ function SectionRenderer({ section, event, sessions, speakers, theme }: { sectio
     case "agenda":
       const showRoom = config.showRoom !== false;
       const showTrack = config.showTrack !== false;
-      return (
+      return wrapWithMargins(
         <div data-testid={`section-agenda-${section.id}`}>
           {heading && <h3 className="text-2xl font-semibold mb-6 text-center" style={headingStyles}>{heading}</h3>}
           {sessions && sessions.length > 0 ? (
@@ -532,7 +541,7 @@ function SectionRenderer({ section, event, sessions, speakers, theme }: { sectio
 
     case "faq":
       const faqItems = (config.items as Array<{ question: string; answer: string }>) || [];
-      return (
+      return wrapWithMargins(
         <div data-testid={`section-faq-${section.id}`}>
           {heading && <h3 className="text-2xl font-semibold mb-6 text-center" style={headingStyles}>{heading}</h3>}
           {faqItems.length > 0 ? (
@@ -552,7 +561,7 @@ function SectionRenderer({ section, event, sessions, speakers, theme }: { sectio
 
     case "testimonials":
       const testimonialItems = (config.items as Array<{ quote: string; author: string; role: string }>) || [];
-      return (
+      return wrapWithMargins(
         <div data-testid={`section-testimonials-${section.id}`}>
           {heading && <h3 className="text-2xl font-semibold mb-6 text-center" style={headingStyles}>{heading}</h3>}
           {testimonialItems.length > 0 ? (
@@ -578,7 +587,7 @@ function SectionRenderer({ section, event, sessions, speakers, theme }: { sectio
 
     case "gallery":
       const galleryImages = (config.images as Array<{ url: string; caption: string }>) || [];
-      return (
+      return wrapWithMargins(
         <div data-testid={`section-gallery-${section.id}`}>
           {heading && <h3 className="text-2xl font-semibold mb-6 text-center" style={headingStyles}>{heading}</h3>}
           {galleryImages.length > 0 ? (

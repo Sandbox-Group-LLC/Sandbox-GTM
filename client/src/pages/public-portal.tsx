@@ -315,6 +315,16 @@ export default function PublicPortal() {
 
 function SectionRenderer({ section, event, slug, theme }: { section: Section; event: Event; slug: string; theme?: EventPageTheme | null }) {
   const config = section.config;
+  const isFullWidth = theme?.containerWidth === "full";
+  const isHtmlSection = section.type === "html";
+
+  const wrapWithMargins = (content: React.ReactNode) => {
+    if (isFullWidth && !isHtmlSection) {
+      return <div style={{ marginLeft: "10%", marginRight: "10%" }}>{content}</div>;
+    }
+    return content;
+  };
+
   const title = String(config.title || "");
   const subtitle = String(config.subtitle || "");
   const buttonText = String(config.buttonText || "");
@@ -382,7 +392,7 @@ function SectionRenderer({ section, event, slug, theme }: { section: Section; ev
 
   switch (section.type) {
     case "hero":
-      return (
+      return wrapWithMargins(
         <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-8 text-center" style={{ borderRadius: themeRadius }} data-testid={`section-hero-${section.id}`}>
           <h2 className="text-3xl font-bold mb-4" style={headingStyles}>{title || event.name}</h2>
           {subtitle && (
@@ -393,7 +403,7 @@ function SectionRenderer({ section, event, slug, theme }: { section: Section; ev
       );
 
     case "text":
-      return (
+      return wrapWithMargins(
         <div className="prose dark:prose-invert max-w-none" data-testid={`section-text-${section.id}`}>
           {heading && <h3 className="text-2xl font-semibold mb-4" style={headingStyles}>{heading}</h3>}
           {content && <p style={secondaryTextStyles}>{content}</p>}
@@ -401,7 +411,7 @@ function SectionRenderer({ section, event, slug, theme }: { section: Section; ev
       );
 
     case "cta":
-      return (
+      return wrapWithMargins(
         <Card className="bg-primary/5 border-primary/20" style={cardStyles} data-testid={`section-cta-${section.id}`}>
           <CardContent className="p-8 text-center">
             <h3 className="text-2xl font-bold mb-2" style={headingStyles}>{heading || "Ready to Join?"}</h3>
@@ -415,7 +425,7 @@ function SectionRenderer({ section, event, slug, theme }: { section: Section; ev
 
     case "features":
       const features = (config.features as Array<{ title: string; description: string }>) || [];
-      return (
+      return wrapWithMargins(
         <div data-testid={`section-features-${section.id}`}>
           {heading && (
             <h3 className="text-2xl font-semibold mb-6 text-center" style={headingStyles}>{heading}</h3>
