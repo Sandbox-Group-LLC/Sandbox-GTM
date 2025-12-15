@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, Users, Mic2, FolderOpen, DollarSign, Mail, Share2, CheckCircle } from "lucide-react";
-import logoImage from "@assets/Black_bug_-_no_background_1765764359900.png";
+import logoImage from "@assets/Orange_bug_-_no_background_1765764598298.png";
 
 const features = [
   {
@@ -52,7 +52,7 @@ export default function Landing() {
       <header className="border-b border-border">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <img src={logoImage} alt="Sandbox" className="h-6 w-6 dark:invert" />
+            <img src={logoImage} alt="Sandbox" className="h-6 w-6" />
             <span className="font-semibold text-lg">Sandbox</span>
           </div>
           <Button asChild data-testid="button-login-header">

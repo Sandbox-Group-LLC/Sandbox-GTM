@@ -19,7 +19,7 @@ import {
   Building2,
   Shield,
 } from "lucide-react";
-import logoImage from "@assets/Black_bug_-_no_background_1765764359900.png";
+import logoImage from "@assets/Orange_bug_-_no_background_1765764598298.png";
 import { OnboardingChecklist } from "./onboarding-checklist";
 import { OnboardingWizard } from "./onboarding-wizard";
 import {
@@ -102,7 +102,7 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="p-4 border-b border-sidebar-border">
         <div className="flex items-center gap-2">
-          <img src={logoImage} alt="Sandbox" className="h-6 w-6 dark:invert" />
+          <img src={logoImage} alt="Sandbox" className="h-6 w-6" />
           <span className="font-semibold text-lg">Sandbox</span>
         </div>
       </SidebarHeader>
