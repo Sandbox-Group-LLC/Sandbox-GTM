@@ -39,6 +39,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { titleCase } from "@/lib/utils";
 import {
   Plus,
   Share2,
@@ -621,7 +622,7 @@ export default function Social() {
                                     </div>
                                     <Badge variant={statusCfg.color} className="gap-1">
                                       <StatusIcon className="h-3 w-3" />
-                                      {post.status || "draft"}
+                                      {titleCase(post.status || "draft")}
                                     </Badge>
                                   </div>
                                 </CardHeader>

@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
 import { Plus, X, Globe, Calendar, Pencil, Trash2, ArrowLeft, Users, Presentation, Package } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
+import { titleCase } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -283,8 +284,8 @@ export default function Events() {
                       </p>
                     )}
                     <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant={getStatusBadgeVariant(event.status || "draft")} className="capitalize">
-                        {event.status || "draft"}
+                      <Badge variant={getStatusBadgeVariant(event.status || "draft")}>
+                        {titleCase(event.status || "draft")}
                       </Badge>
                       {event.isPublic && (
                         <Badge variant="outline">
@@ -401,8 +402,8 @@ export default function Events() {
                       </div>
 
                       <div className="flex flex-wrap gap-2">
-                        <Badge variant={getStatusBadgeVariant(selectedEvent.status || "draft")} className="capitalize">
-                          {selectedEvent.status || "draft"}
+                        <Badge variant={getStatusBadgeVariant(selectedEvent.status || "draft")}>
+                          {titleCase(selectedEvent.status || "draft")}
                         </Badge>
                         {selectedEvent.isPublic && (
                           <Badge variant="outline">
@@ -540,8 +541,8 @@ export default function Events() {
                               <p className="font-medium truncate">{attendee.firstName} {attendee.lastName}</p>
                               <p className="text-sm text-muted-foreground truncate">{attendee.email}</p>
                             </div>
-                            <Badge variant={attendee.registrationStatus === 'registered' ? 'default' : 'secondary'} className="capitalize">
-                              {attendee.registrationStatus || 'pending'}
+                            <Badge variant={attendee.registrationStatus === 'registered' ? 'default' : 'secondary'}>
+                              {titleCase(attendee.registrationStatus || 'pending')}
                             </Badge>
                           </div>
                         ))}
@@ -569,7 +570,7 @@ export default function Events() {
                           <div key={session.id} className="p-3 border rounded-md" data-testid={`session-row-${session.id}`}>
                             <div className="flex items-center justify-between gap-2 flex-wrap">
                               <p className="font-medium">{session.title}</p>
-                              {session.sessionType && <Badge variant="secondary">{session.sessionType}</Badge>}
+                              {session.sessionType && <Badge variant="secondary">{titleCase(session.sessionType)}</Badge>}
                             </div>
                             {session.sessionDate && (
                               <p className="text-sm text-muted-foreground mt-1">

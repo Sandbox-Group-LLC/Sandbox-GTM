@@ -7,6 +7,7 @@ import { z } from "zod";
 import { loadStripe, Stripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { apiRequest, getQueryFn } from "@/lib/queryClient";
+import { titleCase } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -1019,7 +1020,7 @@ export default function PublicRegistration() {
                                       {pkg.effectiveFeatures && pkg.effectiveFeatures.length > 0 && (
                                         <div className="flex flex-wrap gap-1 mt-2">
                                           {pkg.effectiveFeatures.slice(0, 3).map((feature, i) => (
-                                            <Badge key={i} variant="outline" className="text-xs">{feature}</Badge>
+                                            <Badge key={i} variant="outline" className="text-xs">{titleCase(feature)}</Badge>
                                           ))}
                                           {pkg.effectiveFeatures.length > 3 && (
                                             <Badge variant="outline" className="text-xs">+{pkg.effectiveFeatures.length - 3} more</Badge>

@@ -451,7 +451,7 @@ export default function Packages() {
                             <div className="flex flex-wrap gap-2">
                               {field.value.map((feature, index) => (
                                 <Badge key={index} variant="secondary" className="gap-1">
-                                  {feature}
+                                  {titleCase(feature)}
                                   <button
                                     type="button"
                                     onClick={() => removeFeature(index)}

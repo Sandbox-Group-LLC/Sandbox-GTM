@@ -42,6 +42,7 @@ import {
 import { SiGoogle } from "react-icons/si";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { titleCase } from "@/lib/utils";
 import type { Event, Package as PackageType, EmailTemplate } from "@shared/schema";
 
 interface MergedPackage extends PackageType {
@@ -652,7 +653,7 @@ export default function RegistrationFlow() {
                           <div className="flex flex-wrap gap-1 mt-2">
                             {(pkg.effectiveFeatures ?? pkg.features)!.slice(0, 3).map((feature, index) => (
                               <Badge key={index} variant="secondary" className="text-xs">
-                                {feature}
+                                {titleCase(feature)}
                               </Badge>
                             ))}
                             {(pkg.effectiveFeatures ?? pkg.features)!.length > 3 && (

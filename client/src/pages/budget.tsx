@@ -51,6 +51,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { titleCase } from "@/lib/utils";
 import {
   Plus,
   DollarSign,
@@ -1145,7 +1146,7 @@ export default function Budget() {
                                   </TableCell>
                                   <TableCell>
                                     <Badge variant={paymentStatusColors[payment.status || "pending"]}>
-                                      {payment.status || "pending"}
+                                      {titleCase(payment.status || "pending")}
                                     </Badge>
                                   </TableCell>
                                   <TableCell className="text-muted-foreground max-w-[200px] truncate">
