@@ -114,6 +114,7 @@ const CONTAINER_WIDTH_OPTIONS = [
   { value: "narrow", label: "Narrow (768px)" },
   { value: "standard", label: "Standard (1024px)" },
   { value: "wide", label: "Wide (1280px)" },
+  { value: "full", label: "Full Width (100%)" },
 ];
 
 const SECTION_SPACING_OPTIONS = [

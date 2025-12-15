@@ -42,6 +42,7 @@ function getThemeStyles(theme: EventPageTheme | null | undefined): React.CSSProp
     narrow: "768px",
     standard: "1024px",
     wide: "1280px",
+    full: "100%",
   };
   
   const sectionSpacingMap: Record<string, string> = {
