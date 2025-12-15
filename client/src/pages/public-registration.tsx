@@ -786,49 +786,6 @@ export default function PublicRegistration() {
           fontFamily: theme?.bodyFont ? `"${theme.bodyFont}", sans-serif` : undefined,
         }}
       >
-        <div 
-          className="py-8 px-6"
-          style={{
-            background: theme?.primaryColor 
-              ? `linear-gradient(to bottom, ${theme.primaryColor}1a, transparent)` 
-              : undefined,
-          }}
-        >
-          <div className="max-w-2xl mx-auto">
-            <Button variant="ghost" size="sm" asChild className="mb-4">
-              <Link href={`/event/${slug}`}>
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Event
-              </Link>
-            </Button>
-            
-            <Badge variant="secondary" className="mb-4">Registration</Badge>
-            <h1 
-              className="text-3xl font-bold mb-2" 
-              data-testid="text-event-name"
-              style={{ 
-                fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined,
-                color: theme?.textColor || undefined,
-              }}
-            >
-              {event.name}
-            </h1>
-            
-            <div className="flex flex-wrap gap-4 text-muted-foreground text-sm">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
-                <span>{new Date(event.startDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</span>
-              </div>
-              {event.location && (
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4" />
-                  <span>{event.location}</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
       <div className="max-w-2xl mx-auto px-6 py-8">
         {sections.length > 0 && currentStep === 1 && (
           <div className="mb-8 space-y-6">
