@@ -1062,6 +1062,59 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
         </footer>
       );
 
+    case "navigation":
+      const navLogo = (config.logo as string) || "";
+      const navLinks = (config.links as Array<{ label: string; url: string }>) || [];
+      const showEventTitle = config.showEventTitle !== false;
+      const isSticky = config.sticky === true;
+      const navStyle = (config.style as string) || "light";
+      
+      // Use theme colors with fallbacks based on style preference
+      const navBgColor = styles?.backgroundColor || (
+        navStyle === "dark" ? (theme?.textColor || "#1f2937") :
+        navStyle === "transparent" ? "transparent" :
+        (theme?.backgroundColor || "#ffffff")
+      );
+      const navTextColor = styles?.textColor || (
+        navStyle === "dark" ? (theme?.backgroundColor || "#ffffff") :
+        (theme?.textColor || "#1f2937")
+      );
+      
+      return (
+        <nav 
+          className={`w-full py-3 px-6 ${isSticky ? 'sticky top-0 z-50' : ''} ${navStyle === "light" ? "border-b" : ""}`}
+          style={{ 
+            backgroundColor: navBgColor,
+            color: navTextColor
+          }}
+          data-testid={`section-navigation-${section.id}`}
+        >
+          <div className="max-w-6xl mx-auto flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3" data-testid="nav-brand">
+              {navLogo && (
+                <img src={navLogo} alt="Logo" className="h-8 w-auto" data-testid="nav-logo" />
+              )}
+              {showEventTitle && (
+                <span className="font-semibold" style={{ ...headingStyles, color: navTextColor }} data-testid="nav-event-title">{event.name}</span>
+              )}
+            </div>
+            <div className="flex items-center gap-4" data-testid="nav-links">
+              {navLinks.map((link, idx) => (
+                <a 
+                  key={idx}
+                  href={link.url.replace(/\{\{slug\}\}/g, event.publicSlug || '')}
+                  className="text-sm hover:underline"
+                  style={{ color: navTextColor, opacity: 0.9 }}
+                  data-testid={`nav-link-${idx}`}
+                >
+                  {link.label}
+                </a>
+              ))}
+            </div>
+          </div>
+        </nav>
+      );
+
     default:
       return null;
   }

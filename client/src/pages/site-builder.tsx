@@ -26,6 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -59,6 +60,7 @@ import {
   PanelRight,
   Sparkles,
   AlertTriangle,
+  Menu,
 } from "lucide-react";
 import type { Event, EventPage, EventPageTheme } from "@shared/schema";
 import { MergeTagPicker } from "@/components/merge-tag-picker";
@@ -75,9 +77,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-type PageType = "landing" | "registration" | "portal";
+type PageType = "landing" | "registration" | "portal" | "confirmation";
 
-type SectionType = "hero" | "text" | "cta" | "features" | "countdown" | "speakers" | "agenda" | "faq" | "testimonials" | "gallery" | "html" | "sponsors" | "map" | "video" | "footer";
+type SectionType = "hero" | "text" | "cta" | "features" | "countdown" | "speakers" | "agenda" | "faq" | "testimonials" | "gallery" | "html" | "sponsors" | "map" | "video" | "footer" | "navigation";
 
 interface SectionStyles {
   backgroundColor?: string;
@@ -99,6 +101,7 @@ const PAGE_TYPES: { value: PageType; label: string; description: string }[] = [
   { value: "landing", label: "Landing Page", description: "Public event information page" },
   { value: "registration", label: "Registration", description: "Registration form and flow" },
   { value: "portal", label: "Attendee Portal", description: "Post-registration attendee area" },
+  { value: "confirmation", label: "Confirmation", description: "Post-registration confirmation page" },
 ];
 
 const SECTION_TYPES: { type: SectionType; label: string; icon: React.ComponentType<{ className?: string }>; description: string }[] = [
@@ -117,6 +120,7 @@ const SECTION_TYPES: { type: SectionType; label: string; icon: React.ComponentTy
   { type: "map", label: "Event Map", icon: MapPin, description: "Embedded Google Maps location" },
   { type: "video", label: "Video", icon: Video, description: "Embedded YouTube/Vimeo video" },
   { type: "footer", label: "Footer", icon: Mail, description: "Contact info, links, social media" },
+  { type: "navigation", label: "Navigation Bar", icon: Menu, description: "Header navigation with links" },
 ];
 
 const GOOGLE_FONTS = [
@@ -210,6 +214,17 @@ const getDefaultConfig = (type: SectionType): Record<string, unknown> => {
         linkedinUrl: "",
         instagramUrl: "",
         copyright: ""
+      };
+    case "navigation":
+      return { 
+        logo: "", 
+        links: [
+          { label: "Home", url: "/event/{{slug}}" },
+          { label: "Register", url: "/event/{{slug}}/register" },
+        ], 
+        showEventTitle: true,
+        sticky: false,
+        style: "light"
       };
     default:
       return {};
@@ -488,6 +503,10 @@ export default function SiteBuilder() {
         if (config.phone) footerParts.push("phone");
         if (config.showSocialIcons) footerParts.push("social");
         previewText = footerParts.length > 0 ? `Footer: ${footerParts.join(", ")}` : "Footer section";
+        break;
+      case "navigation":
+        const navLinks = (config.links as Array<{ label: string; url: string }>) || [];
+        previewText = `Navigation bar (${navLinks.length} links)`;
         break;
       default:
         previewText = "Section content";
@@ -1953,6 +1972,102 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId }: S
                 data-testid="checkbox-video-autoplay"
               />
               <Label htmlFor="autoplay">Autoplay (muted)</Label>
+            </div>
+          </>
+        );
+      case "navigation":
+        const navLinks = (config.links as Array<{ label: string; url: string }>) || [];
+        return (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="logo">Logo URL</Label>
+              <Input
+                id="logo"
+                value={(config.logo as string) || ""}
+                onChange={(e) => updateConfig("logo", e.target.value)}
+                placeholder="https://example.com/logo.png"
+                data-testid="input-nav-logo"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                id="showEventTitle"
+                checked={(config.showEventTitle as boolean) !== false}
+                onCheckedChange={(checked) => updateConfig("showEventTitle", checked)}
+                data-testid="switch-show-event-title"
+              />
+              <Label htmlFor="showEventTitle">Show Event Title</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                id="sticky"
+                checked={(config.sticky as boolean) === true}
+                onCheckedChange={(checked) => updateConfig("sticky", checked)}
+                data-testid="switch-sticky"
+              />
+              <Label htmlFor="sticky">Sticky Navigation</Label>
+            </div>
+            <div className="space-y-2">
+              <Label>Style</Label>
+              <Select
+                value={(config.style as string) || "light"}
+                onValueChange={(value) => updateConfig("style", value)}
+              >
+                <SelectTrigger data-testid="select-nav-style">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="light">Light</SelectItem>
+                  <SelectItem value="dark">Dark</SelectItem>
+                  <SelectItem value="transparent">Transparent</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-3">
+              <Label>Navigation Links</Label>
+              {navLinks.map((item, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <Input
+                    placeholder="Label"
+                    value={item.label}
+                    onChange={(e) => {
+                      const newItems = [...navLinks];
+                      newItems[index] = { ...item, label: e.target.value };
+                      updateConfig("links", newItems);
+                    }}
+                    data-testid={`input-nav-link-label-${index}`}
+                  />
+                  <Input
+                    placeholder="URL"
+                    value={item.url}
+                    onChange={(e) => {
+                      const newItems = [...navLinks];
+                      newItems[index] = { ...item, url: e.target.value };
+                      updateConfig("links", newItems);
+                    }}
+                    data-testid={`input-nav-link-url-${index}`}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      const newItems = navLinks.filter((_, i) => i !== index);
+                      updateConfig("links", newItems);
+                    }}
+                    data-testid={`button-remove-nav-link-${index}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+              <Button
+                variant="outline"
+                onClick={() => updateConfig("links", [...navLinks, { label: "New Link", url: "" }])}
+                data-testid="button-add-nav-link"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Link
+              </Button>
             </div>
           </>
         );
