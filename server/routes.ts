@@ -37,9 +37,14 @@ import {
   insertCustomFieldSchema,
   insertContentAssetSchema,
   insertEventSponsorSchema,
+  pageVersions,
+  eventPages,
 } from "@shared/schema";
+import { db } from "./db";
+import { eq, and, desc } from "drizzle-orm";
 import { sanitizeCustomCss } from "@shared/css-sanitizer";
 import { generateSectionContent } from "./ai";
+import { z } from "zod";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -2728,6 +2733,127 @@ ${urls.map(u => `  <url>
     } catch (error) {
       logError("Error deleting event page:", error);
       res.status(500).json({ message: "Failed to delete event page" });
+    }
+  });
+
+  // Page Version routes (version history)
+  app.get("/api/events/:eventId/pages/:pageId/versions", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const { pageId } = req.params;
+      
+      const page = await storage.getEventPage(organizationId, pageId);
+      if (!page) {
+        return res.status(404).json({ message: "Page not found" });
+      }
+      
+      const versions = await storage.getPageVersions(organizationId, pageId);
+      res.json(versions);
+    } catch (error) {
+      logError("Error fetching page versions:", error);
+      res.status(500).json({ message: "Failed to fetch page versions" });
+    }
+  });
+
+  const createVersionSchema = z.object({
+    label: z.string().optional(),
+    sections: z.array(z.any()).optional(),
+    theme: z.record(z.any()).optional(),
+    seo: z.record(z.any()).optional(),
+  });
+
+  app.post("/api/events/:eventId/pages/:pageId/versions", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const { pageId } = req.params;
+      
+      const page = await storage.getEventPage(organizationId, pageId);
+      if (!page) {
+        return res.status(404).json({ message: "Page not found" });
+      }
+      
+      const validatedData = createVersionSchema.parse(req.body);
+      
+      const latestVersion = await storage.getLatestVersionNumber(organizationId, pageId);
+      const version = await storage.createPageVersion({
+        organizationId,
+        eventPageId: pageId,
+        version: latestVersion + 1,
+        ...validatedData,
+      });
+      res.status(201).json(version);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid version data", errors: error.errors });
+      }
+      logError("Error creating page version:", error);
+      res.status(400).json({ message: "Failed to create page version" });
+    }
+  });
+
+  app.post("/api/events/:eventId/pages/:pageId/versions/:versionId/restore", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const { pageId, versionId } = req.params;
+      
+      const currentPage = await storage.getEventPage(organizationId, pageId);
+      if (!currentPage) {
+        return res.status(404).json({ message: "Page not found" });
+      }
+      
+      const version = await storage.getPageVersion(organizationId, versionId);
+      if (!version || version.eventPageId !== pageId) {
+        return res.status(404).json({ message: "Version not found" });
+      }
+      
+      // Use transaction with direct db calls
+      const result = await db.transaction(async (tx) => {
+        // Get latest version number
+        const [latestRow] = await tx.select({ version: pageVersions.version })
+          .from(pageVersions)
+          .where(and(
+            eq(pageVersions.organizationId, organizationId),
+            eq(pageVersions.eventPageId, pageId)
+          ))
+          .orderBy(desc(pageVersions.version))
+          .limit(1);
+        const latestVersion = latestRow?.version ?? 0;
+        
+        // Create snapshot of current state before restoring
+        await tx.insert(pageVersions).values({
+          organizationId,
+          eventPageId: pageId,
+          version: latestVersion + 1,
+          label: "Before restore",
+          sections: currentPage.sections,
+          theme: currentPage.theme,
+          seo: currentPage.seo,
+        });
+        
+        // Restore the page to the selected version
+        const [updated] = await tx.update(eventPages)
+          .set({
+            sections: version.sections,
+            theme: version.theme,
+            seo: version.seo,
+            updatedAt: new Date(),
+          })
+          .where(and(
+            eq(eventPages.organizationId, organizationId),
+            eq(eventPages.id, pageId)
+          ))
+          .returning();
+        
+        return updated;
+      });
+      
+      res.json(result);
+    } catch (error) {
+      logError("Error restoring page version:", error);
+      res.status(500).json({ message: "Failed to restore page version" });
     }
   });
 

@@ -26,6 +26,7 @@ import {
   organizations,
   organizationMembers,
   eventPages,
+  pageVersions,
   registrationConfigs,
   customFields,
   contentAssets,
@@ -84,6 +85,8 @@ import {
   type InsertOrganizationMember,
   type EventPage,
   type InsertEventPage,
+  type PageVersion,
+  type InsertPageVersion,
   type RegistrationConfig,
   type InsertRegistrationConfig,
   type CustomField,
@@ -1292,6 +1295,42 @@ export class DatabaseStorage implements IStorage {
     .innerJoin(events, eq(eventPages.eventId, events.id))
     .where(and(eq(eventPages.isPublished, true), eq(eventPages.pageType, 'landing')));
     return result;
+  }
+
+  // Page Version operations
+  async getPageVersions(organizationId: string, eventPageId: string): Promise<PageVersion[]> {
+    return db.select().from(pageVersions)
+      .where(and(
+        eq(pageVersions.organizationId, organizationId),
+        eq(pageVersions.eventPageId, eventPageId)
+      ))
+      .orderBy(desc(pageVersions.version));
+  }
+
+  async getPageVersion(organizationId: string, id: string): Promise<PageVersion | undefined> {
+    const [version] = await db.select().from(pageVersions)
+      .where(and(
+        eq(pageVersions.organizationId, organizationId),
+        eq(pageVersions.id, id)
+      ));
+    return version;
+  }
+
+  async createPageVersion(version: InsertPageVersion): Promise<PageVersion> {
+    const [created] = await db.insert(pageVersions).values(version).returning();
+    return created;
+  }
+
+  async getLatestVersionNumber(organizationId: string, eventPageId: string): Promise<number> {
+    const [latest] = await db.select({ version: pageVersions.version })
+      .from(pageVersions)
+      .where(and(
+        eq(pageVersions.organizationId, organizationId),
+        eq(pageVersions.eventPageId, eventPageId)
+      ))
+      .orderBy(desc(pageVersions.version))
+      .limit(1);
+    return latest?.version ?? 0;
   }
 
   // Registration Config operations

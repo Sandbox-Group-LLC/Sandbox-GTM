@@ -65,7 +65,11 @@ import {
   Monitor,
   Tablet,
   Smartphone,
+  History,
+  RotateCcw,
+  Loader2,
 } from "lucide-react";
+import { format } from "date-fns";
 import type { Event, EventPage, EventPageTheme } from "@shared/schema";
 import { MergeTagPicker } from "@/components/merge-tag-picker";
 import { SectionRenderer, GoogleFontsLoader, getThemeStyles, scopeCustomCss, sanitizeCustomCss } from "@/pages/public-event";
@@ -253,6 +257,8 @@ export default function SiteBuilder() {
   const [pendingTemplate, setPendingTemplate] = useState<EventTemplate | null>(null);
   const [isTemplateConfirmOpen, setIsTemplateConfirmOpen] = useState(false);
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
+  const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false);
+  const [versionToRestore, setVersionToRestore] = useState<string | null>(null);
   const justAppliedTemplateRef = useRef(false);
 
   const { data: events = [], isLoading: eventsLoading } = useQuery<Event[]>({
@@ -278,7 +284,7 @@ export default function SiteBuilder() {
 
   const saveMutation = useMutation({
     mutationFn: async (data: { pageType: PageType; sections: Section[]; isPublished?: boolean; theme?: EventPageTheme; seo?: { title?: string; description?: string; ogImage?: string } }) => {
-      return await apiRequest("POST", `/api/events/${selectedEventId}/pages`, {
+      const response = await apiRequest("POST", `/api/events/${selectedEventId}/pages`, {
         eventId: selectedEventId,
         pageType: data.pageType,
         sections: data.sections,
@@ -286,15 +292,26 @@ export default function SiteBuilder() {
         theme: data.theme ?? currentPage?.theme,
         seo: data.seo ?? currentPage?.seo,
       });
+      const savedPage = await response.json();
+      if (savedPage?.id) {
+        await apiRequest("POST", `/api/events/${selectedEventId}/pages/${savedPage.id}/versions`, {
+          label: null,
+          sections: data.sections,
+          theme: data.theme ?? currentPage?.theme,
+          seo: data.seo ?? currentPage?.seo,
+        });
+      }
+      return savedPage;
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["/api/events", selectedEventId, "pages"] });
-      // Reset template flag after fresh data has been fetched
+      if (currentPage?.id) {
+        await queryClient.invalidateQueries({ queryKey: ["/api/events", selectedEventId, "pages", currentPage.id, "versions"] });
+      }
       justAppliedTemplateRef.current = false;
       toast({ title: "Page saved successfully" });
     },
     onError: (error: Error) => {
-      // Reset template flag on error so preview can resync
       justAppliedTemplateRef.current = false;
       if (isUnauthorizedError(error)) {
         toast({ title: "Unauthorized", description: "You are logged out. Logging in again...", variant: "destructive" });
@@ -573,6 +590,16 @@ export default function SiteBuilder() {
                 title="Preview in new tab"
               >
                 <Eye className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setIsVersionHistoryOpen(true)}
+                disabled={!currentPage?.id}
+                data-testid="button-history"
+                title="Version History"
+              >
+                <History className="h-4 w-4" />
               </Button>
               <Button
                 variant={currentPage?.isPublished ? "outline" : "default"}
@@ -1063,7 +1090,200 @@ export default function SiteBuilder() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {currentPage?.id && (
+        <VersionHistoryDialog
+          open={isVersionHistoryOpen}
+          onOpenChange={setIsVersionHistoryOpen}
+          eventId={selectedEventId}
+          pageId={currentPage.id}
+          versionToRestore={versionToRestore}
+          setVersionToRestore={setVersionToRestore}
+        />
+      )}
     </div>
+  );
+}
+
+interface PageVersion {
+  id: string;
+  organizationId: string;
+  eventPageId: string;
+  version: number;
+  label: string | null;
+  sections: Array<{
+    id: string;
+    type: string;
+    order: number;
+    config: Record<string, unknown>;
+    styles?: SectionStyles;
+  }> | null;
+  theme: EventPageTheme | null;
+  seo: { title?: string; description?: string; ogImage?: string } | null;
+  createdAt: Date | null;
+}
+
+interface VersionHistoryDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  eventId: string;
+  pageId: string;
+  versionToRestore: string | null;
+  setVersionToRestore: (id: string | null) => void;
+}
+
+function VersionHistoryDialog({ 
+  open, 
+  onOpenChange, 
+  eventId, 
+  pageId,
+  versionToRestore,
+  setVersionToRestore
+}: VersionHistoryDialogProps) {
+  const { toast } = useToast();
+
+  const { data: versions = [], isLoading: versionsLoading } = useQuery<PageVersion[]>({
+    queryKey: ["/api/events", eventId, "pages", pageId, "versions"],
+    enabled: open && !!eventId && !!pageId,
+  });
+
+  const restoreMutation = useMutation({
+    mutationFn: async (versionId: string) => {
+      return await apiRequest("POST", `/api/events/${eventId}/pages/${pageId}/versions/${versionId}/restore`);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/events", eventId, "pages"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/events", eventId, "pages", pageId, "versions"] });
+      toast({ title: "Version restored successfully" });
+      setVersionToRestore(null);
+      onOpenChange(false);
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({ title: "Unauthorized", description: "You are logged out. Logging in again...", variant: "destructive" });
+        setTimeout(() => { window.location.href = "/api/login"; }, 500);
+        return;
+      }
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+      setVersionToRestore(null);
+    },
+  });
+
+  const handleRestoreConfirm = () => {
+    if (versionToRestore) {
+      restoreMutation.mutate(versionToRestore);
+    }
+  };
+
+  const formatVersionDate = (date: Date | null) => {
+    if (!date) return "Unknown date";
+    try {
+      return format(new Date(date), "MMM d, yyyy 'at' h:mm a");
+    } catch {
+      return "Invalid date";
+    }
+  };
+
+  return (
+    <>
+      <Dialog open={open && !versionToRestore} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-lg" data-testid="dialog-version-history">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="h-5 w-5" />
+              Version History
+            </DialogTitle>
+            <DialogDescription>
+              View and restore previous versions of this page.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {versionsLoading ? (
+            <div className="flex items-center justify-center py-8" data-testid="versions-loading">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : versions.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground" data-testid="versions-empty">
+              No version history available yet.
+            </div>
+          ) : (
+            <ScrollArea className="max-h-[400px]">
+              <div className="space-y-2" data-testid="versions-list">
+                {versions.map((version) => (
+                  <div
+                    key={version.id}
+                    className="flex items-center justify-between gap-4 p-3 rounded-md border"
+                    data-testid={`version-item-${version.id}`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium" data-testid={`version-number-${version.id}`}>
+                          Version {version.version}
+                        </span>
+                        {version.label && (
+                          <Badge variant="secondary" className="text-xs" data-testid={`version-label-${version.id}`}>
+                            {version.label}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground" data-testid={`version-date-${version.id}`}>
+                        {formatVersionDate(version.createdAt)}
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setVersionToRestore(version.id)}
+                      data-testid={`button-restore-${version.id}`}
+                    >
+                      <RotateCcw className="h-4 w-4 mr-1" />
+                      Restore
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!versionToRestore} onOpenChange={(open) => !open && setVersionToRestore(null)}>
+        <AlertDialogContent data-testid="dialog-restore-confirm">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <RotateCcw className="h-5 w-5" />
+              Restore Version?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will replace the current page content with this version. A new version will be created with the current content before restoring.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              onClick={() => setVersionToRestore(null)}
+              disabled={restoreMutation.isPending}
+              data-testid="button-cancel-restore"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleRestoreConfirm}
+              disabled={restoreMutation.isPending}
+              data-testid="button-confirm-restore"
+            >
+              {restoreMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Restoring...
+                </>
+              ) : (
+                "Restore Version"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
