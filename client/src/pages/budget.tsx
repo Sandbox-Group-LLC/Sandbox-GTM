@@ -880,7 +880,7 @@ export default function Budget() {
                               );
                             })}
                             <TableRow className="bg-muted font-bold">
-                              <TableCell>Subtotal (Expenses)</TableCell>
+                              <TableCell className="rounded-bl-lg">Subtotal (Expenses)</TableCell>
                               <TableCell className="text-right font-mono">
                                 {formatCurrency(grandTotals.estimate)}
                               </TableCell>
@@ -898,7 +898,7 @@ export default function Budget() {
                                 {grandTotals.estimate - grandTotals.final >= 0 ? "+" : ""}
                                 {formatCurrency(grandTotals.estimate - grandTotals.final)}
                               </TableCell>
-                              <TableCell></TableCell>
+                              <TableCell className="rounded-br-lg"></TableCell>
                             </TableRow>
                           </TableBody>
                         </Table>
@@ -994,7 +994,7 @@ export default function Budget() {
                                 </TableRow>
                               ))}
                               <TableRow className="bg-muted font-bold">
-                                <TableCell>Total Offsets</TableCell>
+                                <TableCell className="rounded-bl-lg">Total Offsets</TableCell>
                                 <TableCell className="text-right font-mono text-green-600 dark:text-green-400">
                                   -{formatCurrency(offsetTotals.estimate)}
                                 </TableCell>
@@ -1008,7 +1008,7 @@ export default function Budget() {
                                   -{formatCurrency(offsetTotals.final)}
                                 </TableCell>
                                 <TableCell></TableCell>
-                                <TableCell></TableCell>
+                                <TableCell className="rounded-br-lg"></TableCell>
                               </TableRow>
                             </>
                           )}
