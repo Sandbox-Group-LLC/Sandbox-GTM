@@ -295,7 +295,16 @@ export default function Sessions() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Room</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value || ""}>
+                          <Select 
+                            onValueChange={(value) => {
+                              field.onChange(value);
+                              const selectedRoom = rooms.find(r => r.name === value);
+                              if (selectedRoom?.capacity) {
+                                form.setValue("capacity", selectedRoom.capacity.toString());
+                              }
+                            }} 
+                            value={field.value || ""}
+                          >
                             <FormControl>
                               <SelectTrigger data-testid="select-room">
                                 <SelectValue placeholder="Select room" />
