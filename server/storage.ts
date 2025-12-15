@@ -296,6 +296,12 @@ export interface IStorage {
   deleteEventPage(organizationId: string, id: string): Promise<void>;
   getPublishedLandingPagesForSitemap(): Promise<Array<{ slug: string | null; updatedAt: Date | null }>>;
 
+  // Page Version operations (version history)
+  getPageVersions(organizationId: string, eventPageId: string): Promise<PageVersion[]>;
+  getPageVersion(organizationId: string, id: string): Promise<PageVersion | undefined>;
+  createPageVersion(version: InsertPageVersion): Promise<PageVersion>;
+  getLatestVersionNumber(organizationId: string, eventPageId: string): Promise<number>;
+
   // Registration Config operations
   getRegistrationConfig(organizationId: string, eventId: string): Promise<RegistrationConfig | undefined>;
   upsertRegistrationConfig(config: InsertRegistrationConfig): Promise<RegistrationConfig>;

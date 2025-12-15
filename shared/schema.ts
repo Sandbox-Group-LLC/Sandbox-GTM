@@ -208,6 +208,52 @@ export const eventPages = pgTable("event_pages", {
   uniqueIndex("IDX_event_page_unique").on(table.eventId, table.pageType),
 ]);
 
+// Page Versions table - stores version history for event pages
+export const pageVersions = pgTable("page_versions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventPageId: varchar("event_page_id").references(() => eventPages.id).notNull(),
+  version: integer("version").notNull(),
+  label: varchar("label", { length: 255 }),
+  sections: jsonb("sections").$type<Array<{
+    id: string;
+    type: string;
+    order: number;
+    config: Record<string, unknown>;
+    styles?: {
+      backgroundColor?: string;
+      textColor?: string;
+      paddingTop?: 'none' | 'small' | 'medium' | 'large';
+      paddingBottom?: 'none' | 'small' | 'medium' | 'large';
+      customClass?: string;
+    };
+  }>>(),
+  theme: jsonb("theme").$type<{
+    headingFont?: string;
+    bodyFont?: string;
+    baseFontSize?: string;
+    primaryColor?: string;
+    secondaryColor?: string;
+    backgroundColor?: string;
+    textColor?: string;
+    textSecondaryColor?: string;
+    buttonColor?: string;
+    buttonTextColor?: string;
+    cardBackground?: string;
+    borderColor?: string;
+    borderRadius?: 'none' | 'small' | 'medium' | 'large' | 'pill';
+    buttonStyle?: 'filled' | 'outline';
+    containerWidth?: 'narrow' | 'standard' | 'wide' | 'full';
+    sectionSpacing?: 'compact' | 'normal' | 'relaxed';
+    textDecoration?: 'none' | 'underline' | 'uppercase' | 'capitalize';
+    customCss?: string;
+  }>(),
+  seo: jsonb("seo").$type<{ title?: string; description?: string; ogImage?: string }>(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_page_version_page").on(table.eventPageId),
+]);
+
 // Registration Configs table - stores registration flow configuration per event
 export const registrationConfigs = pgTable("registration_configs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -720,9 +766,15 @@ export const inviteCodesRelations = relations(inviteCodes, ({ one }) => ({
   attendeeType: one(attendeeTypes, { fields: [inviteCodes.attendeeTypeId], references: [attendeeTypes.id] }),
 }));
 
-export const eventPagesRelations = relations(eventPages, ({ one }) => ({
+export const eventPagesRelations = relations(eventPages, ({ one, many }) => ({
   organization: one(organizations, { fields: [eventPages.organizationId], references: [organizations.id] }),
   event: one(events, { fields: [eventPages.eventId], references: [events.id] }),
+  versions: many(pageVersions),
+}));
+
+export const pageVersionsRelations = relations(pageVersions, ({ one }) => ({
+  organization: one(organizations, { fields: [pageVersions.organizationId], references: [organizations.id] }),
+  eventPage: one(eventPages, { fields: [pageVersions.eventPageId], references: [eventPages.id] }),
 }));
 
 export const registrationConfigsRelations = relations(registrationConfigs, ({ one }) => ({
@@ -763,6 +815,7 @@ export const insertPackageSchema = createInsertSchema(packages).omit({ id: true,
 export const insertEventPackageSchema = createInsertSchema(eventPackages).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertInviteCodeSchema = createInsertSchema(inviteCodes).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertEventPageSchema = createInsertSchema(eventPages).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertPageVersionSchema = createInsertSchema(pageVersions).omit({ id: true, createdAt: true });
 export const insertRegistrationConfigSchema = createInsertSchema(registrationConfigs).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertCustomFieldSchema = createInsertSchema(customFields).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertContentAssetSchema = createInsertSchema(contentAssets).omit({ id: true, createdAt: true });
@@ -824,6 +877,8 @@ export type InviteCode = typeof inviteCodes.$inferSelect;
 export type InsertEventPage = z.infer<typeof insertEventPageSchema>;
 export type EventPage = typeof eventPages.$inferSelect;
 export type EventPageTheme = NonNullable<EventPage['theme']>;
+export type InsertPageVersion = z.infer<typeof insertPageVersionSchema>;
+export type PageVersion = typeof pageVersions.$inferSelect;
 export type InsertRegistrationConfig = z.infer<typeof insertRegistrationConfigSchema>;
 export type RegistrationConfig = typeof registrationConfigs.$inferSelect;
 export type InsertCustomField = z.infer<typeof insertCustomFieldSchema>;
