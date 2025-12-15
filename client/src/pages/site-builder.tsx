@@ -123,6 +123,13 @@ const SECTION_SPACING_OPTIONS = [
   { value: "relaxed", label: "Relaxed" },
 ];
 
+const TEXT_DECORATION_OPTIONS = [
+  { value: "none", label: "None" },
+  { value: "underline", label: "Underline Links" },
+  { value: "uppercase", label: "Uppercase Headings" },
+  { value: "capitalize", label: "Capitalize Headings" },
+];
+
 const getDefaultConfig = (type: SectionType): Record<string, unknown> => {
   switch (type) {
     case "hero":
@@ -1372,6 +1379,27 @@ function StylesEditor({ theme, onUpdateTheme, isPending }: StylesEditorProps) {
               />
             </div>
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="borderColor">Border Color</Label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                id="borderColor"
+                value={theme.borderColor || "#e5e7eb"}
+                onChange={(e) => onUpdateTheme({ borderColor: e.target.value })}
+                disabled={isPending}
+                className="h-9 w-12 rounded border cursor-pointer"
+                data-testid="input-border-color"
+              />
+              <Input
+                value={theme.borderColor || "#e5e7eb"}
+                onChange={(e) => onUpdateTheme({ borderColor: e.target.value })}
+                disabled={isPending}
+                className="flex-1 font-mono text-sm"
+                data-testid="input-border-color-text"
+              />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1455,6 +1483,25 @@ function StylesEditor({ theme, onUpdateTheme, isPending }: StylesEditorProps) {
               </SelectTrigger>
               <SelectContent>
                 {SECTION_SPACING_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="textDecoration">Text Decoration</Label>
+            <Select
+              value={theme.textDecoration || "none"}
+              onValueChange={(value) => onUpdateTheme({ textDecoration: value as EventPageTheme["textDecoration"] })}
+              disabled={isPending}
+            >
+              <SelectTrigger data-testid="select-text-decoration">
+                <SelectValue placeholder="Select decoration" />
+              </SelectTrigger>
+              <SelectContent>
+                {TEXT_DECORATION_OPTIONS.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>

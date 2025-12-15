@@ -179,11 +179,13 @@ export const eventPages = pgTable("event_pages", {
     buttonColor?: string;
     buttonTextColor?: string;
     cardBackground?: string;
+    borderColor?: string;
     // Layout
     borderRadius?: 'none' | 'small' | 'medium' | 'large' | 'pill';
     buttonStyle?: 'filled' | 'outline';
-    containerWidth?: 'narrow' | 'standard' | 'wide';
+    containerWidth?: 'narrow' | 'standard' | 'wide' | 'full';
     sectionSpacing?: 'compact' | 'normal' | 'relaxed';
+    textDecoration?: 'none' | 'underline' | 'uppercase' | 'capitalize';
   }>(),
   seo: jsonb("seo").$type<{ title?: string; description?: string; ogImage?: string }>(),
   sections: jsonb("sections").$type<Array<{
