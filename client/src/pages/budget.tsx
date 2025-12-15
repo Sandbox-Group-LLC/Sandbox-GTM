@@ -108,7 +108,13 @@ const budgetSettingsFormSchema = z.object({
   budgetCap: z.string().optional(),
 });
 
+const categoryFormSchema = z.object({
+  name: z.string().min(1, "Category name is required"),
+  sortOrder: z.string().default("0"),
+});
+
 type BudgetItemFormData = z.infer<typeof budgetItemFormSchema>;
+type CategoryFormData = z.infer<typeof categoryFormSchema>;
 type OffsetFormData = z.infer<typeof offsetFormSchema>;
 type PaymentFormData = z.infer<typeof paymentFormSchema>;
 type BudgetSettingsFormData = z.infer<typeof budgetSettingsFormSchema>;
@@ -145,9 +151,11 @@ export default function Budget() {
   const [isOffsetDialogOpen, setIsOffsetDialogOpen] = useState(false);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
+  const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<BudgetItem | null>(null);
   const [editingOffset, setEditingOffset] = useState<BudgetOffset | null>(null);
   const [editingPayment, setEditingPayment] = useState<BudgetPayment | null>(null);
+  const [editingCategory, setEditingCategory] = useState<BudgetCategory | null>(null);
 
   const { data: events = [], isLoading: eventsLoading } = useQuery<Event[]>({
     queryKey: ["/api/events"],
@@ -245,6 +253,64 @@ export default function Budget() {
     resolver: zodResolver(budgetSettingsFormSchema),
     defaultValues: {
       budgetCap: budgetSettings?.budgetCap || "",
+    },
+  });
+
+  const categoryForm = useForm<CategoryFormData>({
+    resolver: zodResolver(categoryFormSchema),
+    defaultValues: {
+      name: "",
+      sortOrder: "0",
+    },
+  });
+
+  const createCategoryMutation = useMutation({
+    mutationFn: async (data: CategoryFormData) => {
+      return await apiRequest("POST", "/api/budget-categories", {
+        name: data.name,
+        sortOrder: parseInt(data.sortOrder) || 0,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/budget-categories"] });
+      toast({ title: "Category added" });
+      setIsCategoryDialogOpen(false);
+      categoryForm.reset();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const updateCategoryMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: CategoryFormData }) => {
+      return await apiRequest("PATCH", `/api/budget-categories/${id}`, {
+        name: data.name,
+        sortOrder: parseInt(data.sortOrder) || 0,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/budget-categories"] });
+      toast({ title: "Category updated" });
+      setIsCategoryDialogOpen(false);
+      setEditingCategory(null);
+      categoryForm.reset();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteCategoryMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("DELETE", `/api/budget-categories/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/budget-categories"] });
+      toast({ title: "Category deleted" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
 
@@ -530,6 +596,23 @@ export default function Budget() {
     updateSettingsMutation.mutate(data);
   };
 
+  const handleEditCategory = (category: BudgetCategory) => {
+    setEditingCategory(category);
+    categoryForm.reset({
+      name: category.name,
+      sortOrder: String(category.sortOrder || 0),
+    });
+    setIsCategoryDialogOpen(true);
+  };
+
+  const onCategorySubmit = (data: CategoryFormData) => {
+    if (editingCategory) {
+      updateCategoryMutation.mutate({ id: editingCategory.id, data });
+    } else {
+      createCategoryMutation.mutate(data);
+    }
+  };
+
   const allCategories = useMemo(() => {
     const catSet = new Set<string>();
     categories.forEach((c) => catSet.add(c.name));
@@ -605,6 +688,7 @@ export default function Budget() {
               <TabsList>
                 <TabsTrigger value="summary" data-testid="tab-summary">Summary</TabsTrigger>
                 <TabsTrigger value="payments" data-testid="tab-payments">Payments</TabsTrigger>
+                <TabsTrigger value="categories" data-testid="tab-categories">Categories</TabsTrigger>
               </TabsList>
 
               <TabsContent value="summary" className="space-y-6">
@@ -1097,10 +1181,145 @@ export default function Budget() {
                   </CardContent>
                 </Card>
               </TabsContent>
+
+              <TabsContent value="categories" className="space-y-6">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between gap-2 pb-4">
+                    <CardTitle className="text-lg">Budget Categories</CardTitle>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setEditingCategory(null);
+                        categoryForm.reset({
+                          name: "",
+                          sortOrder: "0",
+                        });
+                        setIsCategoryDialogOpen(true);
+                      }}
+                      data-testid="button-add-category"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Category
+                    </Button>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-muted/50">
+                            <TableHead>Category Name</TableHead>
+                            <TableHead className="text-center">Sort Order</TableHead>
+                            <TableHead className="w-[80px]"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {categories.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
+                                No categories defined yet. Add categories to organize your budget items.
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            categories.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)).map((category) => (
+                              <TableRow key={category.id} className="hover-elevate" data-testid={`row-category-${category.id}`}>
+                                <TableCell className="font-medium">{category.name}</TableCell>
+                                <TableCell className="text-center text-muted-foreground">{category.sortOrder || 0}</TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handleEditCategory(category)}
+                                      data-testid={`button-edit-category-${category.id}`}
+                                    >
+                                      <Pencil className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => deleteCategoryMutation.mutate(category.id)}
+                                      data-testid={`button-delete-category-${category.id}`}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
             </Tabs>
           )}
         </div>
       </div>
+
+      <Dialog open={isCategoryDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setIsCategoryDialogOpen(false);
+          setEditingCategory(null);
+          categoryForm.reset();
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingCategory ? "Edit Category" : "Add Category"}</DialogTitle>
+            <DialogDescription>
+              {editingCategory ? "Update the category details" : "Add a new budget category"}
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...categoryForm}>
+            <form onSubmit={categoryForm.handleSubmit(onCategorySubmit)} className="space-y-4">
+              <FormField
+                control={categoryForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Category Name</FormLabel>
+                    <FormControl>
+                      <Input {...field} data-testid="input-category-name" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={categoryForm.control}
+                name="sortOrder"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Sort Order</FormLabel>
+                    <FormControl>
+                      <Input type="number" {...field} data-testid="input-category-sort" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="flex justify-end gap-2 pt-4">
+                <Button type="button" variant="outline" onClick={() => {
+                  setIsCategoryDialogOpen(false);
+                  setEditingCategory(null);
+                  categoryForm.reset();
+                }}>
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={createCategoryMutation.isPending || updateCategoryMutation.isPending}
+                  data-testid="button-submit-category"
+                >
+                  {createCategoryMutation.isPending || updateCategoryMutation.isPending ? "Saving..." : editingCategory ? "Update" : "Add Category"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isItemDialogOpen} onOpenChange={(open) => {
         if (!open) {
