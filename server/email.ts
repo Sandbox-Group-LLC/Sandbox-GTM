@@ -1,5 +1,5 @@
 import { Resend } from 'resend';
-import { replaceMergeTags, type MergeTagContext } from '@shared/mergeTags';
+import { replaceMergeTags, replaceMergeTagsWithLabels, type MergeTagContext } from '@shared/mergeTags';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
@@ -111,6 +111,9 @@ export async function sendTestEmail(params: SendTestEmailParams): Promise<{ succ
   }
 
   try {
+    const processedSubject = replaceMergeTagsWithLabels(subject);
+    const processedContent = replaceMergeTagsWithLabels(content);
+
     const headerHtml = headerImageUrl 
       ? `<div style="margin-bottom: 20px;">
           <img src="${headerImageUrl}" alt="Email Header" style="max-width: 600px; width: 100%; height: auto; display: block;" />
@@ -120,13 +123,13 @@ export async function sendTestEmail(params: SendTestEmailParams): Promise<{ succ
     const { error } = await resend.emails.send({
       from: FROM_EMAIL,
       to: to,
-      subject: `[TEST] ${subject}`,
+      subject: `[TEST] ${processedSubject}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           ${headerHtml}
-          ${content.replace(/\n/g, '<br/>')}
+          ${processedContent.replace(/\n/g, '<br/>')}
           <hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;" />
-          <p style="color: #999; font-size: 12px;">This is a test email. Merge tags like {{attendee.firstName}} will be replaced with sample data.</p>
+          <p style="color: #999; font-size: 12px;">This is a test email. Merge tags are shown with sample labels like [First Name].</p>
         </div>
       `,
     });

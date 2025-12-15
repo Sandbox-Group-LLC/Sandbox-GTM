@@ -84,3 +84,23 @@ export function replaceMergeTags(text: string | null | undefined, context: Merge
     return match;
   });
 }
+
+export function replaceMergeTagsWithLabels(text: string | null | undefined): string {
+  if (!text) return "";
+
+  const tagToLabel: Record<string, string> = {};
+  for (const category of MERGE_TAGS) {
+    for (const tag of category.tags) {
+      const key = tag.tag.replace(/\{\{|\}\}/g, '').trim().toLowerCase();
+      tagToLabel[key] = `[${tag.label}]`;
+    }
+  }
+
+  return text.replace(/\{\{([^}]+)\}\}/gi, (match, key) => {
+    const normalizedKey = key.trim().toLowerCase();
+    if (normalizedKey in tagToLabel) {
+      return tagToLabel[normalizedKey];
+    }
+    return match;
+  });
+}
