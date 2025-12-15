@@ -330,6 +330,29 @@ export const sessionSpeakers = pgTable("session_speakers", {
   speakerId: varchar("speaker_id").references(() => speakers.id).notNull(),
 });
 
+// Session Tracks table
+export const sessionTracks = pgTable("session_tracks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description"),
+  color: varchar("color", { length: 20 }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Session Rooms table
+export const sessionRooms = pgTable("session_rooms", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  name: varchar("name", { length: 100 }).notNull(),
+  location: varchar("location", { length: 255 }),
+  capacity: integer("capacity"),
+  amenities: text("amenities").array(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Content catalog table
 export const contentItems = pgTable("content_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -687,6 +710,8 @@ export const insertAttendeeSchema = createInsertSchema(attendees).omit({ id: tru
 export const insertSpeakerSchema = createInsertSchema(speakers).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSessionSchema = createInsertSchema(eventSessions).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSessionSpeakerSchema = createInsertSchema(sessionSpeakers).omit({ id: true });
+export const insertSessionTrackSchema = createInsertSchema(sessionTracks).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertSessionRoomSchema = createInsertSchema(sessionRooms).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertContentItemSchema = createInsertSchema(contentItems).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertBudgetItemSchema = createInsertSchema(budgetItems).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertBudgetCategorySchema = createInsertSchema(budgetCategories).omit({ id: true });
@@ -725,6 +750,10 @@ export type InsertSession = z.infer<typeof insertSessionSchema>;
 export type EventSession = typeof eventSessions.$inferSelect;
 export type InsertSessionSpeaker = z.infer<typeof insertSessionSpeakerSchema>;
 export type SessionSpeaker = typeof sessionSpeakers.$inferSelect;
+export type InsertSessionTrack = z.infer<typeof insertSessionTrackSchema>;
+export type SessionTrack = typeof sessionTracks.$inferSelect;
+export type InsertSessionRoom = z.infer<typeof insertSessionRoomSchema>;
+export type SessionRoom = typeof sessionRooms.$inferSelect;
 export type InsertContentItem = z.infer<typeof insertContentItemSchema>;
 export type ContentItem = typeof contentItems.$inferSelect;
 export type InsertBudgetItem = z.infer<typeof insertBudgetItemSchema>;
