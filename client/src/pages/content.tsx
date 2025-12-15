@@ -42,12 +42,13 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Plus, FolderOpen, Search, FileText, Video, Image, Link as LinkIcon, File, ExternalLink, Copy, Trash2, ImageIcon } from "lucide-react";
 import { ObjectUploader } from "@/components/ObjectUploader";
-import type { ContentItem, ContentAsset } from "@shared/schema";
+import type { ContentItem, ContentAsset, EventSession } from "@shared/schema";
 import { EventSelectField } from "@/components/event-select-field";
 
 const contentFormSchema = z.object({
   title: z.string().min(1, "Title is required"),
   eventId: z.string().min(1, "Event is required"),
+  sessionId: z.string().optional(),
   description: z.string().optional(),
   type: z.string().min(1, "Type is required"),
   fileUrl: z.string().optional(),
@@ -94,6 +95,7 @@ export default function Content() {
     defaultValues: {
       title: "",
       eventId: "",
+      sessionId: "",
       description: "",
       type: "",
       fileUrl: "",
@@ -101,6 +103,13 @@ export default function Content() {
       tags: "",
       isPublic: false,
     },
+  });
+
+  const selectedEventId = form.watch("eventId");
+
+  const { data: eventSessions = [] } = useQuery<EventSession[]>({
+    queryKey: ["/api/sessions", { eventId: selectedEventId }],
+    enabled: !!selectedEventId,
   });
 
   const createMutation = useMutation({
@@ -201,6 +210,7 @@ export default function Content() {
     form.reset({
       title: item.title,
       eventId: item.eventId,
+      sessionId: item.sessionId || "",
       description: item.description || "",
       type: item.type,
       fileUrl: item.fileUrl || "",
@@ -311,6 +321,36 @@ export default function Content() {
                           )}
                         />
                         <EventSelectField control={form.control} name="eventId" label="Event" required />
+                        <FormField
+                          control={form.control}
+                          name="sessionId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Session (Optional)</FormLabel>
+                              <Select 
+                                onValueChange={(value) => field.onChange(value === "none" ? "" : value)} 
+                                value={field.value || "none"}
+                                disabled={!selectedEventId}
+                              >
+                                <FormControl>
+                                  <SelectTrigger data-testid="select-sessionId">
+                                    <SelectValue placeholder={!selectedEventId ? "Select an event first" : "Select a session"} />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="none">No session</SelectItem>
+                                  {eventSessions.map((session) => (
+                                    <SelectItem key={session.id} value={session.id}>
+                                      {session.title}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormDescription>Optionally associate this content with a specific session</FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
                         <FormField
                           control={form.control}
                           name="description"
