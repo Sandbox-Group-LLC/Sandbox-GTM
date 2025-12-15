@@ -283,7 +283,7 @@ export default function Events() {
                       </p>
                     )}
                     <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant={getStatusBadgeVariant(event.status || "draft")}>
+                      <Badge variant={getStatusBadgeVariant(event.status || "draft")} className="capitalize">
                         {event.status || "draft"}
                       </Badge>
                       {event.isPublic && (
@@ -401,7 +401,7 @@ export default function Events() {
                       </div>
 
                       <div className="flex flex-wrap gap-2">
-                        <Badge variant={getStatusBadgeVariant(selectedEvent.status || "draft")}>
+                        <Badge variant={getStatusBadgeVariant(selectedEvent.status || "draft")} className="capitalize">
                           {selectedEvent.status || "draft"}
                         </Badge>
                         {selectedEvent.isPublic && (
@@ -540,7 +540,7 @@ export default function Events() {
                               <p className="font-medium truncate">{attendee.firstName} {attendee.lastName}</p>
                               <p className="text-sm text-muted-foreground truncate">{attendee.email}</p>
                             </div>
-                            <Badge variant={attendee.registrationStatus === 'registered' ? 'default' : 'secondary'}>
+                            <Badge variant={attendee.registrationStatus === 'registered' ? 'default' : 'secondary'} className="capitalize">
                               {attendee.registrationStatus || 'pending'}
                             </Badge>
                           </div>
