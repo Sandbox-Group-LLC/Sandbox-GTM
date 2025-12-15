@@ -44,7 +44,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Plus, Users, Search, Download, Settings2, ArrowUpDown, ArrowUp, ArrowDown, Filter, X } from "lucide-react";
 import { EventSelectField } from "@/components/event-select-field";
-import type { Attendee, Event, CustomField } from "@shared/schema";
+import type { Attendee, Event, CustomField, InviteCode, Package } from "@shared/schema";
 
 const ATTENDEE_TYPE_OPTIONS = [
   { value: "attendee", label: "Attendee" },
@@ -78,6 +78,8 @@ const ALL_COLUMNS: ColumnConfig[] = [
   { key: "jobTitle", header: "Job Title", sortable: true, getValue: (a) => a.jobTitle || "" },
   { key: "attendeeType", header: "Type", sortable: true, getValue: (a) => a.attendeeType || "" },
   { key: "ticketType", header: "Ticket", sortable: true, getValue: (a) => a.ticketType || "" },
+  { key: "package", header: "Package", sortable: true, getValue: (a) => a.packageId || "" },
+  { key: "inviteCode", header: "Invite Code", sortable: true, getValue: (a) => a.inviteCodeId || "" },
   { key: "status", header: "Status", sortable: true, getValue: (a) => a.registrationStatus || "pending" },
   { key: "checkedIn", header: "Checked In", sortable: true, getValue: (a) => a.checkedIn ? "Yes" : "No" },
   { key: "notes", header: "Notes", sortable: false, getValue: (a) => a.notes || "" },
@@ -136,6 +138,14 @@ export default function Attendees() {
     queryKey: ["/api/custom-fields"],
   });
 
+  const { data: inviteCodes = [] } = useQuery<InviteCode[]>({
+    queryKey: ["/api/invite-codes"],
+  });
+
+  const { data: packages = [] } = useQuery<Package[]>({
+    queryKey: ["/api/packages"],
+  });
+
   const activeCustomFields = useMemo(() => {
     return customFields
       .filter((f) => f.isActive)
@@ -149,6 +159,22 @@ export default function Attendees() {
     });
     return lookup;
   }, [events]);
+
+  const inviteCodeLookup = useMemo(() => {
+    const lookup: Record<string, string> = {};
+    inviteCodes.forEach((code) => {
+      lookup[code.id] = code.code;
+    });
+    return lookup;
+  }, [inviteCodes]);
+
+  const packageLookup = useMemo(() => {
+    const lookup: Record<string, string> = {};
+    packages.forEach((pkg) => {
+      lookup[pkg.id] = pkg.name;
+    });
+    return lookup;
+  }, [packages]);
 
   const form = useForm<AttendeeFormData>({
     resolver: zodResolver(attendeeFormSchema),
@@ -386,6 +412,10 @@ export default function Attendees() {
               ) : (
                 <Badge variant="outline">No</Badge>
               );
+            case "inviteCode":
+              return attendee.inviteCodeId ? inviteCodeLookup[attendee.inviteCodeId] || "-" : "-";
+            case "package":
+              return attendee.packageId ? packageLookup[attendee.packageId] || "-" : "-";
             default:
               const value = colConfig.getValue?.(attendee);
               return value || "-";
@@ -440,7 +470,7 @@ export default function Attendees() {
     });
 
     return dynamicColumns;
-  }, [visibleColumns, sortConfig, eventLookup, activeCustomFields]);
+  }, [visibleColumns, sortConfig, eventLookup, inviteCodeLookup, packageLookup, activeCustomFields]);
 
   return (
     <div className="flex flex-col h-full">
