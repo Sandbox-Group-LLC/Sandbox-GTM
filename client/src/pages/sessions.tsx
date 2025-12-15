@@ -464,7 +464,7 @@ export default function Sessions() {
                             <div className="flex items-start justify-between gap-2">
                               <CardTitle className="text-base line-clamp-2">{session.title}</CardTitle>
                               {session.sessionType && (
-                                <Badge variant={sessionTypeColors[session.sessionType] || "secondary"} className="shrink-0">
+                                <Badge variant={sessionTypeColors[session.sessionType] || "secondary"} className="shrink-0 capitalize">
                                   {session.sessionType}
                                 </Badge>
                               )}
