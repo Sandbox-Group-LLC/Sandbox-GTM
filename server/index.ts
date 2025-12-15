@@ -13,6 +13,15 @@ declare module "http" {
   }
 }
 
+export function log(message: string, source = "express") {
+  logInfo(message, source);
+}
+
+// Health check endpoint - registered early so it responds even during startup
+app.get("/health", (_req, res) => {
+  res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
 app.use(
   express.json({
     verify: (req, _res, buf) => {
@@ -22,14 +31,6 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false }));
-
-app.get("/health", (_req, res) => {
-  res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
-});
-
-export function log(message: string, source = "express") {
-  logInfo(message, source);
-}
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -57,33 +58,49 @@ app.use((req, res, next) => {
   next();
 });
 
+const port = parseInt(process.env.PORT || "5000", 10);
+
+// Start server immediately so health checks pass
+httpServer.listen(
+  {
+    port,
+    host: "0.0.0.0",
+    reusePort: true,
+  },
+  () => {
+    log(`Server listening on port ${port}`);
+  },
+);
+
+// Initialize routes and other middleware asynchronously
 (async () => {
-  await registerRoutes(httpServer, app);
+  try {
+    log("Initializing application...");
+    
+    await registerRoutes(httpServer, app);
+    log("Routes registered successfully");
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
 
-    res.status(status).json({ message });
-    logError(err, "express");
-  });
+      res.status(status).json({ message });
+      logError(err, "express");
+    });
 
-  if (process.env.NODE_ENV === "production") {
-    serveStatic(app);
-  } else {
-    const { setupVite } = await import("./vite");
-    await setupVite(httpServer, app);
+    if (process.env.NODE_ENV === "production") {
+      serveStatic(app);
+      log("Static files configured for production");
+    } else {
+      const { setupVite } = await import("./vite");
+      await setupVite(httpServer, app);
+      log("Vite dev server configured");
+    }
+
+    log("Application initialized successfully");
+  } catch (error) {
+    logError(error instanceof Error ? error : new Error(String(error)), "startup");
+    log(`Startup error: ${error instanceof Error ? error.message : String(error)}`);
+    // Don't exit - keep server running for health checks while we debug
   }
-
-  const port = parseInt(process.env.PORT || "5000", 10);
-  httpServer.listen(
-    {
-      port,
-      host: "0.0.0.0",
-      reusePort: true,
-    },
-    () => {
-      log(`serving on port ${port}`);
-    },
-  );
 })();
