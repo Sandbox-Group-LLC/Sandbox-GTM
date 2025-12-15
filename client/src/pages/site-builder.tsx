@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
@@ -55,10 +55,23 @@ import {
   Mail,
   PanelRightClose,
   PanelRight,
+  Sparkles,
+  AlertTriangle,
 } from "lucide-react";
 import type { Event, EventPage, EventPageTheme } from "@shared/schema";
 import { MergeTagPicker } from "@/components/merge-tag-picker";
 import { SectionRenderer, GoogleFontsLoader, getThemeStyles } from "@/pages/public-event";
+import { eventTemplates, TEMPLATE_CATEGORIES, type EventTemplate, type TemplateCategory } from "@/lib/site-templates";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type PageType = "landing" | "registration" | "portal";
 
@@ -203,6 +216,11 @@ export default function SiteBuilder() {
   const [showPreview, setShowPreview] = useState(false);
   const [previewSections, setPreviewSections] = useState<Section[]>([]);
   const [previewTheme, setPreviewTheme] = useState<EventPageTheme | undefined>();
+  const [isTemplatePickerOpen, setIsTemplatePickerOpen] = useState(false);
+  const [templateCategoryFilter, setTemplateCategoryFilter] = useState<TemplateCategory | 'all'>('all');
+  const [pendingTemplate, setPendingTemplate] = useState<EventTemplate | null>(null);
+  const [isTemplateConfirmOpen, setIsTemplateConfirmOpen] = useState(false);
+  const justAppliedTemplateRef = useRef(false);
 
   const { data: events = [], isLoading: eventsLoading } = useQuery<Event[]>({
     queryKey: ["/api/events"],
@@ -217,6 +235,10 @@ export default function SiteBuilder() {
   const sections = (currentPage?.sections as Section[]) || [];
 
   useEffect(() => {
+    // Skip sync while waiting for template data to be persisted
+    if (justAppliedTemplateRef.current) {
+      return;
+    }
     setPreviewSections(sections);
     setPreviewTheme(currentPage?.theme);
   }, [sections, currentPage?.theme]);
@@ -231,11 +253,15 @@ export default function SiteBuilder() {
         theme: data.theme ?? currentPage?.theme,
       });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/events", selectedEventId, "pages"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/events", selectedEventId, "pages"] });
+      // Reset template flag after fresh data has been fetched
+      justAppliedTemplateRef.current = false;
       toast({ title: "Page saved successfully" });
     },
     onError: (error: Error) => {
+      // Reset template flag on error so preview can resync
+      justAppliedTemplateRef.current = false;
       if (isUnauthorizedError(error)) {
         toast({ title: "Unauthorized", description: "You are logged out. Logging in again...", variant: "destructive" });
         setTimeout(() => { window.location.href = "/api/login"; }, 500);
@@ -320,6 +346,40 @@ export default function SiteBuilder() {
     // Persist to server
     saveMutation.mutate({ pageType: activeTab, sections: sections, theme: newTheme });
   };
+
+  const handleApplyTemplate = (template: EventTemplate) => {
+    if (sections.length > 0) {
+      setPendingTemplate(template);
+      setIsTemplateConfirmOpen(true);
+    } else {
+      applyTemplate(template);
+    }
+  };
+
+  const applyTemplate = (template: EventTemplate) => {
+    justAppliedTemplateRef.current = true;
+    const newSections: Section[] = template.sections.map((s, index) => ({
+      id: crypto.randomUUID(),
+      type: s.type as SectionType,
+      order: index,
+      config: s.config,
+    }));
+    saveMutation.mutate({ 
+      pageType: activeTab, 
+      sections: newSections, 
+      theme: template.theme as EventPageTheme 
+    });
+    setPreviewSections(newSections);
+    setPreviewTheme(template.theme as EventPageTheme);
+    setIsTemplatePickerOpen(false);
+    setPendingTemplate(null);
+    setIsTemplateConfirmOpen(false);
+    toast({ title: "Template applied", description: `"${template.name}" template has been applied` });
+  };
+
+  const filteredTemplates = templateCategoryFilter === 'all' 
+    ? eventTemplates 
+    : eventTemplates.filter(t => t.category === templateCategoryFilter);
 
   const selectedEvent = events.find((e) => e.id === selectedEventId);
   const currentTheme = currentPage?.theme || {};
@@ -568,7 +628,16 @@ export default function SiteBuilder() {
 
                       {activeSubTab === "content" ? (
                         <>
-                          <div className="flex items-center justify-end">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setIsTemplatePickerOpen(true)}
+                              data-testid="button-templates"
+                            >
+                              <Sparkles className="h-4 w-4 mr-2" />
+                              Templates
+                            </Button>
                             <Button
                               size="sm"
                               onClick={() => setIsAddSectionOpen(true)}
@@ -779,6 +848,119 @@ export default function SiteBuilder() {
           )}
         </DialogContent>
       </Dialog>
+
+      <Dialog open={isTemplatePickerOpen} onOpenChange={setIsTemplatePickerOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh]" data-testid="dialog-templates">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5" />
+              Choose a Template
+            </DialogTitle>
+            <DialogDescription>
+              Select a professionally designed template to jumpstart your event page
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-wrap gap-2 pt-2">
+            <Button
+              size="sm"
+              variant={templateCategoryFilter === 'all' ? 'default' : 'outline'}
+              onClick={() => setTemplateCategoryFilter('all')}
+              data-testid="filter-all"
+            >
+              All
+            </Button>
+            {TEMPLATE_CATEGORIES.map((cat) => (
+              <Button
+                key={cat.value}
+                size="sm"
+                variant={templateCategoryFilter === cat.value ? 'default' : 'outline'}
+                onClick={() => setTemplateCategoryFilter(cat.value)}
+                data-testid={`filter-${cat.value}`}
+              >
+                {cat.label}
+              </Button>
+            ))}
+          </div>
+          <ScrollArea className="h-[50vh] mt-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 pr-4">
+              {filteredTemplates.map((template) => (
+                <div
+                  key={template.id}
+                  className="border rounded-md overflow-hidden hover-elevate"
+                  data-testid={`template-card-${template.id}`}
+                >
+                  <div 
+                    className="h-24 flex items-end p-3"
+                    style={{ 
+                      backgroundColor: template.theme.backgroundColor || '#ffffff',
+                      borderBottom: `4px solid ${template.theme.primaryColor || '#3b82f6'}`
+                    }}
+                  >
+                    <div className="flex gap-1">
+                      <div 
+                        className="w-4 h-4 rounded-sm" 
+                        style={{ backgroundColor: template.theme.primaryColor || '#3b82f6' }} 
+                        title="Primary"
+                      />
+                      <div 
+                        className="w-4 h-4 rounded-sm" 
+                        style={{ backgroundColor: template.theme.secondaryColor || '#60a5fa' }} 
+                        title="Secondary"
+                      />
+                      <div 
+                        className="w-4 h-4 rounded-sm border" 
+                        style={{ backgroundColor: template.theme.cardBackground || '#f8fafc' }} 
+                        title="Card"
+                      />
+                    </div>
+                  </div>
+                  <div className="p-3 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <h4 className="font-medium text-sm leading-tight">{template.name}</h4>
+                      <Badge variant="outline" className="text-xs shrink-0">
+                        {TEMPLATE_CATEGORIES.find(c => c.value === template.category)?.label || template.category}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground line-clamp-2">{template.description}</p>
+                    <Button 
+                      size="sm" 
+                      className="w-full"
+                      onClick={() => handleApplyTemplate(template)}
+                      data-testid={`button-apply-template-${template.id}`}
+                    >
+                      Apply Template
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={isTemplateConfirmOpen} onOpenChange={setIsTemplateConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Replace Existing Content?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This page already has {sections.length} section{sections.length !== 1 ? 's' : ''}. 
+              Applying a template will replace all existing sections and theme settings. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingTemplate(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => pendingTemplate && applyTemplate(pendingTemplate)}
+              data-testid="button-confirm-apply-template"
+            >
+              Replace Content
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
