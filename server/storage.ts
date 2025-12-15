@@ -1173,6 +1173,7 @@ export class DatabaseStorage implements IStorage {
       .onConflictDoUpdate({
         target: eventBudgetSettings.eventId,
         set: {
+          budgetCap: settings.budgetCap,
           totalBudget: settings.totalBudget,
           currency: settings.currency,
           fiscalYearStart: settings.fiscalYearStart,
