@@ -1437,6 +1437,11 @@ function StylesEditor({ theme, onUpdateTheme, isPending }: StylesEditorProps) {
                 ))}
               </SelectContent>
             </Select>
+            {theme.containerWidth === "full" && (
+              <p className="text-xs text-muted-foreground">
+                Full Width applies only to HTML sections. All other section blocks retain 10% left and right margins.
+              </p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="sectionSpacing">Section Spacing</Label>
