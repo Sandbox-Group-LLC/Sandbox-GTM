@@ -1,5 +1,6 @@
 import { Resend } from 'resend';
 import { replaceMergeTags, replaceMergeTagsWithLabels, type MergeTagContext } from '@shared/mergeTags';
+import { logInfo, logError, logWarn } from './logger';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
@@ -39,7 +40,7 @@ export async function sendCampaignEmails(params: CampaignEmailParams): Promise<S
   const { subject, content, recipients, eventContext, organizationContext } = params;
   
   if (!resend) {
-    console.log('[Email] Resend not configured - skipping campaign emails');
+    logWarn('Resend not configured - skipping campaign emails', 'Email');
     return { totalSent: 0, totalFailed: recipients.length, errors: [{ email: 'all', error: 'Resend not configured' }] };
   }
 
@@ -78,20 +79,20 @@ export async function sendCampaignEmails(params: CampaignEmailParams): Promise<S
       });
 
       if (error) {
-        console.error(`[Email] Failed to send to ${recipient.email}:`, error);
+        logError(`Failed to send email: ${error.message || 'Unknown error'}`, 'Email');
         result.totalFailed++;
         result.errors.push({ email: recipient.email, error: error.message || 'Unknown error' });
       } else {
         result.totalSent++;
       }
     } catch (err: any) {
-      console.error(`[Email] Error sending to ${recipient.email}:`, err);
+      logError(`Error sending email: ${err.message || 'Unknown error'}`, 'Email');
       result.totalFailed++;
       result.errors.push({ email: recipient.email, error: err.message || 'Unknown error' });
     }
   }
 
-  console.log(`[Email] Campaign complete: ${result.totalSent} sent, ${result.totalFailed} failed`);
+  logInfo(`Campaign complete: ${result.totalSent} sent, ${result.totalFailed} failed`, 'Email');
   return result;
 }
 
@@ -106,7 +107,7 @@ export async function sendTestEmail(params: SendTestEmailParams): Promise<{ succ
   const { to, subject, content, headerImageUrl } = params;
   
   if (!resend) {
-    console.log('[Email] Resend not configured - skipping test email');
+    logWarn('Resend not configured - skipping test email', 'Email');
     return { success: false, error: 'Email service not configured' };
   }
 
@@ -135,21 +136,21 @@ export async function sendTestEmail(params: SendTestEmailParams): Promise<{ succ
     });
 
     if (error) {
-      console.error('[Email] Failed to send test email:', error);
+      logError(`Failed to send test email: ${error.message || 'Unknown error'}`, 'Email');
       return { success: false, error: error.message || 'Failed to send email' };
     }
 
-    console.log('[Email] Test email sent successfully to:', to);
+    logInfo('Test email sent successfully', 'Email');
     return { success: true };
   } catch (err: any) {
-    console.error('[Email] Error sending test email:', err);
+    logError(`Error sending test email: ${err.message || 'Unknown error'}`, 'Email');
     return { success: false, error: err.message || 'Unknown error' };
   }
 }
 
 export async function sendNewOrganizationAlert(organizationName: string, organizationSlug: string, ownerEmail?: string): Promise<void> {
   if (!resend) {
-    console.log('[Email] Resend not configured - skipping organization alert email');
+    logWarn('Resend not configured - skipping organization alert email', 'Email');
     return;
   }
 
@@ -188,11 +189,11 @@ export async function sendNewOrganizationAlert(organizationName: string, organiz
     });
 
     if (error) {
-      console.error('[Email] Failed to send organization alert:', error);
+      logError(`Failed to send organization alert: ${error.message || 'Unknown error'}`, 'Email');
     } else {
-      console.log('[Email] Organization alert sent successfully:', data?.id);
+      logInfo(`Organization alert sent successfully: ${data?.id}`, 'Email');
     }
   } catch (err) {
-    console.error('[Email] Error sending organization alert:', err);
+    logError(`Error sending organization alert: ${err}`, 'Email');
   }
 }

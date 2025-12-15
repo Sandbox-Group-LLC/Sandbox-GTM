@@ -6,6 +6,13 @@ import { sendNewOrganizationAlert, sendCampaignEmails, sendTestEmail } from "./e
 import { createPaymentIntent, getPaymentIntent, calculateFinalPrice } from "./stripe";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
+import { logDebug, logInfo, logWarn, logError } from "./logger";
+import {
+  createPaymentIntentLimiter,
+  verifyPaymentLimiter,
+  publicRegistrationLimiter,
+  validateInviteCodeLimiter,
+} from "./rateLimit";
 import {
   insertEventSchema,
   insertAttendeeSchema,
@@ -67,7 +74,7 @@ export async function registerRoutes(
       const user = await storage.getUser(userId);
       res.json(user);
     } catch (error) {
-      console.error("Error fetching user:", error);
+      logError("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
     }
   });
@@ -107,7 +114,7 @@ export async function registerRoutes(
         res.json(sanitizeOrganization(org));
       }
     } catch (error) {
-      console.error("Error fetching organization:", error);
+      logError("Error fetching organization:", error);
       res.status(500).json({ message: "Failed to fetch organization" });
     }
   });
@@ -207,7 +214,7 @@ export async function registerRoutes(
       }
       res.json(sanitizeOrganization(updated));
     } catch (error) {
-      console.error("Error updating organization:", error);
+      logError("Error updating organization:", error);
       res.status(500).json({ message: "Failed to update organization" });
     }
   });
@@ -218,7 +225,7 @@ export async function registerRoutes(
       const configured = !!process.env.RESEND_API_KEY;
       res.json({ configured });
     } catch (error) {
-      console.error("Error checking Resend status:", error);
+      logError("Error checking Resend status:", error);
       res.status(500).json({ message: "Failed to check Resend status" });
     }
   });
@@ -292,7 +299,7 @@ export async function registerRoutes(
         organization: sanitizeOrganization(org)
       });
     } catch (error) {
-      console.error("Error fetching onboarding status:", error);
+      logError("Error fetching onboarding status:", error);
       res.status(500).json({ message: "Failed to fetch onboarding status" });
     }
   });
@@ -373,7 +380,7 @@ export async function registerRoutes(
       const updated = await storage.updateOrganization(organizationId, updateData);
       res.json(sanitizeOrganization(updated));
     } catch (error) {
-      console.error("Error completing onboarding step:", error);
+      logError("Error completing onboarding step:", error);
       res.status(500).json({ message: "Failed to complete onboarding step" });
     }
   });
@@ -408,7 +415,7 @@ export async function registerRoutes(
         res.json(sanitizeOrganization(org));
       }
     } catch (error) {
-      console.error("Error skipping onboarding step:", error);
+      logError("Error skipping onboarding step:", error);
       res.status(500).json({ message: "Failed to skip onboarding step" });
     }
   });
@@ -428,7 +435,7 @@ export async function registerRoutes(
       
       res.json(sanitizeOrganization(updated));
     } catch (error) {
-      console.error("Error dismissing onboarding:", error);
+      logError("Error dismissing onboarding:", error);
       res.status(500).json({ message: "Failed to dismiss onboarding" });
     }
   });
@@ -448,7 +455,7 @@ export async function registerRoutes(
       // Sanitize all organizations to mask secret keys
       res.json(organizations.map(sanitizeOrganization));
     } catch (error) {
-      console.error("Error fetching all organizations:", error);
+      logError("Error fetching all organizations:", error);
       res.status(500).json({ message: "Failed to fetch organizations" });
     }
   });
@@ -466,7 +473,7 @@ export async function registerRoutes(
       await storage.deleteOrganization(req.params.id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting organization:", error);
+      logError("Error deleting organization:", error);
       res.status(500).json({ message: "Failed to delete organization" });
     }
   });
@@ -479,7 +486,7 @@ export async function registerRoutes(
       const events = await storage.getEvents(organizationId);
       res.json(events);
     } catch (error) {
-      console.error("Error fetching events:", error);
+      logError("Error fetching events:", error);
       res.status(500).json({ message: "Failed to fetch events" });
     }
   });
@@ -501,7 +508,7 @@ export async function registerRoutes(
       const event = await storage.createEvent(data);
       res.status(201).json(event);
     } catch (error: any) {
-      console.error("Error creating event:", error);
+      logError("Error creating event:", error);
       const message = error.errors ? error.errors.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', ') : "Invalid event data";
       res.status(400).json({ message });
     }
@@ -517,7 +524,7 @@ export async function registerRoutes(
       }
       res.json(event);
     } catch (error) {
-      console.error("Error fetching event:", error);
+      logError("Error fetching event:", error);
       res.status(500).json({ message: "Failed to fetch event" });
     }
   });
@@ -532,7 +539,7 @@ export async function registerRoutes(
       }
       res.json(event);
     } catch (error) {
-      console.error("Error updating event:", error);
+      logError("Error updating event:", error);
       res.status(400).json({ message: "Failed to update event" });
     }
   });
@@ -544,7 +551,7 @@ export async function registerRoutes(
       await storage.deleteEvent(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting event:", error);
+      logError("Error deleting event:", error);
       res.status(500).json({ message: "Failed to delete event" });
     }
   });
@@ -583,7 +590,7 @@ export async function registerRoutes(
         upcomingSessions,
       });
     } catch (error) {
-      console.error("Error fetching dashboard stats:", error);
+      logError("Error fetching dashboard stats:", error);
       res.status(500).json({ message: "Failed to fetch dashboard stats" });
     }
   });
@@ -597,7 +604,7 @@ export async function registerRoutes(
       const attendees = await storage.getAttendees(organizationId, eventId);
       res.json(attendees);
     } catch (error) {
-      console.error("Error fetching attendees:", error);
+      logError("Error fetching attendees:", error);
       res.status(500).json({ message: "Failed to fetch attendees" });
     }
   });
@@ -674,13 +681,13 @@ export async function registerRoutes(
             usedCount: (foundInviteCode.usedCount || 0) + 1
           });
         } catch (e) {
-          console.error("Failed to update invite code usage count:", e);
+          logError("Failed to update invite code usage count:", e);
         }
       }
       
       res.status(201).json(attendee);
     } catch (error) {
-      console.error("Error creating attendee:", error);
+      logError("Error creating attendee:", error);
       res.status(400).json({ message: "Invalid attendee data" });
     }
   });
@@ -695,7 +702,7 @@ export async function registerRoutes(
       }
       res.json(attendee);
     } catch (error) {
-      console.error("Error updating attendee:", error);
+      logError("Error updating attendee:", error);
       res.status(400).json({ message: "Failed to update attendee" });
     }
   });
@@ -707,7 +714,7 @@ export async function registerRoutes(
       await storage.deleteAttendee(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting attendee:", error);
+      logError("Error deleting attendee:", error);
       res.status(500).json({ message: "Failed to delete attendee" });
     }
   });
@@ -721,7 +728,7 @@ export async function registerRoutes(
       const attendeeTypes = await storage.getAttendeeTypes(organizationId, eventId);
       res.json(attendeeTypes);
     } catch (error) {
-      console.error("Error fetching attendee types:", error);
+      logError("Error fetching attendee types:", error);
       res.status(500).json({ message: "Failed to fetch attendee types" });
     }
   });
@@ -736,7 +743,7 @@ export async function registerRoutes(
       }
       res.json(attendeeType);
     } catch (error) {
-      console.error("Error fetching attendee type:", error);
+      logError("Error fetching attendee type:", error);
       res.status(500).json({ message: "Failed to fetch attendee type" });
     }
   });
@@ -749,7 +756,7 @@ export async function registerRoutes(
       const attendeeType = await storage.createAttendeeType(data);
       res.status(201).json(attendeeType);
     } catch (error) {
-      console.error("Error creating attendee type:", error);
+      logError("Error creating attendee type:", error);
       res.status(400).json({ message: "Invalid attendee type data" });
     }
   });
@@ -764,7 +771,7 @@ export async function registerRoutes(
       }
       res.json(attendeeType);
     } catch (error) {
-      console.error("Error updating attendee type:", error);
+      logError("Error updating attendee type:", error);
       res.status(400).json({ message: "Failed to update attendee type" });
     }
   });
@@ -776,7 +783,7 @@ export async function registerRoutes(
       await storage.deleteAttendeeType(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting attendee type:", error);
+      logError("Error deleting attendee type:", error);
       res.status(500).json({ message: "Failed to delete attendee type" });
     }
   });
@@ -789,7 +796,7 @@ export async function registerRoutes(
       const packages = await storage.getPackages(organizationId);
       res.json(packages);
     } catch (error) {
-      console.error("Error fetching packages:", error);
+      logError("Error fetching packages:", error);
       res.status(500).json({ message: "Failed to fetch packages" });
     }
   });
@@ -804,7 +811,7 @@ export async function registerRoutes(
       }
       res.json(pkg);
     } catch (error) {
-      console.error("Error fetching package:", error);
+      logError("Error fetching package:", error);
       res.status(500).json({ message: "Failed to fetch package" });
     }
   });
@@ -822,7 +829,7 @@ export async function registerRoutes(
       const pkg = await storage.createPackage(data);
       res.status(201).json(pkg);
     } catch (error) {
-      console.error("Error creating package:", error);
+      logError("Error creating package:", error);
       res.status(400).json({ message: "Invalid package data" });
     }
   });
@@ -841,7 +848,7 @@ export async function registerRoutes(
       }
       res.json(pkg);
     } catch (error) {
-      console.error("Error updating package:", error);
+      logError("Error updating package:", error);
       res.status(400).json({ message: "Failed to update package" });
     }
   });
@@ -853,7 +860,7 @@ export async function registerRoutes(
       await storage.deletePackage(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting package:", error);
+      logError("Error deleting package:", error);
       res.status(500).json({ message: "Failed to delete package" });
     }
   });
@@ -866,7 +873,7 @@ export async function registerRoutes(
       const eventPackages = await storage.getEventPackagesByPackageId(organizationId, req.params.id);
       res.json(eventPackages.map(ep => ep.eventId));
     } catch (error) {
-      console.error("Error fetching package events:", error);
+      logError("Error fetching package events:", error);
       res.status(500).json({ message: "Failed to fetch package events" });
     }
   });
@@ -901,7 +908,7 @@ export async function registerRoutes(
 
       res.json(mergedPackages);
     } catch (error) {
-      console.error("Error fetching event packages:", error);
+      logError("Error fetching event packages:", error);
       res.status(500).json({ message: "Failed to fetch event packages" });
     }
   });
@@ -924,7 +931,7 @@ export async function registerRoutes(
 
       res.json(eventPackage);
     } catch (error) {
-      console.error("Error upserting event package:", error);
+      logError("Error upserting event package:", error);
       res.status(400).json({ message: "Failed to update event package" });
     }
   });
@@ -938,7 +945,7 @@ export async function registerRoutes(
       await storage.deleteEventPackage(organizationId, eventId, packageId);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting event package:", error);
+      logError("Error deleting event package:", error);
       res.status(500).json({ message: "Failed to delete event package" });
     }
   });
@@ -952,7 +959,7 @@ export async function registerRoutes(
       const inviteCodes = await storage.getInviteCodes(organizationId, eventId);
       res.json(inviteCodes);
     } catch (error) {
-      console.error("Error fetching invite codes:", error);
+      logError("Error fetching invite codes:", error);
       res.status(500).json({ message: "Failed to fetch invite codes" });
     }
   });
@@ -967,7 +974,7 @@ export async function registerRoutes(
       }
       res.json(inviteCode);
     } catch (error) {
-      console.error("Error fetching invite code:", error);
+      logError("Error fetching invite code:", error);
       res.status(500).json({ message: "Failed to fetch invite code" });
     }
   });
@@ -980,7 +987,7 @@ export async function registerRoutes(
       const inviteCode = await storage.createInviteCode(data);
       res.status(201).json(inviteCode);
     } catch (error) {
-      console.error("Error creating invite code:", error);
+      logError("Error creating invite code:", error);
       res.status(400).json({ message: "Invalid invite code data" });
     }
   });
@@ -995,7 +1002,7 @@ export async function registerRoutes(
       }
       res.json(inviteCode);
     } catch (error) {
-      console.error("Error updating invite code:", error);
+      logError("Error updating invite code:", error);
       res.status(400).json({ message: "Failed to update invite code" });
     }
   });
@@ -1007,7 +1014,7 @@ export async function registerRoutes(
       await storage.deleteInviteCode(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting invite code:", error);
+      logError("Error deleting invite code:", error);
       res.status(500).json({ message: "Failed to delete invite code" });
     }
   });
@@ -1021,7 +1028,7 @@ export async function registerRoutes(
       const speakers = await storage.getSpeakers(organizationId, eventId);
       res.json(speakers);
     } catch (error) {
-      console.error("Error fetching speakers:", error);
+      logError("Error fetching speakers:", error);
       res.status(500).json({ message: "Failed to fetch speakers" });
     }
   });
@@ -1034,7 +1041,7 @@ export async function registerRoutes(
       const speaker = await storage.createSpeaker(data);
       res.status(201).json(speaker);
     } catch (error) {
-      console.error("Error creating speaker:", error);
+      logError("Error creating speaker:", error);
       res.status(400).json({ message: "Invalid speaker data" });
     }
   });
@@ -1049,7 +1056,7 @@ export async function registerRoutes(
       }
       res.json(speaker);
     } catch (error) {
-      console.error("Error updating speaker:", error);
+      logError("Error updating speaker:", error);
       res.status(400).json({ message: "Failed to update speaker" });
     }
   });
@@ -1061,7 +1068,7 @@ export async function registerRoutes(
       await storage.deleteSpeaker(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting speaker:", error);
+      logError("Error deleting speaker:", error);
       res.status(500).json({ message: "Failed to delete speaker" });
     }
   });
@@ -1075,7 +1082,7 @@ export async function registerRoutes(
       const sessions = await storage.getSessions(organizationId, eventId);
       res.json(sessions);
     } catch (error) {
-      console.error("Error fetching sessions:", error);
+      logError("Error fetching sessions:", error);
       res.status(500).json({ message: "Failed to fetch sessions" });
     }
   });
@@ -1088,7 +1095,7 @@ export async function registerRoutes(
       const session = await storage.createSession(data);
       res.status(201).json(session);
     } catch (error) {
-      console.error("Error creating session:", error);
+      logError("Error creating session:", error);
       res.status(400).json({ message: "Invalid session data" });
     }
   });
@@ -1103,7 +1110,7 @@ export async function registerRoutes(
       }
       res.json(session);
     } catch (error) {
-      console.error("Error updating session:", error);
+      logError("Error updating session:", error);
       res.status(400).json({ message: "Failed to update session" });
     }
   });
@@ -1115,7 +1122,7 @@ export async function registerRoutes(
       await storage.deleteSession(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting session:", error);
+      logError("Error deleting session:", error);
       res.status(500).json({ message: "Failed to delete session" });
     }
   });
@@ -1129,7 +1136,7 @@ export async function registerRoutes(
       const content = await storage.getContentItems(organizationId, eventId);
       res.json(content);
     } catch (error) {
-      console.error("Error fetching content:", error);
+      logError("Error fetching content:", error);
       res.status(500).json({ message: "Failed to fetch content" });
     }
   });
@@ -1142,7 +1149,7 @@ export async function registerRoutes(
       const content = await storage.createContentItem(data);
       res.status(201).json(content);
     } catch (error) {
-      console.error("Error creating content:", error);
+      logError("Error creating content:", error);
       res.status(400).json({ message: "Invalid content data" });
     }
   });
@@ -1157,7 +1164,7 @@ export async function registerRoutes(
       }
       res.json(content);
     } catch (error) {
-      console.error("Error updating content:", error);
+      logError("Error updating content:", error);
       res.status(400).json({ message: "Failed to update content" });
     }
   });
@@ -1169,7 +1176,7 @@ export async function registerRoutes(
       await storage.deleteContentItem(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting content:", error);
+      logError("Error deleting content:", error);
       res.status(500).json({ message: "Failed to delete content" });
     }
   });
@@ -1183,7 +1190,7 @@ export async function registerRoutes(
       const budget = await storage.getBudgetItems(organizationId, eventId);
       res.json(budget);
     } catch (error) {
-      console.error("Error fetching budget:", error);
+      logError("Error fetching budget:", error);
       res.status(500).json({ message: "Failed to fetch budget" });
     }
   });
@@ -1201,7 +1208,7 @@ export async function registerRoutes(
       const budget = await storage.createBudgetItem(data);
       res.status(201).json(budget);
     } catch (error) {
-      console.error("Error creating budget item:", error);
+      logError("Error creating budget item:", error);
       res.status(400).json({ message: "Invalid budget data" });
     }
   });
@@ -1221,7 +1228,7 @@ export async function registerRoutes(
       }
       res.json(budget);
     } catch (error) {
-      console.error("Error updating budget item:", error);
+      logError("Error updating budget item:", error);
       res.status(400).json({ message: "Failed to update budget item" });
     }
   });
@@ -1233,7 +1240,7 @@ export async function registerRoutes(
       await storage.deleteBudgetItem(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting budget item:", error);
+      logError("Error deleting budget item:", error);
       res.status(500).json({ message: "Failed to delete budget item" });
     }
   });
@@ -1246,7 +1253,7 @@ export async function registerRoutes(
       const categories = await storage.getBudgetCategories(organizationId);
       res.json(categories);
     } catch (error) {
-      console.error("Error fetching budget categories:", error);
+      logError("Error fetching budget categories:", error);
       res.status(500).json({ message: "Failed to fetch budget categories" });
     }
   });
@@ -1259,7 +1266,7 @@ export async function registerRoutes(
       const category = await storage.createBudgetCategory(data);
       res.status(201).json(category);
     } catch (error) {
-      console.error("Error creating budget category:", error);
+      logError("Error creating budget category:", error);
       res.status(400).json({ message: "Invalid budget category data" });
     }
   });
@@ -1274,7 +1281,7 @@ export async function registerRoutes(
       }
       res.json(category);
     } catch (error) {
-      console.error("Error updating budget category:", error);
+      logError("Error updating budget category:", error);
       res.status(400).json({ message: "Failed to update budget category" });
     }
   });
@@ -1286,7 +1293,7 @@ export async function registerRoutes(
       await storage.deleteBudgetCategory(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting budget category:", error);
+      logError("Error deleting budget category:", error);
       res.status(500).json({ message: "Failed to delete budget category" });
     }
   });
@@ -1300,7 +1307,7 @@ export async function registerRoutes(
       const offsets = await storage.getBudgetOffsets(organizationId, eventId);
       res.json(offsets);
     } catch (error) {
-      console.error("Error fetching budget offsets:", error);
+      logError("Error fetching budget offsets:", error);
       res.status(500).json({ message: "Failed to fetch budget offsets" });
     }
   });
@@ -1313,7 +1320,7 @@ export async function registerRoutes(
       const offset = await storage.createBudgetOffset(data);
       res.status(201).json(offset);
     } catch (error) {
-      console.error("Error creating budget offset:", error);
+      logError("Error creating budget offset:", error);
       res.status(400).json({ message: "Invalid budget offset data" });
     }
   });
@@ -1328,7 +1335,7 @@ export async function registerRoutes(
       }
       res.json(offset);
     } catch (error) {
-      console.error("Error updating budget offset:", error);
+      logError("Error updating budget offset:", error);
       res.status(400).json({ message: "Failed to update budget offset" });
     }
   });
@@ -1340,7 +1347,7 @@ export async function registerRoutes(
       await storage.deleteBudgetOffset(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting budget offset:", error);
+      logError("Error deleting budget offset:", error);
       res.status(500).json({ message: "Failed to delete budget offset" });
     }
   });
@@ -1357,7 +1364,7 @@ export async function registerRoutes(
       const settings = await storage.getEventBudgetSettings(req.params.eventId);
       res.json(settings || { eventId: req.params.eventId, budgetCap: null });
     } catch (error) {
-      console.error("Error fetching event budget settings:", error);
+      logError("Error fetching event budget settings:", error);
       res.status(500).json({ message: "Failed to fetch event budget settings" });
     }
   });
@@ -1377,7 +1384,7 @@ export async function registerRoutes(
       });
       res.json(settings);
     } catch (error) {
-      console.error("Error updating event budget settings:", error);
+      logError("Error updating event budget settings:", error);
       res.status(400).json({ message: "Failed to update event budget settings" });
     }
   });
@@ -1391,7 +1398,7 @@ export async function registerRoutes(
       const payments = await storage.getBudgetPayments(organizationId, eventId);
       res.json(payments);
     } catch (error) {
-      console.error("Error fetching budget payments:", error);
+      logError("Error fetching budget payments:", error);
       res.status(500).json({ message: "Failed to fetch budget payments" });
     }
   });
@@ -1404,7 +1411,7 @@ export async function registerRoutes(
       const payment = await storage.createBudgetPayment(data);
       res.status(201).json(payment);
     } catch (error) {
-      console.error("Error creating budget payment:", error);
+      logError("Error creating budget payment:", error);
       res.status(400).json({ message: "Invalid budget payment data" });
     }
   });
@@ -1419,7 +1426,7 @@ export async function registerRoutes(
       }
       res.json(payment);
     } catch (error) {
-      console.error("Error updating budget payment:", error);
+      logError("Error updating budget payment:", error);
       res.status(400).json({ message: "Failed to update budget payment" });
     }
   });
@@ -1431,7 +1438,7 @@ export async function registerRoutes(
       await storage.deleteBudgetPayment(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting budget payment:", error);
+      logError("Error deleting budget payment:", error);
       res.status(500).json({ message: "Failed to delete budget payment" });
     }
   });
@@ -1445,7 +1452,7 @@ export async function registerRoutes(
       const milestones = await storage.getMilestones(organizationId, eventId);
       res.json(milestones);
     } catch (error) {
-      console.error("Error fetching milestones:", error);
+      logError("Error fetching milestones:", error);
       res.status(500).json({ message: "Failed to fetch milestones" });
     }
   });
@@ -1458,7 +1465,7 @@ export async function registerRoutes(
       const milestone = await storage.createMilestone(data);
       res.status(201).json(milestone);
     } catch (error) {
-      console.error("Error creating milestone:", error);
+      logError("Error creating milestone:", error);
       res.status(400).json({ message: "Invalid milestone data" });
     }
   });
@@ -1473,7 +1480,7 @@ export async function registerRoutes(
       }
       res.json(milestone);
     } catch (error) {
-      console.error("Error updating milestone:", error);
+      logError("Error updating milestone:", error);
       res.status(400).json({ message: "Failed to update milestone" });
     }
   });
@@ -1485,7 +1492,7 @@ export async function registerRoutes(
       await storage.deleteMilestone(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting milestone:", error);
+      logError("Error deleting milestone:", error);
       res.status(500).json({ message: "Failed to delete milestone" });
     }
   });
@@ -1499,7 +1506,7 @@ export async function registerRoutes(
       const deliverables = await storage.getDeliverables(organizationId, eventId);
       res.json(deliverables);
     } catch (error) {
-      console.error("Error fetching deliverables:", error);
+      logError("Error fetching deliverables:", error);
       res.status(500).json({ message: "Failed to fetch deliverables" });
     }
   });
@@ -1512,7 +1519,7 @@ export async function registerRoutes(
       const deliverable = await storage.createDeliverable(data);
       res.status(201).json(deliverable);
     } catch (error) {
-      console.error("Error creating deliverable:", error);
+      logError("Error creating deliverable:", error);
       res.status(400).json({ message: "Invalid deliverable data" });
     }
   });
@@ -1527,7 +1534,7 @@ export async function registerRoutes(
       }
       res.json(deliverable);
     } catch (error) {
-      console.error("Error updating deliverable:", error);
+      logError("Error updating deliverable:", error);
       res.status(400).json({ message: "Failed to update deliverable" });
     }
   });
@@ -1539,7 +1546,7 @@ export async function registerRoutes(
       await storage.deleteDeliverable(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting deliverable:", error);
+      logError("Error deleting deliverable:", error);
       res.status(500).json({ message: "Failed to delete deliverable" });
     }
   });
@@ -1553,7 +1560,7 @@ export async function registerRoutes(
       const emails = await storage.getEmailCampaigns(organizationId, eventId);
       res.json(emails);
     } catch (error) {
-      console.error("Error fetching emails:", error);
+      logError("Error fetching emails:", error);
       res.status(500).json({ message: "Failed to fetch email campaigns" });
     }
   });
@@ -1566,7 +1573,7 @@ export async function registerRoutes(
       const email = await storage.createEmailCampaign(data);
       res.status(201).json(email);
     } catch (error) {
-      console.error("Error creating email campaign:", error);
+      logError("Error creating email campaign:", error);
       res.status(400).json({ message: "Invalid email campaign data" });
     }
   });
@@ -1581,7 +1588,7 @@ export async function registerRoutes(
       }
       res.json(email);
     } catch (error) {
-      console.error("Error updating email campaign:", error);
+      logError("Error updating email campaign:", error);
       res.status(400).json({ message: "Failed to update email campaign" });
     }
   });
@@ -1593,7 +1600,7 @@ export async function registerRoutes(
       await storage.deleteEmailCampaign(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting email campaign:", error);
+      logError("Error deleting email campaign:", error);
       res.status(500).json({ message: "Failed to delete email campaign" });
     }
   });
@@ -1680,7 +1687,7 @@ export async function registerRoutes(
         errors: result.errors.length > 0 ? result.errors : undefined,
       });
     } catch (error) {
-      console.error("Error sending email campaign:", error);
+      logError("Error sending email campaign:", error);
       res.status(500).json({ message: "Failed to send email campaign" });
     }
   });
@@ -1694,7 +1701,7 @@ export async function registerRoutes(
       const posts = await storage.getSocialPosts(organizationId, eventId);
       res.json(posts);
     } catch (error) {
-      console.error("Error fetching social posts:", error);
+      logError("Error fetching social posts:", error);
       res.status(500).json({ message: "Failed to fetch social posts" });
     }
   });
@@ -1707,7 +1714,7 @@ export async function registerRoutes(
       const post = await storage.createSocialPost(data);
       res.status(201).json(post);
     } catch (error) {
-      console.error("Error creating social post:", error);
+      logError("Error creating social post:", error);
       res.status(400).json({ message: "Invalid social post data" });
     }
   });
@@ -1722,7 +1729,7 @@ export async function registerRoutes(
       }
       res.json(post);
     } catch (error) {
-      console.error("Error updating social post:", error);
+      logError("Error updating social post:", error);
       res.status(400).json({ message: "Failed to update social post" });
     }
   });
@@ -1734,7 +1741,7 @@ export async function registerRoutes(
       await storage.deleteSocialPost(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting social post:", error);
+      logError("Error deleting social post:", error);
       res.status(500).json({ message: "Failed to delete social post" });
     }
   });
@@ -1748,7 +1755,7 @@ export async function registerRoutes(
       const templates = await storage.getEmailTemplates(organizationId, eventId);
       res.json(templates);
     } catch (error) {
-      console.error("Error fetching email templates:", error);
+      logError("Error fetching email templates:", error);
       res.status(500).json({ message: "Failed to fetch email templates" });
     }
   });
@@ -1761,7 +1768,7 @@ export async function registerRoutes(
       const template = await storage.createEmailTemplate(data);
       res.status(201).json(template);
     } catch (error) {
-      console.error("Error creating email template:", error);
+      logError("Error creating email template:", error);
       res.status(400).json({ message: "Invalid email template data" });
     }
   });
@@ -1776,7 +1783,7 @@ export async function registerRoutes(
       }
       res.json(template);
     } catch (error) {
-      console.error("Error updating email template:", error);
+      logError("Error updating email template:", error);
       res.status(400).json({ message: "Failed to update email template" });
     }
   });
@@ -1788,7 +1795,7 @@ export async function registerRoutes(
       await storage.deleteEmailTemplate(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting email template:", error);
+      logError("Error deleting email template:", error);
       res.status(500).json({ message: "Failed to delete email template" });
     }
   });
@@ -1824,7 +1831,7 @@ export async function registerRoutes(
         res.status(500).json({ message: result.error || "Failed to send test email" });
       }
     } catch (error) {
-      console.error("Error sending test email:", error);
+      logError("Error sending test email:", error);
       res.status(500).json({ message: "Failed to send test email" });
     }
   });
@@ -1849,7 +1856,7 @@ export async function registerRoutes(
       const checkedInAttendee = await storage.checkInAttendee(attendee.id);
       res.json({ message: "Check-in successful", attendee: checkedInAttendee });
     } catch (error) {
-      console.error("Error during check-in:", error);
+      logError("Error during check-in:", error);
       res.status(500).json({ message: "Failed to process check-in" });
     }
   });
@@ -1870,7 +1877,7 @@ export async function registerRoutes(
         checkInRate: totalAttendees > 0 ? Math.round((checkedIn / totalAttendees) * 100) : 0,
       });
     } catch (error) {
-      console.error("Error fetching check-in stats:", error);
+      logError("Error fetching check-in stats:", error);
       res.status(500).json({ message: "Failed to fetch check-in stats" });
     }
   });
@@ -1878,20 +1885,20 @@ export async function registerRoutes(
   // Public event registration routes (no auth required)
   app.get("/api/public/event/:slug", async (req, res) => {
     try {
-      console.log(`[Public Event] Fetching event with slug: ${req.params.slug}`);
+      logInfo(`[Public Event] Fetching event with slug: ${req.params.slug}`);
       const event = await storage.getEventBySlug(req.params.slug);
       
       if (!event) {
-        console.log(`[Public Event] No event found for slug: ${req.params.slug}`);
+        logInfo(`[Public Event] No event found for slug: ${req.params.slug}`);
         return res.status(404).json({ message: "Event not found" });
       }
       
       if (!event.isPublic) {
-        console.log(`[Public Event] Event ${event.id} is not public`);
+        logInfo(`[Public Event] Event ${event.id} is not public`);
         return res.status(404).json({ message: "Event not found" });
       }
       
-      console.log(`[Public Event] Found event: ${event.name} (${event.id}), org: ${event.organizationId}`);
+      logInfo(`[Public Event] Found event: ${event.name} (${event.id}), org: ${event.organizationId}`);
       
       const sessions = await storage.getSessions(event.organizationId, event.id);
       const speakers = await storage.getSpeakers(event.organizationId, event.id);
@@ -1900,11 +1907,11 @@ export async function registerRoutes(
       const pages = await storage.getEventPages(event.organizationId, event.id);
       const landingPage = pages.find(p => p.pageType === "landing" && p.isPublished);
       
-      console.log(`[Public Event] Sessions: ${sessions.length}, Speakers: ${speakers.length}, Pages: ${pages.length}, Landing published: ${!!landingPage}`);
+      logInfo(`[Public Event] Sessions: ${sessions.length}, Speakers: ${speakers.length}, Pages: ${pages.length}, Landing published: ${!!landingPage}`);
       
       res.json({ event, sessions, speakers, landingPage: landingPage || null });
     } catch (error) {
-      console.error("[Public Event] Error fetching public event:", error);
+      logError("[Public Event] Error fetching public event:", error);
       res.status(500).json({ message: "Failed to fetch event" });
     }
   });
@@ -1938,7 +1945,7 @@ export async function registerRoutes(
         registrationConfig: registrationConfig?.step1Config || null
       });
     } catch (error) {
-      console.error("Error fetching registration page:", error);
+      logError("Error fetching registration page:", error);
       res.status(500).json({ message: "Failed to fetch registration page" });
     }
   });
@@ -1966,7 +1973,7 @@ export async function registerRoutes(
       
       res.json({ event, sessions, speakers, portalPage: effectivePage, landingTheme });
     } catch (error) {
-      console.error("Error fetching portal page:", error);
+      logError("Error fetching portal page:", error);
       res.status(500).json({ message: "Failed to fetch portal page" });
     }
   });
@@ -2006,13 +2013,13 @@ export async function registerRoutes(
       
       res.json(publicPackages);
     } catch (error) {
-      console.error("Error fetching public packages:", error);
+      logError("Error fetching public packages:", error);
       res.status(500).json({ message: "Failed to fetch packages" });
     }
   });
 
   // Validate invite code and return unlocked package if any
-  app.post("/api/public/validate-invite-code/:slug", async (req, res) => {
+  app.post("/api/public/validate-invite-code/:slug", validateInviteCodeLimiter, async (req, res) => {
     try {
       const event = await storage.getEventBySlug(req.params.slug);
       if (!event || !event.isPublic) {
@@ -2065,12 +2072,12 @@ export async function registerRoutes(
         unlockedPackage,
       });
     } catch (error) {
-      console.error("Error validating invite code:", error);
+      logError("Error validating invite code:", error);
       res.status(500).json({ message: "Failed to validate invite code" });
     }
   });
 
-  app.post("/api/public/register/:slug", async (req, res) => {
+  app.post("/api/public/register/:slug", publicRegistrationLimiter, async (req, res) => {
     try {
       const event = await storage.getEventBySlug(req.params.slug);
       if (!event || !event.isPublic || !event.registrationOpen) {
@@ -2204,13 +2211,13 @@ export async function registerRoutes(
             usedCount: (foundInviteCode.usedCount || 0) + 1
           });
         } catch (e) {
-          console.error("Failed to update invite code usage count:", e);
+          logError("Failed to update invite code usage count:", e);
         }
       }
       
       res.status(201).json({ message: "Registration successful", attendee });
     } catch (error) {
-      console.error("Error during public registration:", error);
+      logError("Error during public registration:", error);
       res.status(400).json({ message: "Registration failed" });
     }
   });
@@ -2301,7 +2308,7 @@ export async function registerRoutes(
         },
       });
     } catch (error) {
-      console.error("Error fetching analytics:", error);
+      logError("Error fetching analytics:", error);
       res.status(500).json({ message: "Failed to fetch analytics" });
     }
   });
@@ -2313,7 +2320,7 @@ export async function registerRoutes(
       const connections = await storage.getSocialConnections(userId);
       res.json(connections);
     } catch (error) {
-      console.error("Error fetching social connections:", error);
+      logError("Error fetching social connections:", error);
       res.status(500).json({ message: "Failed to fetch social connections" });
     }
   });
@@ -2336,7 +2343,7 @@ export async function registerRoutes(
       });
       res.status(201).json(connection);
     } catch (error) {
-      console.error("Error creating social connection:", error);
+      logError("Error creating social connection:", error);
       res.status(400).json({ message: "Failed to create social connection" });
     }
   });
@@ -2346,7 +2353,7 @@ export async function registerRoutes(
       await storage.deleteSocialConnection(req.params.id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting social connection:", error);
+      logError("Error deleting social connection:", error);
       res.status(500).json({ message: "Failed to delete social connection" });
     }
   });
@@ -2360,7 +2367,7 @@ export async function registerRoutes(
       const pages = await storage.getEventPages(organizationId, eventId);
       res.json(pages);
     } catch (error) {
-      console.error("Error fetching event pages:", error);
+      logError("Error fetching event pages:", error);
       res.status(500).json({ message: "Failed to fetch event pages" });
     }
   });
@@ -2376,7 +2383,7 @@ export async function registerRoutes(
       }
       res.json(page);
     } catch (error) {
-      console.error("Error fetching event page:", error);
+      logError("Error fetching event page:", error);
       res.status(500).json({ message: "Failed to fetch event page" });
     }
   });
@@ -2391,7 +2398,7 @@ export async function registerRoutes(
       const page = await storage.upsertEventPage({ ...data, theme });
       res.status(201).json(page);
     } catch (error) {
-      console.error("Error creating/updating event page:", error);
+      logError("Error creating/updating event page:", error);
       res.status(400).json({ message: "Invalid event page data" });
     }
   });
@@ -2406,7 +2413,7 @@ export async function registerRoutes(
       }
       res.json(page);
     } catch (error) {
-      console.error("Error updating event page:", error);
+      logError("Error updating event page:", error);
       res.status(400).json({ message: "Failed to update event page" });
     }
   });
@@ -2418,7 +2425,7 @@ export async function registerRoutes(
       await storage.deleteEventPage(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting event page:", error);
+      logError("Error deleting event page:", error);
       res.status(500).json({ message: "Failed to delete event page" });
     }
   });
@@ -2431,7 +2438,7 @@ export async function registerRoutes(
       const config = await storage.getRegistrationConfig(organizationId, req.params.eventId);
       res.json(config || null);
     } catch (error) {
-      console.error("Error fetching registration config:", error);
+      logError("Error fetching registration config:", error);
       res.status(500).json({ message: "Failed to fetch registration config" });
     }
   });
@@ -2449,7 +2456,7 @@ export async function registerRoutes(
       const config = await storage.upsertRegistrationConfig(data);
       res.status(201).json(config);
     } catch (error) {
-      console.error("Error saving registration config:", error);
+      logError("Error saving registration config:", error);
       res.status(400).json({ message: "Failed to save registration config" });
     }
   });
@@ -2462,7 +2469,7 @@ export async function registerRoutes(
       const fields = await storage.getCustomFields(organizationId);
       res.json(fields);
     } catch (error) {
-      console.error("Error fetching custom fields:", error);
+      logError("Error fetching custom fields:", error);
       res.status(500).json({ message: "Failed to fetch custom fields" });
     }
   });
@@ -2475,7 +2482,7 @@ export async function registerRoutes(
       const field = await storage.createCustomField(data);
       res.status(201).json(field);
     } catch (error) {
-      console.error("Error creating custom field:", error);
+      logError("Error creating custom field:", error);
       res.status(400).json({ message: "Invalid custom field data" });
     }
   });
@@ -2490,7 +2497,7 @@ export async function registerRoutes(
       }
       res.json(field);
     } catch (error) {
-      console.error("Error updating custom field:", error);
+      logError("Error updating custom field:", error);
       res.status(400).json({ message: "Failed to update custom field" });
     }
   });
@@ -2502,7 +2509,7 @@ export async function registerRoutes(
       await storage.deleteCustomField(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting custom field:", error);
+      logError("Error deleting custom field:", error);
       res.status(500).json({ message: "Failed to delete custom field" });
     }
   });
@@ -2513,7 +2520,7 @@ export async function registerRoutes(
       const fields = await storage.getActiveCustomFieldsByEventSlug(req.params.slug);
       res.json(fields);
     } catch (error) {
-      console.error("Error fetching public custom fields:", error);
+      logError("Error fetching public custom fields:", error);
       res.status(500).json({ message: "Failed to fetch custom fields" });
     }
   });
@@ -2536,22 +2543,29 @@ export async function registerRoutes(
         stripePublishableKey: org.paymentEnabled ? org.stripePublishableKey : null,
       });
     } catch (error) {
-      console.error("Error fetching payment config:", error);
+      logError("Error fetching payment config:", error);
       res.status(500).json({ message: "Failed to fetch payment configuration" });
     }
   });
 
-  app.post("/api/public/event/:slug/create-payment-intent", async (req, res) => {
+  app.post("/api/public/event/:slug/create-payment-intent", createPaymentIntentLimiter, async (req, res) => {
     try {
       const event = await storage.getEventBySlug(req.params.slug);
       if (!event || !event.isPublic || !event.registrationOpen) {
         return res.status(404).json({ message: "Registration not available" });
       }
       
-      const { packageId, inviteCodeId } = req.body;
+      const { packageId, inviteCodeId, currency } = req.body;
       
       if (!packageId) {
         return res.status(400).json({ message: "Package is required for payment" });
+      }
+      
+      // Validate currency if provided
+      const allowedCurrencies = ["usd", "eur", "gbp", "cad", "aud"];
+      const selectedCurrency = (currency || "usd").toLowerCase();
+      if (!allowedCurrencies.includes(selectedCurrency)) {
+        return res.status(400).json({ message: "Invalid currency" });
       }
       
       // Get package details
@@ -2573,6 +2587,12 @@ export async function registerRoutes(
         }
       }
       
+      // Validate amount - must be finite, non-negative and within limits
+      if (typeof price !== 'number' || !Number.isFinite(price) || price < 0 || price > 999999.99) {
+        logError("Invalid payment amount calculated", "Payment");
+        return res.status(400).json({ message: "Invalid payment amount" });
+      }
+      
       // If price is 0 or less, no payment needed
       if (price <= 0) {
         return res.json({ 
@@ -2585,7 +2605,7 @@ export async function registerRoutes(
       const result = await createPaymentIntent(
         event.organizationId,
         price,
-        "usd",
+        selectedCurrency,
         {
           eventId: event.id,
           eventName: event.name,
@@ -2605,12 +2625,12 @@ export async function registerRoutes(
         finalPrice: price,
       });
     } catch (error) {
-      console.error("Error creating payment intent:", error);
-      res.status(500).json({ message: "Failed to create payment" });
+      logError(error, "Payment");
+      res.status(500).json({ message: "An error occurred processing your request" });
     }
   });
 
-  app.post("/api/public/event/:slug/verify-payment", async (req, res) => {
+  app.post("/api/public/event/:slug/verify-payment", verifyPaymentLimiter, async (req, res) => {
     try {
       const event = await storage.getEventBySlug(req.params.slug);
       if (!event || !event.isPublic) {
@@ -2621,6 +2641,11 @@ export async function registerRoutes(
       
       if (!paymentIntentId) {
         return res.status(400).json({ message: "Payment intent ID is required" });
+      }
+      
+      // Validate paymentIntentId format (Stripe format: pi_*)
+      if (typeof paymentIntentId !== 'string' || !/^pi_[a-zA-Z0-9]+$/.test(paymentIntentId)) {
+        return res.status(400).json({ message: "Invalid payment intent ID format" });
       }
       
       const paymentIntent = await getPaymentIntent(event.organizationId, paymentIntentId);
@@ -2634,8 +2659,8 @@ export async function registerRoutes(
         status: paymentIntent.status,
       });
     } catch (error) {
-      console.error("Error verifying payment:", error);
-      res.status(500).json({ message: "Failed to verify payment" });
+      logError(error, "Payment");
+      res.status(500).json({ message: "An error occurred processing your request" });
     }
   });
 
@@ -2662,7 +2687,7 @@ export async function registerRoutes(
       if (error instanceof ObjectNotFoundError) {
         return res.status(404).json({ message: "Object not found" });
       }
-      console.error("Error serving object:", error);
+      logError("Error serving object:", error);
       res.status(500).json({ message: "Failed to serve object" });
     }
   });
@@ -2673,7 +2698,7 @@ export async function registerRoutes(
       const uploadUrl = await objectStorageService.getObjectEntityUploadURL();
       res.json({ uploadUrl });
     } catch (error) {
-      console.error("Error getting upload URL:", error);
+      logError("Error getting upload URL:", error);
       res.status(500).json({ message: "Failed to get upload URL" });
     }
   });
@@ -2712,7 +2737,7 @@ export async function registerRoutes(
       const asset = await storage.createContentAsset(data);
       res.status(201).json(asset);
     } catch (error: any) {
-      console.error("Error creating content asset:", error);
+      logError("Error creating content asset:", error);
       res.status(400).json({ message: error.message || "Failed to create content asset" });
     }
   });
@@ -2725,7 +2750,7 @@ export async function registerRoutes(
       const assets = await storage.getContentAssets(organizationId);
       res.json(assets);
     } catch (error) {
-      console.error("Error fetching content assets:", error);
+      logError("Error fetching content assets:", error);
       res.status(500).json({ message: "Failed to fetch content assets" });
     }
   });
@@ -2744,7 +2769,7 @@ export async function registerRoutes(
       await storage.deleteContentAsset(req.params.id, organizationId);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting content asset:", error);
+      logError("Error deleting content asset:", error);
       res.status(500).json({ message: "Failed to delete content asset" });
     }
   });
