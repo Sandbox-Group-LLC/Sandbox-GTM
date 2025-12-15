@@ -42,7 +42,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Plus, Users, Search, Download, Settings2, ArrowUpDown, ArrowUp, ArrowDown, Filter, X } from "lucide-react";
+import { Plus, Users, Search, Download, Settings2, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Trash2 } from "lucide-react";
 import { EventSelectField } from "@/components/event-select-field";
 import type { Attendee, Event, CustomField, InviteCode, Package } from "@shared/schema";
 
@@ -236,6 +236,31 @@ export default function Attendees() {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("DELETE", `/api/attendees/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/attendees"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      toast({ title: "Attendee deleted successfully" });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({ title: "Unauthorized", description: "You are logged out. Logging in again...", variant: "destructive" });
+        setTimeout(() => { window.location.href = "/api/login"; }, 500);
+        return;
+      }
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleDelete = (attendee: Attendee) => {
+    if (confirm(`Are you sure you want to delete ${attendee.firstName} ${attendee.lastName}?`)) {
+      deleteMutation.mutate(attendee.id);
+    }
+  };
 
   const onSubmit = (data: AttendeeFormData) => {
     if (editingAttendee) {
@@ -460,17 +485,30 @@ export default function Attendees() {
       key: "actions",
       header: "",
       cell: (attendee: Attendee) => (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            handleEdit(attendee);
-          }}
-          data-testid={`button-edit-${attendee.id}`}
-        >
-          Edit
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleEdit(attendee);
+            }}
+            data-testid={`button-edit-${attendee.id}`}
+          >
+            Edit
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDelete(attendee);
+            }}
+            data-testid={`button-delete-${attendee.id}`}
+          >
+            <Trash2 className="h-4 w-4 text-destructive" />
+          </Button>
+        </div>
       ),
     });
 
