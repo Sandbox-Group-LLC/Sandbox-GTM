@@ -39,7 +39,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Plus, Mic2, Search, Mail, Building, Linkedin, Twitter, Globe } from "lucide-react";
+import { Plus, Mic2, Search, Mail, Building, Linkedin, Twitter, Globe, Star } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { EventSelectField } from "@/components/event-select-field";
 import type { Speaker, EventSession, SessionSpeaker } from "@shared/schema";
 
@@ -58,6 +59,7 @@ const speakerFormSchema = z.object({
   twitter: z.string().optional(),
   website: z.string().optional(),
   notes: z.string().optional(),
+  isFeatured: z.boolean().optional(),
   sessionIds: z.array(z.string()).optional(),
 });
 
@@ -95,6 +97,7 @@ export default function Speakers() {
       twitter: "",
       website: "",
       notes: "",
+      isFeatured: false,
       sessionIds: [],
     },
   });
@@ -113,6 +116,7 @@ export default function Speakers() {
       const payload = {
         ...data,
         notes: data.notes || null,
+        isFeatured: data.isFeatured ?? false,
         socialLinks: {
           linkedin: data.linkedin || undefined,
           twitter: data.twitter || undefined,
@@ -148,6 +152,7 @@ export default function Speakers() {
       const payload = {
         ...data,
         notes: data.notes || null,
+        isFeatured: data.isFeatured ?? false,
         socialLinks: {
           linkedin: data.linkedin || undefined,
           twitter: data.twitter || undefined,
@@ -202,6 +207,7 @@ export default function Speakers() {
       twitter: socialLinks?.twitter || "",
       website: socialLinks?.website || "",
       notes: speaker.notes || "",
+      isFeatured: speaker.isFeatured ?? false,
       sessionIds: [],
     });
     try {
@@ -395,6 +401,27 @@ export default function Speakers() {
                       </FormItem>
                     )}
                   />
+                  <FormField
+                    control={form.control}
+                    name="isFeatured"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                            data-testid="checkbox-is-featured"
+                          />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel>Featured Speaker</FormLabel>
+                          <FormDescription>
+                            Featured speakers appear when "Show featured speakers only" is enabled in Site Builder
+                          </FormDescription>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
                   <FormItem>
                     <FormLabel>Sessions</FormLabel>
                     {!watchedEventId ? (
@@ -565,9 +592,17 @@ export default function Speakers() {
                           </AvatarFallback>
                         </Avatar>
                         <div className="min-w-0 flex-1 space-y-1">
-                          <h3 className="font-semibold">
-                            {speaker.firstName} {speaker.lastName}
-                          </h3>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="font-semibold">
+                              {speaker.firstName} {speaker.lastName}
+                            </h3>
+                            {speaker.isFeatured && (
+                              <Badge variant="secondary" className="gap-1">
+                                <Star className="h-3 w-3" />
+                                Featured
+                              </Badge>
+                            )}
+                          </div>
                           {speaker.jobTitle && (
                             <p className="text-sm text-muted-foreground truncate">
                               {speaker.jobTitle}
