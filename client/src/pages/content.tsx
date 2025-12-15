@@ -204,10 +204,15 @@ export default function Content() {
   });
 
   const onSubmit = (data: ContentFormData) => {
+    // Convert empty sessionId to null to avoid foreign key constraint violation
+    const cleanedData = {
+      ...data,
+      sessionId: data.sessionId || null,
+    };
     if (editingContent) {
-      updateMutation.mutate({ id: editingContent.id, data });
+      updateMutation.mutate({ id: editingContent.id, data: cleanedData });
     } else {
-      createMutation.mutate(data);
+      createMutation.mutate(cleanedData);
     }
   };
 
