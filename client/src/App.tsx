@@ -34,6 +34,8 @@ import AdminOrganizations from "@/pages/admin-organizations";
 import MyOrganization from "@/pages/my-organization";
 import CustomFields from "@/pages/custom-fields";
 import PrivacyPolicy from "@/pages/privacy-policy";
+import Tracks from "@/pages/tracks";
+import Rooms from "@/pages/rooms";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const sidebarStyle = {
@@ -91,6 +93,8 @@ function Router() {
         <Route path="/site-builder" component={SiteBuilder} />
         <Route path="/check-in" component={CheckIn} />
         <Route path="/sessions" component={Sessions} />
+        <Route path="/tracks" component={Tracks} />
+        <Route path="/rooms" component={Rooms} />
         <Route path="/speakers" component={Speakers} />
         <Route path="/content" component={Content} />
         <Route path="/budget" component={Budget} />

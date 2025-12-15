@@ -21,6 +21,8 @@ import {
   insertInviteCodeSchema,
   insertSpeakerSchema,
   insertSessionSchema,
+  insertSessionTrackSchema,
+  insertSessionRoomSchema,
   insertContentItemSchema,
   insertBudgetItemSchema,
   insertBudgetCategorySchema,
@@ -1124,6 +1126,114 @@ export async function registerRoutes(
     } catch (error) {
       logError("Error deleting session:", error);
       res.status(500).json({ message: "Failed to delete session" });
+    }
+  });
+
+  // Session Tracks routes
+  app.get("/api/session-tracks", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const tracks = await storage.getSessionTracks(organizationId);
+      res.json(tracks);
+    } catch (error) {
+      logError("Error fetching session tracks:", error);
+      res.status(500).json({ message: "Failed to fetch session tracks" });
+    }
+  });
+
+  app.post("/api/session-tracks", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const data = insertSessionTrackSchema.parse({ ...req.body, organizationId });
+      const track = await storage.createSessionTrack(data);
+      res.status(201).json(track);
+    } catch (error) {
+      logError("Error creating session track:", error);
+      res.status(400).json({ message: "Invalid session track data" });
+    }
+  });
+
+  app.patch("/api/session-tracks/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const updateData = insertSessionTrackSchema.partial().parse(req.body);
+      const track = await storage.updateSessionTrack(organizationId, req.params.id, updateData);
+      if (!track) {
+        return res.status(404).json({ message: "Session track not found" });
+      }
+      res.json(track);
+    } catch (error) {
+      logError("Error updating session track:", error);
+      res.status(400).json({ message: "Failed to update session track" });
+    }
+  });
+
+  app.delete("/api/session-tracks/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      await storage.deleteSessionTrack(organizationId, req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting session track:", error);
+      res.status(500).json({ message: "Failed to delete session track" });
+    }
+  });
+
+  // Session Rooms routes
+  app.get("/api/session-rooms", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const rooms = await storage.getSessionRooms(organizationId);
+      res.json(rooms);
+    } catch (error) {
+      logError("Error fetching session rooms:", error);
+      res.status(500).json({ message: "Failed to fetch session rooms" });
+    }
+  });
+
+  app.post("/api/session-rooms", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const data = insertSessionRoomSchema.parse({ ...req.body, organizationId });
+      const room = await storage.createSessionRoom(data);
+      res.status(201).json(room);
+    } catch (error) {
+      logError("Error creating session room:", error);
+      res.status(400).json({ message: "Invalid session room data" });
+    }
+  });
+
+  app.patch("/api/session-rooms/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const updateData = insertSessionRoomSchema.partial().parse(req.body);
+      const room = await storage.updateSessionRoom(organizationId, req.params.id, updateData);
+      if (!room) {
+        return res.status(404).json({ message: "Session room not found" });
+      }
+      res.json(room);
+    } catch (error) {
+      logError("Error updating session room:", error);
+      res.status(400).json({ message: "Failed to update session room" });
+    }
+  });
+
+  app.delete("/api/session-rooms/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      await storage.deleteSessionRoom(organizationId, req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting session room:", error);
+      res.status(500).json({ message: "Failed to delete session room" });
     }
   });
 
