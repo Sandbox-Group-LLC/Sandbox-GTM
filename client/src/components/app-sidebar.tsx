@@ -57,7 +57,6 @@ const attendeesSubItems = [
   { title: "Attendee Types", path: "/attendee-types" },
   { title: "Invite Codes", path: "/invite-codes" },
   { title: "Packages", path: "/packages" },
-  { title: "Custom Fields", path: "/custom-fields" },
 ];
 
 const eventsSubItems = [
@@ -65,6 +64,7 @@ const eventsSubItems = [
   { title: "Check-In", path: "/check-in" },
   { title: "Registration", path: "/registration" },
   { title: "Site Builder", path: "/site-builder" },
+  { title: "Custom Fields", path: "/custom-fields" },
 ];
 
 const projectMenuItems = [
@@ -83,8 +83,8 @@ export function AppSidebar() {
   const { user } = useAuth();
   const [wizardOpen, setWizardOpen] = useState(false);
 
-  const isEventsActive = location === "/events" || location === "/check-in" || location === "/registration" || location === "/site-builder";
-  const isAttendeesActive = location === "/attendees" || location === "/attendee-types" || location === "/invite-codes" || location === "/packages" || location === "/custom-fields";
+  const isEventsActive = location === "/events" || location === "/check-in" || location === "/registration" || location === "/site-builder" || location === "/custom-fields";
+  const isAttendeesActive = location === "/attendees" || location === "/attendee-types" || location === "/invite-codes" || location === "/packages";
   
   const isSuperAdmin = user?.email?.toLowerCase().endsWith("@makemysandbox.com") ?? false;
 
