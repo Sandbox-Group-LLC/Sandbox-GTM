@@ -37,7 +37,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Plus, Mail, Send, Clock, CheckCircle, FileText, Copy, Trash2, Upload, X, Image } from "lucide-react";
+import { Plus, Mail, Send, Clock, CheckCircle, FileText, Copy, Trash2, X } from "lucide-react";
 import { EventSelectField } from "@/components/event-select-field";
 import { MergeTagPicker } from "@/components/merge-tag-picker";
 import type { EmailCampaign, EmailTemplate } from "@shared/schema";
@@ -83,7 +83,6 @@ export default function Emails() {
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
   const [editingEmail, setEditingEmail] = useState<EmailCampaign | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<EmailTemplate | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   const campaignSubjectRef = useRef<HTMLInputElement>(null);
   const campaignContentRef = useRef<HTMLTextAreaElement>(null);
@@ -288,7 +287,6 @@ export default function Emails() {
       category: template.category || "general",
       headerImageUrl: template.headerImageUrl || "",
     });
-    setImagePreview(template.headerImageUrl || null);
     setIsTemplateDialogOpen(true);
   };
 
@@ -315,7 +313,6 @@ export default function Emails() {
   const handleTemplateDialogClose = () => {
     setIsTemplateDialogOpen(false);
     setEditingTemplate(null);
-    setImagePreview(null);
     templateForm.reset();
   };
 
@@ -339,34 +336,9 @@ export default function Emails() {
     },
   });
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      toast({ title: "Invalid file type", description: "Please upload an image file", variant: "destructive" });
-      return;
-    }
-    
-    // Validate file size (500KB max for base64 storage)
-    if (file.size > 500 * 1024) {
-      toast({ title: "File too large", description: "Please upload an image smaller than 500KB", variant: "destructive" });
-      return;
-    }
-    
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64 = event.target?.result as string;
-      templateForm.setValue("headerImageUrl", base64);
-      setImagePreview(base64);
-    };
-    reader.readAsDataURL(file);
-  };
 
   const handleRemoveImage = () => {
     templateForm.setValue("headerImageUrl", "");
-    setImagePreview(null);
   };
 
   const campaignColumns = [
@@ -785,47 +757,48 @@ export default function Emails() {
                     <FormField
                       control={templateForm.control}
                       name="headerImageUrl"
-                      render={() => (
+                      render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Header Image (Optional)</FormLabel>
+                          <FormLabel>Header Image URL (Optional)</FormLabel>
                           <FormControl>
                             <div className="space-y-3">
-                              {imagePreview ? (
-                                <div className="relative">
-                                  <img
-                                    src={imagePreview}
-                                    alt="Header preview"
-                                    className="w-full max-h-40 object-contain rounded-md border"
-                                    data-testid="img-header-preview"
-                                  />
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  {...field}
+                                  placeholder="https://example.com/header-image.png"
+                                  data-testid="input-header-image-url"
+                                  className="flex-1"
+                                />
+                                {field.value && (
                                   <Button
                                     type="button"
                                     variant="ghost"
                                     size="icon"
-                                    className="absolute top-2 right-2 bg-background/80"
                                     onClick={handleRemoveImage}
                                     data-testid="button-remove-header-image"
                                   >
                                     <X className="h-4 w-4" />
                                   </Button>
-                                </div>
-                              ) : (
-                                <label className="flex flex-col items-center justify-center w-full h-24 border border-dashed rounded-md cursor-pointer hover-elevate">
-                                  <div className="flex flex-col items-center justify-center py-4">
-                                    <Image className="h-6 w-6 text-muted-foreground mb-2" />
-                                    <p className="text-sm text-muted-foreground">Click to upload header image</p>
-                                  </div>
-                                  <input
-                                    type="file"
-                                    accept="image/*"
-                                    className="hidden"
-                                    onChange={handleImageUpload}
-                                    data-testid="input-header-image"
+                                )}
+                              </div>
+                              {field.value && (
+                                <div className="relative">
+                                  <img
+                                    src={field.value}
+                                    alt="Header preview"
+                                    className="w-full max-h-40 object-contain rounded-md border"
+                                    data-testid="img-header-preview"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).style.display = 'none';
+                                    }}
+                                    onLoad={(e) => {
+                                      (e.target as HTMLImageElement).style.display = 'block';
+                                    }}
                                   />
-                                </label>
+                                </div>
                               )}
                               <p className="text-xs text-muted-foreground">
-                                Recommended size: 600x150 pixels. Image will appear at the top of the email.
+                                Enter a URL to an image. Recommended size: 600x150 pixels. The image will appear at the top of the email.
                               </p>
                             </div>
                           </FormControl>
