@@ -184,7 +184,7 @@ export default function Speakers() {
     <div className="flex flex-col h-full">
       <PageHeader
         title="Speakers"
-        breadcrumbs={[{ label: "Speakers" }]}
+        breadcrumbs={[{ label: "Sessions", href: "/sessions" }, { label: "Speakers" }]}
         actions={
           <Dialog open={isDialogOpen} onOpenChange={(open) => open ? setIsDialogOpen(true) : handleDialogClose()}>
             <DialogTrigger asChild>

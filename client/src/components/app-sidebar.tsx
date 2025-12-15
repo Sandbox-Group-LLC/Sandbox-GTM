@@ -47,12 +47,12 @@ import { useAuth } from "@/hooks/useAuth";
 
 const mainMenuItems = [
   { title: "Dashboard", icon: LayoutDashboard, path: "/" },
-  { title: "Speakers", icon: Mic2, path: "/speakers" },
   { title: "Content", icon: FolderOpen, path: "/content" },
 ];
 
 const sessionsSubItems = [
   { title: "All Sessions", path: "/sessions" },
+  { title: "Speakers", path: "/speakers" },
   { title: "Tracks", path: "/tracks" },
   { title: "Rooms", path: "/rooms" },
 ];
@@ -89,7 +89,7 @@ export function AppSidebar() {
   const [wizardOpen, setWizardOpen] = useState(false);
 
   const isEventsActive = location === "/events" || location === "/check-in" || location === "/registration" || location === "/site-builder" || location === "/custom-fields";
-  const isSessionsActive = location === "/sessions" || location === "/tracks" || location === "/rooms";
+  const isSessionsActive = location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/rooms";
   const isAttendeesActive = location === "/attendees" || location === "/attendee-types" || location === "/invite-codes" || location === "/packages";
   
   const isSuperAdmin = user?.email?.toLowerCase().endsWith("@makemysandbox.com") ?? false;
