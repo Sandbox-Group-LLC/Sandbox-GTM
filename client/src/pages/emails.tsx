@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -84,6 +84,11 @@ export default function Emails() {
   const [editingEmail, setEditingEmail] = useState<EmailCampaign | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<EmailTemplate | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+
+  const campaignSubjectRef = useRef<HTMLInputElement>(null);
+  const campaignContentRef = useRef<HTMLTextAreaElement>(null);
+  const templateSubjectRef = useRef<HTMLInputElement>(null);
+  const templateContentRef = useRef<HTMLTextAreaElement>(null);
 
   const { data: emails = [], isLoading: emailsLoading } = useQuery<EmailCampaign[]>({
     queryKey: ["/api/emails"],
@@ -552,9 +557,12 @@ export default function Emails() {
                           <FormLabel>Subject</FormLabel>
                           <FormControl>
                             <div className="flex items-center gap-1">
-                              <Input {...field} placeholder="Email subject line" data-testid="input-subject" className="flex-1" />
+                              <Input {...field} ref={campaignSubjectRef} placeholder="Email subject line" data-testid="input-subject" className="flex-1" />
                               <MergeTagPicker
                                 onInsert={(tag) => field.onChange(field.value + tag)}
+                                inputRef={campaignSubjectRef}
+                                value={field.value}
+                                onChange={field.onChange}
                               />
                             </div>
                           </FormControl>
@@ -632,12 +640,16 @@ export default function Emails() {
                               <Textarea
                                 rows={10}
                                 {...field}
+                                ref={campaignContentRef}
                                 placeholder="Write your email content here..."
                                 data-testid="input-content"
                                 className="flex-1"
                               />
                               <MergeTagPicker
                                 onInsert={(tag) => field.onChange(field.value + tag)}
+                                inputRef={campaignContentRef}
+                                value={field.value}
+                                onChange={field.onChange}
                               />
                             </div>
                           </FormControl>
@@ -729,9 +741,12 @@ export default function Emails() {
                           <FormLabel>Subject Line</FormLabel>
                           <FormControl>
                             <div className="flex items-center gap-1">
-                              <Input {...field} placeholder="Email subject" data-testid="input-template-subject" className="flex-1" />
+                              <Input {...field} ref={templateSubjectRef} placeholder="Email subject" data-testid="input-template-subject" className="flex-1" />
                               <MergeTagPicker
                                 onInsert={(tag) => field.onChange(field.value + tag)}
+                                inputRef={templateSubjectRef}
+                                value={field.value}
+                                onChange={field.onChange}
                               />
                             </div>
                           </FormControl>
@@ -750,12 +765,16 @@ export default function Emails() {
                               <Textarea
                                 rows={12}
                                 {...field}
+                                ref={templateContentRef}
                                 placeholder="Write your email template content here. Use merge tags like {{event.name}}, {{attendee.firstName}}..."
                                 data-testid="input-template-content"
                                 className="flex-1"
                               />
                               <MergeTagPicker
                                 onInsert={(tag) => field.onChange(field.value + tag)}
+                                inputRef={templateContentRef}
+                                value={field.value}
+                                onChange={field.onChange}
                               />
                             </div>
                           </FormControl>
