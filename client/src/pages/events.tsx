@@ -38,7 +38,12 @@ export default function Events() {
 
   // Fetch attendees for selected event
   const { data: eventAttendees, isLoading: attendeesLoading } = useQuery<Attendee[]>({
-    queryKey: ["/api/attendees", { eventId: selectedEvent?.id }],
+    queryKey: ["/api/attendees", selectedEvent?.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/attendees?eventId=${selectedEvent?.id}`);
+      if (!res.ok) throw new Error("Failed to fetch attendees");
+      return res.json();
+    },
     enabled: !!selectedEvent,
   });
 
