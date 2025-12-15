@@ -46,6 +46,7 @@ interface ValidatedInviteCode {
   discountValue: string | null;
   packageId: string | null;
   attendeeTypeId: string | null;
+  forcePackage: boolean | null;
 }
 
 interface PaymentConfig {
@@ -460,12 +461,15 @@ export default function PublicRegistration() {
   });
 
   const availablePackages = useMemo(() => {
+    if (unlockedPackage && validatedCode?.forcePackage) {
+      return [unlockedPackage];
+    }
     const packages = [...publicPackages];
     if (unlockedPackage && !packages.find(p => p.id === unlockedPackage.id)) {
       packages.push(unlockedPackage);
     }
     return packages;
-  }, [publicPackages, unlockedPackage]);
+  }, [publicPackages, unlockedPackage, validatedCode]);
 
   const selectedPackage = useMemo(() => {
     return availablePackages.find(p => p.id === selectedPackageId) || null;

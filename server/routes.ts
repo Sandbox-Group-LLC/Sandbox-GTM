@@ -2068,6 +2068,7 @@ export async function registerRoutes(
           discountValue: inviteCode.discountValue,
           packageId: inviteCode.packageId,
           attendeeTypeId: inviteCode.attendeeTypeId,
+          forcePackage: inviteCode.forcePackage ?? false,
         },
         unlockedPackage,
       });

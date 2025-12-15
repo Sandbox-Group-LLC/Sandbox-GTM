@@ -149,6 +149,7 @@ export const inviteCodes = pgTable("invite_codes", {
   usedCount: integer("used_count").default(0),
   attendeeTypeId: varchar("attendee_type_id").references(() => attendeeTypes.id),
   packageId: varchar("package_id").references(() => packages.id),
+  forcePackage: boolean("force_package").default(false),
   discountType: varchar("discount_type", { length: 20 }),
   discountValue: decimal("discount_value", { precision: 10, scale: 2 }),
   isActive: boolean("is_active").default(true),

@@ -73,6 +73,7 @@ const inviteCodeFormSchema = z.object({
   quantity: z.coerce.number().min(1).nullable(),
   attendeeTypeId: z.string().nullable(),
   packageId: z.string().nullable(),
+  forcePackage: z.boolean().default(false),
   discountType: z.string().nullable(),
   discountValue: z.coerce.number().min(0).nullable(),
   isActive: z.boolean().default(true),
@@ -126,6 +127,7 @@ export default function InviteCodes() {
       quantity: null,
       attendeeTypeId: null,
       packageId: null,
+      forcePackage: false,
       discountType: null,
       discountValue: null,
       isActive: true,
@@ -133,6 +135,7 @@ export default function InviteCodes() {
   });
 
   const watchDiscountType = form.watch("discountType");
+  const watchPackageId = form.watch("packageId");
 
   const formEventId = form.watch("eventId");
 
@@ -270,6 +273,7 @@ export default function InviteCodes() {
       quantity: isUnlimited ? null : data.quantity,
       attendeeTypeId: data.attendeeTypeId || null,
       packageId: data.packageId || null,
+      forcePackage: data.packageId ? data.forcePackage : false,
       discountType: data.discountType || null,
       discountValue: data.discountType ? data.discountValue : null,
     };
@@ -289,6 +293,7 @@ export default function InviteCodes() {
       quantity: code.quantity,
       attendeeTypeId: code.attendeeTypeId || null,
       packageId: code.packageId || null,
+      forcePackage: code.forcePackage ?? false,
       discountType: code.discountType || null,
       discountValue: code.discountValue ? Number(code.discountValue) : null,
       isActive: code.isActive ?? true,
@@ -487,6 +492,30 @@ export default function InviteCodes() {
                         </FormItem>
                       )}
                     />
+
+                    {watchPackageId && (
+                      <FormField
+                        control={form.control}
+                        name="forcePackage"
+                        render={({ field }) => (
+                          <FormItem className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <FormLabel>Force Package</FormLabel>
+                              <FormDescription>
+                                Only show this package during registration (hide all other packages)
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                                data-testid="switch-force-package"
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    )}
 
                     <FormField
                       control={form.control}
