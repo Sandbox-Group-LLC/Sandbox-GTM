@@ -9,6 +9,118 @@ import { useState, useEffect, useMemo } from "react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import type { Event, EventSession, Speaker, EventPage, EventPageTheme } from "@shared/schema";
 import { replaceMergeTags, type MergeTagContext } from "@shared/mergeTags";
+import { sanitizeCustomCss } from "@shared/css-sanitizer";
+
+export { sanitizeCustomCss };
+
+/**
+ * Scopes custom CSS by prefixing all rules with .event-page-custom
+ * This prevents CSS leakage to the admin shell or other parts of the app
+ */
+export function scopeCustomCss(css: string): string {
+  if (!css || !css.trim()) return '';
+  
+  // Split by } to find individual rules, then process each
+  // This is a simplified parser that handles most common CSS patterns
+  const result: string[] = [];
+  let depth = 0;
+  let currentRule = '';
+  let inAtRule = false;
+  let atRuleContent = '';
+  
+  for (let i = 0; i < css.length; i++) {
+    const char = css[i];
+    
+    if (char === '@' && depth === 0) {
+      inAtRule = true;
+    }
+    
+    if (char === '{') {
+      depth++;
+      if (inAtRule && depth === 1) {
+        // This is the opening of an @-rule block (like @media)
+        atRuleContent = currentRule + '{';
+        currentRule = '';
+        continue;
+      }
+    }
+    
+    if (char === '}') {
+      depth--;
+      if (depth === 0) {
+        if (inAtRule) {
+          // End of @-rule block
+          // Process the inner rules with scoping
+          const innerScoped = scopeInnerRules(currentRule);
+          result.push(atRuleContent + innerScoped + '}');
+          atRuleContent = '';
+          currentRule = '';
+          inAtRule = false;
+        } else {
+          // End of a regular rule
+          currentRule += '}';
+          const scoped = scopeSingleRule(currentRule);
+          if (scoped) result.push(scoped);
+          currentRule = '';
+        }
+        continue;
+      }
+    }
+    
+    currentRule += char;
+  }
+  
+  return result.join('\n');
+}
+
+function scopeInnerRules(innerCss: string): string {
+  const result: string[] = [];
+  let currentRule = '';
+  let depth = 0;
+  
+  for (let i = 0; i < innerCss.length; i++) {
+    const char = innerCss[i];
+    if (char === '{') depth++;
+    if (char === '}') {
+      depth--;
+      if (depth === 0) {
+        currentRule += '}';
+        const scoped = scopeSingleRule(currentRule);
+        if (scoped) result.push(scoped);
+        currentRule = '';
+        continue;
+      }
+    }
+    currentRule += char;
+  }
+  
+  return result.join('\n');
+}
+
+function scopeSingleRule(rule: string): string {
+  const trimmed = rule.trim();
+  if (!trimmed) return '';
+  
+  const braceIndex = trimmed.indexOf('{');
+  if (braceIndex === -1) return '';
+  
+  const selector = trimmed.slice(0, braceIndex).trim();
+  const body = trimmed.slice(braceIndex);
+  
+  // Handle multiple selectors separated by commas
+  const selectors = selector.split(',').map(s => s.trim()).filter(Boolean);
+  const scopedSelectors = selectors.map(s => {
+    // Skip if already scoped
+    if (s.includes('.event-page-custom')) return s;
+    // Handle :root, html, body specially - they become .event-page-custom
+    if (s === ':root' || s === 'html' || s === 'body') {
+      return '.event-page-custom';
+    }
+    return `.event-page-custom ${s}`;
+  });
+  
+  return scopedSelectors.join(', ') + ' ' + body;
+}
 
 export function GoogleFontsLoader({ fonts }: { fonts: string[] }) {
   const uniqueFonts = useMemo(() => [...new Set(fonts.filter(Boolean))], [fonts]);
@@ -68,11 +180,20 @@ export function getThemeStyles(theme: EventPageTheme | null | undefined): React.
   } as React.CSSProperties;
 }
 
+export interface SectionStyles {
+  backgroundColor?: string;
+  textColor?: string;
+  paddingTop?: 'none' | 'small' | 'medium' | 'large';
+  paddingBottom?: 'none' | 'small' | 'medium' | 'large';
+  customClass?: string;
+}
+
 export interface Section {
   id: string;
   type: string;
   order: number;
   config: Record<string, unknown>;
+  styles?: SectionStyles;
 }
 
 interface PublicEventData {
@@ -133,8 +254,11 @@ export default function PublicEvent() {
     return (
       <>
         <GoogleFontsLoader fonts={fontsToLoad} />
+        {theme?.customCss && (
+          <style dangerouslySetInnerHTML={{ __html: scopeCustomCss(sanitizeCustomCss(theme.customCss)) }} />
+        )}
         <div 
-          className="min-h-screen overflow-y-auto"
+          className="event-page-custom min-h-screen overflow-y-auto"
           style={{
             ...themeStyles,
             backgroundColor: theme?.backgroundColor || undefined,
@@ -306,16 +430,41 @@ export default function PublicEvent() {
   );
 }
 
+const SECTION_PADDING_MAP: Record<string, string> = {
+  none: "0",
+  small: "1rem",
+  medium: "2rem",
+  large: "4rem",
+};
+
 export function SectionRenderer({ section, event, sessions, speakers, theme, isHighlighted }: { section: Section; event: Event; sessions?: EventSession[]; speakers?: Speaker[]; theme?: EventPageTheme | null; isHighlighted?: boolean }) {
   const config = section.config;
+  const styles = section.styles;
   const isFullWidth = theme?.containerWidth === "full";
   const isHtmlSection = section.type === "html";
   
+  const sectionWrapperStyles: React.CSSProperties = {
+    backgroundColor: styles?.backgroundColor || undefined,
+    color: styles?.textColor || undefined,
+    paddingTop: SECTION_PADDING_MAP[styles?.paddingTop || "none"] || undefined,
+    paddingBottom: SECTION_PADDING_MAP[styles?.paddingBottom || "none"] || undefined,
+  };
+  
   const wrapWithMargins = (content: React.ReactNode) => {
+    let wrapped = content;
     if (isFullWidth && !isHtmlSection) {
-      return <div style={{ marginLeft: "10%", marginRight: "10%" }}>{content}</div>;
+      wrapped = <div style={{ marginLeft: "10%", marginRight: "10%" }}>{wrapped}</div>;
     }
-    return content;
+    // Always wrap sections consistently with section-type class for styling hooks
+    wrapped = (
+      <div 
+        className={`section-${section.type} ${styles?.customClass || ""}`.trim()}
+        style={sectionWrapperStyles}
+      >
+        {wrapped}
+      </div>
+    );
+    return wrapped;
   };
   
   const mergeTagContext: MergeTagContext = {

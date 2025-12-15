@@ -186,6 +186,7 @@ export const eventPages = pgTable("event_pages", {
     containerWidth?: 'narrow' | 'standard' | 'wide' | 'full';
     sectionSpacing?: 'compact' | 'normal' | 'relaxed';
     textDecoration?: 'none' | 'underline' | 'uppercase' | 'capitalize';
+    customCss?: string;
   }>(),
   seo: jsonb("seo").$type<{ title?: string; description?: string; ogImage?: string }>(),
   sections: jsonb("sections").$type<Array<{
@@ -193,6 +194,13 @@ export const eventPages = pgTable("event_pages", {
     type: string;
     order: number;
     config: Record<string, unknown>;
+    styles?: {
+      backgroundColor?: string;
+      textColor?: string;
+      paddingTop?: 'none' | 'small' | 'medium' | 'large';
+      paddingBottom?: 'none' | 'small' | 'medium' | 'large';
+      customClass?: string;
+    };
   }>>(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

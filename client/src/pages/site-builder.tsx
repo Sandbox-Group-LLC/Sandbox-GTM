@@ -24,6 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -60,7 +61,7 @@ import {
 } from "lucide-react";
 import type { Event, EventPage, EventPageTheme } from "@shared/schema";
 import { MergeTagPicker } from "@/components/merge-tag-picker";
-import { SectionRenderer, GoogleFontsLoader, getThemeStyles } from "@/pages/public-event";
+import { SectionRenderer, GoogleFontsLoader, getThemeStyles, scopeCustomCss, sanitizeCustomCss } from "@/pages/public-event";
 import { eventTemplates, TEMPLATE_CATEGORIES, type EventTemplate, type TemplateCategory } from "@/lib/site-templates";
 import {
   AlertDialog,
@@ -77,11 +78,20 @@ type PageType = "landing" | "registration" | "portal";
 
 type SectionType = "hero" | "text" | "cta" | "features" | "countdown" | "speakers" | "agenda" | "faq" | "testimonials" | "gallery" | "html" | "sponsors" | "map" | "video" | "footer";
 
+interface SectionStyles {
+  backgroundColor?: string;
+  textColor?: string;
+  paddingTop?: 'none' | 'small' | 'medium' | 'large';
+  paddingBottom?: 'none' | 'small' | 'medium' | 'large';
+  customClass?: string;
+}
+
 interface Section {
   id: string;
   type: SectionType;
   order: number;
   config: Record<string, unknown>;
+  styles?: SectionStyles;
 }
 
 const PAGE_TYPES: { value: PageType; label: string; description: string }[] = [
@@ -327,19 +337,29 @@ export default function SiteBuilder() {
     saveMutation.mutate({ pageType: activeTab, sections: updatedSections });
   };
 
-  const handleUpdateSection = (sectionId: string, config: Record<string, unknown>) => {
-    const updatedSections = sections.map((s) =>
-      s.id === sectionId ? { ...s, config } : s
-    );
+  const handleUpdateSection = (sectionId: string, config: Record<string, unknown>, styles?: SectionStyles) => {
+    const updatedSections = sections.map((s) => {
+      if (s.id !== sectionId) return s;
+      // Merge styles instead of replacing to preserve existing style overrides
+      const mergedStyles = styles !== undefined 
+        ? { ...(s.styles || {}), ...styles }
+        : s.styles;
+      return { ...s, config, styles: mergedStyles };
+    });
     saveMutation.mutate({ pageType: activeTab, sections: updatedSections });
     setIsSectionEditorOpen(false);
     setEditingSection(null);
   };
 
   const handleUpdateTheme = (updates: Partial<EventPageTheme>) => {
+    // Sanitize customCss before saving to ensure stored CSS is always safe
+    const sanitizedUpdates = updates.customCss !== undefined
+      ? { ...updates, customCss: sanitizeCustomCss(updates.customCss) }
+      : updates;
+    
     const newTheme: EventPageTheme = {
       ...(previewTheme ?? currentPage?.theme ?? {}),
-      ...updates,
+      ...sanitizedUpdates,
     };
     // Update preview immediately for real-time feedback
     setPreviewTheme(newTheme);
@@ -765,7 +785,7 @@ export default function SiteBuilder() {
             </div>
             <ScrollArea className="h-[calc(100%-48px)]">
               <div 
-                className="p-4"
+                className="event-page-custom p-4"
                 style={{
                   ...getThemeStyles(previewTheme),
                   backgroundColor: previewTheme?.backgroundColor || undefined,
@@ -777,6 +797,9 @@ export default function SiteBuilder() {
                 }}
               >
                 <GoogleFontsLoader fonts={[previewTheme?.headingFont, previewTheme?.bodyFont].filter(Boolean) as string[]} />
+                {previewTheme?.customCss && (
+                  <style dangerouslySetInnerHTML={{ __html: scopeCustomCss(sanitizeCustomCss(previewTheme.customCss)) }} />
+                )}
                 {previewSections.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">Add sections to see preview</div>
                 ) : (
@@ -834,14 +857,14 @@ export default function SiteBuilder() {
           {editingSection && (
             <SectionEditor
               section={editingSection}
-              onSave={(config) => handleUpdateSection(editingSection.id, config)}
+              onSave={(config, styles) => handleUpdateSection(editingSection.id, config, styles)}
               onCancel={() => {
                 setIsSectionEditorOpen(false);
                 setEditingSection(null);
               }}
-              onConfigChange={(config) => {
+              onConfigChange={(config, styles) => {
                 setPreviewSections(prev => prev.map(s => 
-                  s.id === editingSection.id ? { ...s, config } : s
+                  s.id === editingSection.id ? { ...s, config, styles } : s
                 ));
               }}
             />
@@ -965,20 +988,34 @@ export default function SiteBuilder() {
   );
 }
 
+const PADDING_OPTIONS = [
+  { value: "none", label: "None" },
+  { value: "small", label: "Small" },
+  { value: "medium", label: "Medium" },
+  { value: "large", label: "Large" },
+];
+
 interface SectionEditorProps {
   section: Section;
-  onSave: (config: Record<string, unknown>) => void;
+  onSave: (config: Record<string, unknown>, styles?: SectionStyles) => void;
   onCancel: () => void;
-  onConfigChange?: (config: Record<string, unknown>) => void;
+  onConfigChange?: (config: Record<string, unknown>, styles?: SectionStyles) => void;
 }
 
 function SectionEditor({ section, onSave, onCancel, onConfigChange }: SectionEditorProps) {
   const [config, setConfig] = useState<Record<string, unknown>>(section.config);
+  const [styles, setStyles] = useState<SectionStyles>(section.styles || {});
 
   const updateConfig = (key: string, value: unknown) => {
     const newConfig = { ...config, [key]: value };
     setConfig(newConfig);
-    onConfigChange?.(newConfig);
+    onConfigChange?.(newConfig, styles);
+  };
+
+  const updateStyles = (key: keyof SectionStyles, value: string | undefined) => {
+    const newStyles = { ...styles, [key]: value };
+    setStyles(newStyles);
+    onConfigChange?.(config, newStyles);
   };
 
   const renderFields = () => {
@@ -1828,11 +1865,120 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange }: SectionEdi
   return (
     <div className="space-y-4 pt-4">
       {renderFields()}
+      
+      <Accordion type="single" collapsible className="w-full">
+        <AccordionItem value="section-styling">
+          <AccordionTrigger data-testid="accordion-section-styling">
+            <div className="flex items-center gap-2">
+              <Palette className="h-4 w-4" />
+              Section Styling
+            </div>
+          </AccordionTrigger>
+          <AccordionContent>
+            <div className="space-y-4 pt-2">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="section-bg-color">Background Color</Label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      id="section-bg-color"
+                      value={styles.backgroundColor || "#ffffff"}
+                      onChange={(e) => updateStyles("backgroundColor", e.target.value)}
+                      className="h-9 w-12 rounded border cursor-pointer"
+                      data-testid="input-section-bg-color"
+                    />
+                    <Input
+                      value={styles.backgroundColor || ""}
+                      onChange={(e) => updateStyles("backgroundColor", e.target.value || undefined)}
+                      placeholder="Default"
+                      className="flex-1 font-mono text-sm"
+                      data-testid="input-section-bg-color-text"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="section-text-color">Text Color</Label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      id="section-text-color"
+                      value={styles.textColor || "#1f2937"}
+                      onChange={(e) => updateStyles("textColor", e.target.value)}
+                      className="h-9 w-12 rounded border cursor-pointer"
+                      data-testid="input-section-text-color"
+                    />
+                    <Input
+                      value={styles.textColor || ""}
+                      onChange={(e) => updateStyles("textColor", e.target.value || undefined)}
+                      placeholder="Default"
+                      className="flex-1 font-mono text-sm"
+                      data-testid="input-section-text-color-text"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="padding-top">Padding Top</Label>
+                  <Select
+                    value={styles.paddingTop || "medium"}
+                    onValueChange={(value) => updateStyles("paddingTop", value as SectionStyles["paddingTop"])}
+                  >
+                    <SelectTrigger data-testid="select-section-padding-top">
+                      <SelectValue placeholder="Select padding" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PADDING_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="padding-bottom">Padding Bottom</Label>
+                  <Select
+                    value={styles.paddingBottom || "medium"}
+                    onValueChange={(value) => updateStyles("paddingBottom", value as SectionStyles["paddingBottom"])}
+                  >
+                    <SelectTrigger data-testid="select-section-padding-bottom">
+                      <SelectValue placeholder="Select padding" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PADDING_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="custom-class">Custom CSS Class</Label>
+                <Input
+                  id="custom-class"
+                  value={styles.customClass || ""}
+                  onChange={(e) => updateStyles("customClass", e.target.value || undefined)}
+                  placeholder="my-custom-class"
+                  data-testid="input-section-custom-class"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Add custom CSS classes to this section for advanced styling
+                </p>
+              </div>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
+
       <div className="flex justify-end gap-2 pt-4">
         <Button variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button onClick={() => onSave(config)} data-testid="button-save-section">
+        <Button onClick={() => onSave(config, styles)} data-testid="button-save-section">
           Save Changes
         </Button>
       </div>
@@ -2200,6 +2346,35 @@ function StylesEditor({ theme, onUpdateTheme, isPending }: StylesEditorProps) {
               </SelectContent>
             </Select>
           </div>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Code className="h-5 w-5 text-muted-foreground" />
+          <h4 className="font-medium">Custom CSS</h4>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="customCss">Custom Styles</Label>
+          <Textarea
+            id="customCss"
+            value={theme.customCss || ""}
+            onChange={(e) => onUpdateTheme({ customCss: e.target.value })}
+            disabled={isPending}
+            placeholder={`.event-page-custom h1 {
+  /* Your custom styles */
+}
+
+.event-page-custom .section-hero {
+  /* Hero section overrides */
+}`}
+            rows={10}
+            className="font-mono text-sm"
+            data-testid="textarea-custom-css"
+          />
+          <p className="text-xs text-muted-foreground">
+            Add custom CSS to style your event page. Use the <code className="bg-muted px-1 rounded">.event-page-custom</code> prefix to scope your styles to the event page only.
+          </p>
         </div>
       </div>
     </div>

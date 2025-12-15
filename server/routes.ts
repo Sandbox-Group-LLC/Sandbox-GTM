@@ -37,6 +37,7 @@ import {
   insertCustomFieldSchema,
   insertContentAssetSchema,
 } from "@shared/schema";
+import { sanitizeCustomCss } from "@shared/css-sanitizer";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -2576,8 +2577,15 @@ export async function registerRoutes(
       const organizationId = await getOrganizationId(userId);
       const eventId = req.params.eventId;
       const { theme, ...rest } = req.body;
+      
+      // Sanitize customCss in theme before persisting to prevent XSS
+      const sanitizedTheme = theme ? {
+        ...theme,
+        customCss: theme.customCss ? sanitizeCustomCss(theme.customCss) : undefined
+      } : theme;
+      
       const data = insertEventPageSchema.parse({ ...rest, organizationId, eventId });
-      const page = await storage.upsertEventPage({ ...data, theme });
+      const page = await storage.upsertEventPage({ ...data, theme: sanitizedTheme });
       res.status(201).json(page);
     } catch (error) {
       logError("Error creating/updating event page:", error);
@@ -2589,7 +2597,17 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
-      const page = await storage.updateEventPage(organizationId, req.params.id, req.body);
+      
+      // Sanitize customCss in theme before persisting to prevent XSS
+      const updateData = { ...req.body };
+      if (updateData.theme?.customCss) {
+        updateData.theme = {
+          ...updateData.theme,
+          customCss: sanitizeCustomCss(updateData.theme.customCss)
+        };
+      }
+      
+      const page = await storage.updateEventPage(organizationId, req.params.id, updateData);
       if (!page) {
         return res.status(404).json({ message: "Page not found" });
       }
