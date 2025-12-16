@@ -1320,6 +1320,12 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
       const regHeading = config.heading as string || "";
       const regDescription = config.description as string || "";
       const showRegHeading = config.showHeading !== false;
+      const previewInputStyles: React.CSSProperties = {
+        backgroundColor: theme?.backgroundColor || "#ffffff",
+        borderColor: theme?.borderColor || "#e5e7eb",
+        borderRadius: themeRadius,
+        color: theme?.textColor || "#1f2937",
+      };
       
       return wrapWithMargins(
         <div data-testid={`section-registration-form-${section.id}`} className="registration-form-container">
@@ -1331,13 +1337,65 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
           )}
           <div className="max-w-2xl mx-auto">
             <div className="p-6 rounded-lg border" style={{ ...cardStyles, borderRadius: themeRadius }}>
-              <p className="text-center" style={secondaryTextStyles}>
-                Registration form will be loaded here.
-              </p>
-              <div className="mt-4 text-center">
-                <Button asChild style={buttonStyles}>
-                  <a href={`/event/${event.publicSlug}/register`}>Go to Registration</a>
-                </Button>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium" style={{ color: theme?.textColor || "#1f2937" }}>
+                      First Name<span className="text-destructive ml-1">*</span>
+                    </label>
+                    <input 
+                      type="text" 
+                      placeholder="John" 
+                      disabled
+                      className="w-full h-10 px-3 border rounded-md bg-muted/50"
+                      style={previewInputStyles}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium" style={{ color: theme?.textColor || "#1f2937" }}>
+                      Last Name<span className="text-destructive ml-1">*</span>
+                    </label>
+                    <input 
+                      type="text" 
+                      placeholder="Doe" 
+                      disabled
+                      className="w-full h-10 px-3 border rounded-md bg-muted/50"
+                      style={previewInputStyles}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium" style={{ color: theme?.textColor || "#1f2937" }}>
+                    Email<span className="text-destructive ml-1">*</span>
+                  </label>
+                  <input 
+                    type="email" 
+                    placeholder="john.doe@example.com" 
+                    disabled
+                    className="w-full h-10 px-3 border rounded-md bg-muted/50"
+                    style={previewInputStyles}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium" style={{ color: theme?.textColor || "#1f2937" }}>
+                    Company
+                  </label>
+                  <input 
+                    type="text" 
+                    placeholder="Acme Inc." 
+                    disabled
+                    className="w-full h-10 px-3 border rounded-md bg-muted/50"
+                    style={previewInputStyles}
+                  />
+                </div>
+                <div className="pt-4">
+                  <Button className="w-full" style={buttonStyles} asChild>
+                    <a href={`/event/${event.publicSlug}/register`}>Continue to Registration</a>
+                  </Button>
+                </div>
+                <p className="text-xs text-center" style={{ color: theme?.textSecondaryColor || "#6b7280" }}>
+                  This is a preview. Click the button above to access the full registration form.
+                </p>
               </div>
             </div>
           </div>
