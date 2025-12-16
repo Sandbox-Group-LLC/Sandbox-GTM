@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import ExcelJS from "exceljs";
+import Papa from "papaparse";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -203,50 +204,19 @@ export default function ImportAttendees() {
     };
   };
 
-  const parseCsvData = useCallback((csvText: string) => {
-    const lines = csvText.split(/\r?\n/).filter(line => line.trim());
-    if (lines.length < 2) {
-      return [];
+  const parseCsvData = useCallback((csvText: string): Record<string, string>[] => {
+    const result = Papa.parse<Record<string, string>>(csvText, {
+      header: true,
+      skipEmptyLines: true,
+      transformHeader: (header: string) => header.trim(),
+      transform: (value: string) => value.trim(),
+    });
+    
+    if (result.errors.length > 0) {
+      console.warn("CSV parsing warnings:", result.errors);
     }
     
-    const parseCSVLine = (line: string): string[] => {
-      const result: string[] = [];
-      let current = '';
-      let inQuotes = false;
-      
-      for (let i = 0; i < line.length; i++) {
-        const char = line[i];
-        if (char === '"') {
-          if (inQuotes && line[i + 1] === '"') {
-            current += '"';
-            i++;
-          } else {
-            inQuotes = !inQuotes;
-          }
-        } else if (char === ',' && !inQuotes) {
-          result.push(current.trim());
-          current = '';
-        } else {
-          current += char;
-        }
-      }
-      result.push(current.trim());
-      return result;
-    };
-    
-    const headers = parseCSVLine(lines[0]);
-    const jsonData: Record<string, string>[] = [];
-    
-    for (let i = 1; i < lines.length; i++) {
-      const values = parseCSVLine(lines[i]);
-      const row: Record<string, string> = {};
-      headers.forEach((header, idx) => {
-        row[header] = values[idx] || '';
-      });
-      jsonData.push(row);
-    }
-    
-    return jsonData;
+    return result.data;
   }, []);
 
   const parseExcelFile = useCallback(async (file: File) => {
@@ -492,20 +462,35 @@ export default function ImportAttendees() {
 
   const downloadTemplate = async () => {
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet("Attendees");
+    workbook.creator = "Event Management System";
+    workbook.created = new Date();
+    
+    const worksheet = workbook.addWorksheet("Attendees", {
+      properties: { defaultRowHeight: 20 },
+    });
     
     worksheet.columns = [
       { header: "firstName", key: "firstName", width: 15 },
       { header: "lastName", key: "lastName", width: 15 },
-      { header: "email", key: "email", width: 25 },
-      { header: "phone", key: "phone", width: 15 },
-      { header: "company", key: "company", width: 20 },
-      { header: "jobTitle", key: "jobTitle", width: 20 },
+      { header: "email", key: "email", width: 30 },
+      { header: "phone", key: "phone", width: 18 },
+      { header: "company", key: "company", width: 22 },
+      { header: "jobTitle", key: "jobTitle", width: 22 },
       { header: "attendeeType", key: "attendeeType", width: 15 },
       { header: "ticketType", key: "ticketType", width: 15 },
-      { header: "registrationStatus", key: "registrationStatus", width: 18 },
-      { header: "notes", key: "notes", width: 30 },
+      { header: "registrationStatus", key: "registrationStatus", width: 20 },
+      { header: "notes", key: "notes", width: 35 },
     ];
+    
+    const headerRow = worksheet.getRow(1);
+    headerRow.font = { bold: true };
+    headerRow.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FFE0E0E0" },
+    };
+    headerRow.alignment = { vertical: "middle", horizontal: "left" };
+    headerRow.height = 22;
     
     worksheet.addRow({
       firstName: "John",
