@@ -95,6 +95,21 @@ import {
   type InsertContentAsset,
   type EventSponsor,
   type InsertEventSponsor,
+  cfpConfigs,
+  cfpTopics,
+  cfpSubmissions,
+  cfpReviewers,
+  cfpReviews,
+  type CfpConfig,
+  type InsertCfpConfig,
+  type CfpTopic,
+  type InsertCfpTopic,
+  type CfpSubmission,
+  type InsertCfpSubmission,
+  type CfpReviewer,
+  type InsertCfpReviewer,
+  type CfpReview,
+  type InsertCfpReview,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, ilike, or, isNull } from "drizzle-orm";
@@ -325,6 +340,40 @@ export interface IStorage {
   getContentAssets(organizationId: string): Promise<ContentAsset[]>;
   getContentAsset(id: string, organizationId: string): Promise<ContentAsset | undefined>;
   deleteContentAsset(id: string, organizationId: string): Promise<void>;
+
+  // CFP Config operations
+  getCfpConfig(eventId: number, organizationId: string): Promise<CfpConfig | undefined>;
+  createCfpConfig(config: InsertCfpConfig): Promise<CfpConfig>;
+  updateCfpConfig(id: number, organizationId: string, updates: Partial<InsertCfpConfig>): Promise<CfpConfig | undefined>;
+
+  // CFP Topic operations
+  getCfpTopics(cfpConfigId: number, organizationId: string): Promise<CfpTopic[]>;
+  createCfpTopic(topic: InsertCfpTopic): Promise<CfpTopic>;
+  updateCfpTopic(id: number, organizationId: string, updates: Partial<InsertCfpTopic>): Promise<CfpTopic | undefined>;
+  deleteCfpTopic(id: number, organizationId: string): Promise<boolean>;
+
+  // CFP Submission operations
+  getCfpSubmissions(cfpConfigId: number, organizationId: string): Promise<CfpSubmission[]>;
+  getCfpSubmission(id: number, organizationId: string): Promise<CfpSubmission | undefined>;
+  createCfpSubmission(submission: InsertCfpSubmission): Promise<CfpSubmission>;
+  updateCfpSubmission(id: number, organizationId: string, updates: Partial<InsertCfpSubmission>): Promise<CfpSubmission | undefined>;
+  deleteCfpSubmission(id: number, organizationId: string): Promise<boolean>;
+  getCfpSubmissionsByEmail(cfpConfigId: number, email: string): Promise<CfpSubmission[]>;
+
+  // CFP Reviewer operations
+  getCfpReviewers(cfpConfigId: number, organizationId: string): Promise<CfpReviewer[]>;
+  getCfpReviewer(id: number, organizationId: string): Promise<CfpReviewer | undefined>;
+  getCfpReviewerByEmail(cfpConfigId: number, email: string): Promise<CfpReviewer | undefined>;
+  createCfpReviewer(reviewer: InsertCfpReviewer): Promise<CfpReviewer>;
+  updateCfpReviewer(id: number, organizationId: string, updates: Partial<InsertCfpReviewer>): Promise<CfpReviewer | undefined>;
+  deleteCfpReviewer(id: number, organizationId: string): Promise<boolean>;
+
+  // CFP Review operations
+  getCfpReviews(submissionId: number, organizationId: string): Promise<CfpReview[]>;
+  getCfpReviewsByReviewer(reviewerId: number, organizationId: string): Promise<CfpReview[]>;
+  createCfpReview(review: InsertCfpReview): Promise<CfpReview>;
+  updateCfpReview(id: number, organizationId: string, updates: Partial<InsertCfpReview>): Promise<CfpReview | undefined>;
+  assignReviewerToSubmission(submissionId: number, reviewerId: number, organizationId: string): Promise<CfpReview>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1563,6 +1612,166 @@ export class DatabaseStorage implements IStorage {
 
   async deleteBudgetPayment(organizationId: string, id: string): Promise<void> {
     await db.delete(budgetPayments).where(and(eq(budgetPayments.organizationId, organizationId), eq(budgetPayments.id, id)));
+  }
+
+  // CFP Config operations
+  async getCfpConfig(eventId: number, organizationId: string): Promise<CfpConfig | undefined> {
+    const [config] = await db.select().from(cfpConfigs)
+      .where(and(eq(cfpConfigs.eventId, eventId), eq(cfpConfigs.organizationId, organizationId)));
+    return config;
+  }
+
+  async createCfpConfig(config: InsertCfpConfig): Promise<CfpConfig> {
+    const [newConfig] = await db.insert(cfpConfigs).values(config).returning();
+    return newConfig;
+  }
+
+  async updateCfpConfig(id: number, organizationId: string, updates: Partial<InsertCfpConfig>): Promise<CfpConfig | undefined> {
+    const [updated] = await db
+      .update(cfpConfigs)
+      .set(updates)
+      .where(and(eq(cfpConfigs.id, id), eq(cfpConfigs.organizationId, organizationId)))
+      .returning();
+    return updated;
+  }
+
+  // CFP Topic operations
+  async getCfpTopics(cfpConfigId: number, organizationId: string): Promise<CfpTopic[]> {
+    return db.select().from(cfpTopics)
+      .where(and(eq(cfpTopics.cfpConfigId, cfpConfigId), eq(cfpTopics.organizationId, organizationId)))
+      .orderBy(cfpTopics.sortOrder);
+  }
+
+  async createCfpTopic(topic: InsertCfpTopic): Promise<CfpTopic> {
+    const [newTopic] = await db.insert(cfpTopics).values(topic).returning();
+    return newTopic;
+  }
+
+  async updateCfpTopic(id: number, organizationId: string, updates: Partial<InsertCfpTopic>): Promise<CfpTopic | undefined> {
+    const [updated] = await db
+      .update(cfpTopics)
+      .set(updates)
+      .where(and(eq(cfpTopics.id, id), eq(cfpTopics.organizationId, organizationId)))
+      .returning();
+    return updated;
+  }
+
+  async deleteCfpTopic(id: number, organizationId: string): Promise<boolean> {
+    const result = await db.delete(cfpTopics)
+      .where(and(eq(cfpTopics.id, id), eq(cfpTopics.organizationId, organizationId)));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // CFP Submission operations
+  async getCfpSubmissions(cfpConfigId: number, organizationId: string): Promise<CfpSubmission[]> {
+    return db.select().from(cfpSubmissions)
+      .where(and(eq(cfpSubmissions.cfpConfigId, cfpConfigId), eq(cfpSubmissions.organizationId, organizationId)))
+      .orderBy(desc(cfpSubmissions.submittedAt));
+  }
+
+  async getCfpSubmission(id: number, organizationId: string): Promise<CfpSubmission | undefined> {
+    const [submission] = await db.select().from(cfpSubmissions)
+      .where(and(eq(cfpSubmissions.id, id), eq(cfpSubmissions.organizationId, organizationId)));
+    return submission;
+  }
+
+  async createCfpSubmission(submission: InsertCfpSubmission): Promise<CfpSubmission> {
+    const [newSubmission] = await db.insert(cfpSubmissions).values(submission).returning();
+    return newSubmission;
+  }
+
+  async updateCfpSubmission(id: number, organizationId: string, updates: Partial<InsertCfpSubmission>): Promise<CfpSubmission | undefined> {
+    const [updated] = await db
+      .update(cfpSubmissions)
+      .set(updates)
+      .where(and(eq(cfpSubmissions.id, id), eq(cfpSubmissions.organizationId, organizationId)))
+      .returning();
+    return updated;
+  }
+
+  async deleteCfpSubmission(id: number, organizationId: string): Promise<boolean> {
+    const result = await db.delete(cfpSubmissions)
+      .where(and(eq(cfpSubmissions.id, id), eq(cfpSubmissions.organizationId, organizationId)));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async getCfpSubmissionsByEmail(cfpConfigId: number, email: string): Promise<CfpSubmission[]> {
+    return db.select().from(cfpSubmissions)
+      .where(and(eq(cfpSubmissions.cfpConfigId, cfpConfigId), eq(cfpSubmissions.authorEmail, email)))
+      .orderBy(desc(cfpSubmissions.submittedAt));
+  }
+
+  // CFP Reviewer operations
+  async getCfpReviewers(cfpConfigId: number, organizationId: string): Promise<CfpReviewer[]> {
+    return db.select().from(cfpReviewers)
+      .where(and(eq(cfpReviewers.cfpConfigId, cfpConfigId), eq(cfpReviewers.organizationId, organizationId)));
+  }
+
+  async getCfpReviewer(id: number, organizationId: string): Promise<CfpReviewer | undefined> {
+    const [reviewer] = await db.select().from(cfpReviewers)
+      .where(and(eq(cfpReviewers.id, id), eq(cfpReviewers.organizationId, organizationId)));
+    return reviewer;
+  }
+
+  async getCfpReviewerByEmail(cfpConfigId: number, email: string): Promise<CfpReviewer | undefined> {
+    const [reviewer] = await db.select().from(cfpReviewers)
+      .where(and(eq(cfpReviewers.cfpConfigId, cfpConfigId), eq(cfpReviewers.email, email)));
+    return reviewer;
+  }
+
+  async createCfpReviewer(reviewer: InsertCfpReviewer): Promise<CfpReviewer> {
+    const [newReviewer] = await db.insert(cfpReviewers).values(reviewer).returning();
+    return newReviewer;
+  }
+
+  async updateCfpReviewer(id: number, organizationId: string, updates: Partial<InsertCfpReviewer>): Promise<CfpReviewer | undefined> {
+    const [updated] = await db
+      .update(cfpReviewers)
+      .set(updates)
+      .where(and(eq(cfpReviewers.id, id), eq(cfpReviewers.organizationId, organizationId)))
+      .returning();
+    return updated;
+  }
+
+  async deleteCfpReviewer(id: number, organizationId: string): Promise<boolean> {
+    const result = await db.delete(cfpReviewers)
+      .where(and(eq(cfpReviewers.id, id), eq(cfpReviewers.organizationId, organizationId)));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // CFP Review operations
+  async getCfpReviews(submissionId: number, organizationId: string): Promise<CfpReview[]> {
+    return db.select().from(cfpReviews)
+      .where(and(eq(cfpReviews.submissionId, submissionId), eq(cfpReviews.organizationId, organizationId)));
+  }
+
+  async getCfpReviewsByReviewer(reviewerId: number, organizationId: string): Promise<CfpReview[]> {
+    return db.select().from(cfpReviews)
+      .where(and(eq(cfpReviews.reviewerId, reviewerId), eq(cfpReviews.organizationId, organizationId)));
+  }
+
+  async createCfpReview(review: InsertCfpReview): Promise<CfpReview> {
+    const [newReview] = await db.insert(cfpReviews).values(review).returning();
+    return newReview;
+  }
+
+  async updateCfpReview(id: number, organizationId: string, updates: Partial<InsertCfpReview>): Promise<CfpReview | undefined> {
+    const [updated] = await db
+      .update(cfpReviews)
+      .set(updates)
+      .where(and(eq(cfpReviews.id, id), eq(cfpReviews.organizationId, organizationId)))
+      .returning();
+    return updated;
+  }
+
+  async assignReviewerToSubmission(submissionId: number, reviewerId: number, organizationId: string): Promise<CfpReview> {
+    const [review] = await db.insert(cfpReviews).values({
+      submissionId,
+      reviewerId,
+      organizationId,
+      status: 'assigned',
+    }).returning();
+    return review;
   }
 }
 
