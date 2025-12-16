@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -203,17 +203,67 @@ export default function ImportAttendees() {
     };
   };
 
-  const parseExcelFile = useCallback((file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = e.target?.result;
-        const workbook = XLSX.read(data, { type: "binary" });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json<Record<string, string>>(worksheet, { raw: false });
+  const parseCsvData = useCallback((csvText: string) => {
+    const lines = csvText.split(/\r?\n/).filter(line => line.trim());
+    if (lines.length < 2) {
+      return [];
+    }
+    
+    const parseCSVLine = (line: string): string[] => {
+      const result: string[] = [];
+      let current = '';
+      let inQuotes = false;
+      
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            current += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (char === ',' && !inQuotes) {
+          result.push(current.trim());
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      result.push(current.trim());
+      return result;
+    };
+    
+    const headers = parseCSVLine(lines[0]);
+    const jsonData: Record<string, string>[] = [];
+    
+    for (let i = 1; i < lines.length; i++) {
+      const values = parseCSVLine(lines[i]);
+      const row: Record<string, string> = {};
+      headers.forEach((header, idx) => {
+        row[header] = values[idx] || '';
+      });
+      jsonData.push(row);
+    }
+    
+    return jsonData;
+  }, []);
+
+  const parseExcelFile = useCallback(async (file: File) => {
+    try {
+      const isCsv = file.name.toLowerCase().endsWith('.csv');
+      let jsonData: Record<string, string>[] = [];
+      
+      if (isCsv) {
+        const text = await file.text();
+        jsonData = parseCsvData(text);
+      } else {
+        const arrayBuffer = await file.arrayBuffer();
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(arrayBuffer);
+        const worksheet = workbook.worksheets[0];
         
-        if (jsonData.length === 0) {
+        if (!worksheet || worksheet.rowCount === 0) {
           toast({
             title: "Empty file",
             description: "The uploaded file contains no data",
@@ -221,45 +271,80 @@ export default function ImportAttendees() {
           });
           return;
         }
-
-        const headers = Object.keys(jsonData[0]);
-        setRawHeaders(headers);
-        setRawData(jsonData);
         
-        const autoMapping: Record<string, string> = {};
-        headers.forEach(header => {
-          const lowerHeader = header.toLowerCase().replace(/[^a-z]/g, "");
-          if (lowerHeader.includes("firstname") || lowerHeader === "first") autoMapping.firstName = header;
-          else if (lowerHeader.includes("lastname") || lowerHeader === "last") autoMapping.lastName = header;
-          else if (lowerHeader.includes("email")) autoMapping.email = header;
-          else if (lowerHeader.includes("phone") || lowerHeader.includes("mobile")) autoMapping.phone = header;
-          else if (lowerHeader.includes("company") || lowerHeader.includes("organization")) autoMapping.company = header;
-          else if (lowerHeader.includes("jobtitle") || lowerHeader.includes("title") || lowerHeader.includes("position")) autoMapping.jobTitle = header;
-          else if (lowerHeader.includes("attendeetype") || lowerHeader.includes("type")) autoMapping.attendeeType = header;
-          else if (lowerHeader.includes("tickettype") || lowerHeader.includes("ticket")) autoMapping.ticketType = header;
-          else if (lowerHeader.includes("status")) autoMapping.registrationStatus = header;
-          else if (lowerHeader.includes("notes") || lowerHeader.includes("comments")) autoMapping.notes = header;
+        const headers: string[] = [];
+        const headerRow = worksheet.getRow(1);
+        headerRow.eachCell({ includeEmpty: false }, (cell, colNumber) => {
+          headers[colNumber - 1] = String(cell.value || `Column${colNumber}`);
         });
         
-        setColumnMapping(autoMapping);
-        
-        const parsed = jsonData.map(row => validateRow(row));
-        setParsedData(parsed);
-        
+        for (let rowNum = 2; rowNum <= worksheet.rowCount; rowNum++) {
+          const row = worksheet.getRow(rowNum);
+          const rowData: Record<string, string> = {};
+          let hasData = false;
+          
+          headers.forEach((header, idx) => {
+            const cell = row.getCell(idx + 1);
+            const value = cell.value;
+            if (value !== null && value !== undefined) {
+              hasData = true;
+              rowData[header] = String(value);
+            } else {
+              rowData[header] = '';
+            }
+          });
+          
+          if (hasData) {
+            jsonData.push(rowData);
+          }
+        }
+      }
+      
+      if (jsonData.length === 0) {
         toast({
-          title: "File parsed successfully",
-          description: `Found ${jsonData.length} rows. Please review the column mapping.`,
-        });
-      } catch (error) {
-        toast({
-          title: "Parse error",
-          description: "Failed to parse the file. Please ensure it's a valid Excel or CSV file.",
+          title: "Empty file",
+          description: "The uploaded file contains no data",
           variant: "destructive",
         });
+        return;
       }
-    };
-    reader.readAsBinaryString(file);
-  }, [toast, columnMapping]);
+
+      const headers = Object.keys(jsonData[0]);
+      setRawHeaders(headers);
+      setRawData(jsonData);
+      
+      const autoMapping: Record<string, string> = {};
+      headers.forEach(header => {
+        const lowerHeader = header.toLowerCase().replace(/[^a-z]/g, "");
+        if (lowerHeader.includes("firstname") || lowerHeader === "first") autoMapping.firstName = header;
+        else if (lowerHeader.includes("lastname") || lowerHeader === "last") autoMapping.lastName = header;
+        else if (lowerHeader.includes("email")) autoMapping.email = header;
+        else if (lowerHeader.includes("phone") || lowerHeader.includes("mobile")) autoMapping.phone = header;
+        else if (lowerHeader.includes("company") || lowerHeader.includes("organization")) autoMapping.company = header;
+        else if (lowerHeader.includes("jobtitle") || lowerHeader.includes("title") || lowerHeader.includes("position")) autoMapping.jobTitle = header;
+        else if (lowerHeader.includes("attendeetype") || lowerHeader.includes("type")) autoMapping.attendeeType = header;
+        else if (lowerHeader.includes("tickettype") || lowerHeader.includes("ticket")) autoMapping.ticketType = header;
+        else if (lowerHeader.includes("status")) autoMapping.registrationStatus = header;
+        else if (lowerHeader.includes("notes") || lowerHeader.includes("comments")) autoMapping.notes = header;
+      });
+      
+      setColumnMapping(autoMapping);
+      
+      const parsed = jsonData.map(row => validateRow(row));
+      setParsedData(parsed);
+      
+      toast({
+        title: "File parsed successfully",
+        description: `Found ${jsonData.length} rows. Please review the column mapping.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Parse error",
+        description: "Failed to parse the file. Please ensure it's a valid Excel or CSV file.",
+        variant: "destructive",
+      });
+    }
+  }, [toast, columnMapping, parseCsvData]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -350,10 +435,7 @@ export default function ImportAttendees() {
       if (csvText.trim().startsWith('<!DOCTYPE') || csvText.trim().startsWith('<html')) {
         throw new Error("The spreadsheet is not publicly accessible. Please set sharing to 'Anyone with the link can view' in Google Sheets.");
       }
-      const workbook = XLSX.read(csvText, { type: "string" });
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      const jsonData = XLSX.utils.sheet_to_json<Record<string, string>>(worksheet, { raw: false });
+      const jsonData = parseCsvData(csvText);
       
       if (jsonData.length === 0) {
         toast({
@@ -408,26 +490,44 @@ export default function ImportAttendees() {
     return match ? match[1] : null;
   };
 
-  const downloadTemplate = () => {
-    const template = [
-      {
-        firstName: "John",
-        lastName: "Doe",
-        email: "john.doe@example.com",
-        phone: "+1234567890",
-        company: "Acme Inc",
-        jobTitle: "Software Engineer",
-        attendeeType: "attendee",
-        ticketType: "VIP",
-        registrationStatus: "confirmed",
-        notes: "Special dietary requirements",
-      },
+  const downloadTemplate = async () => {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Attendees");
+    
+    worksheet.columns = [
+      { header: "firstName", key: "firstName", width: 15 },
+      { header: "lastName", key: "lastName", width: 15 },
+      { header: "email", key: "email", width: 25 },
+      { header: "phone", key: "phone", width: 15 },
+      { header: "company", key: "company", width: 20 },
+      { header: "jobTitle", key: "jobTitle", width: 20 },
+      { header: "attendeeType", key: "attendeeType", width: 15 },
+      { header: "ticketType", key: "ticketType", width: 15 },
+      { header: "registrationStatus", key: "registrationStatus", width: 18 },
+      { header: "notes", key: "notes", width: 30 },
     ];
     
-    const ws = XLSX.utils.json_to_sheet(template);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Attendees");
-    XLSX.writeFile(wb, "attendee-import-template.xlsx");
+    worksheet.addRow({
+      firstName: "John",
+      lastName: "Doe",
+      email: "john.doe@example.com",
+      phone: "+1234567890",
+      company: "Acme Inc",
+      jobTitle: "Software Engineer",
+      attendeeType: "attendee",
+      ticketType: "VIP",
+      registrationStatus: "confirmed",
+      notes: "Special dietary requirements",
+    });
+    
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "attendee-import-template.xlsx";
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const resetForm = () => {
