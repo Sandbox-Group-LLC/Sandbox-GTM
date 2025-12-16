@@ -19,6 +19,7 @@ import {
   ChevronRight,
   Building2,
   Shield,
+  ClipboardList,
 } from "lucide-react";
 import logoImage from "@assets/Orange_bug_-_no_background_1765765097769.png";
 import { OnboardingChecklist } from "./onboarding-checklist";
@@ -78,6 +79,10 @@ const eventsSubItems = [
 const projectMenuItems = [
   { title: "Budget", icon: DollarSign, path: "/budget" },
   { title: "Deliverables", icon: CheckSquare, path: "/deliverables" },
+];
+
+const myReviewsItems = [
+  { title: "Reviewer Portal", icon: ClipboardList, path: "/reviewer/portal" },
 ];
 
 const marketingMenuItems = [
@@ -281,6 +286,28 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {projectMenuItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === item.path}
+                    data-testid={`nav-${item.title.toLowerCase().replace(" ", "-")}`}
+                  >
+                    <Link href={item.path}>
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>My Reviews</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {myReviewsItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild

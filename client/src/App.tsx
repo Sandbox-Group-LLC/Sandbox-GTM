@@ -41,6 +41,7 @@ import Rooms from "@/pages/rooms";
 import ImportAttendees from "@/pages/import-attendees";
 import CallForPapers from "@/pages/call-for-papers";
 import PublicCfp from "@/pages/public-cfp";
+import ReviewerPortal from "@/pages/reviewer-portal";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const sidebarStyle = {
@@ -104,6 +105,7 @@ function Router() {
         <Route path="/tracks" component={Tracks} />
         <Route path="/rooms" component={Rooms} />
         <Route path="/call-for-papers" component={CallForPapers} />
+        <Route path="/reviewer/portal" component={ReviewerPortal} />
         <Route path="/speakers" component={Speakers} />
         <Route path="/content" component={Content} />
         <Route path="/budget" component={Budget} />
