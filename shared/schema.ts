@@ -619,6 +619,78 @@ export const socialConnections = pgTable("social_connections", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// CFP (Call for Papers) Configs table - Per-event CFP settings
+export const cfpConfigs = pgTable("cfp_configs", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  eventId: integer("event_id").references(() => events.id).notNull().unique(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  isOpen: boolean("is_open").default(false),
+  title: text("title").default("Call for Papers"),
+  description: text("description"),
+  submissionDeadline: timestamp("submission_deadline"),
+  notificationDate: timestamp("notification_date"),
+  maxAbstractLength: integer("max_abstract_length").default(500),
+  allowMultipleSubmissions: boolean("allow_multiple_submissions").default(true),
+  requiresRegistration: boolean("requires_registration").default(false),
+  guidelines: text("guidelines"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// CFP Topics table - Topics/tracks for submissions
+export const cfpTopics = pgTable("cfp_topics", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  cfpConfigId: integer("cfp_config_id").references(() => cfpConfigs.id).notNull(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  sortOrder: integer("sort_order").default(0),
+});
+
+// CFP Submissions table - Paper/abstract submissions
+export const cfpSubmissions = pgTable("cfp_submissions", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  cfpConfigId: integer("cfp_config_id").references(() => cfpConfigs.id).notNull(),
+  eventId: integer("event_id").references(() => events.id).notNull(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  topicId: integer("topic_id").references(() => cfpTopics.id),
+  title: text("title").notNull(),
+  abstract: text("abstract").notNull(),
+  authorName: text("author_name").notNull(),
+  authorEmail: text("author_email").notNull(),
+  authorAffiliation: text("author_affiliation"),
+  coAuthors: text("co_authors"),
+  keywords: text("keywords"),
+  submissionType: text("submission_type").default("paper"),
+  status: text("status").default("pending"),
+  submittedAt: timestamp("submitted_at").defaultNow(),
+  sessionId: integer("session_id").references(() => eventSessions.id),
+});
+
+// CFP Reviewers table - Reviewer assignments
+export const cfpReviewers = pgTable("cfp_reviewers", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  cfpConfigId: integer("cfp_config_id").references(() => cfpConfigs.id).notNull(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  email: text("email").notNull(),
+  name: text("name").notNull(),
+  assignedTopics: text("assigned_topics").array(),
+});
+
+// CFP Reviews table - Individual reviews
+export const cfpReviews = pgTable("cfp_reviews", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  submissionId: integer("submission_id").references(() => cfpSubmissions.id).notNull(),
+  reviewerId: integer("reviewer_id").references(() => cfpReviewers.id).notNull(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  score: integer("score"),
+  recommendation: text("recommendation"),
+  comments: text("comments"),
+  feedbackToAuthor: text("feedback_to_author"),
+  submittedAt: timestamp("submitted_at"),
+  status: text("status").default("assigned"),
+});
+
 // Relations
 export const organizationsRelations = relations(organizations, ({ many }) => ({
   members: many(organizationMembers),
@@ -793,6 +865,42 @@ export const contentAssetsRelations = relations(contentAssets, ({ one }) => ({
   uploadedByUser: one(users, { fields: [contentAssets.uploadedBy], references: [users.id] }),
 }));
 
+export const cfpConfigsRelations = relations(cfpConfigs, ({ one, many }) => ({
+  event: one(events, { fields: [cfpConfigs.eventId], references: [events.id] }),
+  organization: one(organizations, { fields: [cfpConfigs.organizationId], references: [organizations.id] }),
+  topics: many(cfpTopics),
+  submissions: many(cfpSubmissions),
+  reviewers: many(cfpReviewers),
+}));
+
+export const cfpTopicsRelations = relations(cfpTopics, ({ one, many }) => ({
+  cfpConfig: one(cfpConfigs, { fields: [cfpTopics.cfpConfigId], references: [cfpConfigs.id] }),
+  organization: one(organizations, { fields: [cfpTopics.organizationId], references: [organizations.id] }),
+  submissions: many(cfpSubmissions),
+}));
+
+export const cfpSubmissionsRelations = relations(cfpSubmissions, ({ one, many }) => ({
+  cfpConfig: one(cfpConfigs, { fields: [cfpSubmissions.cfpConfigId], references: [cfpConfigs.id] }),
+  event: one(events, { fields: [cfpSubmissions.eventId], references: [events.id] }),
+  organization: one(organizations, { fields: [cfpSubmissions.organizationId], references: [organizations.id] }),
+  topic: one(cfpTopics, { fields: [cfpSubmissions.topicId], references: [cfpTopics.id] }),
+  session: one(eventSessions, { fields: [cfpSubmissions.sessionId], references: [eventSessions.id] }),
+  reviews: many(cfpReviews),
+}));
+
+export const cfpReviewersRelations = relations(cfpReviewers, ({ one, many }) => ({
+  cfpConfig: one(cfpConfigs, { fields: [cfpReviewers.cfpConfigId], references: [cfpConfigs.id] }),
+  organization: one(organizations, { fields: [cfpReviewers.organizationId], references: [organizations.id] }),
+  user: one(users, { fields: [cfpReviewers.userId], references: [users.id] }),
+  reviews: many(cfpReviews),
+}));
+
+export const cfpReviewsRelations = relations(cfpReviews, ({ one }) => ({
+  submission: one(cfpSubmissions, { fields: [cfpReviews.submissionId], references: [cfpSubmissions.id] }),
+  reviewer: one(cfpReviewers, { fields: [cfpReviews.reviewerId], references: [cfpReviewers.id] }),
+  organization: one(organizations, { fields: [cfpReviews.organizationId], references: [organizations.id] }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true, updatedAt: true });
 export const insertOrganizationSchema = createInsertSchema(organizations).omit({ id: true, createdAt: true, updatedAt: true });
@@ -828,6 +936,11 @@ export const insertRegistrationConfigSchema = createInsertSchema(registrationCon
 export const insertCustomFieldSchema = createInsertSchema(customFields).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertContentAssetSchema = createInsertSchema(contentAssets).omit({ id: true, createdAt: true });
 export const insertEventSponsorSchema = createInsertSchema(eventSponsors).omit({ id: true, createdAt: true });
+export const insertCfpConfigSchema = createInsertSchema(cfpConfigs).omit({ createdAt: true });
+export const insertCfpTopicSchema = createInsertSchema(cfpTopics);
+export const insertCfpSubmissionSchema = createInsertSchema(cfpSubmissions).omit({ submittedAt: true });
+export const insertCfpReviewerSchema = createInsertSchema(cfpReviewers);
+export const insertCfpReviewSchema = createInsertSchema(cfpReviews);
 
 // Types
 export type UpsertUser = typeof users.$inferInsert;
@@ -895,3 +1008,13 @@ export type InsertContentAsset = z.infer<typeof insertContentAssetSchema>;
 export type ContentAsset = typeof contentAssets.$inferSelect;
 export type InsertEventSponsor = z.infer<typeof insertEventSponsorSchema>;
 export type EventSponsor = typeof eventSponsors.$inferSelect;
+export type InsertCfpConfig = z.infer<typeof insertCfpConfigSchema>;
+export type CfpConfig = typeof cfpConfigs.$inferSelect;
+export type InsertCfpTopic = z.infer<typeof insertCfpTopicSchema>;
+export type CfpTopic = typeof cfpTopics.$inferSelect;
+export type InsertCfpSubmission = z.infer<typeof insertCfpSubmissionSchema>;
+export type CfpSubmission = typeof cfpSubmissions.$inferSelect;
+export type InsertCfpReviewer = z.infer<typeof insertCfpReviewerSchema>;
+export type CfpReviewer = typeof cfpReviewers.$inferSelect;
+export type InsertCfpReview = z.infer<typeof insertCfpReviewSchema>;
+export type CfpReview = typeof cfpReviews.$inferSelect;
