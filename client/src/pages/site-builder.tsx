@@ -1671,14 +1671,14 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId }: S
                     <div className="space-y-2">
                       <Label>Heading Font</Label>
                       <Select
-                        value={(config.headingFont as string) || ""}
-                        onValueChange={(value) => updateConfig("headingFont", value)}
+                        value={(config.headingFont as string) || "theme"}
+                        onValueChange={(value) => updateConfig("headingFont", value === "theme" ? "" : value)}
                       >
                         <SelectTrigger data-testid="select-heading-font">
                           <SelectValue placeholder="Use theme font" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Use Theme Font</SelectItem>
+                          <SelectItem value="theme">Use Theme Font</SelectItem>
                           {GOOGLE_FONTS.map((font) => (
                             <SelectItem key={font.value} value={font.value}>{font.label}</SelectItem>
                           ))}
@@ -1755,14 +1755,14 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId }: S
                     <div className="space-y-2">
                       <Label>Body Font</Label>
                       <Select
-                        value={(config.bodyFont as string) || ""}
-                        onValueChange={(value) => updateConfig("bodyFont", value)}
+                        value={(config.bodyFont as string) || "theme"}
+                        onValueChange={(value) => updateConfig("bodyFont", value === "theme" ? "" : value)}
                       >
                         <SelectTrigger data-testid="select-body-font">
                           <SelectValue placeholder="Use theme font" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Use Theme Font</SelectItem>
+                          <SelectItem value="theme">Use Theme Font</SelectItem>
                           {GOOGLE_FONTS.map((font) => (
                             <SelectItem key={font.value} value={font.value}>{font.label}</SelectItem>
                           ))}
