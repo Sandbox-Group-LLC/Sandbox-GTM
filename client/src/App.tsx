@@ -36,6 +36,7 @@ import CustomFields from "@/pages/custom-fields";
 import PrivacyPolicy from "@/pages/privacy-policy";
 import Tracks from "@/pages/tracks";
 import Rooms from "@/pages/rooms";
+import ImportAttendees from "@/pages/import-attendees";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const sidebarStyle = {
@@ -87,6 +88,7 @@ function Router() {
         <Route path="/attendee-types" component={AttendeeTypes} />
         <Route path="/registration" component={RegistrationFlow} />
         <Route path="/attendees" component={Attendees} />
+        <Route path="/import-attendees" component={ImportAttendees} />
         <Route path="/packages" component={Packages} />
         <Route path="/custom-fields" component={CustomFields} />
         <Route path="/invite-codes" component={InviteCodes} />

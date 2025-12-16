@@ -729,6 +729,76 @@ export async function registerRoutes(
     }
   });
 
+  // Bulk import attendees
+  app.post("/api/attendees/bulk-import", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const { eventId, attendees } = req.body;
+      
+      if (!eventId || !Array.isArray(attendees)) {
+        return res.status(400).json({ message: "Event ID and attendees array are required" });
+      }
+      
+      // Verify event belongs to organization
+      const event = await storage.getEvent(organizationId, eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      let success = 0;
+      let failed = 0;
+      const errors: Array<{ row: number; error: string }> = [];
+      
+      for (let i = 0; i < attendees.length; i++) {
+        const attendee = attendees[i];
+        try {
+          // Basic validation
+          if (!attendee.firstName || !attendee.lastName || !attendee.email) {
+            throw new Error("Missing required fields (firstName, lastName, email)");
+          }
+          
+          // Validate email format
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(attendee.email)) {
+            throw new Error("Invalid email format");
+          }
+          
+          // Prepare attendee data
+          const attendeeData = {
+            organizationId,
+            eventId,
+            firstName: attendee.firstName.trim(),
+            lastName: attendee.lastName.trim(),
+            email: attendee.email.trim().toLowerCase(),
+            phone: attendee.phone?.trim() || null,
+            company: attendee.company?.trim() || null,
+            jobTitle: attendee.jobTitle?.trim() || null,
+            attendeeType: attendee.attendeeType?.trim() || null,
+            ticketType: attendee.ticketType?.trim() || null,
+            registrationStatus: attendee.registrationStatus?.trim() || "pending",
+            notes: attendee.notes?.trim() || null,
+          };
+          
+          const parsed = insertAttendeeSchema.parse(attendeeData);
+          await storage.createAttendee(parsed);
+          success++;
+        } catch (error: any) {
+          failed++;
+          errors.push({
+            row: i + 1,
+            error: error.message || "Failed to import attendee",
+          });
+        }
+      }
+      
+      res.json({ success, failed, errors });
+    } catch (error) {
+      logError("Error bulk importing attendees:", error);
+      res.status(500).json({ message: "Failed to import attendees" });
+    }
+  });
+
   // Attendee Type routes
   app.get("/api/attendee-types", isAuthenticated, async (req: any, res) => {
     try {

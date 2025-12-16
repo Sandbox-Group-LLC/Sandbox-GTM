@@ -59,6 +59,7 @@ const sessionsSubItems = [
 
 const attendeesSubItems = [
   { title: "All Attendees", path: "/attendees" },
+  { title: "Import Attendees", path: "/import-attendees" },
   { title: "Attendee Types", path: "/attendee-types" },
   { title: "Invite Codes", path: "/invite-codes" },
   { title: "Packages", path: "/packages" },
@@ -90,7 +91,7 @@ export function AppSidebar() {
 
   const isEventsActive = location === "/events" || location === "/check-in" || location === "/registration" || location === "/site-builder" || location === "/custom-fields";
   const isSessionsActive = location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/rooms";
-  const isAttendeesActive = location === "/attendees" || location === "/attendee-types" || location === "/invite-codes" || location === "/packages";
+  const isAttendeesActive = location === "/attendees" || location === "/import-attendees" || location === "/attendee-types" || location === "/invite-codes" || location === "/packages";
   
   const isSuperAdmin = user?.email?.toLowerCase().endsWith("@makemysandbox.com") ?? false;
 
