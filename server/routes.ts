@@ -54,6 +54,11 @@ import {
   insertCustomFieldSchema,
   insertContentAssetSchema,
   insertEventSponsorSchema,
+  insertCfpConfigSchema,
+  insertCfpTopicSchema,
+  insertCfpSubmissionSchema,
+  insertCfpReviewerSchema,
+  insertCfpReviewSchema,
   pageVersions,
   eventPages,
 } from "@shared/schema";
@@ -3483,6 +3488,655 @@ ${urls.map(u => `  <url>
     } catch (error: any) {
       logError("Error generating AI content:", error);
       res.status(500).json({ message: error.message || "Failed to generate content" });
+    }
+  });
+
+  // ============================================
+  // CFP (Call for Papers) Routes
+  // ============================================
+
+  // Admin CFP Config Routes
+  app.get("/api/events/:eventId/cfp", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const eventId = parseInt(req.params.eventId, 10);
+      
+      if (isNaN(eventId)) {
+        return res.status(400).json({ message: "Invalid event ID" });
+      }
+      
+      const config = await storage.getCfpConfig(eventId, organizationId);
+      if (!config) {
+        return res.status(404).json({ message: "CFP config not found" });
+      }
+      res.json(config);
+    } catch (error) {
+      logError("Error fetching CFP config:", error);
+      res.status(500).json({ message: "Failed to fetch CFP config" });
+    }
+  });
+
+  app.post("/api/events/:eventId/cfp", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const eventId = parseInt(req.params.eventId, 10);
+      
+      if (isNaN(eventId)) {
+        return res.status(400).json({ message: "Invalid event ID" });
+      }
+      
+      // Check if config already exists
+      const existing = await storage.getCfpConfig(eventId, organizationId);
+      if (existing) {
+        // Update existing config
+        const data = insertCfpConfigSchema.partial().parse(req.body);
+        const updated = await storage.updateCfpConfig(existing.id, organizationId, data);
+        return res.json(updated);
+      }
+      
+      // Create new config
+      const data = insertCfpConfigSchema.parse({
+        ...req.body,
+        eventId,
+        organizationId,
+      });
+      const config = await storage.createCfpConfig(data);
+      res.status(201).json(config);
+    } catch (error: any) {
+      logError("Error creating/updating CFP config:", error);
+      const message = error.errors ? error.errors.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', ') : "Invalid CFP config data";
+      res.status(400).json({ message });
+    }
+  });
+
+  app.patch("/api/events/:eventId/cfp", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const eventId = parseInt(req.params.eventId, 10);
+      
+      if (isNaN(eventId)) {
+        return res.status(400).json({ message: "Invalid event ID" });
+      }
+      
+      const existing = await storage.getCfpConfig(eventId, organizationId);
+      if (!existing) {
+        return res.status(404).json({ message: "CFP config not found" });
+      }
+      
+      const data = insertCfpConfigSchema.partial().parse(req.body);
+      const updated = await storage.updateCfpConfig(existing.id, organizationId, data);
+      res.json(updated);
+    } catch (error: any) {
+      logError("Error updating CFP config:", error);
+      const message = error.errors ? error.errors.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', ') : "Invalid CFP config data";
+      res.status(400).json({ message });
+    }
+  });
+
+  // CFP Topics Routes
+  app.get("/api/events/:eventId/cfp/topics", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const eventId = parseInt(req.params.eventId, 10);
+      
+      if (isNaN(eventId)) {
+        return res.status(400).json({ message: "Invalid event ID" });
+      }
+      
+      const config = await storage.getCfpConfig(eventId, organizationId);
+      if (!config) {
+        return res.status(404).json({ message: "CFP config not found" });
+      }
+      
+      const topics = await storage.getCfpTopics(config.id, organizationId);
+      res.json(topics);
+    } catch (error) {
+      logError("Error fetching CFP topics:", error);
+      res.status(500).json({ message: "Failed to fetch CFP topics" });
+    }
+  });
+
+  app.post("/api/events/:eventId/cfp/topics", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const eventId = parseInt(req.params.eventId, 10);
+      
+      if (isNaN(eventId)) {
+        return res.status(400).json({ message: "Invalid event ID" });
+      }
+      
+      const config = await storage.getCfpConfig(eventId, organizationId);
+      if (!config) {
+        return res.status(404).json({ message: "CFP config not found" });
+      }
+      
+      const data = insertCfpTopicSchema.parse({
+        ...req.body,
+        cfpConfigId: config.id,
+        organizationId,
+      });
+      const topic = await storage.createCfpTopic(data);
+      res.status(201).json(topic);
+    } catch (error: any) {
+      logError("Error creating CFP topic:", error);
+      const message = error.errors ? error.errors.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', ') : "Invalid topic data";
+      res.status(400).json({ message });
+    }
+  });
+
+  app.patch("/api/events/:eventId/cfp/topics/:topicId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const topicId = parseInt(req.params.topicId, 10);
+      
+      if (isNaN(topicId)) {
+        return res.status(400).json({ message: "Invalid topic ID" });
+      }
+      
+      const data = insertCfpTopicSchema.partial().parse(req.body);
+      const updated = await storage.updateCfpTopic(topicId, organizationId, data);
+      if (!updated) {
+        return res.status(404).json({ message: "Topic not found" });
+      }
+      res.json(updated);
+    } catch (error: any) {
+      logError("Error updating CFP topic:", error);
+      const message = error.errors ? error.errors.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', ') : "Invalid topic data";
+      res.status(400).json({ message });
+    }
+  });
+
+  app.delete("/api/events/:eventId/cfp/topics/:topicId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const topicId = parseInt(req.params.topicId, 10);
+      
+      if (isNaN(topicId)) {
+        return res.status(400).json({ message: "Invalid topic ID" });
+      }
+      
+      const deleted = await storage.deleteCfpTopic(topicId, organizationId);
+      if (!deleted) {
+        return res.status(404).json({ message: "Topic not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting CFP topic:", error);
+      res.status(500).json({ message: "Failed to delete topic" });
+    }
+  });
+
+  // CFP Submissions Routes
+  app.get("/api/events/:eventId/cfp/submissions", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const eventId = parseInt(req.params.eventId, 10);
+      
+      if (isNaN(eventId)) {
+        return res.status(400).json({ message: "Invalid event ID" });
+      }
+      
+      const config = await storage.getCfpConfig(eventId, organizationId);
+      if (!config) {
+        return res.status(404).json({ message: "CFP config not found" });
+      }
+      
+      const submissions = await storage.getCfpSubmissions(config.id, organizationId);
+      res.json(submissions);
+    } catch (error) {
+      logError("Error fetching CFP submissions:", error);
+      res.status(500).json({ message: "Failed to fetch submissions" });
+    }
+  });
+
+  app.get("/api/events/:eventId/cfp/submissions/:submissionId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const submissionId = parseInt(req.params.submissionId, 10);
+      
+      if (isNaN(submissionId)) {
+        return res.status(400).json({ message: "Invalid submission ID" });
+      }
+      
+      const submission = await storage.getCfpSubmission(submissionId, organizationId);
+      if (!submission) {
+        return res.status(404).json({ message: "Submission not found" });
+      }
+      
+      // Get reviews for this submission
+      const reviews = await storage.getCfpReviews(submissionId, organizationId);
+      
+      res.json({ ...submission, reviews });
+    } catch (error) {
+      logError("Error fetching CFP submission:", error);
+      res.status(500).json({ message: "Failed to fetch submission" });
+    }
+  });
+
+  app.patch("/api/events/:eventId/cfp/submissions/:submissionId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const submissionId = parseInt(req.params.submissionId, 10);
+      
+      if (isNaN(submissionId)) {
+        return res.status(400).json({ message: "Invalid submission ID" });
+      }
+      
+      const data = insertCfpSubmissionSchema.partial().parse(req.body);
+      const updated = await storage.updateCfpSubmission(submissionId, organizationId, data);
+      if (!updated) {
+        return res.status(404).json({ message: "Submission not found" });
+      }
+      res.json(updated);
+    } catch (error: any) {
+      logError("Error updating CFP submission:", error);
+      const message = error.errors ? error.errors.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', ') : "Invalid submission data";
+      res.status(400).json({ message });
+    }
+  });
+
+  app.delete("/api/events/:eventId/cfp/submissions/:submissionId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const submissionId = parseInt(req.params.submissionId, 10);
+      
+      if (isNaN(submissionId)) {
+        return res.status(400).json({ message: "Invalid submission ID" });
+      }
+      
+      const deleted = await storage.deleteCfpSubmission(submissionId, organizationId);
+      if (!deleted) {
+        return res.status(404).json({ message: "Submission not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting CFP submission:", error);
+      res.status(500).json({ message: "Failed to delete submission" });
+    }
+  });
+
+  // CFP Reviewers Routes
+  app.get("/api/events/:eventId/cfp/reviewers", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const eventId = parseInt(req.params.eventId, 10);
+      
+      if (isNaN(eventId)) {
+        return res.status(400).json({ message: "Invalid event ID" });
+      }
+      
+      const config = await storage.getCfpConfig(eventId, organizationId);
+      if (!config) {
+        return res.status(404).json({ message: "CFP config not found" });
+      }
+      
+      const reviewers = await storage.getCfpReviewers(config.id, organizationId);
+      res.json(reviewers);
+    } catch (error) {
+      logError("Error fetching CFP reviewers:", error);
+      res.status(500).json({ message: "Failed to fetch reviewers" });
+    }
+  });
+
+  app.post("/api/events/:eventId/cfp/reviewers", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const eventId = parseInt(req.params.eventId, 10);
+      
+      if (isNaN(eventId)) {
+        return res.status(400).json({ message: "Invalid event ID" });
+      }
+      
+      const config = await storage.getCfpConfig(eventId, organizationId);
+      if (!config) {
+        return res.status(404).json({ message: "CFP config not found" });
+      }
+      
+      const data = insertCfpReviewerSchema.parse({
+        ...req.body,
+        cfpConfigId: config.id,
+        organizationId,
+      });
+      const reviewer = await storage.createCfpReviewer(data);
+      res.status(201).json(reviewer);
+    } catch (error: any) {
+      logError("Error creating CFP reviewer:", error);
+      const message = error.errors ? error.errors.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', ') : "Invalid reviewer data";
+      res.status(400).json({ message });
+    }
+  });
+
+  app.patch("/api/events/:eventId/cfp/reviewers/:reviewerId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const reviewerId = parseInt(req.params.reviewerId, 10);
+      
+      if (isNaN(reviewerId)) {
+        return res.status(400).json({ message: "Invalid reviewer ID" });
+      }
+      
+      const data = insertCfpReviewerSchema.partial().parse(req.body);
+      const updated = await storage.updateCfpReviewer(reviewerId, organizationId, data);
+      if (!updated) {
+        return res.status(404).json({ message: "Reviewer not found" });
+      }
+      res.json(updated);
+    } catch (error: any) {
+      logError("Error updating CFP reviewer:", error);
+      const message = error.errors ? error.errors.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', ') : "Invalid reviewer data";
+      res.status(400).json({ message });
+    }
+  });
+
+  app.delete("/api/events/:eventId/cfp/reviewers/:reviewerId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const reviewerId = parseInt(req.params.reviewerId, 10);
+      
+      if (isNaN(reviewerId)) {
+        return res.status(400).json({ message: "Invalid reviewer ID" });
+      }
+      
+      const deleted = await storage.deleteCfpReviewer(reviewerId, organizationId);
+      if (!deleted) {
+        return res.status(404).json({ message: "Reviewer not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting CFP reviewer:", error);
+      res.status(500).json({ message: "Failed to delete reviewer" });
+    }
+  });
+
+  // Assign reviewer to submission
+  app.post("/api/events/:eventId/cfp/submissions/:submissionId/assign-reviewer", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const submissionId = parseInt(req.params.submissionId, 10);
+      const { reviewerId } = req.body;
+      
+      if (isNaN(submissionId)) {
+        return res.status(400).json({ message: "Invalid submission ID" });
+      }
+      
+      if (!reviewerId || isNaN(parseInt(reviewerId, 10))) {
+        return res.status(400).json({ message: "Invalid reviewer ID" });
+      }
+      
+      // Verify submission exists
+      const submission = await storage.getCfpSubmission(submissionId, organizationId);
+      if (!submission) {
+        return res.status(404).json({ message: "Submission not found" });
+      }
+      
+      // Verify reviewer exists
+      const reviewer = await storage.getCfpReviewer(parseInt(reviewerId, 10), organizationId);
+      if (!reviewer) {
+        return res.status(404).json({ message: "Reviewer not found" });
+      }
+      
+      const review = await storage.assignReviewerToSubmission(submissionId, parseInt(reviewerId, 10), organizationId);
+      res.status(201).json(review);
+    } catch (error) {
+      logError("Error assigning reviewer:", error);
+      res.status(500).json({ message: "Failed to assign reviewer" });
+    }
+  });
+
+  // Create session from accepted submission
+  app.post("/api/events/:eventId/cfp/submissions/:submissionId/create-session", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const eventId = req.params.eventId;
+      const submissionId = parseInt(req.params.submissionId, 10);
+      
+      if (isNaN(submissionId)) {
+        return res.status(400).json({ message: "Invalid submission ID" });
+      }
+      
+      const submission = await storage.getCfpSubmission(submissionId, organizationId);
+      if (!submission) {
+        return res.status(404).json({ message: "Submission not found" });
+      }
+      
+      if (submission.status !== 'accepted') {
+        return res.status(400).json({ message: "Only accepted submissions can be converted to sessions" });
+      }
+      
+      // Create session from submission
+      const sessionData = insertSessionSchema.parse({
+        organizationId,
+        eventId,
+        title: submission.title,
+        description: submission.abstract,
+        type: submission.type || 'presentation',
+        status: 'scheduled',
+        ...req.body, // Allow overrides for date, room, track, etc.
+      });
+      
+      const session = await storage.createSession(sessionData);
+      
+      // Update submission with session reference
+      await storage.updateCfpSubmission(submissionId, organizationId, {
+        sessionId: session.id,
+      });
+      
+      res.status(201).json(session);
+    } catch (error: any) {
+      logError("Error creating session from submission:", error);
+      const message = error.errors ? error.errors.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', ') : "Failed to create session";
+      res.status(400).json({ message });
+    }
+  });
+
+  // ============================================
+  // Public CFP Routes (no auth, rate limited)
+  // ============================================
+
+  app.get("/api/public/cfp/:slug", publicRegistrationLimiter, async (req: any, res) => {
+    try {
+      const { slug } = req.params;
+      
+      // Find event by public slug
+      const event = await storage.getEventByPublicSlug(slug);
+      if (!event) {
+        return res.status(404).json({ message: "CFP not found" });
+      }
+      
+      const config = await storage.getCfpConfig(parseInt(event.id, 10), event.organizationId);
+      if (!config || !config.isOpen) {
+        return res.status(404).json({ message: "CFP not found or not open" });
+      }
+      
+      // Get topics
+      const topics = await storage.getCfpTopics(config.id, event.organizationId);
+      
+      // Return public CFP info only
+      res.json({
+        title: config.title,
+        description: config.description,
+        topics: topics.map(t => ({ id: t.id, name: t.name, description: t.description })),
+        deadline: config.deadline,
+        isOpen: config.isOpen,
+        eventName: event.name,
+        guidelines: config.guidelines,
+      });
+    } catch (error) {
+      logError("Error fetching public CFP:", error);
+      res.status(500).json({ message: "Failed to fetch CFP" });
+    }
+  });
+
+  app.post("/api/public/cfp/:slug/submit", publicRegistrationLimiter, async (req: any, res) => {
+    try {
+      const { slug } = req.params;
+      
+      // Find event by public slug
+      const event = await storage.getEventByPublicSlug(slug);
+      if (!event) {
+        return res.status(404).json({ message: "CFP not found" });
+      }
+      
+      const config = await storage.getCfpConfig(parseInt(event.id, 10), event.organizationId);
+      if (!config) {
+        return res.status(404).json({ message: "CFP not found" });
+      }
+      
+      if (!config.isOpen) {
+        return res.status(400).json({ message: "CFP is closed for submissions" });
+      }
+      
+      // Check deadline
+      if (config.deadline && new Date(config.deadline) < new Date()) {
+        return res.status(400).json({ message: "CFP deadline has passed" });
+      }
+      
+      // Validate submission
+      const data = insertCfpSubmissionSchema.parse({
+        ...req.body,
+        cfpConfigId: config.id,
+        eventId: parseInt(event.id, 10),
+        organizationId: event.organizationId,
+        status: 'pending',
+      });
+      
+      const submission = await storage.createCfpSubmission(data);
+      res.status(201).json({
+        id: submission.id,
+        message: "Submission received successfully",
+      });
+    } catch (error: any) {
+      logError("Error submitting to CFP:", error);
+      const message = error.errors ? error.errors.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', ') : "Invalid submission data";
+      res.status(400).json({ message });
+    }
+  });
+
+  // ============================================
+  // Reviewer Routes (authenticated)
+  // ============================================
+
+  app.get("/api/reviewer/assignments", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Get all reviewer records for this user
+      const reviewerRecords = await storage.getCfpReviewersByUserId(userId);
+      if (reviewerRecords.length === 0) {
+        return res.json([]);
+      }
+      
+      // Get all reviews assigned to these reviewer records
+      const allReviews: any[] = [];
+      for (const reviewer of reviewerRecords) {
+        const reviews = await storage.getCfpReviewsByReviewer(reviewer.id, reviewer.organizationId);
+        for (const review of reviews) {
+          const submission = await storage.getCfpSubmission(review.submissionId, reviewer.organizationId);
+          if (submission) {
+            allReviews.push({
+              review,
+              submission,
+              reviewer,
+            });
+          }
+        }
+      }
+      
+      res.json(allReviews);
+    } catch (error) {
+      logError("Error fetching reviewer assignments:", error);
+      res.status(500).json({ message: "Failed to fetch assignments" });
+    }
+  });
+
+  app.get("/api/reviewer/assignments/:submissionId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const submissionId = parseInt(req.params.submissionId, 10);
+      
+      if (isNaN(submissionId)) {
+        return res.status(400).json({ message: "Invalid submission ID" });
+      }
+      
+      // Get all reviewer records for this user
+      const reviewerRecords = await storage.getCfpReviewersByUserId(userId);
+      if (reviewerRecords.length === 0) {
+        return res.status(403).json({ message: "Not authorized as a reviewer" });
+      }
+      
+      // Find the submission and verify access
+      for (const reviewer of reviewerRecords) {
+        const reviews = await storage.getCfpReviewsByReviewer(reviewer.id, reviewer.organizationId);
+        const review = reviews.find(r => r.submissionId === submissionId);
+        if (review) {
+          const submission = await storage.getCfpSubmission(submissionId, reviewer.organizationId);
+          if (submission) {
+            return res.json({
+              review,
+              submission,
+              reviewer,
+            });
+          }
+        }
+      }
+      
+      res.status(404).json({ message: "Assignment not found" });
+    } catch (error) {
+      logError("Error fetching reviewer assignment:", error);
+      res.status(500).json({ message: "Failed to fetch assignment" });
+    }
+  });
+
+  app.patch("/api/reviewer/reviews/:reviewId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const reviewId = parseInt(req.params.reviewId, 10);
+      
+      if (isNaN(reviewId)) {
+        return res.status(400).json({ message: "Invalid review ID" });
+      }
+      
+      // Get all reviewer records for this user to find the one that owns this review
+      const reviewerRecords = await storage.getCfpReviewersByUserId(userId);
+      if (reviewerRecords.length === 0) {
+        return res.status(403).json({ message: "Not authorized as a reviewer" });
+      }
+      
+      // Find the review and verify ownership
+      for (const reviewer of reviewerRecords) {
+        const reviews = await storage.getCfpReviewsByReviewer(reviewer.id, reviewer.organizationId);
+        const existingReview = reviews.find(r => r.id === reviewId);
+        if (existingReview) {
+          const data = insertCfpReviewSchema.partial().parse(req.body);
+          const updated = await storage.updateCfpReview(reviewId, reviewer.organizationId, data);
+          if (updated) {
+            return res.json(updated);
+          }
+        }
+      }
+      
+      res.status(404).json({ message: "Review not found" });
+    } catch (error: any) {
+      logError("Error updating review:", error);
+      const message = error.errors ? error.errors.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', ') : "Invalid review data";
+      res.status(400).json({ message });
     }
   });
 
