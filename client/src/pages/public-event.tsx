@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Calendar, MapPin, Clock, Mic, AlertCircle, ArrowRight, ChevronDown, ChevronUp, Quote, Star, Zap, Heart, Check, Award, Target, Users, Mail, Phone, Globe } from "lucide-react";
+import { Calendar, MapPin, Clock, Mic, AlertCircle, ArrowRight, ChevronDown, ChevronUp, Quote, Star, Zap, Heart, Check, Award, Target, Users, Mail, Phone, Globe, LogIn } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import type { Event, EventSession, Speaker, EventPage, EventPageTheme, EventSponsor } from "@shared/schema";
@@ -205,6 +205,7 @@ interface PublicEventData {
   speakers: Speaker[];
   sponsors: EventSponsor[];
   landingPage: EventPage | null;
+  requirePassword?: boolean;
 }
 
 export default function PublicEvent() {
@@ -305,7 +306,7 @@ export default function PublicEvent() {
     );
   }
 
-  const { event, sessions, speakers, sponsors, landingPage } = data;
+  const { event, sessions, speakers, sponsors, landingPage, requirePassword } = data;
   const sections = (landingPage?.sections as Section[]) || [];
   const hasSiteBuilderContent = sections.length > 0;
 
@@ -478,6 +479,17 @@ export default function PublicEvent() {
                         <ArrowRight className="ml-2 h-4 w-4" />
                       </Link>
                     </Button>
+                    {requirePassword && (
+                      <div className="text-center pt-2 border-t">
+                        <p className="text-sm text-muted-foreground mb-2">Already registered?</p>
+                        <Button variant="outline" className="w-full" asChild data-testid="button-attendee-login">
+                          <Link href={`/event/${slug}/login`}>
+                            <LogIn className="mr-2 h-4 w-4" />
+                            Attendee Login
+                          </Link>
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="text-center py-4">

@@ -274,6 +274,9 @@ export interface IStorage {
   updateEmailTemplate(organizationId: string, id: string, template: Partial<InsertEmailTemplate>): Promise<EmailTemplate | undefined>;
   deleteEmailTemplate(organizationId: string, id: string): Promise<void>;
 
+  // Attendee lookup for login (efficient single query)
+  getAttendeeByEventAndEmail(eventId: string, email: string): Promise<Attendee | undefined>;
+
   // Check-in operations (code-based access - no organizationId needed)
   getAttendeeByCheckInCode(code: string): Promise<Attendee | undefined>;
   checkInAttendee(id: string): Promise<Attendee | undefined>;
@@ -553,6 +556,12 @@ export class DatabaseStorage implements IStorage {
 
   async deleteAttendee(organizationId: string, id: string): Promise<void> {
     await db.delete(attendees).where(and(eq(attendees.organizationId, organizationId), eq(attendees.id, id)));
+  }
+
+  async getAttendeeByEventAndEmail(eventId: string, email: string): Promise<Attendee | undefined> {
+    const [attendee] = await db.select().from(attendees)
+      .where(and(eq(attendees.eventId, eventId), ilike(attendees.email, email)));
+    return attendee;
   }
 
   // Attendee Type operations

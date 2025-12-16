@@ -25,6 +25,8 @@ import Analytics from "@/pages/analytics";
 import PublicEvent from "@/pages/public-event";
 import PublicRegistration from "@/pages/public-registration";
 import PublicPortal from "@/pages/public-portal";
+import AttendeeLogin from "@/pages/attendee-login";
+import AttendeePortal from "@/pages/attendee-portal";
 import AttendeeTypes from "@/pages/attendee-types";
 import RegistrationFlow from "@/pages/registration-flow";
 import Packages from "@/pages/packages";
@@ -73,7 +75,8 @@ function Router() {
         <Route path="/" component={Landing} />
         <Route path="/privacy-policy" component={PrivacyPolicy} />
         <Route path="/event/:slug/register" component={PublicRegistration} />
-        <Route path="/event/:slug/portal" component={PublicPortal} />
+        <Route path="/event/:slug/portal" component={AttendeePortal} />
+        <Route path="/event/:slug/login" component={AttendeeLogin} />
         <Route path="/event/:slug" component={PublicEvent} />
         <Route component={Landing} />
       </Switch>
@@ -109,7 +112,8 @@ function Router() {
         <Route path="/admin/organizations" component={AdminOrganizations} />
         <Route path="/privacy-policy" component={PrivacyPolicy} />
         <Route path="/event/:slug/register" component={PublicRegistration} />
-        <Route path="/event/:slug/portal" component={PublicPortal} />
+        <Route path="/event/:slug/portal" component={AttendeePortal} />
+        <Route path="/event/:slug/login" component={AttendeeLogin} />
         <Route path="/event/:slug" component={PublicEvent} />
         <Route component={NotFound} />
       </Switch>

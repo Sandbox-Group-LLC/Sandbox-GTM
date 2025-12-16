@@ -13,6 +13,23 @@ import {
   publicRegistrationLimiter,
   validateInviteCodeLimiter,
 } from "./rateLimit";
+import { scrypt, randomBytes, timingSafeEqual } from "crypto";
+import { promisify } from "util";
+
+const scryptAsync = promisify(scrypt);
+
+async function hashPassword(password: string): Promise<string> {
+  const salt = randomBytes(16).toString("hex");
+  const derivedKey = (await scryptAsync(password, salt, 64)) as Buffer;
+  return `${salt}:${derivedKey.toString("hex")}`;
+}
+
+async function verifyPassword(password: string, hash: string): Promise<boolean> {
+  const [salt, storedHash] = hash.split(":");
+  const derivedKey = (await scryptAsync(password, salt, 64)) as Buffer;
+  const storedBuffer = Buffer.from(storedHash, "hex");
+  return timingSafeEqual(derivedKey, storedBuffer);
+}
 import {
   insertEventSchema,
   insertAttendeeSchema,
@@ -2266,9 +2283,13 @@ ${urls.map(u => `  <url>
       const pages = await storage.getEventPages(event.organizationId, event.id);
       const landingPage = pages.find(p => p.pageType === "landing" && p.isPublished);
       
+      // Fetch registration config to know if password is required
+      const registrationConfig = await storage.getRegistrationConfig(event.organizationId, event.id);
+      const requirePassword = registrationConfig?.step1Config?.requirePassword || false;
+      
       logInfo(`[Public Event] Sessions: ${sessions.length}, Speakers: ${speakers.length}, Sponsors: ${sponsors.length}, Pages: ${pages.length}, Landing published: ${!!landingPage}`);
       
-      res.json({ event, sessions, speakers, sponsors, landingPage: landingPage || null });
+      res.json({ event, sessions, speakers, sponsors, landingPage: landingPage || null, requirePassword });
     } catch (error) {
       logError("[Public Event] Error fetching public event:", error);
       res.status(500).json({ message: "Failed to fetch event" });
@@ -2549,6 +2570,12 @@ ${urls.map(u => `  <url>
       // Generate a unique check-in code
       const checkInCode = Math.random().toString(36).substring(2, 10).toUpperCase();
       
+      // Hash password if provided (requirePassword is enabled in registration config)
+      let passwordHash: string | undefined;
+      if (registrationData.password && typeof registrationData.password === 'string' && registrationData.password.length >= 8) {
+        passwordHash = await hashPassword(registrationData.password);
+      }
+      
       const data = insertAttendeeSchema.parse({
         ...registrationData,
         organizationId: event.organizationId,
@@ -2559,7 +2586,8 @@ ${urls.map(u => `  <url>
         ticketType,
         inviteCodeId,
         packageId,
-        customData: registrationData.customData || null
+        customData: registrationData.customData || null,
+        passwordHash
       });
       
       const attendee = await storage.createAttendee(data);
@@ -2579,6 +2607,137 @@ ${urls.map(u => `  <url>
     } catch (error) {
       logError("Error during public registration:", error);
       res.status(400).json({ message: "Registration failed" });
+    }
+  });
+
+  // Attendee Authentication Endpoints
+  app.post("/api/public/attendee/login", publicRegistrationLimiter, async (req, res) => {
+    try {
+      const { email, password, eventSlug } = req.body;
+      
+      if (!email || !password || !eventSlug) {
+        return res.status(400).json({ message: "Email, password, and event slug are required" });
+      }
+      
+      const event = await storage.getEventBySlug(eventSlug);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      // Find attendee by email and event (efficient database lookup)
+      const attendee = await storage.getAttendeeByEventAndEmail(event.id, email);
+      
+      if (!attendee) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+      
+      if (!attendee.passwordHash) {
+        return res.status(401).json({ message: "No password set for this account. Please contact event organizers." });
+      }
+      
+      const isValid = await verifyPassword(password, attendee.passwordHash);
+      if (!isValid) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+      
+      // Store attendee session data
+      (req.session as any).attendee = {
+        id: attendee.id,
+        eventId: attendee.eventId,
+        organizationId: attendee.organizationId,
+        email: attendee.email
+      };
+      
+      // Return attendee data (without password hash)
+      const { passwordHash, ...safeAttendee } = attendee;
+      res.json({ message: "Login successful", attendee: safeAttendee });
+    } catch (error) {
+      logError("Error during attendee login:", error);
+      res.status(500).json({ message: "Login failed" });
+    }
+  });
+
+  app.post("/api/public/attendee/logout", async (req, res) => {
+    try {
+      if ((req.session as any).attendee) {
+        delete (req.session as any).attendee;
+      }
+      res.json({ message: "Logged out successfully" });
+    } catch (error) {
+      logError("Error during attendee logout:", error);
+      res.status(500).json({ message: "Logout failed" });
+    }
+  });
+
+  app.get("/api/public/attendee/me", async (req, res) => {
+    try {
+      const attendeeSession = (req.session as any).attendee;
+      
+      if (!attendeeSession || !attendeeSession.id) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
+      const attendee = await storage.getAttendee(attendeeSession.organizationId, attendeeSession.id);
+      
+      if (!attendee) {
+        delete (req.session as any).attendee;
+        return res.status(401).json({ message: "Attendee not found" });
+      }
+      
+      // Get event info for context
+      const event = await storage.getEvent(attendee.organizationId, attendee.eventId);
+      
+      // Get package info if attendee has one
+      let packageInfo = null;
+      if (attendee.packageId) {
+        packageInfo = await storage.getPackage(attendee.organizationId, attendee.packageId);
+      }
+      
+      // Return attendee data (without password hash)
+      const { passwordHash, ...safeAttendee } = attendee;
+      res.json({ 
+        attendee: safeAttendee, 
+        event: event ? { id: event.id, name: event.name, publicSlug: event.publicSlug } : null,
+        package: packageInfo ? { id: packageInfo.id, name: packageInfo.name, features: packageInfo.features } : null
+      });
+    } catch (error) {
+      logError("Error fetching attendee session:", error);
+      res.status(500).json({ message: "Failed to fetch attendee data" });
+    }
+  });
+
+  app.patch("/api/public/attendee/profile", async (req, res) => {
+    try {
+      const attendeeSession = (req.session as any).attendee;
+      
+      if (!attendeeSession || !attendeeSession.id) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
+      const { firstName, lastName, phone, company, jobTitle } = req.body;
+      
+      const updateData: Record<string, any> = {};
+      if (firstName !== undefined) updateData.firstName = firstName;
+      if (lastName !== undefined) updateData.lastName = lastName;
+      if (phone !== undefined) updateData.phone = phone;
+      if (company !== undefined) updateData.company = company;
+      if (jobTitle !== undefined) updateData.jobTitle = jobTitle;
+      
+      if (Object.keys(updateData).length === 0) {
+        return res.status(400).json({ message: "No valid fields to update" });
+      }
+      
+      const updated = await storage.updateAttendee(attendeeSession.organizationId, attendeeSession.id, updateData);
+      
+      if (!updated) {
+        return res.status(404).json({ message: "Attendee not found" });
+      }
+      
+      const { passwordHash, ...safeAttendee } = updated;
+      res.json({ message: "Profile updated successfully", attendee: safeAttendee });
+    } catch (error) {
+      logError("Error updating attendee profile:", error);
+      res.status(500).json({ message: "Failed to update profile" });
     }
   });
 

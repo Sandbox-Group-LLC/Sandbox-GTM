@@ -798,7 +798,9 @@ export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true
 export const insertOrganizationSchema = createInsertSchema(organizations).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertOrganizationMemberSchema = createInsertSchema(organizationMembers).omit({ id: true, createdAt: true });
 export const insertEventSchema = createInsertSchema(events).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertAttendeeSchema = createInsertSchema(attendees).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertAttendeeSchema = createInsertSchema(attendees).omit({ id: true, createdAt: true, updatedAt: true }).extend({
+  passwordHash: z.string().optional().nullable(),
+});
 export const insertSpeakerSchema = createInsertSchema(speakers).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSessionSchema = createInsertSchema(eventSessions).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSessionSpeakerSchema = createInsertSchema(sessionSpeakers).omit({ id: true });
