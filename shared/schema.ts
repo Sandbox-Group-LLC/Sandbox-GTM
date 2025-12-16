@@ -622,7 +622,7 @@ export const socialConnections = pgTable("social_connections", {
 // CFP (Call for Papers) Configs table - Per-event CFP settings
 export const cfpConfigs = pgTable("cfp_configs", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-  eventId: integer("event_id").references(() => events.id).notNull().unique(),
+  eventId: varchar("event_id").references(() => events.id).notNull().unique(),
   organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
   isOpen: boolean("is_open").default(false),
   title: text("title").default("Call for Papers"),
@@ -650,7 +650,7 @@ export const cfpTopics = pgTable("cfp_topics", {
 export const cfpSubmissions = pgTable("cfp_submissions", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   cfpConfigId: integer("cfp_config_id").references(() => cfpConfigs.id).notNull(),
-  eventId: integer("event_id").references(() => events.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id).notNull(),
   organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
   topicId: integer("topic_id").references(() => cfpTopics.id),
   title: text("title").notNull(),
@@ -663,7 +663,7 @@ export const cfpSubmissions = pgTable("cfp_submissions", {
   submissionType: text("submission_type").default("paper"),
   status: text("status").default("pending"),
   submittedAt: timestamp("submitted_at").defaultNow(),
-  sessionId: integer("session_id").references(() => eventSessions.id),
+  sessionId: varchar("session_id").references(() => eventSessions.id),
 });
 
 // CFP Reviewers table - Reviewer assignments
