@@ -192,7 +192,20 @@ const getDefaultConfig = (type: SectionType): Record<string, unknown> => {
     case "hero":
       return { title: "Welcome to Our Event", subtitle: "", buttonText: "Register Now", buttonLink: "", backgroundImage: "" };
     case "text":
-      return { heading: "", content: "", alignment: "left" };
+      return { 
+        heading: "", 
+        content: "", 
+        alignment: "left",
+        headingSize: "2xl",
+        bodySize: "base",
+        headingFont: "",
+        bodyFont: "",
+        headingColor: "",
+        bodyColor: "",
+        lineHeight: "normal",
+        headingWeight: "semibold",
+        maxWidth: "none",
+      };
     case "cta":
       return { heading: "Ready to Join?", description: "", buttonText: "Get Started", buttonLink: "" };
     case "features":
@@ -1508,6 +1521,42 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId }: S
           </>
         );
       case "text":
+        const textAlignOptions = [
+          { value: "left", label: "Left" },
+          { value: "center", label: "Center" },
+          { value: "right", label: "Right" },
+        ];
+        const headingSizeOptions = [
+          { value: "lg", label: "Small (lg)" },
+          { value: "xl", label: "Medium (xl)" },
+          { value: "2xl", label: "Large (2xl)" },
+          { value: "3xl", label: "Extra Large (3xl)" },
+          { value: "4xl", label: "Huge (4xl)" },
+        ];
+        const bodySizeOptions = [
+          { value: "sm", label: "Small" },
+          { value: "base", label: "Normal" },
+          { value: "lg", label: "Large" },
+          { value: "xl", label: "Extra Large" },
+        ];
+        const headingWeightOptions = [
+          { value: "normal", label: "Normal" },
+          { value: "medium", label: "Medium" },
+          { value: "semibold", label: "Semibold" },
+          { value: "bold", label: "Bold" },
+        ];
+        const lineHeightOptions = [
+          { value: "tight", label: "Tight" },
+          { value: "normal", label: "Normal" },
+          { value: "relaxed", label: "Relaxed" },
+          { value: "loose", label: "Loose" },
+        ];
+        const maxWidthOptions = [
+          { value: "none", label: "Full Width" },
+          { value: "prose", label: "Prose (65ch)" },
+          { value: "2xl", label: "Medium (672px)" },
+          { value: "4xl", label: "Large (896px)" },
+        ];
         return (
           <>
             <div className="space-y-2">
@@ -1545,6 +1594,222 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId }: S
                 />
               </div>
             </div>
+            
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="text-formatting">
+                <AccordionTrigger data-testid="accordion-text-formatting">
+                  <div className="flex items-center gap-2">
+                    <Type className="h-4 w-4" />
+                    Text Formatting
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="space-y-4 pt-2">
+                    <div className="space-y-2">
+                      <Label>Text Alignment</Label>
+                      <Select
+                        value={(config.alignment as string) || "left"}
+                        onValueChange={(value) => updateConfig("alignment", value)}
+                      >
+                        <SelectTrigger data-testid="select-text-alignment">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {textAlignOptions.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label>Content Max Width</Label>
+                      <Select
+                        value={(config.maxWidth as string) || "none"}
+                        onValueChange={(value) => updateConfig("maxWidth", value)}
+                      >
+                        <SelectTrigger data-testid="select-text-max-width">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {maxWidthOptions.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Line Height</Label>
+                      <Select
+                        value={(config.lineHeight as string) || "normal"}
+                        onValueChange={(value) => updateConfig("lineHeight", value)}
+                      >
+                        <SelectTrigger data-testid="select-text-line-height">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {lineHeightOptions.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="heading-styles">
+                <AccordionTrigger data-testid="accordion-heading-styles">
+                  <div className="flex items-center gap-2">
+                    <Type className="h-4 w-4" />
+                    Heading Styles
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="space-y-4 pt-2">
+                    <div className="space-y-2">
+                      <Label>Heading Font</Label>
+                      <Select
+                        value={(config.headingFont as string) || ""}
+                        onValueChange={(value) => updateConfig("headingFont", value)}
+                      >
+                        <SelectTrigger data-testid="select-heading-font">
+                          <SelectValue placeholder="Use theme font" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">Use Theme Font</SelectItem>
+                          {GOOGLE_FONTS.map((font) => (
+                            <SelectItem key={font.value} value={font.value}>{font.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Heading Size</Label>
+                      <Select
+                        value={(config.headingSize as string) || "2xl"}
+                        onValueChange={(value) => updateConfig("headingSize", value)}
+                      >
+                        <SelectTrigger data-testid="select-heading-size">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {headingSizeOptions.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Heading Weight</Label>
+                      <Select
+                        value={(config.headingWeight as string) || "semibold"}
+                        onValueChange={(value) => updateConfig("headingWeight", value)}
+                      >
+                        <SelectTrigger data-testid="select-heading-weight">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {headingWeightOptions.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Heading Color</Label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={(config.headingColor as string) || "#1f2937"}
+                          onChange={(e) => updateConfig("headingColor", e.target.value)}
+                          className="h-9 w-12 rounded border cursor-pointer"
+                          data-testid="input-heading-color-picker"
+                        />
+                        <Input
+                          value={(config.headingColor as string) || ""}
+                          onChange={(e) => updateConfig("headingColor", e.target.value || "")}
+                          placeholder="Use theme color"
+                          className="flex-1 font-mono text-sm"
+                          data-testid="input-heading-color"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="body-styles">
+                <AccordionTrigger data-testid="accordion-body-styles">
+                  <div className="flex items-center gap-2">
+                    <Type className="h-4 w-4" />
+                    Body Text Styles
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="space-y-4 pt-2">
+                    <div className="space-y-2">
+                      <Label>Body Font</Label>
+                      <Select
+                        value={(config.bodyFont as string) || ""}
+                        onValueChange={(value) => updateConfig("bodyFont", value)}
+                      >
+                        <SelectTrigger data-testid="select-body-font">
+                          <SelectValue placeholder="Use theme font" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">Use Theme Font</SelectItem>
+                          {GOOGLE_FONTS.map((font) => (
+                            <SelectItem key={font.value} value={font.value}>{font.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Body Text Size</Label>
+                      <Select
+                        value={(config.bodySize as string) || "base"}
+                        onValueChange={(value) => updateConfig("bodySize", value)}
+                      >
+                        <SelectTrigger data-testid="select-body-size">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {bodySizeOptions.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Body Text Color</Label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={(config.bodyColor as string) || "#4b5563"}
+                          onChange={(e) => updateConfig("bodyColor", e.target.value)}
+                          className="h-9 w-12 rounded border cursor-pointer"
+                          data-testid="input-body-color-picker"
+                        />
+                        <Input
+                          value={(config.bodyColor as string) || ""}
+                          onChange={(e) => updateConfig("bodyColor", e.target.value || "")}
+                          placeholder="Use theme color"
+                          className="flex-1 font-mono text-sm"
+                          data-testid="input-body-color"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </>
         );
       case "cta":

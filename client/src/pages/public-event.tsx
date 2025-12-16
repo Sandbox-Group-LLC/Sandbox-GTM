@@ -665,10 +665,68 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
       );
 
     case "text":
+      const textAlignment = (config.alignment as string) || "left";
+      const textHeadingSize = (config.headingSize as string) || "2xl";
+      const textBodySize = (config.bodySize as string) || "base";
+      const textHeadingFont = (config.headingFont as string) || "";
+      const textBodyFont = (config.bodyFont as string) || "";
+      const textHeadingColor = (config.headingColor as string) || "";
+      const textBodyColor = (config.bodyColor as string) || "";
+      const textLineHeight = (config.lineHeight as string) || "normal";
+      const textHeadingWeight = (config.headingWeight as string) || "semibold";
+      const textMaxWidth = (config.maxWidth as string) || "none";
+      
+      const headingSizeMap: Record<string, string> = {
+        lg: "text-lg", xl: "text-xl", "2xl": "text-2xl", "3xl": "text-3xl", "4xl": "text-4xl"
+      };
+      const bodySizeMap: Record<string, string> = {
+        sm: "text-sm", base: "text-base", lg: "text-lg", xl: "text-xl"
+      };
+      const weightMap: Record<string, string> = {
+        normal: "font-normal", medium: "font-medium", semibold: "font-semibold", bold: "font-bold"
+      };
+      const lineHeightMap: Record<string, string> = {
+        tight: "leading-tight", normal: "leading-normal", relaxed: "leading-relaxed", loose: "leading-loose"
+      };
+      const maxWidthMap: Record<string, string> = {
+        none: "max-w-none", prose: "max-w-prose", "2xl": "max-w-2xl", "4xl": "max-w-4xl"
+      };
+      const alignmentMap: Record<string, string> = {
+        left: "text-left", center: "text-center mx-auto", right: "text-right ml-auto"
+      };
+
+      const textContainerClasses = `${maxWidthMap[textMaxWidth] || "max-w-none"} ${alignmentMap[textAlignment] || "text-left"}`;
+      
+      const customHeadingStyles: React.CSSProperties = {
+        ...headingStyles,
+        fontFamily: textHeadingFont ? `"${textHeadingFont}", sans-serif` : headingStyles.fontFamily,
+        color: textHeadingColor || headingStyles.color,
+      };
+      
+      const customBodyStyles: React.CSSProperties = {
+        ...secondaryTextStyles,
+        fontFamily: textBodyFont ? `"${textBodyFont}", sans-serif` : theme?.bodyFont ? `"${theme.bodyFont}", sans-serif` : undefined,
+        color: textBodyColor || secondaryTextStyles.color,
+      };
+
       return wrapWithMargins(
-        <div className="prose dark:prose-invert max-w-none" data-testid={`section-text-${section.id}`}>
-          {heading && <h3 className="text-2xl font-semibold mb-4" style={headingStyles}>{heading}</h3>}
-          {content && <p style={secondaryTextStyles}>{content}</p>}
+        <div className={`prose dark:prose-invert ${textContainerClasses}`} data-testid={`section-text-${section.id}`}>
+          {heading && (
+            <h3 
+              className={`${headingSizeMap[textHeadingSize] || "text-2xl"} ${weightMap[textHeadingWeight] || "font-semibold"} mb-4`} 
+              style={customHeadingStyles}
+            >
+              {heading}
+            </h3>
+          )}
+          {content && (
+            <p 
+              className={`${bodySizeMap[textBodySize] || "text-base"} ${lineHeightMap[textLineHeight] || "leading-normal"}`}
+              style={customBodyStyles}
+            >
+              {content}
+            </p>
+          )}
         </div>
       );
 
