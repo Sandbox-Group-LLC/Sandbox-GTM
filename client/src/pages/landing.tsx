@@ -1,48 +1,56 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, Users, Mic2, FolderOpen, DollarSign, Mail, Share2, CheckCircle } from "lucide-react";
+import { Calendar, Users, Mic2, ClipboardList, DollarSign, Mail, CheckSquare, FileSpreadsheet, CreditCard, LayoutGrid } from "lucide-react";
 import logoImage from "@assets/Orange_bug_-_no_background_1765765097769.png";
 
-const features = [
+const corePillars = [
   {
-    icon: Users,
-    title: "Attendee Registration",
-    description: "Manage registrations with custom forms and real-time tracking",
+    icon: LayoutGrid,
+    title: "Complete Event Lifecycle",
+    description: "Create, configure, and manage events from planning to post-event analysis. Handle multiple events simultaneously with organization-level oversight.",
+  },
+  {
+    icon: CreditCard,
+    title: "Seamless Registration",
+    description: "Custom registration forms, flexible packages, and integrated Stripe payments. Track registrations in real-time with automated confirmations.",
   },
   {
     icon: Calendar,
-    title: "Agenda Builder",
-    description: "Create and organize event schedules with drag-and-drop ease",
+    title: "Build Dynamic Agendas",
+    description: "Create sessions, assign speakers, manage rooms and time slots. Give attendees a polished schedule they can explore and personalize.",
+  },
+];
+
+const features = [
+  {
+    icon: ClipboardList,
+    title: "Call for Papers",
+    description: "Collect abstracts, assign reviewers, and convert accepted papers into sessions",
   },
   {
     icon: Mic2,
     title: "Speaker Management",
-    description: "Handle speaker profiles, bios, and session assignments",
-  },
-  {
-    icon: FolderOpen,
-    title: "Content Catalog",
-    description: "Organize event materials, documents, and resources",
+    description: "Manage bios, headshots, session assignments, and communications",
   },
   {
     icon: DollarSign,
     title: "Budget Tracking",
-    description: "Monitor expenses with planned vs actual comparisons",
+    description: "Monitor planned vs actual spend with category breakdowns",
   },
   {
     icon: Mail,
-    title: "Email Communications",
-    description: "Create and send targeted email campaigns to attendees",
+    title: "Marketing Campaigns",
+    description: "Create templates, segment audiences, and track engagement",
   },
   {
-    icon: Share2,
-    title: "Social Media Planning",
-    description: "Schedule and track promotional content across platforms",
+    icon: CheckSquare,
+    title: "Deliverables",
+    description: "Assign tasks, set deadlines, and monitor completion status",
   },
   {
-    icon: CheckCircle,
-    title: "Project Management",
-    description: "Track timelines, milestones, and deliverables",
+    icon: FileSpreadsheet,
+    title: "Data Import",
+    description: "Import attendees, sessions, and speakers via Excel or CSV",
   },
 ];
 
@@ -79,19 +87,44 @@ export default function Landing() {
 
         <section className="py-16 px-6 bg-card">
           <div className="container mx-auto max-w-6xl">
-            <h2 className="text-2xl font-semibold text-center mb-12">
+            <h2 className="text-2xl font-semibold text-center mb-4">
               Everything You Need to Run Successful Events
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {features.map((feature) => (
-                <Card key={feature.title} className="border-card-border">
-                  <CardHeader className="pb-2">
-                    <feature.icon className="h-8 w-8 text-primary mb-2" />
-                    <CardTitle className="text-base">{feature.title}</CardTitle>
+            <p className="text-muted-foreground text-center mb-12 max-w-2xl mx-auto">
+              A complete platform that handles every aspect of event management, from initial planning to day-of execution.
+            </p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
+              {corePillars.map((pillar) => (
+                <Card key={pillar.title} className="border-card-border" data-testid={`card-pillar-${pillar.title.toLowerCase().replace(/\s+/g, '-')}`}>
+                  <CardHeader>
+                    <div className="h-12 w-12 rounded-md bg-primary/10 flex items-center justify-center mb-4">
+                      <pillar.icon className="h-6 w-6 text-primary" />
+                    </div>
+                    <CardTitle className="text-lg">{pillar.title}</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <CardDescription>{feature.description}</CardDescription>
+                    <CardDescription className="text-sm leading-relaxed">{pillar.description}</CardDescription>
                   </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            <h3 className="text-xl font-semibold text-center mb-8">
+              Plus Powerful Tools for Every Need
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {features.map((feature) => (
+                <Card key={feature.title} className="border-card-border" data-testid={`card-feature-${feature.title.toLowerCase().replace(/\s+/g, '-')}`}>
+                  <CardHeader className="pb-2 flex flex-row items-start gap-4">
+                    <div className="h-10 w-10 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
+                      <feature.icon className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-base">{feature.title}</CardTitle>
+                      <CardDescription className="mt-1">{feature.description}</CardDescription>
+                    </div>
+                  </CardHeader>
                 </Card>
               ))}
             </div>
