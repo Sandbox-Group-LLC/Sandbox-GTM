@@ -3973,10 +3973,12 @@ ${urls.map(u => `  <url>
         title: config.title,
         description: config.description,
         topics: topics.map(t => ({ id: t.id, name: t.name, description: t.description })),
-        deadline: config.deadline,
+        submissionDeadline: config.submissionDeadline,
         isOpen: config.isOpen,
         eventName: event.name,
         guidelines: config.guidelines,
+        maxAbstractLength: config.maxAbstractLength,
+        allowMultipleSubmissions: config.allowMultipleSubmissions,
       });
     } catch (error) {
       logError("Error fetching public CFP:", error);
@@ -4004,7 +4006,7 @@ ${urls.map(u => `  <url>
       }
       
       // Check deadline
-      if (config.deadline && new Date(config.deadline) < new Date()) {
+      if (config.submissionDeadline && new Date(config.submissionDeadline) < new Date()) {
         return res.status(400).json({ message: "CFP deadline has passed" });
       }
       

@@ -40,6 +40,7 @@ import Tracks from "@/pages/tracks";
 import Rooms from "@/pages/rooms";
 import ImportAttendees from "@/pages/import-attendees";
 import CallForPapers from "@/pages/call-for-papers";
+import PublicCfp from "@/pages/public-cfp";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const sidebarStyle = {
@@ -78,6 +79,7 @@ function Router() {
         <Route path="/event/:slug/register" component={PublicRegistration} />
         <Route path="/event/:slug/portal" component={AttendeePortal} />
         <Route path="/event/:slug/login" component={AttendeeLogin} />
+        <Route path="/event/:slug/cfp" component={PublicCfp} />
         <Route path="/event/:slug" component={PublicEvent} />
         <Route component={Landing} />
       </Switch>
@@ -116,6 +118,7 @@ function Router() {
         <Route path="/event/:slug/register" component={PublicRegistration} />
         <Route path="/event/:slug/portal" component={AttendeePortal} />
         <Route path="/event/:slug/login" component={AttendeeLogin} />
+        <Route path="/event/:slug/cfp" component={PublicCfp} />
         <Route path="/event/:slug" component={PublicEvent} />
         <Route component={NotFound} />
       </Switch>
