@@ -632,15 +632,16 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
   switch (section.type) {
     case "hero":
       const eventDate = event.startDate ? new Date(event.startDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : "";
+      const heroCardBgColor = (config.cardBackgroundColor as string) || theme?.cardBackground || undefined;
       const heroStyles: React.CSSProperties = {
-        backgroundColor: theme?.cardBackground || undefined,
+        backgroundColor: heroCardBgColor,
         borderRadius: themeRadius,
         borderColor: theme?.borderColor || undefined,
         borderWidth: theme?.borderColor ? '1px' : undefined,
         borderStyle: theme?.borderColor ? 'solid' : undefined,
       };
       return wrapWithMargins(
-        <div className="p-8 py-12 bg-muted" style={heroStyles} data-testid={`section-hero-${section.id}`}>
+        <div className={`p-8 py-12 ${!heroCardBgColor ? 'bg-muted' : ''}`} style={heroStyles} data-testid={`section-hero-${section.id}`}>
           <Badge variant="secondary" className="mb-4">Public Event</Badge>
           <h1 className="text-4xl font-bold mb-4" style={headingStyles}>{title || event.name}</h1>
           <div className="flex flex-wrap gap-4 mb-4" style={secondaryTextStyles}>

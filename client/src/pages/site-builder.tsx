@@ -190,7 +190,7 @@ const TEXT_DECORATION_OPTIONS = [
 const getDefaultConfig = (type: SectionType): Record<string, unknown> => {
   switch (type) {
     case "hero":
-      return { title: "Welcome to Our Event", subtitle: "", buttonText: "Register Now", buttonLink: "", backgroundImage: "" };
+      return { title: "Welcome to Our Event", subtitle: "", buttonText: "Register Now", buttonLink: "", backgroundImage: "", cardBackgroundColor: "" };
     case "text":
       return { 
         heading: "", 
@@ -1517,6 +1517,27 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId }: S
                 placeholder="/register"
                 data-testid="input-hero-button-link"
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cardBackgroundColor">Card Background Color</Label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  id="cardBackgroundColor"
+                  value={(config.cardBackgroundColor as string) || "#f3f4f6"}
+                  onChange={(e) => updateConfig("cardBackgroundColor", e.target.value)}
+                  className="h-9 w-12 rounded border cursor-pointer"
+                  data-testid="input-hero-card-bg-color"
+                />
+                <Input
+                  value={(config.cardBackgroundColor as string) || ""}
+                  onChange={(e) => updateConfig("cardBackgroundColor", e.target.value || undefined)}
+                  placeholder="Default (theme)"
+                  className="flex-1 font-mono text-sm"
+                  data-testid="input-hero-card-bg-color-text"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">Leave empty to use theme card background</p>
             </div>
           </>
         );
