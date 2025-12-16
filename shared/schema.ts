@@ -341,6 +341,7 @@ export const attendees = pgTable("attendees", {
   inviteCodeId: varchar("invite_code_id").references(() => inviteCodes.id),
   packageId: varchar("package_id").references(() => packages.id),
   customData: jsonb("custom_data").$type<Record<string, string | boolean | string[]>>(),
+  passwordHash: varchar("password_hash", { length: 255 }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
