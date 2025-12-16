@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   Users,
   Calendar,
+  Presentation,
   Mic2,
   FolderOpen,
   DollarSign,
@@ -207,7 +208,7 @@ export function AppSidebar() {
                       isActive={isSessionsActive}
                       data-testid="nav-sessions"
                     >
-                      <Calendar className="h-4 w-4" />
+                      <Presentation className="h-4 w-4" />
                       <span>Sessions</span>
                       <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
                     </SidebarMenuButton>
