@@ -1074,9 +1074,6 @@ export default function RegistrationFlow() {
                             <span className={`font-medium ${!step.enabled ? "text-muted-foreground" : ""}`}>
                               {step.title}
                             </span>
-                            {step.id === 4 ? (
-                              <Badge variant="secondary" className="text-xs">Coming Soon</Badge>
-                            ) : null}
                           </div>
                           <p className="text-sm text-muted-foreground truncate">{step.description}</p>
                         </div>
