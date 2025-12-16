@@ -39,6 +39,7 @@ import PrivacyPolicy from "@/pages/privacy-policy";
 import Tracks from "@/pages/tracks";
 import Rooms from "@/pages/rooms";
 import ImportAttendees from "@/pages/import-attendees";
+import CallForPapers from "@/pages/call-for-papers";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const sidebarStyle = {
@@ -100,6 +101,7 @@ function Router() {
         <Route path="/sessions" component={Sessions} />
         <Route path="/tracks" component={Tracks} />
         <Route path="/rooms" component={Rooms} />
+        <Route path="/call-for-papers" component={CallForPapers} />
         <Route path="/speakers" component={Speakers} />
         <Route path="/content" component={Content} />
         <Route path="/budget" component={Budget} />
