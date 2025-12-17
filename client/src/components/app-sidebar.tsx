@@ -87,6 +87,7 @@ const myReviewsItems = [
 
 const marketingMenuItems = [
   { title: "Email Campaigns", icon: Mail, path: "/emails" },
+  { title: "Email Analytics", icon: BarChart3, path: "/email-analytics" },
   { title: "Social Media", icon: Share2, path: "/social" },
   { title: "Analytics", icon: BarChart3, path: "/analytics" },
 ];

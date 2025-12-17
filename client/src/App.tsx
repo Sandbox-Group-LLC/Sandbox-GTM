@@ -42,6 +42,7 @@ import ImportAttendees from "@/pages/import-attendees";
 import CallForPapers from "@/pages/call-for-papers";
 import PublicCfp from "@/pages/public-cfp";
 import ReviewerPortal from "@/pages/reviewer-portal";
+import EmailAnalytics from "@/pages/email-analytics";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const sidebarStyle = {
@@ -111,6 +112,7 @@ function Router() {
         <Route path="/budget" component={Budget} />
         <Route path="/deliverables" component={Deliverables} />
         <Route path="/emails" component={Emails} />
+        <Route path="/email-analytics" component={EmailAnalytics} />
         <Route path="/social" component={Social} />
         <Route path="/analytics" component={Analytics} />
         <Route path="/settings" component={Settings} />

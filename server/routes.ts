@@ -4542,5 +4542,37 @@ ${urls.map(u => `  <url>
     }
   });
 
+  // Attendee email messages endpoint
+  app.get("/api/organizations/:organizationId/attendees/:attendeeId/email-messages", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { organizationId, attendeeId } = req.params;
+      
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === organizationId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const messages = await storage.getEmailMessagesByAttendee(organizationId, attendeeId);
+      res.json(messages.map(m => ({
+        id: m.id,
+        subject: m.subject,
+        recipientEmail: m.recipientEmail,
+        status: m.status,
+        sentAt: m.sentAt,
+        deliveredAt: m.deliveredAt,
+        openedAt: m.openedAt,
+        clickedAt: m.clickedAt,
+        bouncedAt: m.bouncedAt,
+        openCount: m.openCount,
+        clickCount: m.clickCount,
+      })));
+    } catch (error) {
+      logError("Error fetching attendee email messages:", error);
+      res.status(500).json({ message: "Failed to fetch email messages" });
+    }
+  });
+
   return httpServer;
 }

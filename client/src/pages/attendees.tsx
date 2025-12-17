@@ -19,6 +19,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
   Form,
   FormControl,
   FormField,
@@ -43,9 +50,26 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { titleCase } from "@/lib/utils";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Plus, Users, Search, Download, Settings2, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Trash2 } from "lucide-react";
+import { Plus, Users, Search, Download, Settings2, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Trash2, Eye, Mail } from "lucide-react";
+import { format } from "date-fns";
+import { Separator } from "@/components/ui/separator";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EventSelectField } from "@/components/event-select-field";
-import type { Attendee, Event, CustomField, InviteCode, Package } from "@shared/schema";
+import type { Attendee, Event, CustomField, InviteCode, Package, Organization } from "@shared/schema";
+
+interface AttendeeEmailMessage {
+  id: string;
+  subject: string | null;
+  recipientEmail: string;
+  status: string | null;
+  sentAt: string | null;
+  deliveredAt: string | null;
+  openedAt: string | null;
+  clickedAt: string | null;
+  bouncedAt: string | null;
+  openCount: number | null;
+  clickCount: number | null;
+}
 
 const ATTENDEE_TYPE_OPTIONS = [
   { value: "attendee", label: "Attendee" },
@@ -123,6 +147,7 @@ export default function Attendees() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [editingAttendee, setEditingAttendee] = useState<Attendee | null>(null);
+  const [viewingAttendee, setViewingAttendee] = useState<Attendee | null>(null);
   const [visibleColumns, setVisibleColumns] = useState<string[]>(DEFAULT_VISIBLE_COLUMNS);
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -146,6 +171,23 @@ export default function Attendees() {
 
   const { data: packages = [] } = useQuery<Package[]>({
     queryKey: ["/api/packages"],
+  });
+
+  const { data: organization } = useQuery<Organization>({
+    queryKey: ["/api/auth/organization"],
+  });
+
+  const { data: attendeeEmails = [], isLoading: emailsLoading } = useQuery<AttendeeEmailMessage[]>({
+    queryKey: ["/api/organizations", organization?.id, "attendees", viewingAttendee?.id, "email-messages"],
+    enabled: !!organization?.id && !!viewingAttendee?.id,
+    queryFn: async () => {
+      const res = await fetch(
+        `/api/organizations/${organization!.id}/attendees/${viewingAttendee!.id}/email-messages`,
+        { credentials: "include" }
+      );
+      if (!res.ok) throw new Error("Failed to fetch email messages");
+      return res.json();
+    },
   });
 
   const activeCustomFields = useMemo(() => {
@@ -487,6 +529,18 @@ export default function Attendees() {
       header: "",
       cell: (attendee: Attendee) => (
         <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              setViewingAttendee(attendee);
+            }}
+            data-testid={`button-view-${attendee.id}`}
+          >
+            <Eye className="h-4 w-4 mr-1" />
+            View
+          </Button>
           <Button
             variant="ghost"
             size="sm"
@@ -952,6 +1006,182 @@ export default function Attendees() {
           )}
         </div>
       </div>
+
+      <Sheet open={!!viewingAttendee} onOpenChange={(open) => !open && setViewingAttendee(null)}>
+        <SheetContent className="sm:max-w-xl overflow-y-auto" data-testid="sheet-attendee-details">
+          <SheetHeader>
+            <SheetTitle>Attendee Details</SheetTitle>
+            <SheetDescription>
+              View attendee information and email activity
+            </SheetDescription>
+          </SheetHeader>
+
+          {viewingAttendee && (
+            <div className="mt-6 space-y-6">
+              <div className="space-y-4">
+                <h3 className="text-sm font-medium text-muted-foreground">Contact Information</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-xs text-muted-foreground">Name</div>
+                    <div className="font-medium" data-testid="text-attendee-name">
+                      {viewingAttendee.firstName} {viewingAttendee.lastName}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Email</div>
+                    <div className="font-medium" data-testid="text-attendee-email">
+                      {viewingAttendee.email}
+                    </div>
+                  </div>
+                  {viewingAttendee.phone && (
+                    <div>
+                      <div className="text-xs text-muted-foreground">Phone</div>
+                      <div className="font-medium">{viewingAttendee.phone}</div>
+                    </div>
+                  )}
+                  {viewingAttendee.company && (
+                    <div>
+                      <div className="text-xs text-muted-foreground">Company</div>
+                      <div className="font-medium">{viewingAttendee.company}</div>
+                    </div>
+                  )}
+                  {viewingAttendee.jobTitle && (
+                    <div>
+                      <div className="text-xs text-muted-foreground">Job Title</div>
+                      <div className="font-medium">{viewingAttendee.jobTitle}</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-4">
+                <h3 className="text-sm font-medium text-muted-foreground">Registration Details</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-xs text-muted-foreground">Event</div>
+                    <div className="font-medium">
+                      {eventLookup[viewingAttendee.eventId] || viewingAttendee.eventId}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Status</div>
+                    <Badge variant={statusColors[viewingAttendee.registrationStatus || "pending"]}>
+                      {titleCase(viewingAttendee.registrationStatus || "pending")}
+                    </Badge>
+                  </div>
+                  {viewingAttendee.attendeeType && (
+                    <div>
+                      <div className="text-xs text-muted-foreground">Type</div>
+                      <div className="font-medium">
+                        {ATTENDEE_TYPE_OPTIONS.find(t => t.value === viewingAttendee.attendeeType)?.label || viewingAttendee.attendeeType}
+                      </div>
+                    </div>
+                  )}
+                  {viewingAttendee.ticketType && (
+                    <div>
+                      <div className="text-xs text-muted-foreground">Ticket Type</div>
+                      <div className="font-medium">{viewingAttendee.ticketType}</div>
+                    </div>
+                  )}
+                  {viewingAttendee.packageId && (
+                    <div>
+                      <div className="text-xs text-muted-foreground">Package</div>
+                      <div className="font-medium">
+                        {packageLookup[viewingAttendee.packageId] || "-"}
+                      </div>
+                    </div>
+                  )}
+                  {viewingAttendee.inviteCodeId && (
+                    <div>
+                      <div className="text-xs text-muted-foreground">Invite Code</div>
+                      <div className="font-medium">
+                        {inviteCodeLookup[viewingAttendee.inviteCodeId] || "-"}
+                      </div>
+                    </div>
+                  )}
+                  <div>
+                    <div className="text-xs text-muted-foreground">Checked In</div>
+                    <Badge variant={viewingAttendee.checkedIn ? "default" : "outline"}>
+                      {viewingAttendee.checkedIn ? "Yes" : "No"}
+                    </Badge>
+                  </div>
+                </div>
+                {viewingAttendee.notes && (
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-1">Notes</div>
+                    <div className="text-sm">{viewingAttendee.notes}</div>
+                  </div>
+                )}
+              </div>
+
+              <Separator />
+
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  <h3 className="text-sm font-medium text-muted-foreground">Email Activity</h3>
+                </div>
+                
+                {emailsLoading ? (
+                  <div className="text-sm text-muted-foreground">Loading emails...</div>
+                ) : attendeeEmails.length === 0 ? (
+                  <div className="text-sm text-muted-foreground py-4 text-center">
+                    No emails have been sent to this attendee yet.
+                  </div>
+                ) : (
+                  <div className="border rounded-md">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Subject</TableHead>
+                          <TableHead>Sent</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Opens</TableHead>
+                          <TableHead>Clicks</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {attendeeEmails.map((email) => (
+                          <TableRow key={email.id} data-testid={`row-email-${email.id}`}>
+                            <TableCell className="font-medium text-sm">
+                              {email.subject || "(No subject)"}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {email.sentAt ? format(new Date(email.sentAt), "MMM d, h:mm a") : "-"}
+                            </TableCell>
+                            <TableCell>
+                              <Badge 
+                                variant={
+                                  email.status === "delivered" || email.status === "opened" || email.status === "clicked" 
+                                    ? "default" 
+                                    : email.status === "bounced" || email.status === "complained" || email.status === "failed"
+                                    ? "destructive"
+                                    : "secondary"
+                                }
+                                className="text-xs"
+                              >
+                                {email.status ? email.status.charAt(0).toUpperCase() + email.status.slice(1) : "Sent"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {email.openCount || 0}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {email.clickCount || 0}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
