@@ -55,13 +55,23 @@ import {
   Unlink,
   AlertCircle,
   Send,
+  Building2,
+  User,
 } from "lucide-react";
 import { EventSelectField } from "@/components/event-select-field";
 import type { SocialPost, SocialConnection } from "@shared/schema";
 
+interface LinkedInOrganization {
+  urn: string;
+  id: number;
+  name: string;
+  vanityName?: string;
+}
+
 const socialFormSchema = z.object({
   eventId: z.string().min(1, "Event is required"),
   platform: z.string().min(1, "Platform is required"),
+  connectionId: z.string().optional(),
   content: z.string().min(1, "Content is required"),
   mediaUrl: z.string().optional(),
   scheduledAt: z.string().optional(),
@@ -109,6 +119,7 @@ export default function Social() {
   const [activeTab, setActiveTab] = useState("posts");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPost, setEditingPost] = useState<SocialPost | null>(null);
+  const [isOrgDialogOpen, setIsOrgDialogOpen] = useState(false);
 
   const { data: posts = [], isLoading: postsLoading } = useQuery<SocialPost[]>({
     queryKey: ["/api/social"],
@@ -118,17 +129,49 @@ export default function Social() {
     queryKey: ["/api/social-connections"],
   });
 
+  const hasLinkedInPersonal = connections.some(c => c.platform === 'linkedin' && c.connectionType !== 'organization' && c.isActive);
+  
+  const { data: linkedInOrgs = { organizations: [] }, isLoading: orgsLoading } = useQuery<{ organizations: LinkedInOrganization[] }>({
+    queryKey: ["/api/social/linkedin/organizations"],
+    enabled: hasLinkedInPersonal,
+  });
+
+  const addOrgMutation = useMutation({
+    mutationFn: async (org: LinkedInOrganization) => {
+      return await apiRequest("POST", "/api/social/linkedin/organizations", {
+        organizationUrn: org.urn,
+        organizationName: org.name,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/social-connections"] });
+      toast({ title: "Company page connected", description: "You can now post to this LinkedIn page" });
+      setIsOrgDialogOpen(false);
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({ title: "Unauthorized", description: "You are logged out. Logging in again...", variant: "destructive" });
+        setTimeout(() => { window.location.href = "/api/login"; }, 500);
+        return;
+      }
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
   const form = useForm<SocialFormData>({
     resolver: zodResolver(socialFormSchema),
     defaultValues: {
       eventId: "",
       platform: "",
+      connectionId: "",
       content: "",
       mediaUrl: "",
       scheduledAt: "",
       status: "draft",
     },
   });
+
+  const watchedPlatform = form.watch("platform");
 
   const createMutation = useMutation({
     mutationFn: async (data: SocialFormData) => {
@@ -253,8 +296,9 @@ export default function Social() {
   const handleEdit = (post: SocialPost) => {
     setEditingPost(post);
     form.reset({
-      eventId: post.eventId,
+      eventId: post.eventId || "",
       platform: post.platform,
+      connectionId: post.connectionId || "",
       content: post.content,
       mediaUrl: post.mediaUrl || "",
       scheduledAt: post.scheduledAt ? new Date(post.scheduledAt).toISOString().slice(0, 16) : "",
@@ -270,8 +314,11 @@ export default function Social() {
   };
 
   const publishMutation = useMutation({
-    mutationFn: async (postId: string) => {
-      return await apiRequest("PATCH", `/api/social/${postId}`, { status: "published" });
+    mutationFn: async ({ postId, connectionId }: { postId: string; connectionId?: string }) => {
+      return await apiRequest("PATCH", `/api/social/${postId}`, { 
+        status: "published",
+        ...(connectionId && { connectionId }),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/social"] });
@@ -288,8 +335,8 @@ export default function Social() {
   });
 
   const handlePublish = (post: SocialPost) => {
-    const connection = connections.find(c => c.platform === post.platform && c.isActive);
-    if (!connection) {
+    const platformConnections = connections.filter(c => c.platform === post.platform && c.isActive);
+    if (platformConnections.length === 0) {
       toast({
         title: "Platform not connected",
         description: `Connect your ${platformNames[post.platform]} account first to enable direct posting.`,
@@ -297,7 +344,21 @@ export default function Social() {
       });
       return;
     }
-    publishMutation.mutate(post.id);
+    
+    // Check if post already has a connectionId or if there are multiple connections without one
+    if (post.platform === 'linkedin' && platformConnections.length > 1 && !post.connectionId) {
+      toast({
+        title: "Select LinkedIn account",
+        description: "Edit the post to select which LinkedIn account to publish to.",
+        variant: "destructive",
+      });
+      handleEdit(post);
+      return;
+    }
+    
+    // Use the post's existing connectionId, or the only available connection
+    const connectionId = post.connectionId || (platformConnections.length === 1 ? platformConnections[0].id : undefined);
+    publishMutation.mutate({ postId: post.id, connectionId });
   };
 
   const getConnectionForPlatform = (platform: string): SocialConnection | undefined => {
@@ -319,6 +380,13 @@ export default function Social() {
   const connectedCount = connections.filter(c => c.isActive && c.accountId).length;
 
   const allPlatforms = ["twitter", "linkedin", "instagram", "facebook"];
+
+  const linkedInConnections = connections.filter(c => c.platform === 'linkedin');
+  const linkedInPersonalConnection = linkedInConnections.find(c => c.connectionType !== 'organization');
+  const linkedInOrgConnections = linkedInConnections.filter(c => c.connectionType === 'organization');
+  
+  const connectedOrgUrns = new Set(linkedInOrgConnections.map(c => c.organizationUrn));
+  const availableOrgs = linkedInOrgs.organizations.filter(org => !connectedOrgUrns.has(org.urn));
 
   return (
     <div className="flex flex-col h-full">
@@ -350,7 +418,14 @@ export default function Social() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Platform</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <Select onValueChange={(value) => {
+                            field.onChange(value);
+                            if (value === 'linkedin' && linkedInConnections.length === 1) {
+                              form.setValue('connectionId', linkedInConnections[0].id);
+                            } else if (value !== 'linkedin') {
+                              form.setValue('connectionId', '');
+                            }
+                          }} defaultValue={field.value}>
                             <FormControl>
                               <SelectTrigger data-testid="select-platform">
                                 <SelectValue placeholder="Select platform" />
@@ -367,6 +442,42 @@ export default function Social() {
                         </FormItem>
                       )}
                     />
+                    {watchedPlatform === 'linkedin' && linkedInConnections.length > 1 && (
+                      <FormField
+                        control={form.control}
+                        name="connectionId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Post As</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger data-testid="select-linkedin-connection">
+                                  <SelectValue placeholder="Select account to post as" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {linkedInConnections.filter(c => c.isActive).map((conn) => (
+                                  <SelectItem key={conn.id} value={conn.id}>
+                                    <div className="flex items-center gap-2">
+                                      {conn.connectionType === 'organization' ? (
+                                        <Building2 className="h-4 w-4" />
+                                      ) : (
+                                        <User className="h-4 w-4" />
+                                      )}
+                                      <span>{conn.connectionType === 'organization' ? conn.organizationName : conn.accountName}</span>
+                                      <span className="text-xs text-muted-foreground">
+                                        ({conn.connectionType === 'organization' ? 'Company Page' : 'Personal'})
+                                      </span>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
                     <FormField
                       control={form.control}
                       name="content"
@@ -494,7 +605,7 @@ export default function Social() {
                   </div>
                 ) : (
                   <div className="grid gap-4 md:grid-cols-2">
-                    {allPlatforms.map((platform) => {
+                    {allPlatforms.filter(p => p !== 'linkedin').map((platform) => {
                       const Icon = platformIcons[platform];
                       const connection = getConnectionForPlatform(platform);
                       const hasValidToken = connection && connection.isActive && connection.accountId;
@@ -578,6 +689,151 @@ export default function Social() {
                         </Card>
                       );
                     })}
+                    
+                    <Card data-testid="card-connection-linkedin" className="md:col-span-2">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-md ${platformBgColors.linkedin}`}>
+                              <Linkedin className={`h-5 w-5 ${platformColors.linkedin}`} />
+                            </div>
+                            <div>
+                              <CardTitle className="text-base">LinkedIn</CardTitle>
+                              <CardDescription>
+                                {linkedInConnections.length > 0 
+                                  ? `${linkedInConnections.length} connection${linkedInConnections.length > 1 ? 's' : ''}`
+                                  : 'Connect your profile or company pages'}
+                              </CardDescription>
+                            </div>
+                          </div>
+                          <Badge variant={linkedInPersonalConnection?.isActive ? "default" : "outline"}>
+                            {linkedInPersonalConnection?.isActive ? "Connected" : "Not connected"}
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {!linkedInPersonalConnection ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => handleConnect("linkedin")}
+                            disabled={connectMutation.isPending}
+                            data-testid="button-connect-linkedin"
+                          >
+                            <Link2 className="h-4 w-4 mr-2" />
+                            {connectMutation.isPending ? "Connecting..." : "Connect LinkedIn Account"}
+                          </Button>
+                        ) : (
+                          <>
+                            <div className="flex items-center justify-between gap-2 p-3 bg-muted/50 rounded-md">
+                              <div className="flex items-center gap-2">
+                                <User className="h-4 w-4 text-muted-foreground" />
+                                <span className="text-sm font-medium">{linkedInPersonalConnection.accountName || "Personal Profile"}</span>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => disconnectMutation.mutate(linkedInPersonalConnection.id)}
+                                disabled={disconnectMutation.isPending}
+                                data-testid="button-disconnect-linkedin-personal"
+                              >
+                                <Unlink className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            
+                            {linkedInOrgConnections.length > 0 && (
+                              <div className="space-y-2">
+                                <h4 className="text-sm font-medium text-muted-foreground">Company Pages</h4>
+                                {linkedInOrgConnections.map((conn) => (
+                                  <div key={conn.id} className="flex items-center justify-between gap-2 p-3 bg-muted/50 rounded-md">
+                                    <div className="flex items-center gap-2">
+                                      <Building2 className="h-4 w-4 text-muted-foreground" />
+                                      <span className="text-sm font-medium">{conn.organizationName || conn.accountName}</span>
+                                    </div>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => disconnectMutation.mutate(conn.id)}
+                                      disabled={disconnectMutation.isPending}
+                                      data-testid={`button-disconnect-linkedin-org-${conn.id}`}
+                                    >
+                                      <Unlink className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            
+                            {availableOrgs.length > 0 && (
+                              <Dialog open={isOrgDialogOpen} onOpenChange={setIsOrgDialogOpen}>
+                                <DialogTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="w-full"
+                                    data-testid="button-add-linkedin-page"
+                                  >
+                                    <Building2 className="h-4 w-4 mr-2" />
+                                    Add Company Page
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                  <DialogHeader>
+                                    <DialogTitle>Add LinkedIn Company Page</DialogTitle>
+                                    <DialogDescription>
+                                      Select a company page you administer to enable posting
+                                    </DialogDescription>
+                                  </DialogHeader>
+                                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                                    {orgsLoading ? (
+                                      <div className="space-y-2">
+                                        <Skeleton className="h-12" />
+                                        <Skeleton className="h-12" />
+                                      </div>
+                                    ) : availableOrgs.length === 0 ? (
+                                      <p className="text-sm text-muted-foreground py-4 text-center">
+                                        No additional company pages available
+                                      </p>
+                                    ) : (
+                                      availableOrgs.map((org) => (
+                                        <div
+                                          key={org.urn}
+                                          className="flex items-center justify-between gap-2 p-3 border rounded-md hover-elevate cursor-pointer"
+                                          onClick={() => addOrgMutation.mutate(org)}
+                                          data-testid={`button-select-org-${org.id}`}
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            <Building2 className="h-4 w-4 text-muted-foreground" />
+                                            <span className="text-sm font-medium">{org.name}</span>
+                                            {org.vanityName && (
+                                              <span className="text-xs text-muted-foreground">@{org.vanityName}</span>
+                                            )}
+                                          </div>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            disabled={addOrgMutation.isPending}
+                                          >
+                                            {addOrgMutation.isPending ? "Adding..." : "Add"}
+                                          </Button>
+                                        </div>
+                                      ))
+                                    )}
+                                  </div>
+                                </DialogContent>
+                              </Dialog>
+                            )}
+
+                            {orgsLoading && (
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <span>Loading company pages...</span>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </CardContent>
+                    </Card>
                   </div>
                 )}
 

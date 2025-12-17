@@ -662,6 +662,7 @@ export const socialPosts = pgTable("social_posts", {
   organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
   eventId: varchar("event_id").references(() => events.id),
   platform: varchar("platform", { length: 50 }).notNull(),
+  connectionId: varchar("connection_id").references(() => socialConnections.id),
   content: text("content").notNull(),
   mediaUrl: varchar("media_url", { length: 500 }),
   scheduledAt: timestamp("scheduled_at"),
@@ -982,6 +983,7 @@ export const socialPostsRelations = relations(socialPosts, ({ one }) => ({
   organization: one(organizations, { fields: [socialPosts.organizationId], references: [organizations.id] }),
   event: one(events, { fields: [socialPosts.eventId], references: [events.id] }),
   createdByUser: one(users, { fields: [socialPosts.createdBy], references: [users.id] }),
+  connection: one(socialConnections, { fields: [socialPosts.connectionId], references: [socialConnections.id] }),
 }));
 
 export const emailTemplatesRelations = relations(emailTemplates, ({ one }) => ({

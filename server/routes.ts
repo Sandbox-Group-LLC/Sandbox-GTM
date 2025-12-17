@@ -2742,7 +2742,29 @@ export async function registerRoutes(
       }
       
       if (status === 'published' && existingPost.status !== 'published' && existingPost.platform === 'linkedin') {
-        const connection = await storage.getSocialConnectionByPlatform(userId, 'linkedin');
+        // Support connectionId from request body or from the existing post
+        const connectionId = req.body.connectionId || existingPost.connectionId;
+        let connection;
+        
+        if (connectionId) {
+          // Use specific connection (personal or organization)
+          const connections = await storage.getSocialConnections(userId);
+          connection = connections.find(c => c.id === connectionId && c.platform === 'linkedin');
+        }
+        
+        // If no specific connection found, check for multiple connections
+        if (!connection) {
+          const allConnections = await storage.getSocialConnections(userId);
+          const linkedInConnections = allConnections.filter(c => c.platform === 'linkedin' && c.isActive);
+          
+          if (linkedInConnections.length > 1) {
+            return res.status(400).json({ 
+              message: "Multiple LinkedIn accounts connected. Please select which account to post from." 
+            });
+          }
+          
+          connection = linkedInConnections[0];
+        }
         
         if (!connection || !connection.accessToken || !connection.isActive) {
           return res.status(400).json({ 
@@ -2764,11 +2786,14 @@ export async function registerRoutes(
           return res.status(500).json({ message: "Failed to decrypt access token" });
         }
         
-        const personUrn = `urn:li:person:${connection.accountId}`;
+        // Use organization URN for org connections, person URN for personal
+        const authorUrn = connection.connectionType === 'organization' && connection.organizationUrn
+          ? connection.organizationUrn
+          : `urn:li:person:${connection.accountId}`;
         const content = req.body.content || existingPost.content;
         
         const linkedinPostBody = {
-          author: personUrn,
+          author: authorUrn,
           commentary: content,
           visibility: "PUBLIC",
           distribution: {
@@ -2808,10 +2833,20 @@ export async function registerRoutes(
         const shareUrn = postResponse.headers.get('x-restli-id') || postResponse.headers.get('X-RestLi-Id');
         logInfo(`LinkedIn post created successfully via PATCH: ${shareUrn}`);
         
-        const post = await storage.updateSocialPost(organizationId, req.params.id, { ...req.body, status: 'published' });
+        // Preserve the connectionId that was used for publishing
+        const updateData: Record<string, any> = { ...req.body, status: 'published' };
+        if (connection.id) {
+          updateData.connectionId = connection.id;
+        }
+        const post = await storage.updateSocialPost(organizationId, req.params.id, updateData);
         res.json({ ...post, linkedinShareUrn: shareUrn });
       } else {
-        const post = await storage.updateSocialPost(organizationId, req.params.id, req.body);
+        // For non-publish updates, only include connectionId if explicitly provided
+        const updateData = { ...req.body };
+        if (req.body.connectionId === undefined) {
+          delete updateData.connectionId;
+        }
+        const post = await storage.updateSocialPost(organizationId, req.params.id, updateData);
         if (!post) {
           return res.status(404).json({ message: "Social post not found" });
         }
