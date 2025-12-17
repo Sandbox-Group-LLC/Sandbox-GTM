@@ -43,6 +43,7 @@ import CallForPapers from "@/pages/call-for-papers";
 import PublicCfp from "@/pages/public-cfp";
 import ReviewerPortal from "@/pages/reviewer-portal";
 import EmailAnalytics from "@/pages/email-analytics";
+import Integrations from "@/pages/integrations";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const sidebarStyle = {
@@ -115,6 +116,7 @@ function Router() {
         <Route path="/email-analytics" component={EmailAnalytics} />
         <Route path="/social" component={Social} />
         <Route path="/analytics" component={Analytics} />
+        <Route path="/integrations" component={Integrations} />
         <Route path="/settings" component={Settings} />
         <Route path="/my-organization" component={MyOrganization} />
         <Route path="/admin/organizations" component={AdminOrganizations} />

@@ -20,6 +20,7 @@ import {
   Building2,
   Shield,
   ClipboardList,
+  Plug,
 } from "lucide-react";
 import logoImage from "@assets/Orange_bug_-_no_background_1765765097769.png";
 import { OnboardingChecklist } from "./onboarding-checklist";
@@ -382,6 +383,18 @@ export function AppSidebar() {
               <Link href="/my-organization">
                 <Building2 className="h-4 w-4" />
                 <span>My Organization</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              isActive={location === "/integrations"}
+              data-testid="nav-integrations"
+            >
+              <Link href="/integrations">
+                <Plug className="h-4 w-4" />
+                <span>Integrations</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
