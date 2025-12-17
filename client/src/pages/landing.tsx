@@ -1,7 +1,19 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, Users, Mic2, ClipboardList, DollarSign, Mail, CheckSquare, FileSpreadsheet, CreditCard, LayoutGrid } from "lucide-react";
+import { Calendar, Users, Mic2, ClipboardList, DollarSign, Mail, CheckSquare, FileSpreadsheet, CreditCard, LayoutGrid, Send } from "lucide-react";
+import { SiX, SiLinkedin, SiInstagram, SiFacebook, SiMailchimp, SiStripe, SiGooglesheets } from "react-icons/si";
 import logoImage from "@assets/Orange_bug_-_no_background_1765765097769.png";
+
+const integrations = [
+  { icon: SiStripe, name: "Stripe", color: "#635BFF", description: "Payment processing" },
+  { icon: SiMailchimp, name: "Mailchimp", color: "#FFE01B", description: "Email marketing" },
+  { icon: SiGooglesheets, name: "Google Sheets", color: "#34A853", description: "Data import" },
+  { icon: SiLinkedin, name: "LinkedIn", color: "#0A66C2", description: "Social posting" },
+  { icon: SiX, name: "X (Twitter)", color: "#000000", description: "Social posting" },
+  { icon: SiFacebook, name: "Facebook", color: "#1877F2", description: "Social posting" },
+  { icon: SiInstagram, name: "Instagram", color: "#E4405F", description: "Social posting" },
+  { icon: Send, name: "Resend", color: null, description: "Transactional email" },
+];
 
 const corePillars = [
   {
@@ -126,6 +138,36 @@ export default function Landing() {
                     </div>
                   </CardHeader>
                 </Card>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="py-16 px-6" data-testid="section-integrations">
+          <div className="container mx-auto max-w-6xl">
+            <h2 className="text-2xl font-semibold text-center mb-4">
+              Powerful Integrations
+            </h2>
+            <p className="text-muted-foreground text-center mb-12 max-w-2xl mx-auto">
+              Connect with the tools you already use. Our platform integrates seamlessly with leading services for payments, marketing, and social media.
+            </p>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              {integrations.map((integration) => (
+                <div 
+                  key={integration.name} 
+                  className="flex flex-col items-center text-center p-6 rounded-lg bg-card border border-border"
+                  data-testid={`integration-${integration.name.toLowerCase().replace(/[^a-z]/g, '-')}`}
+                >
+                  <div className="h-12 w-12 rounded-md bg-muted flex items-center justify-center mb-3">
+                    <integration.icon 
+                      className="h-6 w-6" 
+                      style={integration.color ? { color: integration.color } : undefined}
+                    />
+                  </div>
+                  <span className="font-medium text-sm">{integration.name}</span>
+                  <span className="text-xs text-muted-foreground mt-1">{integration.description}</span>
+                </div>
               ))}
             </div>
           </div>
