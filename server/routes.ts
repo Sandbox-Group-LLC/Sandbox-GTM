@@ -4732,5 +4732,108 @@ ${urls.map(u => `  <url>
     }
   });
 
+  // Background scheduler to process scheduled email campaigns
+  const processScheduledCampaigns = async () => {
+    try {
+      if (!process.env.RESEND_API_KEY) {
+        return; // Email service not configured
+      }
+
+      // Get all organizations to check their scheduled campaigns
+      const allOrganizations = await storage.getAllOrganizationsWithStats();
+      const now = new Date();
+
+      for (const org of allOrganizations) {
+        const campaigns = await storage.getEmailCampaigns(org.id);
+        const scheduledCampaigns = campaigns.filter(c => 
+          c.status === "scheduled" && 
+          c.scheduledAt && 
+          new Date(c.scheduledAt) <= now
+        );
+
+        for (const campaign of scheduledCampaigns) {
+          try {
+            logInfo(`Processing scheduled campaign: ${campaign.id} for org: ${org.id}`);
+            
+            // Get event details for merge tags
+            const event = await storage.getEvent(org.id, campaign.eventId);
+            if (!event) {
+              logError(`Event not found for campaign ${campaign.id}`);
+              continue;
+            }
+
+            // Get recipients based on recipientType
+            let attendees = await storage.getAttendees(org.id, campaign.eventId);
+            if (campaign.recipientType && campaign.recipientType !== "all") {
+              attendees = attendees.filter(a => a.attendeeType === campaign.recipientType);
+            }
+
+            if (attendees.length === 0) {
+              logWarn(`No recipients found for campaign ${campaign.id}`);
+              await storage.updateEmailCampaign(org.id, campaign.id, {
+                status: "sent",
+                sentAt: new Date(),
+              });
+              continue;
+            }
+
+            // Format event date for merge tags
+            const eventDate = event.startDate ? new Date(event.startDate).toLocaleDateString('en-US', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            }) : '';
+
+            // Send emails with merge tag replacement and tracking
+            const result = await sendCampaignEmails({
+              subject: campaign.subject,
+              content: campaign.content,
+              recipients: attendees.map(a => ({
+                email: a.email,
+                firstName: a.firstName || undefined,
+                lastName: a.lastName || undefined,
+                company: a.company || undefined,
+                checkInCode: a.checkInCode || undefined,
+                attendeeId: a.id,
+              })),
+              eventContext: {
+                name: event.name,
+                date: eventDate,
+                location: event.location || undefined,
+                description: event.description || undefined,
+              },
+              organizationContext: {
+                name: org.name,
+              },
+              organizationId: org.id,
+              campaignId: campaign.id,
+              enableTracking: true,
+              styles: campaign.styles as any || undefined,
+            });
+
+            // Update campaign status to sent
+            await storage.updateEmailCampaign(org.id, campaign.id, {
+              status: "sent",
+              sentAt: new Date(),
+            });
+
+            logInfo(`Scheduled campaign ${campaign.id} sent: ${result.totalSent} emails, ${result.totalFailed} failed`);
+          } catch (campaignError) {
+            logError(`Error processing scheduled campaign ${campaign.id}:`, campaignError);
+          }
+        }
+      }
+    } catch (error) {
+      logError("Error in scheduled campaign processor:", error);
+    }
+  };
+
+  // Run the scheduler every minute
+  setInterval(processScheduledCampaigns, 60 * 1000);
+  
+  // Also run once at startup after a short delay
+  setTimeout(processScheduledCampaigns, 5000);
+
   return httpServer;
 }
