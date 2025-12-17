@@ -427,7 +427,7 @@ export default function Settings() {
 
               <Accordion type="single" collapsible className="w-full">
                 <AccordionItem value="linkedin" data-testid="accordion-linkedin">
-                  <AccordionTrigger className="text-sm">
+                  <AccordionTrigger className="text-sm" data-testid="accordion-trigger-linkedin">
                     <span className="flex items-center gap-2">
                       <SiLinkedin className="h-4 w-4 text-[#0A66C2]" />
                       LinkedIn Setup Instructions
@@ -452,7 +452,7 @@ export default function Settings() {
                 </AccordionItem>
 
                 <AccordionItem value="twitter" data-testid="accordion-twitter">
-                  <AccordionTrigger className="text-sm">
+                  <AccordionTrigger className="text-sm" data-testid="accordion-trigger-twitter">
                     <span className="flex items-center gap-2">
                       <SiX className="h-4 w-4" />
                       Twitter / X Setup Instructions
@@ -477,7 +477,7 @@ export default function Settings() {
                 </AccordionItem>
 
                 <AccordionItem value="facebook" data-testid="accordion-facebook">
-                  <AccordionTrigger className="text-sm">
+                  <AccordionTrigger className="text-sm" data-testid="accordion-trigger-facebook">
                     <span className="flex items-center gap-2">
                       <SiFacebook className="h-4 w-4 text-[#1877F2]" />
                       Facebook Setup Instructions
@@ -502,7 +502,7 @@ export default function Settings() {
                 </AccordionItem>
 
                 <AccordionItem value="instagram" data-testid="accordion-instagram">
-                  <AccordionTrigger className="text-sm">
+                  <AccordionTrigger className="text-sm" data-testid="accordion-trigger-instagram">
                     <span className="flex items-center gap-2">
                       <SiInstagram className="h-4 w-4 text-[#E4405F]" />
                       Instagram Setup Instructions
