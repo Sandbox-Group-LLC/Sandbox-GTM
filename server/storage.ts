@@ -35,6 +35,9 @@ import {
   emailEvents,
   emailSuppressions,
   socialMediaCredentials,
+  emailPlatformConnections,
+  emailPlatformAudiences,
+  emailSyncJobs,
   type User,
   type UpsertUser,
   type Event,
@@ -122,6 +125,12 @@ import {
   type InsertEmailSuppression,
   type SocialMediaCredential,
   type InsertSocialMediaCredential,
+  type EmailPlatformConnection,
+  type InsertEmailPlatformConnection,
+  type EmailPlatformAudience,
+  type InsertEmailPlatformAudience,
+  type EmailSyncJob,
+  type InsertEmailSyncJob,
 } from "@shared/schema";
 import { encrypt, decrypt } from "./encryption";
 import { db } from "./db";
@@ -425,6 +434,24 @@ export interface IStorage {
   getSocialMediaCredential(organizationId: string, provider: string): Promise<SocialMediaCredential | null>;
   upsertSocialMediaCredential(organizationId: string, provider: string, clientId: string, clientSecret: string, userId: string): Promise<SocialMediaCredential>;
   deleteSocialMediaCredential(organizationId: string, provider: string): Promise<void>;
+
+  // Email Platform Connection operations
+  getEmailPlatformConnections(organizationId: string): Promise<EmailPlatformConnection[]>;
+  getEmailPlatformConnection(organizationId: string, id: string): Promise<EmailPlatformConnection | undefined>;
+  getEmailPlatformConnectionByProvider(organizationId: string, provider: string): Promise<EmailPlatformConnection | undefined>;
+  createEmailPlatformConnection(data: InsertEmailPlatformConnection): Promise<EmailPlatformConnection>;
+  updateEmailPlatformConnection(organizationId: string, id: string, data: Partial<InsertEmailPlatformConnection>): Promise<EmailPlatformConnection | undefined>;
+  deleteEmailPlatformConnection(organizationId: string, id: string): Promise<void>;
+
+  // Email Platform Audience operations
+  getEmailPlatformAudiences(connectionId: string): Promise<EmailPlatformAudience[]>;
+  upsertEmailPlatformAudience(data: InsertEmailPlatformAudience): Promise<EmailPlatformAudience>;
+  deleteEmailPlatformAudiences(connectionId: string): Promise<void>;
+
+  // Email Sync Job operations
+  getEmailSyncJobs(organizationId: string, connectionId?: string): Promise<EmailSyncJob[]>;
+  createEmailSyncJob(data: InsertEmailSyncJob): Promise<EmailSyncJob>;
+  updateEmailSyncJob(id: string, data: Partial<InsertEmailSyncJob>): Promise<EmailSyncJob | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2032,6 +2059,143 @@ export class DatabaseStorage implements IStorage {
         eq(socialMediaCredentials.organizationId, organizationId),
         eq(socialMediaCredentials.provider, provider)
       ));
+  }
+
+  // Email Platform Connection operations
+  async getEmailPlatformConnections(organizationId: string): Promise<EmailPlatformConnection[]> {
+    return db.select().from(emailPlatformConnections)
+      .where(eq(emailPlatformConnections.organizationId, organizationId))
+      .orderBy(desc(emailPlatformConnections.createdAt));
+  }
+
+  async getEmailPlatformConnection(organizationId: string, id: string): Promise<EmailPlatformConnection | undefined> {
+    const [connection] = await db.select().from(emailPlatformConnections)
+      .where(and(
+        eq(emailPlatformConnections.organizationId, organizationId),
+        eq(emailPlatformConnections.id, id)
+      ));
+    return connection;
+  }
+
+  async getEmailPlatformConnectionByProvider(organizationId: string, provider: string): Promise<EmailPlatformConnection | undefined> {
+    const [connection] = await db.select().from(emailPlatformConnections)
+      .where(and(
+        eq(emailPlatformConnections.organizationId, organizationId),
+        eq(emailPlatformConnections.provider, provider)
+      ));
+    return connection;
+  }
+
+  async createEmailPlatformConnection(data: InsertEmailPlatformConnection): Promise<EmailPlatformConnection> {
+    const encryptedData = { ...data };
+    if (data.accessToken) {
+      encryptedData.accessToken = encrypt(data.accessToken);
+    }
+    if (data.refreshToken) {
+      encryptedData.refreshToken = encrypt(data.refreshToken);
+    }
+    if (data.apiKey) {
+      encryptedData.apiKey = encrypt(data.apiKey);
+    }
+    
+    const [connection] = await db.insert(emailPlatformConnections)
+      .values(encryptedData)
+      .returning();
+    return connection;
+  }
+
+  async updateEmailPlatformConnection(
+    organizationId: string,
+    id: string,
+    data: Partial<InsertEmailPlatformConnection>
+  ): Promise<EmailPlatformConnection | undefined> {
+    const updateData = { ...data, updatedAt: new Date() };
+    if (data.accessToken) {
+      updateData.accessToken = encrypt(data.accessToken);
+    }
+    if (data.refreshToken) {
+      updateData.refreshToken = encrypt(data.refreshToken);
+    }
+    if (data.apiKey) {
+      updateData.apiKey = encrypt(data.apiKey);
+    }
+    
+    const [updated] = await db.update(emailPlatformConnections)
+      .set(updateData)
+      .where(and(
+        eq(emailPlatformConnections.organizationId, organizationId),
+        eq(emailPlatformConnections.id, id)
+      ))
+      .returning();
+    return updated;
+  }
+
+  async deleteEmailPlatformConnection(organizationId: string, id: string): Promise<void> {
+    await db.delete(emailPlatformConnections)
+      .where(and(
+        eq(emailPlatformConnections.organizationId, organizationId),
+        eq(emailPlatformConnections.id, id)
+      ));
+  }
+
+  // Email Platform Audience operations
+  async getEmailPlatformAudiences(connectionId: string): Promise<EmailPlatformAudience[]> {
+    return db.select().from(emailPlatformAudiences)
+      .where(eq(emailPlatformAudiences.connectionId, connectionId))
+      .orderBy(desc(emailPlatformAudiences.createdAt));
+  }
+
+  async upsertEmailPlatformAudience(data: InsertEmailPlatformAudience): Promise<EmailPlatformAudience> {
+    const [audience] = await db.insert(emailPlatformAudiences)
+      .values(data)
+      .onConflictDoUpdate({
+        target: [emailPlatformAudiences.connectionId, emailPlatformAudiences.externalId],
+        set: {
+          name: data.name,
+          memberCount: data.memberCount,
+          listType: data.listType,
+          isPrimary: data.isPrimary,
+          lastSyncedAt: data.lastSyncedAt,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return audience;
+  }
+
+  async deleteEmailPlatformAudiences(connectionId: string): Promise<void> {
+    await db.delete(emailPlatformAudiences)
+      .where(eq(emailPlatformAudiences.connectionId, connectionId));
+  }
+
+  // Email Sync Job operations
+  async getEmailSyncJobs(organizationId: string, connectionId?: string): Promise<EmailSyncJob[]> {
+    if (connectionId) {
+      return db.select().from(emailSyncJobs)
+        .where(and(
+          eq(emailSyncJobs.organizationId, organizationId),
+          eq(emailSyncJobs.connectionId, connectionId)
+        ))
+        .orderBy(desc(emailSyncJobs.createdAt));
+    }
+    return db.select().from(emailSyncJobs)
+      .where(eq(emailSyncJobs.organizationId, organizationId))
+      .orderBy(desc(emailSyncJobs.createdAt));
+  }
+
+  async createEmailSyncJob(data: InsertEmailSyncJob): Promise<EmailSyncJob> {
+    const [job] = await db.insert(emailSyncJobs)
+      .values(data)
+      .returning();
+    return job;
+  }
+
+  async updateEmailSyncJob(id: string, data: Partial<InsertEmailSyncJob>): Promise<EmailSyncJob | undefined> {
+    const [updated] = await db.update(emailSyncJobs)
+      .set(data)
+      .where(eq(emailSyncJobs.id, id))
+      .returning();
+    return updated;
   }
 }
 

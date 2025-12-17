@@ -61,7 +61,12 @@ import {
   insertCfpReviewSchema,
   pageVersions,
   eventPages,
+  emailPlatformConnections,
+  emailPlatformAudiences,
+  emailSyncJobs,
 } from "@shared/schema";
+import { createMailchimpProvider } from "./integrations/mailchimp";
+import { decrypt, encrypt } from "./encryption";
 import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
 import { sanitizeCustomCss } from "@shared/css-sanitizer";
@@ -407,6 +412,288 @@ export async function registerRoutes(
     } catch (error) {
       logError("Error deleting social credentials:", error);
       res.status(500).json({ message: "Failed to delete social credentials" });
+    }
+  });
+
+  // Email Platform Integration routes
+  function maskApiKey(apiKey: string | null): string | null {
+    if (!apiKey) return null;
+    try {
+      const decrypted = decrypt(apiKey);
+      return decrypted.length > 4 ? '****' + decrypted.slice(-4) : '****';
+    } catch {
+      return '****';
+    }
+  }
+
+  function sanitizeEmailConnection(connection: any) {
+    return {
+      id: connection.id,
+      organizationId: connection.organizationId,
+      provider: connection.provider,
+      accountName: connection.accountName,
+      accountId: connection.accountId,
+      apiKey: maskApiKey(connection.apiKey),
+      accessToken: connection.accessToken ? '****' : null,
+      refreshToken: connection.refreshToken ? '****' : null,
+      serverPrefix: connection.serverPrefix,
+      tokenExpiresAt: connection.tokenExpiresAt,
+      defaultAudienceId: connection.defaultAudienceId,
+      status: connection.status,
+      lastSyncedAt: connection.lastSyncedAt,
+      errorMessage: connection.errorMessage,
+      metadata: connection.metadata,
+      connectedBy: connection.connectedBy,
+      createdAt: connection.createdAt,
+      updatedAt: connection.updatedAt,
+    };
+  }
+
+  app.get('/api/email-integrations', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      
+      const connections = await storage.getEmailPlatformConnections(organizationId);
+      res.json(connections.map(sanitizeEmailConnection));
+    } catch (error) {
+      logError("Error fetching email integrations:", error);
+      res.status(500).json({ message: "Failed to fetch email integrations" });
+    }
+  });
+
+  app.post('/api/email-integrations', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const { provider, apiKey } = req.body;
+
+      const validProviders = ['mailchimp'];
+      if (!validProviders.includes(provider)) {
+        return res.status(400).json({ message: "Invalid provider. Must be one of: mailchimp" });
+      }
+
+      if (!apiKey || typeof apiKey !== 'string' || apiKey.trim().length === 0) {
+        return res.status(400).json({ message: "API key is required" });
+      }
+
+      const existingConnection = await storage.getEmailPlatformConnectionByProvider(organizationId, provider);
+      if (existingConnection) {
+        return res.status(400).json({ message: `A ${provider} connection already exists for this organization` });
+      }
+
+      let accountInfo: { accountName: string; accountId: string };
+      try {
+        const mailchimpProvider = createMailchimpProvider(apiKey.trim());
+        accountInfo = await mailchimpProvider.verifyConnection();
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        logWarn(`Mailchimp API key validation failed: ${errorMessage}`, 'EmailIntegration');
+        return res.status(400).json({ message: `Invalid Mailchimp API key: ${errorMessage}` });
+      }
+
+      const serverPrefix = apiKey.split('-').pop() || '';
+
+      const connection = await storage.createEmailPlatformConnection({
+        organizationId,
+        provider,
+        apiKey: apiKey.trim(),
+        serverPrefix,
+        accountName: accountInfo.accountName,
+        accountId: accountInfo.accountId,
+        status: 'active',
+        connectedBy: userId,
+      });
+
+      res.status(201).json(sanitizeEmailConnection(connection));
+    } catch (error) {
+      logError("Error creating email integration:", error);
+      res.status(500).json({ message: "Failed to create email integration" });
+    }
+  });
+
+  app.delete('/api/email-integrations/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const { id } = req.params;
+
+      const connection = await storage.getEmailPlatformConnection(organizationId, id);
+      if (!connection) {
+        return res.status(404).json({ message: "Email integration not found" });
+      }
+
+      await storage.deleteEmailPlatformAudiences(connection.id);
+      await storage.deleteEmailPlatformConnection(organizationId, id);
+
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting email integration:", error);
+      res.status(500).json({ message: "Failed to delete email integration" });
+    }
+  });
+
+  app.get('/api/email-integrations/:id/audiences', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const { id } = req.params;
+
+      const connection = await storage.getEmailPlatformConnection(organizationId, id);
+      if (!connection) {
+        return res.status(404).json({ message: "Email integration not found" });
+      }
+
+      if (!connection.apiKey) {
+        return res.status(400).json({ message: "Connection has no API key configured" });
+      }
+
+      let decryptedApiKey: string;
+      try {
+        decryptedApiKey = decrypt(connection.apiKey);
+      } catch (error) {
+        logError("Failed to decrypt API key:", error);
+        return res.status(500).json({ message: "Failed to access connection credentials" });
+      }
+
+      const mailchimpProvider = createMailchimpProvider(decryptedApiKey, connection.serverPrefix || undefined);
+      const audiences = await mailchimpProvider.listAudiences();
+
+      for (const audience of audiences) {
+        await storage.upsertEmailPlatformAudience({
+          connectionId: connection.id,
+          organizationId,
+          externalId: audience.id,
+          name: audience.name,
+          memberCount: audience.memberCount,
+          listType: 'list',
+          lastSyncedAt: new Date(),
+        });
+      }
+
+      await storage.updateEmailPlatformConnection(organizationId, id, {
+        lastSyncedAt: new Date(),
+        status: 'active',
+        errorMessage: null,
+      });
+
+      res.json(audiences);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logError("Error fetching email audiences:", error);
+
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const { id } = req.params;
+
+      await storage.updateEmailPlatformConnection(organizationId, id, {
+        status: 'error',
+        errorMessage: errorMessage,
+      });
+
+      res.status(500).json({ message: `Failed to fetch audiences: ${errorMessage}` });
+    }
+  });
+
+  app.post('/api/email-integrations/:id/sync', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const { id } = req.params;
+      const { audienceId, eventId, direction } = req.body;
+
+      if (!audienceId || typeof audienceId !== 'string') {
+        return res.status(400).json({ message: "audienceId is required" });
+      }
+
+      if (direction !== 'push') {
+        return res.status(400).json({ message: "Only 'push' direction is currently supported" });
+      }
+
+      const connection = await storage.getEmailPlatformConnection(organizationId, id);
+      if (!connection) {
+        return res.status(404).json({ message: "Email integration not found" });
+      }
+
+      if (!connection.apiKey) {
+        return res.status(400).json({ message: "Connection has no API key configured" });
+      }
+
+      let event = null;
+      if (eventId) {
+        event = await storage.getEvent(organizationId, eventId);
+        if (!event) {
+          return res.status(404).json({ message: "Event not found" });
+        }
+      }
+
+      const syncJob = await storage.createEmailSyncJob({
+        connectionId: connection.id,
+        organizationId,
+        eventId: eventId || null,
+        audienceId: null,
+        jobType: 'push_attendees',
+        direction: 'push',
+        status: 'in_progress',
+        startedAt: new Date(),
+        initiatedBy: userId,
+      });
+
+      let decryptedApiKey: string;
+      try {
+        decryptedApiKey = decrypt(connection.apiKey);
+      } catch (error) {
+        logError("Failed to decrypt API key:", error);
+        await storage.updateEmailSyncJob(syncJob.id, {
+          status: 'failed',
+          finishedAt: new Date(),
+          errorMessage: 'Failed to access connection credentials',
+        });
+        return res.status(500).json({ message: "Failed to access connection credentials" });
+      }
+
+      const attendees = await storage.getAttendees(organizationId, eventId || undefined);
+
+      const contacts = attendees
+        .filter(a => a.email)
+        .map(a => ({
+          email: a.email!,
+          firstName: a.firstName || undefined,
+          lastName: a.lastName || undefined,
+          phone: a.phone || undefined,
+          company: a.company || undefined,
+        }));
+
+      const mailchimpProvider = createMailchimpProvider(decryptedApiKey, connection.serverPrefix || undefined);
+      const syncResult = await mailchimpProvider.syncContacts(audienceId, contacts);
+
+      const updatedSyncJob = await storage.updateEmailSyncJob(syncJob.id, {
+        status: syncResult.failed > 0 ? 'completed_with_errors' : 'completed',
+        finishedAt: new Date(),
+        totalRecords: contacts.length,
+        processedRecords: contacts.length,
+        successCount: syncResult.created + syncResult.updated,
+        errorCount: syncResult.failed,
+        errorMessage: syncResult.errors.length > 0 
+          ? `${syncResult.failed} records failed. First error: ${syncResult.errors[0]?.error || 'Unknown'}`
+          : null,
+        stats: {
+          created: syncResult.created,
+          updated: syncResult.updated,
+          errors: syncResult.errors.map(e => ({ email: e.email, error: e.error })),
+        },
+      });
+
+      await storage.updateEmailPlatformConnection(organizationId, id, {
+        lastSyncedAt: new Date(),
+        status: 'active',
+      });
+
+      res.json(updatedSyncJob);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logError("Error running email sync:", error);
+      res.status(500).json({ message: `Failed to sync: ${errorMessage}` });
     }
   });
 

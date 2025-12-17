@@ -126,7 +126,9 @@ export const emailPlatformAudiences = pgTable("email_platform_audiences", {
   lastSyncedAt: timestamp("last_synced_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  uniqueIndex("IDX_email_platform_audience_unique").on(table.connectionId, table.externalId),
+]);
 
 // Email Sync Jobs table - tracks sync operations between CMS and email platforms
 export const emailSyncJobs = pgTable("email_sync_jobs", {
