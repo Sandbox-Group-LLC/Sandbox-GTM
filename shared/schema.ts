@@ -555,6 +555,17 @@ export const emailCampaigns = pgTable("email_campaigns", {
   status: varchar("status", { length: 50 }).default("draft"),
   scheduledAt: timestamp("scheduled_at"),
   sentAt: timestamp("sent_at"),
+  styles: jsonb("styles").$type<{
+    alignment?: 'left' | 'center' | 'right';
+    headingFont?: string;
+    headingSize?: 'sm' | 'base' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl';
+    headingWeight?: 'normal' | 'medium' | 'semibold' | 'bold';
+    headingColor?: string;
+    bodyFont?: string;
+    bodySize?: 'sm' | 'base' | 'lg';
+    bodyColor?: string;
+    lineHeight?: 'tight' | 'normal' | 'relaxed';
+  }>().default({}),
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -585,6 +596,17 @@ export const emailTemplates = pgTable("email_templates", {
   content: text("content").notNull(),
   headerImageUrl: text("header_image_url"),
   category: varchar("category", { length: 50 }).default("general"),
+  styles: jsonb("styles").$type<{
+    alignment?: 'left' | 'center' | 'right';
+    headingFont?: string;
+    headingSize?: 'sm' | 'base' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl';
+    headingWeight?: 'normal' | 'medium' | 'semibold' | 'bold';
+    headingColor?: string;
+    bodyFont?: string;
+    bodySize?: 'sm' | 'base' | 'lg';
+    bodyColor?: string;
+    lineHeight?: 'tight' | 'normal' | 'relaxed';
+  }>().default({}),
   isDefault: boolean("is_default").default(false),
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),

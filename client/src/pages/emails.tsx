@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -38,10 +40,22 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { titleCase } from "@/lib/utils";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Plus, Mail, Send, Clock, CheckCircle, FileText, Copy, Trash2, X } from "lucide-react";
+import { Plus, Mail, Send, Clock, CheckCircle, FileText, Copy, Trash2, X, Type, Palette } from "lucide-react";
 import { EventSelectField } from "@/components/event-select-field";
 import { MergeTagPicker } from "@/components/merge-tag-picker";
 import type { EmailCampaign, EmailTemplate } from "@shared/schema";
+
+const emailStylesSchema = z.object({
+  alignment: z.enum(["left", "center", "right"]).optional(),
+  headingFont: z.string().optional(),
+  headingSize: z.enum(["sm", "base", "lg", "xl", "2xl", "3xl", "4xl"]).optional(),
+  headingWeight: z.enum(["normal", "medium", "semibold", "bold"]).optional(),
+  headingColor: z.string().optional(),
+  bodyFont: z.string().optional(),
+  bodySize: z.enum(["sm", "base", "lg"]).optional(),
+  bodyColor: z.string().optional(),
+  lineHeight: z.enum(["tight", "normal", "relaxed"]).optional(),
+}).optional();
 
 const emailFormSchema = z.object({
   eventId: z.string().min(1, "Event is required"),
@@ -50,6 +64,7 @@ const emailFormSchema = z.object({
   recipientType: z.string().default("all"),
   status: z.string().default("draft"),
   scheduledAt: z.string().optional(),
+  styles: emailStylesSchema,
 });
 
 const templateFormSchema = z.object({
@@ -58,7 +73,58 @@ const templateFormSchema = z.object({
   content: z.string().min(1, "Content is required"),
   category: z.string().default("general"),
   headerImageUrl: z.string().optional(),
+  styles: emailStylesSchema,
 });
+
+const FONT_OPTIONS = [
+  { value: "Inter", label: "Inter" },
+  { value: "Roboto", label: "Roboto" },
+  { value: "Open Sans", label: "Open Sans" },
+  { value: "Lato", label: "Lato" },
+  { value: "Montserrat", label: "Montserrat" },
+  { value: "Poppins", label: "Poppins" },
+  { value: "Oswald", label: "Oswald" },
+  { value: "Playfair Display", label: "Playfair Display" },
+  { value: "Raleway", label: "Raleway" },
+  { value: "Source Sans Pro", label: "Source Sans Pro" },
+  { value: "Merriweather", label: "Merriweather" },
+  { value: "Nunito", label: "Nunito" },
+];
+
+const ALIGNMENT_OPTIONS = [
+  { value: "left", label: "Left" },
+  { value: "center", label: "Center" },
+  { value: "right", label: "Right" },
+];
+
+const HEADING_SIZE_OPTIONS = [
+  { value: "sm", label: "Small" },
+  { value: "base", label: "Base" },
+  { value: "lg", label: "Large" },
+  { value: "xl", label: "Extra Large" },
+  { value: "2xl", label: "2XL" },
+  { value: "3xl", label: "3XL" },
+  { value: "4xl", label: "4XL" },
+];
+
+const BODY_SIZE_OPTIONS = [
+  { value: "sm", label: "Small" },
+  { value: "base", label: "Normal" },
+  { value: "lg", label: "Large" },
+];
+
+const HEADING_WEIGHT_OPTIONS = [
+  { value: "normal", label: "Normal" },
+  { value: "medium", label: "Medium" },
+  { value: "semibold", label: "Semibold" },
+  { value: "bold", label: "Bold" },
+];
+
+const LINE_HEIGHT_OPTIONS = [
+  { value: "tight", label: "Tight" },
+  { value: "normal", label: "Normal" },
+  { value: "relaxed", label: "Relaxed" },
+];
 
 type EmailFormData = z.infer<typeof emailFormSchema>;
 type TemplateFormData = z.infer<typeof templateFormSchema>;
@@ -107,6 +173,7 @@ export default function Emails() {
       recipientType: "all",
       status: "draft",
       scheduledAt: "",
+      styles: {},
     },
   });
 
@@ -118,6 +185,7 @@ export default function Emails() {
       content: "",
       category: "general",
       headerImageUrl: "",
+      styles: {},
     },
   });
 
@@ -275,6 +343,7 @@ export default function Emails() {
       recipientType: email.recipientType || "all",
       status: email.status || "draft",
       scheduledAt: email.scheduledAt ? new Date(email.scheduledAt).toISOString().slice(0, 16) : "",
+      styles: email.styles || {},
     });
     setIsCampaignDialogOpen(true);
   };
@@ -287,6 +356,7 @@ export default function Emails() {
       content: template.content,
       category: template.category || "general",
       headerImageUrl: template.headerImageUrl || "",
+      styles: template.styles || {},
     });
     setIsTemplateDialogOpen(true);
   };
@@ -299,6 +369,7 @@ export default function Emails() {
       recipientType: "all",
       status: "draft",
       scheduledAt: "",
+      styles: template.styles || {},
     });
     setActiveTab("campaigns");
     setIsCampaignDialogOpen(true);
@@ -630,6 +701,194 @@ export default function Emails() {
                         </FormItem>
                       )}
                     />
+
+                    <Accordion type="single" collapsible className="w-full">
+                      <AccordionItem value="styling">
+                        <AccordionTrigger data-testid="accordion-campaign-styling">
+                          <div className="flex items-center gap-2">
+                            <Palette className="h-4 w-4" />
+                            Styling Options
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="space-y-4 pt-2">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label>Text Alignment</Label>
+                                <Select
+                                  value={campaignForm.watch("styles.alignment") || "left"}
+                                  onValueChange={(value) => campaignForm.setValue("styles.alignment", value as "left" | "center" | "right")}
+                                >
+                                  <SelectTrigger data-testid="select-campaign-alignment">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {ALIGNMENT_OPTIONS.map((opt) => (
+                                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Line Height</Label>
+                                <Select
+                                  value={campaignForm.watch("styles.lineHeight") || "normal"}
+                                  onValueChange={(value) => campaignForm.setValue("styles.lineHeight", value as "tight" | "normal" | "relaxed")}
+                                >
+                                  <SelectTrigger data-testid="select-campaign-line-height">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {LINE_HEIGHT_OPTIONS.map((opt) => (
+                                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+
+                            <div className="border-t pt-4">
+                              <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                                <Type className="h-4 w-4" />
+                                Heading Styles
+                              </h4>
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                  <Label>Heading Font</Label>
+                                  <Select
+                                    value={campaignForm.watch("styles.headingFont") || ""}
+                                    onValueChange={(value) => campaignForm.setValue("styles.headingFont", value)}
+                                  >
+                                    <SelectTrigger data-testid="select-campaign-heading-font">
+                                      <SelectValue placeholder="Default" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="">Default</SelectItem>
+                                      {FONT_OPTIONS.map((opt) => (
+                                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>Heading Size</Label>
+                                  <Select
+                                    value={campaignForm.watch("styles.headingSize") || "2xl"}
+                                    onValueChange={(value) => campaignForm.setValue("styles.headingSize", value as any)}
+                                  >
+                                    <SelectTrigger data-testid="select-campaign-heading-size">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {HEADING_SIZE_OPTIONS.map((opt) => (
+                                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>Heading Weight</Label>
+                                  <Select
+                                    value={campaignForm.watch("styles.headingWeight") || "semibold"}
+                                    onValueChange={(value) => campaignForm.setValue("styles.headingWeight", value as any)}
+                                  >
+                                    <SelectTrigger data-testid="select-campaign-heading-weight">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {HEADING_WEIGHT_OPTIONS.map((opt) => (
+                                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>Heading Color</Label>
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="color"
+                                      value={campaignForm.watch("styles.headingColor") || "#1f2937"}
+                                      onChange={(e) => campaignForm.setValue("styles.headingColor", e.target.value)}
+                                      className="h-9 w-12 rounded border cursor-pointer"
+                                      data-testid="input-campaign-heading-color-picker"
+                                    />
+                                    <Input
+                                      value={campaignForm.watch("styles.headingColor") || ""}
+                                      onChange={(e) => campaignForm.setValue("styles.headingColor", e.target.value)}
+                                      placeholder="#1f2937"
+                                      className="flex-1 font-mono text-sm"
+                                      data-testid="input-campaign-heading-color"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="border-t pt-4">
+                              <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                                <Type className="h-4 w-4" />
+                                Body Styles
+                              </h4>
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                  <Label>Body Font</Label>
+                                  <Select
+                                    value={campaignForm.watch("styles.bodyFont") || ""}
+                                    onValueChange={(value) => campaignForm.setValue("styles.bodyFont", value)}
+                                  >
+                                    <SelectTrigger data-testid="select-campaign-body-font">
+                                      <SelectValue placeholder="Default" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="">Default</SelectItem>
+                                      {FONT_OPTIONS.map((opt) => (
+                                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>Body Size</Label>
+                                  <Select
+                                    value={campaignForm.watch("styles.bodySize") || "base"}
+                                    onValueChange={(value) => campaignForm.setValue("styles.bodySize", value as any)}
+                                  >
+                                    <SelectTrigger data-testid="select-campaign-body-size">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {BODY_SIZE_OPTIONS.map((opt) => (
+                                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="space-y-2 col-span-2">
+                                  <Label>Body Color</Label>
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="color"
+                                      value={campaignForm.watch("styles.bodyColor") || "#4b5563"}
+                                      onChange={(e) => campaignForm.setValue("styles.bodyColor", e.target.value)}
+                                      className="h-9 w-12 rounded border cursor-pointer"
+                                      data-testid="input-campaign-body-color-picker"
+                                    />
+                                    <Input
+                                      value={campaignForm.watch("styles.bodyColor") || ""}
+                                      onChange={(e) => campaignForm.setValue("styles.bodyColor", e.target.value)}
+                                      placeholder="#4b5563"
+                                      className="flex-1 font-mono text-sm"
+                                      data-testid="input-campaign-body-color"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
+
                     <div className="flex justify-end gap-2 pt-4">
                       <Button type="button" variant="outline" onClick={handleCampaignDialogClose}>
                         Cancel
@@ -807,6 +1066,194 @@ export default function Emails() {
                         </FormItem>
                       )}
                     />
+
+                    <Accordion type="single" collapsible className="w-full">
+                      <AccordionItem value="styling">
+                        <AccordionTrigger data-testid="accordion-template-styling">
+                          <div className="flex items-center gap-2">
+                            <Palette className="h-4 w-4" />
+                            Styling Options
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="space-y-4 pt-2">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label>Text Alignment</Label>
+                                <Select
+                                  value={templateForm.watch("styles.alignment") || "left"}
+                                  onValueChange={(value) => templateForm.setValue("styles.alignment", value as "left" | "center" | "right")}
+                                >
+                                  <SelectTrigger data-testid="select-template-alignment">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {ALIGNMENT_OPTIONS.map((opt) => (
+                                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Line Height</Label>
+                                <Select
+                                  value={templateForm.watch("styles.lineHeight") || "normal"}
+                                  onValueChange={(value) => templateForm.setValue("styles.lineHeight", value as "tight" | "normal" | "relaxed")}
+                                >
+                                  <SelectTrigger data-testid="select-template-line-height">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {LINE_HEIGHT_OPTIONS.map((opt) => (
+                                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+
+                            <div className="border-t pt-4">
+                              <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                                <Type className="h-4 w-4" />
+                                Heading Styles
+                              </h4>
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                  <Label>Heading Font</Label>
+                                  <Select
+                                    value={templateForm.watch("styles.headingFont") || ""}
+                                    onValueChange={(value) => templateForm.setValue("styles.headingFont", value)}
+                                  >
+                                    <SelectTrigger data-testid="select-template-heading-font">
+                                      <SelectValue placeholder="Default" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="">Default</SelectItem>
+                                      {FONT_OPTIONS.map((opt) => (
+                                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>Heading Size</Label>
+                                  <Select
+                                    value={templateForm.watch("styles.headingSize") || "2xl"}
+                                    onValueChange={(value) => templateForm.setValue("styles.headingSize", value as any)}
+                                  >
+                                    <SelectTrigger data-testid="select-template-heading-size">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {HEADING_SIZE_OPTIONS.map((opt) => (
+                                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>Heading Weight</Label>
+                                  <Select
+                                    value={templateForm.watch("styles.headingWeight") || "semibold"}
+                                    onValueChange={(value) => templateForm.setValue("styles.headingWeight", value as any)}
+                                  >
+                                    <SelectTrigger data-testid="select-template-heading-weight">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {HEADING_WEIGHT_OPTIONS.map((opt) => (
+                                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>Heading Color</Label>
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="color"
+                                      value={templateForm.watch("styles.headingColor") || "#1f2937"}
+                                      onChange={(e) => templateForm.setValue("styles.headingColor", e.target.value)}
+                                      className="h-9 w-12 rounded border cursor-pointer"
+                                      data-testid="input-template-heading-color-picker"
+                                    />
+                                    <Input
+                                      value={templateForm.watch("styles.headingColor") || ""}
+                                      onChange={(e) => templateForm.setValue("styles.headingColor", e.target.value)}
+                                      placeholder="#1f2937"
+                                      className="flex-1 font-mono text-sm"
+                                      data-testid="input-template-heading-color"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="border-t pt-4">
+                              <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                                <Type className="h-4 w-4" />
+                                Body Styles
+                              </h4>
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                  <Label>Body Font</Label>
+                                  <Select
+                                    value={templateForm.watch("styles.bodyFont") || ""}
+                                    onValueChange={(value) => templateForm.setValue("styles.bodyFont", value)}
+                                  >
+                                    <SelectTrigger data-testid="select-template-body-font">
+                                      <SelectValue placeholder="Default" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="">Default</SelectItem>
+                                      {FONT_OPTIONS.map((opt) => (
+                                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>Body Size</Label>
+                                  <Select
+                                    value={templateForm.watch("styles.bodySize") || "base"}
+                                    onValueChange={(value) => templateForm.setValue("styles.bodySize", value as any)}
+                                  >
+                                    <SelectTrigger data-testid="select-template-body-size">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {BODY_SIZE_OPTIONS.map((opt) => (
+                                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="space-y-2 col-span-2">
+                                  <Label>Body Color</Label>
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="color"
+                                      value={templateForm.watch("styles.bodyColor") || "#4b5563"}
+                                      onChange={(e) => templateForm.setValue("styles.bodyColor", e.target.value)}
+                                      className="h-9 w-12 rounded border cursor-pointer"
+                                      data-testid="input-template-body-color-picker"
+                                    />
+                                    <Input
+                                      value={templateForm.watch("styles.bodyColor") || ""}
+                                      onChange={(e) => templateForm.setValue("styles.bodyColor", e.target.value)}
+                                      placeholder="#4b5563"
+                                      className="flex-1 font-mono text-sm"
+                                      data-testid="input-template-body-color"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
+
                     <div className="flex justify-between gap-2 pt-4">
                       <div className="flex gap-2">
                         <Button type="button" variant="outline" onClick={handleTemplateDialogClose}>

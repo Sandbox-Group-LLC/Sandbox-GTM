@@ -177,6 +177,18 @@ export interface CampaignRecipient {
   attendeeId?: string;
 }
 
+export interface EmailStyles {
+  alignment?: 'left' | 'center' | 'right';
+  headingFont?: string;
+  headingSize?: 'sm' | 'base' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl';
+  headingWeight?: 'normal' | 'medium' | 'semibold' | 'bold';
+  headingColor?: string;
+  bodyFont?: string;
+  bodySize?: 'sm' | 'base' | 'lg';
+  bodyColor?: string;
+  lineHeight?: 'tight' | 'normal' | 'relaxed';
+}
+
 export interface CampaignEmailParams {
   subject: string;
   content: string;
@@ -194,6 +206,119 @@ export interface CampaignEmailParams {
   campaignId?: string;
   baseUrl?: string;
   enableTracking?: boolean;
+  styles?: EmailStyles;
+}
+
+// Helper function to generate styled email HTML
+function generateStyledEmailHtml(content: string, styles?: EmailStyles, headerImageUrl?: string): string {
+  const defaultStyles: EmailStyles = {
+    alignment: 'left',
+    headingFont: 'Arial, sans-serif',
+    headingSize: '2xl',
+    headingWeight: 'semibold',
+    headingColor: '#1f2937',
+    bodyFont: 'Arial, sans-serif',
+    bodySize: 'base',
+    bodyColor: '#4b5563',
+    lineHeight: 'normal',
+  };
+
+  const mergedStyles = { ...defaultStyles, ...styles };
+
+  // Map size values to CSS font sizes
+  const headingSizeMap: Record<string, string> = {
+    'sm': '14px',
+    'base': '16px',
+    'lg': '18px',
+    'xl': '20px',
+    '2xl': '24px',
+    '3xl': '30px',
+    '4xl': '36px',
+  };
+
+  const bodySizeMap: Record<string, string> = {
+    'sm': '14px',
+    'base': '16px',
+    'lg': '18px',
+  };
+
+  const lineHeightMap: Record<string, string> = {
+    'tight': '1.25',
+    'normal': '1.5',
+    'relaxed': '1.75',
+  };
+
+  const fontWeightMap: Record<string, string> = {
+    'normal': '400',
+    'medium': '500',
+    'semibold': '600',
+    'bold': '700',
+  };
+
+  const headingFontSize = headingSizeMap[mergedStyles.headingSize || '2xl'] || '24px';
+  const bodyFontSize = bodySizeMap[mergedStyles.bodySize || 'base'] || '16px';
+  const lineHeight = lineHeightMap[mergedStyles.lineHeight || 'normal'] || '1.5';
+  const fontWeight = fontWeightMap[mergedStyles.headingWeight || 'semibold'] || '600';
+
+  // Build font imports for Google Fonts if using custom fonts
+  const customFonts = new Set<string>();
+  if (mergedStyles.headingFont && !['Arial', 'Arial, sans-serif'].includes(mergedStyles.headingFont)) {
+    customFonts.add(mergedStyles.headingFont);
+  }
+  if (mergedStyles.bodyFont && !['Arial', 'Arial, sans-serif'].includes(mergedStyles.bodyFont)) {
+    customFonts.add(mergedStyles.bodyFont);
+  }
+
+  let fontImports = '';
+  if (customFonts.size > 0) {
+    const fontFamilies = Array.from(customFonts)
+      .map(f => f.replace(/\s+/g, '+'))
+      .join('|');
+    fontImports = `
+      <link href="https://fonts.googleapis.com/css2?family=${fontFamilies}:wght@400;500;600;700&display=swap" rel="stylesheet">
+      <style>
+        @import url('https://fonts.googleapis.com/css2?family=${fontFamilies}:wght@400;500;600;700&display=swap');
+      </style>
+    `;
+  }
+
+  const headerHtml = headerImageUrl 
+    ? `<div style="margin-bottom: 20px;">
+        <img src="${headerImageUrl}" alt="Email Header" style="max-width: 600px; width: 100%; height: auto; display: block;" />
+      </div>`
+    : '';
+
+  // Process content to apply heading styles to lines that look like headings
+  const processedContent = content
+    .split('\n')
+    .map(line => {
+      const trimmedLine = line.trim();
+      // Check if line is a heading (starts with # or is all caps and short)
+      if (trimmedLine.startsWith('# ')) {
+        return `<h1 style="font-family: ${mergedStyles.headingFont || 'Arial, sans-serif'}; font-size: ${headingFontSize}; font-weight: ${fontWeight}; color: ${mergedStyles.headingColor || '#1f2937'}; margin: 0 0 16px 0; line-height: ${lineHeight};">${trimmedLine.substring(2)}</h1>`;
+      } else if (trimmedLine.startsWith('## ')) {
+        return `<h2 style="font-family: ${mergedStyles.headingFont || 'Arial, sans-serif'}; font-size: ${bodySizeMap['lg']}; font-weight: ${fontWeight}; color: ${mergedStyles.headingColor || '#1f2937'}; margin: 0 0 12px 0; line-height: ${lineHeight};">${trimmedLine.substring(3)}</h2>`;
+      }
+      return `<p style="font-family: ${mergedStyles.bodyFont || 'Arial, sans-serif'}; font-size: ${bodyFontSize}; color: ${mergedStyles.bodyColor || '#4b5563'}; margin: 0 0 12px 0; line-height: ${lineHeight};">${trimmedLine || '&nbsp;'}</p>`;
+    })
+    .join('');
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      ${fontImports}
+    </head>
+    <body style="margin: 0; padding: 0; background-color: #f9fafb;">
+      <div style="font-family: ${mergedStyles.bodyFont || 'Arial, sans-serif'}; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; text-align: ${mergedStyles.alignment || 'left'};">
+        ${headerHtml}
+        ${processedContent}
+      </div>
+    </body>
+    </html>
+  `;
 }
 
 export interface SendCampaignResult {
@@ -285,6 +410,7 @@ export async function sendCampaignEmails(params: CampaignEmailParams): Promise<S
     organizationId,
     campaignId,
     enableTracking = true,
+    styles,
   } = params;
   
   const baseUrl = params.baseUrl || getBaseUrl();
@@ -340,11 +466,7 @@ export async function sendCampaignEmails(params: CampaignEmailParams): Promise<S
     });
 
     try {
-      let emailHtml = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          ${personalizedContent.replace(/\n/g, '<br/>')}
-        </div>
-      `;
+      let emailHtml = generateStyledEmailHtml(personalizedContent, styles);
 
       // Add tracking if enabled
       if (enableTracking) {
@@ -402,10 +524,11 @@ export interface SendTestEmailParams {
   subject: string;
   content: string;
   headerImageUrl?: string | null;
+  styles?: EmailStyles;
 }
 
 export async function sendTestEmail(params: SendTestEmailParams): Promise<{ success: boolean; error?: string }> {
-  const { to, subject, content, headerImageUrl } = params;
+  const { to, subject, content, headerImageUrl, styles } = params;
   
   if (!resend) {
     logWarn('Resend not configured - skipping test email', 'Email');
@@ -416,24 +539,22 @@ export async function sendTestEmail(params: SendTestEmailParams): Promise<{ succ
     const processedSubject = replaceMergeTagsWithLabels(subject);
     const processedContent = replaceMergeTagsWithLabels(content);
 
-    const headerHtml = headerImageUrl 
-      ? `<div style="margin-bottom: 20px;">
-          <img src="${headerImageUrl}" alt="Email Header" style="max-width: 600px; width: 100%; height: auto; display: block;" />
-        </div>`
-      : '';
+    // Generate styled email HTML
+    let emailHtml = generateStyledEmailHtml(processedContent, styles, headerImageUrl || undefined);
+    
+    // Add test email notice at the end
+    emailHtml = emailHtml.replace('</body>', `
+      <div style="max-width: 600px; margin: 20px auto; padding: 0 20px;">
+        <hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;" />
+        <p style="color: #999; font-size: 12px; text-align: center;">This is a test email. Merge tags are shown with sample labels like [First Name].</p>
+      </div>
+    </body>`);
 
     const { error } = await resend.emails.send({
       from: FROM_EMAIL,
       to: to,
       subject: `[TEST] ${processedSubject}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          ${headerHtml}
-          ${processedContent.replace(/\n/g, '<br/>')}
-          <hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;" />
-          <p style="color: #999; font-size: 12px;">This is a test email. Merge tags are shown with sample labels like [First Name].</p>
-        </div>
-      `,
+      html: emailHtml,
     });
 
     if (error) {

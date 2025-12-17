@@ -2021,6 +2021,7 @@ export async function registerRoutes(
         organizationId,
         campaignId: campaign.id,
         enableTracking: true,
+        styles: campaign.styles as any || undefined,
       });
 
       // Update campaign status to sent
@@ -2174,6 +2175,7 @@ export async function registerRoutes(
         subject: template.subject,
         content: template.content,
         headerImageUrl: template.headerImageUrl,
+        styles: template.styles as any || undefined,
       });
       
       if (result.success) {
@@ -4709,6 +4711,7 @@ ${urls.map(u => `  <url>
         organizationId,
         campaignId: undefined, // No campaign - direct send
         enableTracking: true,
+        styles: template.styles as any || undefined,
       });
 
       if (result.totalFailed > 0) {
