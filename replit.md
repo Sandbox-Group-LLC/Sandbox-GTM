@@ -59,6 +59,7 @@ Data is isolated by `organizationId` across all tables. New users automatically 
 - **Media Library**: Hosts images (via Replit Object Storage) for use in templates, with upload, public URL generation, and deletion features.
 - **Call for Papers (CFP)**: System for collecting, reviewing, and managing paper/abstract submissions, including admin configuration, public submission forms, and reviewer portals.
 - **Email Analytics**: Comprehensive tracking for email campaigns including open tracking (via pixel), click tracking (wrapped links), and unsubscribe handling. Analytics dashboard shows campaign metrics (sent, delivered, opened, clicked, bounced, complained counts with rates). Individual attendee records display email activity history. Uses signed HMAC-SHA256 tokens for secure tracking endpoints and Resend webhook integration for delivery events.
+- **Email Marketing Platform Integrations**: Connect external email marketing platforms (Mailchimp) to sync attendee data. Supports connection verification, audience/list fetching, and one-way sync of attendees to platform audiences. API keys stored encrypted (AES-256-GCM). Managed via Settings page with connection status tracking, audience browsing, and sync job history.
 
 ## External Dependencies
 
