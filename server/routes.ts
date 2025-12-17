@@ -3646,10 +3646,14 @@ ${urls.map(u => `  <url>
       (req.session as any).linkedinUserId = userId;
       
       const appUrl = process.env.APP_URL || 
-        (process.env.REPL_SLUG && process.env.REPL_OWNER 
-          ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER.toLowerCase()}.repl.co`
-          : `https://${process.env.REPLIT_DEV_DOMAIN || 'localhost:5000'}`);
+        (process.env.REPLIT_DEV_DOMAIN 
+          ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+          : (process.env.REPL_SLUG && process.env.REPL_OWNER 
+            ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER.toLowerCase()}.repl.co`
+            : 'http://localhost:5000'));
       const redirectUri = `${appUrl}/api/social/linkedin/callback`;
+      
+      logInfo(`LinkedIn OAuth redirect URI: ${redirectUri}`);
       
       const params = new URLSearchParams({
         response_type: 'code',
@@ -3712,9 +3716,11 @@ ${urls.map(u => `  <url>
       }
       
       const appUrl = process.env.APP_URL || 
-        (process.env.REPL_SLUG && process.env.REPL_OWNER 
-          ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER.toLowerCase()}.repl.co`
-          : `https://${process.env.REPLIT_DEV_DOMAIN || 'localhost:5000'}`);
+        (process.env.REPLIT_DEV_DOMAIN 
+          ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+          : (process.env.REPL_SLUG && process.env.REPL_OWNER 
+            ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER.toLowerCase()}.repl.co`
+            : 'http://localhost:5000'));
       const redirectUri = `${appUrl}/api/social/linkedin/callback`;
       
       const tokenResponse = await fetch('https://www.linkedin.com/oauth/v2/accessToken', {
