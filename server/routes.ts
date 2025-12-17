@@ -2628,9 +2628,88 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
-      const data = insertSocialPostSchema.parse({ ...req.body, organizationId, eventId: req.body.eventId || null, createdBy: userId });
-      const post = await storage.createSocialPost(data);
-      res.status(201).json(post);
+      const { status, platform, content } = req.body;
+      
+      if (status === 'published' && platform === 'linkedin') {
+        const connection = await storage.getSocialConnectionByPlatform(userId, 'linkedin');
+        
+        if (!connection || !connection.accessToken || !connection.isActive) {
+          return res.status(400).json({ 
+            message: "LinkedIn account not connected. Please connect your LinkedIn account first." 
+          });
+        }
+        
+        if (connection.tokenExpiresAt && new Date(connection.tokenExpiresAt) < new Date()) {
+          return res.status(400).json({ 
+            message: "LinkedIn access token has expired. Please reconnect your LinkedIn account." 
+          });
+        }
+        
+        let accessToken: string;
+        try {
+          accessToken = decrypt(connection.accessToken);
+        } catch (error) {
+          logError("Error decrypting LinkedIn access token:", error);
+          return res.status(500).json({ message: "Failed to decrypt access token" });
+        }
+        
+        const personUrn = `urn:li:person:${connection.accountId}`;
+        
+        const linkedinPostBody = {
+          author: personUrn,
+          commentary: content,
+          visibility: "PUBLIC",
+          distribution: {
+            feedDistribution: "MAIN_FEED",
+            targetEntities: [],
+            thirdPartyDistributionChannels: [],
+          },
+          lifecycleState: "PUBLISHED",
+        };
+        
+        const postResponse = await fetch('https://api.linkedin.com/rest/posts', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            'X-Restli-Protocol-Version': '2.0.0',
+            'LinkedIn-Version': '202401',
+          },
+          body: JSON.stringify(linkedinPostBody),
+        });
+        
+        if (!postResponse.ok) {
+          const errorData = await postResponse.text();
+          let errorMessage = 'Failed to post to LinkedIn';
+          try {
+            const errorJson = JSON.parse(errorData);
+            errorMessage = errorJson.message || errorJson.error || errorMessage;
+          } catch {
+            errorMessage = errorData || errorMessage;
+          }
+          logError("LinkedIn post failed:", errorData);
+          return res.status(postResponse.status).json({ 
+            message: `LinkedIn posting failed: ${errorMessage}` 
+          });
+        }
+        
+        const shareUrn = postResponse.headers.get('x-restli-id') || postResponse.headers.get('X-RestLi-Id');
+        logInfo(`LinkedIn post created successfully: ${shareUrn}`);
+        
+        const data = insertSocialPostSchema.parse({ 
+          ...req.body, 
+          organizationId, 
+          eventId: req.body.eventId || null, 
+          createdBy: userId,
+          status: 'published',
+        });
+        const post = await storage.createSocialPost(data);
+        res.status(201).json({ ...post, linkedinShareUrn: shareUrn });
+      } else {
+        const data = insertSocialPostSchema.parse({ ...req.body, organizationId, eventId: req.body.eventId || null, createdBy: userId });
+        const post = await storage.createSocialPost(data);
+        res.status(201).json(post);
+      }
     } catch (error) {
       logError("Error creating social post:", error);
       res.status(400).json({ message: "Invalid social post data" });
@@ -2641,11 +2720,89 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
-      const post = await storage.updateSocialPost(organizationId, req.params.id, req.body);
-      if (!post) {
+      const { status } = req.body;
+      
+      const existingPost = await storage.getSocialPost(organizationId, req.params.id);
+      if (!existingPost) {
         return res.status(404).json({ message: "Social post not found" });
       }
-      res.json(post);
+      
+      if (status === 'published' && existingPost.status !== 'published' && existingPost.platform === 'linkedin') {
+        const connection = await storage.getSocialConnectionByPlatform(userId, 'linkedin');
+        
+        if (!connection || !connection.accessToken || !connection.isActive) {
+          return res.status(400).json({ 
+            message: "LinkedIn account not connected. Please connect your LinkedIn account first." 
+          });
+        }
+        
+        if (connection.tokenExpiresAt && new Date(connection.tokenExpiresAt) < new Date()) {
+          return res.status(400).json({ 
+            message: "LinkedIn access token has expired. Please reconnect your LinkedIn account." 
+          });
+        }
+        
+        let accessToken: string;
+        try {
+          accessToken = decrypt(connection.accessToken);
+        } catch (error) {
+          logError("Error decrypting LinkedIn access token:", error);
+          return res.status(500).json({ message: "Failed to decrypt access token" });
+        }
+        
+        const personUrn = `urn:li:person:${connection.accountId}`;
+        const content = req.body.content || existingPost.content;
+        
+        const linkedinPostBody = {
+          author: personUrn,
+          commentary: content,
+          visibility: "PUBLIC",
+          distribution: {
+            feedDistribution: "MAIN_FEED",
+            targetEntities: [],
+            thirdPartyDistributionChannels: [],
+          },
+          lifecycleState: "PUBLISHED",
+        };
+        
+        const postResponse = await fetch('https://api.linkedin.com/rest/posts', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            'X-Restli-Protocol-Version': '2.0.0',
+            'LinkedIn-Version': '202401',
+          },
+          body: JSON.stringify(linkedinPostBody),
+        });
+        
+        if (!postResponse.ok) {
+          const errorData = await postResponse.text();
+          let errorMessage = 'Failed to post to LinkedIn';
+          try {
+            const errorJson = JSON.parse(errorData);
+            errorMessage = errorJson.message || errorJson.error || errorMessage;
+          } catch {
+            errorMessage = errorData || errorMessage;
+          }
+          logError("LinkedIn post failed:", errorData);
+          return res.status(postResponse.status).json({ 
+            message: `LinkedIn posting failed: ${errorMessage}` 
+          });
+        }
+        
+        const shareUrn = postResponse.headers.get('x-restli-id') || postResponse.headers.get('X-RestLi-Id');
+        logInfo(`LinkedIn post created successfully via PATCH: ${shareUrn}`);
+        
+        const post = await storage.updateSocialPost(organizationId, req.params.id, { ...req.body, status: 'published' });
+        res.json({ ...post, linkedinShareUrn: shareUrn });
+      } else {
+        const post = await storage.updateSocialPost(organizationId, req.params.id, req.body);
+        if (!post) {
+          return res.status(404).json({ message: "Social post not found" });
+        }
+        res.json(post);
+      }
     } catch (error) {
       logError("Error updating social post:", error);
       res.status(400).json({ message: "Failed to update social post" });
@@ -3458,6 +3615,177 @@ ${urls.map(u => `  <url>
     } catch (error) {
       logError("Error deleting social connection:", error);
       res.status(500).json({ message: "Failed to delete social connection" });
+    }
+  });
+
+  // LinkedIn OAuth endpoints
+  app.get("/api/social/linkedin/authorize", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      
+      const credentials = await storage.getSocialMediaCredentials(organizationId);
+      const linkedinCred = credentials.find(c => c.provider === 'linkedin');
+      
+      if (!linkedinCred || !linkedinCred.clientId || !linkedinCred.isConfigured) {
+        return res.status(400).json({ 
+          message: "LinkedIn OAuth is not configured. Please add your LinkedIn App credentials in Settings > Integrations." 
+        });
+      }
+      
+      let clientId: string;
+      try {
+        clientId = decrypt(linkedinCred.clientId);
+      } catch (error) {
+        logError("Error decrypting LinkedIn client ID:", error);
+        return res.status(500).json({ message: "Failed to decrypt LinkedIn credentials" });
+      }
+      
+      const state = randomBytes(32).toString('hex');
+      (req.session as any).linkedinState = state;
+      (req.session as any).linkedinUserId = userId;
+      
+      const appUrl = process.env.APP_URL || 
+        (process.env.REPL_SLUG && process.env.REPL_OWNER 
+          ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER.toLowerCase()}.repl.co`
+          : `https://${process.env.REPLIT_DEV_DOMAIN || 'localhost:5000'}`);
+      const redirectUri = `${appUrl}/api/social/linkedin/callback`;
+      
+      const params = new URLSearchParams({
+        response_type: 'code',
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        state: state,
+        scope: 'openid profile w_member_social',
+      });
+      
+      const authUrl = `https://www.linkedin.com/oauth/v2/authorization?${params.toString()}`;
+      res.redirect(authUrl);
+    } catch (error) {
+      logError("Error initiating LinkedIn OAuth:", error);
+      res.status(500).json({ message: "Failed to initiate LinkedIn OAuth" });
+    }
+  });
+
+  app.get("/api/social/linkedin/callback", async (req: any, res) => {
+    try {
+      const { code, state, error, error_description } = req.query;
+      
+      if (error) {
+        logError("LinkedIn OAuth error:", error, error_description);
+        return res.redirect('/social?error=' + encodeURIComponent(error_description || error));
+      }
+      
+      if (!code || !state) {
+        return res.redirect('/social?error=' + encodeURIComponent('Missing authorization code or state'));
+      }
+      
+      const sessionState = (req.session as any).linkedinState;
+      const userId = (req.session as any).linkedinUserId;
+      
+      if (!sessionState || state !== sessionState) {
+        return res.redirect('/social?error=' + encodeURIComponent('Invalid state parameter. Please try again.'));
+      }
+      
+      delete (req.session as any).linkedinState;
+      delete (req.session as any).linkedinUserId;
+      
+      if (!userId) {
+        return res.redirect('/social?error=' + encodeURIComponent('Session expired. Please log in and try again.'));
+      }
+      
+      const organizationId = await getOrganizationId(userId);
+      const credentials = await storage.getSocialMediaCredentials(organizationId);
+      const linkedinCred = credentials.find(c => c.provider === 'linkedin');
+      
+      if (!linkedinCred || !linkedinCred.clientId || !linkedinCred.clientSecret) {
+        return res.redirect('/social?error=' + encodeURIComponent('LinkedIn credentials not found'));
+      }
+      
+      let clientId: string, clientSecret: string;
+      try {
+        clientId = decrypt(linkedinCred.clientId);
+        clientSecret = decrypt(linkedinCred.clientSecret);
+      } catch (error) {
+        logError("Error decrypting LinkedIn credentials:", error);
+        return res.redirect('/social?error=' + encodeURIComponent('Failed to decrypt credentials'));
+      }
+      
+      const appUrl = process.env.APP_URL || 
+        (process.env.REPL_SLUG && process.env.REPL_OWNER 
+          ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER.toLowerCase()}.repl.co`
+          : `https://${process.env.REPLIT_DEV_DOMAIN || 'localhost:5000'}`);
+      const redirectUri = `${appUrl}/api/social/linkedin/callback`;
+      
+      const tokenResponse = await fetch('https://www.linkedin.com/oauth/v2/accessToken', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          grant_type: 'authorization_code',
+          code: code as string,
+          redirect_uri: redirectUri,
+          client_id: clientId,
+          client_secret: clientSecret,
+        }).toString(),
+      });
+      
+      if (!tokenResponse.ok) {
+        const errorData = await tokenResponse.text();
+        logError("LinkedIn token exchange failed:", errorData);
+        return res.redirect('/social?error=' + encodeURIComponent('Failed to exchange authorization code'));
+      }
+      
+      const tokenData = await tokenResponse.json() as { access_token: string; expires_in: number; refresh_token?: string };
+      const accessToken = tokenData.access_token;
+      const expiresIn = tokenData.expires_in;
+      
+      const userInfoResponse = await fetch('https://api.linkedin.com/v2/userinfo', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      });
+      
+      let accountId = 'unknown';
+      let accountName = 'LinkedIn User';
+      
+      if (userInfoResponse.ok) {
+        const userInfo = await userInfoResponse.json() as { sub?: string; name?: string };
+        accountId = userInfo.sub || 'unknown';
+        accountName = userInfo.name || 'LinkedIn User';
+      } else {
+        logWarn("Failed to fetch LinkedIn user info, continuing with unknown ID");
+      }
+      
+      const existingConnection = await storage.getSocialConnectionByPlatform(userId, 'linkedin');
+      const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000);
+      
+      if (existingConnection) {
+        await storage.updateSocialConnection(existingConnection.id, {
+          accessToken: encrypt(accessToken),
+          accountId,
+          accountName,
+          tokenExpiresAt,
+          isActive: true,
+        });
+      } else {
+        await storage.createSocialConnection({
+          userId,
+          platform: 'linkedin',
+          accessToken: encrypt(accessToken),
+          accountId,
+          accountName,
+          tokenExpiresAt,
+          isActive: true,
+        });
+      }
+      
+      logInfo(`LinkedIn OAuth completed for user ${userId}`);
+      res.redirect('/social?success=' + encodeURIComponent('LinkedIn account connected successfully!'));
+    } catch (error) {
+      logError("Error in LinkedIn OAuth callback:", error);
+      res.redirect('/social?error=' + encodeURIComponent('An unexpected error occurred'));
     }
   });
 

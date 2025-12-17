@@ -197,6 +197,14 @@ export default function Social() {
     },
   });
 
+  const handleConnect = (platform: string) => {
+    if (platform === "linkedin") {
+      window.location.href = "/api/social/linkedin/authorize";
+    } else {
+      connectMutation.mutate(platform);
+    }
+  };
+
   const connectMutation = useMutation({
     mutationFn: async (platform: string) => {
       return await apiRequest("POST", "/api/social-connections", { platform, accountName: `My ${platformNames[platform]} Account` });
@@ -260,19 +268,35 @@ export default function Social() {
     form.reset();
   };
 
+  const publishMutation = useMutation({
+    mutationFn: async (postId: string) => {
+      return await apiRequest("PATCH", `/api/social/${postId}`, { status: "published" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/social"] });
+      toast({ title: "Published", description: "Your post has been published successfully" });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({ title: "Unauthorized", description: "You are logged out. Logging in again...", variant: "destructive" });
+        setTimeout(() => { window.location.href = "/api/login"; }, 500);
+        return;
+      }
+      toast({ title: "Publishing failed", description: error.message, variant: "destructive" });
+    },
+  });
+
   const handlePublish = (post: SocialPost) => {
-    const isConnected = connections.some(c => c.platform === post.platform && c.isActive);
-    if (!isConnected) {
+    const connection = connections.find(c => c.platform === post.platform && c.isActive);
+    if (!connection) {
       toast({
         title: "Platform not connected",
         description: `Connect your ${platformNames[post.platform]} account first to enable direct posting.`,
+        variant: "destructive",
       });
       return;
     }
-    toast({
-      title: "Publishing",
-      description: "This would publish to the connected platform when API credentials are configured.",
-    });
+    publishMutation.mutate(post.id);
   };
 
   const getConnectionForPlatform = (platform: string): SocialConnection | undefined => {
@@ -512,7 +536,7 @@ export default function Social() {
                                 variant="outline"
                                 size="sm"
                                 className="w-full"
-                                onClick={() => connectMutation.mutate(platform)}
+                                onClick={() => handleConnect(platform)}
                                 disabled={connectMutation.isPending}
                                 data-testid={`button-connect-${platform}`}
                               >
