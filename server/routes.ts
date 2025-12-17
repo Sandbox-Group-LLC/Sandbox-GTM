@@ -4646,5 +4646,83 @@ ${urls.map(u => `  <url>
     }
   });
 
+  // Send email to a specific attendee using a template
+  app.post("/api/organizations/:organizationId/attendees/:attendeeId/send-email", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { organizationId, attendeeId } = req.params;
+      const { templateId } = req.body;
+
+      if (!templateId) {
+        return res.status(400).json({ message: "Template ID is required" });
+      }
+      
+      // Verify user has access to this organization
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === organizationId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Get the attendee and verify they belong to this organization
+      const attendee = await storage.getAttendee(organizationId, attendeeId);
+      if (!attendee) {
+        return res.status(404).json({ message: "Attendee not found" });
+      }
+
+      // Get the email template
+      const template = await storage.getEmailTemplate(organizationId, templateId);
+      if (!template) {
+        return res.status(404).json({ message: "Email template not found" });
+      }
+
+      // Get the attendee's event for merge tag context
+      const event = await storage.getEvent(organizationId, attendee.eventId);
+      const organization = await storage.getOrganization(organizationId);
+
+      // Send the email using sendCampaignEmails
+      const result = await sendCampaignEmails({
+        subject: template.subject,
+        content: template.content,
+        recipients: [{
+          email: attendee.email,
+          firstName: attendee.firstName,
+          lastName: attendee.lastName,
+          company: attendee.company || undefined,
+          checkInCode: attendee.checkInCode || undefined,
+          attendeeId: attendee.id,
+        }],
+        eventContext: {
+          name: event?.name,
+          date: event?.startDate ? new Date(event.startDate).toLocaleDateString() : undefined,
+          location: event?.location || undefined,
+          description: event?.description || undefined,
+        },
+        organizationContext: {
+          name: organization?.name,
+        },
+        organizationId,
+        campaignId: undefined, // No campaign - direct send
+        enableTracking: true,
+      });
+
+      if (result.totalFailed > 0) {
+        return res.status(500).json({ 
+          message: "Failed to send email", 
+          error: result.errors[0]?.error 
+        });
+      }
+
+      res.json({ 
+        success: true, 
+        message: "Email sent successfully",
+        messageId: result.messageIds[0],
+      });
+    } catch (error) {
+      logError("Error sending email to attendee:", error);
+      res.status(500).json({ message: "Failed to send email" });
+    }
+  });
+
   return httpServer;
 }

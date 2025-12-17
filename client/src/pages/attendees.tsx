@@ -55,7 +55,8 @@ import { format } from "date-fns";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EventSelectField } from "@/components/event-select-field";
-import type { Attendee, Event, CustomField, InviteCode, Package, Organization } from "@shared/schema";
+import type { Attendee, Event, CustomField, InviteCode, Package, Organization, EmailTemplate } from "@shared/schema";
+import { Send, Loader2 } from "lucide-react";
 
 interface AttendeeEmailMessage {
   id: string;
@@ -152,6 +153,7 @@ export default function Attendees() {
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
 
   const { data: attendees = [], isLoading } = useQuery<Attendee[]>({
     queryKey: ["/api/attendees"],
@@ -187,6 +189,35 @@ export default function Attendees() {
       );
       if (!res.ok) throw new Error("Failed to fetch email messages");
       return res.json();
+    },
+  });
+
+  const { data: emailTemplates = [] } = useQuery<EmailTemplate[]>({
+    queryKey: ["/api/email-templates"],
+    enabled: !!viewingAttendee,
+  });
+
+  const sendEmailMutation = useMutation({
+    mutationFn: async ({ attendeeId, templateId }: { attendeeId: string; templateId: string }) => {
+      return await apiRequest(
+        "POST",
+        `/api/organizations/${organization!.id}/attendees/${attendeeId}/send-email`,
+        { templateId }
+      );
+    },
+    onSuccess: () => {
+      toast({ title: "Email sent successfully" });
+      setSelectedTemplateId("");
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/organizations", organization?.id, "attendees", viewingAttendee?.id, "email-messages"] 
+      });
+    },
+    onError: (error: Error) => {
+      toast({ 
+        title: "Failed to send email", 
+        description: error.message,
+        variant: "destructive" 
+      });
     },
   });
 
@@ -1114,6 +1145,64 @@ export default function Attendees() {
                     <div className="text-sm">{viewingAttendee.notes}</div>
                   </div>
                 )}
+              </div>
+
+              <Separator />
+
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Send className="h-4 w-4 text-muted-foreground" />
+                  <h3 className="text-sm font-medium text-muted-foreground">Send Email</h3>
+                </div>
+                
+                <div className="flex flex-wrap items-center gap-2">
+                  <Select
+                    value={selectedTemplateId}
+                    onValueChange={setSelectedTemplateId}
+                  >
+                    <SelectTrigger className="w-[240px]" data-testid="select-email-template">
+                      <SelectValue placeholder="Select a template" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {emailTemplates.length === 0 ? (
+                        <div className="px-2 py-4 text-sm text-muted-foreground text-center">
+                          No email templates available
+                        </div>
+                      ) : (
+                        emailTemplates.map((template) => (
+                          <SelectItem key={template.id} value={template.id}>
+                            {template.name}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  
+                  <Button
+                    onClick={() => {
+                      if (viewingAttendee && selectedTemplateId) {
+                        sendEmailMutation.mutate({
+                          attendeeId: viewingAttendee.id,
+                          templateId: selectedTemplateId,
+                        });
+                      }
+                    }}
+                    disabled={!selectedTemplateId || sendEmailMutation.isPending}
+                    data-testid="button-send-email"
+                  >
+                    {sendEmailMutation.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="h-4 w-4 mr-2" />
+                        Send Email
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
 
               <Separator />
