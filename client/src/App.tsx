@@ -44,6 +44,7 @@ import PublicCfp from "@/pages/public-cfp";
 import ReviewerPortal from "@/pages/reviewer-portal";
 import EmailAnalytics from "@/pages/email-analytics";
 import Integrations from "@/pages/integrations";
+import Signup from "@/pages/signup";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const sidebarStyle = {
@@ -78,6 +79,7 @@ function Router() {
     return (
       <Switch>
         <Route path="/" component={Landing} />
+        <Route path="/signup" component={Signup} />
         <Route path="/privacy-policy" component={PrivacyPolicy} />
         <Route path="/event/:slug/register" component={PublicRegistration} />
         <Route path="/event/:slug/portal" component={AttendeePortal} />

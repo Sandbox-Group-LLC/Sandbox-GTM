@@ -92,7 +92,7 @@ export default function Landing() {
               and marketing campaigns. Everything you need in one place.
             </p>
             <Button size="lg" asChild data-testid="button-get-started">
-              <a href="/api/login">Get Started</a>
+              <a href="/signup">Get Started</a>
             </Button>
           </div>
         </section>
@@ -182,7 +182,7 @@ export default function Landing() {
               Join event organizers who have simplified their workflow with our platform.
             </p>
             <Button size="lg" asChild data-testid="button-start-now">
-              <a href="/api/login">Start Now</a>
+              <a href="/signup">Start Now</a>
             </Button>
           </div>
         </section>
