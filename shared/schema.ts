@@ -691,6 +691,46 @@ export const cfpReviews = pgTable("cfp_reviews", {
   status: text("status").default("assigned"),
 });
 
+// Email tracking tables
+export const emailMessages = pgTable("email_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  campaignId: varchar("campaign_id").references(() => emailCampaigns.id),
+  attendeeId: varchar("attendee_id").references(() => attendees.id),
+  recipientEmail: varchar("recipient_email", { length: 255 }).notNull(),
+  recipientName: varchar("recipient_name", { length: 255 }),
+  subject: varchar("subject", { length: 500 }),
+  status: varchar("status", { length: 50 }).default("sent"),
+  sentAt: timestamp("sent_at").defaultNow(),
+  deliveredAt: timestamp("delivered_at"),
+  openedAt: timestamp("opened_at"),
+  clickedAt: timestamp("clicked_at"),
+  bouncedAt: timestamp("bounced_at"),
+  openCount: integer("open_count").default(0),
+  clickCount: integer("click_count").default(0),
+  resendMessageId: varchar("resend_message_id", { length: 255 }),
+});
+
+export const emailEvents = pgTable("email_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  messageId: varchar("message_id").references(() => emailMessages.id).notNull(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventType: varchar("event_type", { length: 50 }).notNull(),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  occurredAt: timestamp("occurred_at").defaultNow(),
+});
+
+export const emailSuppressions = pgTable("email_suppressions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  email: varchar("email", { length: 255 }).notNull(),
+  reason: varchar("reason", { length: 50 }).notNull(),
+  source: varchar("source", { length: 100 }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("email_suppressions_org_email_idx").on(table.organizationId, table.email),
+]);
+
 // Relations
 export const organizationsRelations = relations(organizations, ({ many }) => ({
   members: many(organizationMembers),
@@ -901,6 +941,22 @@ export const cfpReviewsRelations = relations(cfpReviews, ({ one }) => ({
   organization: one(organizations, { fields: [cfpReviews.organizationId], references: [organizations.id] }),
 }));
 
+export const emailMessagesRelations = relations(emailMessages, ({ one, many }) => ({
+  organization: one(organizations, { fields: [emailMessages.organizationId], references: [organizations.id] }),
+  campaign: one(emailCampaigns, { fields: [emailMessages.campaignId], references: [emailCampaigns.id] }),
+  attendee: one(attendees, { fields: [emailMessages.attendeeId], references: [attendees.id] }),
+  events: many(emailEvents),
+}));
+
+export const emailEventsRelations = relations(emailEvents, ({ one }) => ({
+  message: one(emailMessages, { fields: [emailEvents.messageId], references: [emailMessages.id] }),
+  organization: one(organizations, { fields: [emailEvents.organizationId], references: [organizations.id] }),
+}));
+
+export const emailSuppressionsRelations = relations(emailSuppressions, ({ one }) => ({
+  organization: one(organizations, { fields: [emailSuppressions.organizationId], references: [organizations.id] }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true, updatedAt: true });
 export const insertOrganizationSchema = createInsertSchema(organizations).omit({ id: true, createdAt: true, updatedAt: true });
@@ -941,6 +997,9 @@ export const insertCfpTopicSchema = createInsertSchema(cfpTopics);
 export const insertCfpSubmissionSchema = createInsertSchema(cfpSubmissions).omit({ submittedAt: true });
 export const insertCfpReviewerSchema = createInsertSchema(cfpReviewers);
 export const insertCfpReviewSchema = createInsertSchema(cfpReviews);
+export const insertEmailMessageSchema = createInsertSchema(emailMessages).omit({ id: true });
+export const insertEmailEventSchema = createInsertSchema(emailEvents).omit({ id: true });
+export const insertEmailSuppressionSchema = createInsertSchema(emailSuppressions).omit({ id: true, createdAt: true });
 
 // Types
 export type UpsertUser = typeof users.$inferInsert;
@@ -1018,3 +1077,9 @@ export type InsertCfpReviewer = z.infer<typeof insertCfpReviewerSchema>;
 export type CfpReviewer = typeof cfpReviewers.$inferSelect;
 export type InsertCfpReview = z.infer<typeof insertCfpReviewSchema>;
 export type CfpReview = typeof cfpReviews.$inferSelect;
+export type InsertEmailMessage = z.infer<typeof insertEmailMessageSchema>;
+export type EmailMessage = typeof emailMessages.$inferSelect;
+export type InsertEmailEvent = z.infer<typeof insertEmailEventSchema>;
+export type EmailEvent = typeof emailEvents.$inferSelect;
+export type InsertEmailSuppression = z.infer<typeof insertEmailSuppressionSchema>;
+export type EmailSuppression = typeof emailSuppressions.$inferSelect;
