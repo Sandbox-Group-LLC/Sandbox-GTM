@@ -262,6 +262,21 @@ export async function registerRoutes(
     }
   });
 
+  app.get('/api/settings/social-integrations-status', isAuthenticated, async (req: any, res) => {
+    try {
+      const status = {
+        linkedin: !!(process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET),
+        twitter: !!(process.env.TWITTER_API_KEY && process.env.TWITTER_API_SECRET),
+        facebook: !!(process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET),
+        instagram: !!(process.env.INSTAGRAM_APP_ID && process.env.INSTAGRAM_APP_SECRET),
+      };
+      res.json(status);
+    } catch (error) {
+      logError("Error checking social integrations status:", error);
+      res.status(500).json({ message: "Failed to check social integrations status" });
+    }
+  });
+
   // Onboarding routes
   app.get('/api/onboarding/status', isAuthenticated, async (req: any, res) => {
     try {
