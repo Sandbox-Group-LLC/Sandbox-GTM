@@ -1992,7 +1992,7 @@ export async function registerRoutes(
         day: 'numeric'
       }) : '';
 
-      // Send emails with merge tag replacement
+      // Send emails with merge tag replacement and tracking
       const result = await sendCampaignEmails({
         subject: campaign.subject,
         content: campaign.content,
@@ -2002,6 +2002,7 @@ export async function registerRoutes(
           lastName: a.lastName || undefined,
           company: a.company || undefined,
           checkInCode: a.checkInCode || undefined,
+          attendeeId: a.id,
         })),
         eventContext: {
           name: event.name,
@@ -2012,6 +2013,9 @@ export async function registerRoutes(
         organizationContext: {
           name: org?.name,
         },
+        organizationId,
+        campaignId: campaign.id,
+        enableTracking: true,
       });
 
       // Update campaign status to sent
@@ -2024,6 +2028,8 @@ export async function registerRoutes(
         message: `Campaign sent successfully`,
         totalSent: result.totalSent,
         totalFailed: result.totalFailed,
+        totalSkipped: result.totalSkipped,
+        messageIds: result.messageIds,
         errors: result.errors.length > 0 ? result.errors : undefined,
       });
     } catch (error) {
@@ -4139,6 +4145,400 @@ ${urls.map(u => `  <url>
       logError("Error updating review:", error);
       const message = error.errors ? error.errors.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', ') : "Invalid review data";
       res.status(400).json({ message });
+    }
+  });
+
+  // Email Tracking Endpoints (PUBLIC - no auth required)
+  
+  // 1x1 transparent tracking pixel for email opens
+  const TRACKING_PIXEL = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
+  
+  app.get("/api/email/track/open/:id.gif", async (req, res) => {
+    try {
+      const messageId = req.params.id;
+      const message = await storage.getEmailMessage(messageId);
+      
+      if (message) {
+        await storage.incrementEmailOpenCount(messageId);
+        await storage.createEmailEvent({
+          messageId,
+          organizationId: message.organizationId,
+          eventType: 'open',
+          metadata: {
+            userAgent: req.headers['user-agent'],
+            ip: req.ip,
+            timestamp: new Date().toISOString(),
+          },
+        });
+        logInfo(`Email opened: ${messageId}`, 'EmailTracking');
+      }
+      
+      res.set({
+        'Content-Type': 'image/gif',
+        'Content-Length': TRACKING_PIXEL.length,
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      });
+      res.send(TRACKING_PIXEL);
+    } catch (error) {
+      logError("Error tracking email open:", error);
+      res.set('Content-Type', 'image/gif');
+      res.send(TRACKING_PIXEL);
+    }
+  });
+
+  // Click tracking redirect
+  app.get("/api/email/track/click/:id", async (req, res) => {
+    try {
+      const clickId = req.params.id;
+      const destinationUrl = req.query.url as string;
+      
+      if (!destinationUrl) {
+        return res.status(400).send('Missing destination URL');
+      }
+
+      // Parse the click ID to extract message ID (format: messageId_linkIndex)
+      const [messageId] = clickId.split('_');
+      const message = await storage.getEmailMessage(messageId);
+      
+      if (message) {
+        await storage.incrementEmailClickCount(messageId);
+        await storage.createEmailEvent({
+          messageId,
+          organizationId: message.organizationId,
+          eventType: 'click',
+          metadata: {
+            destinationUrl,
+            userAgent: req.headers['user-agent'],
+            ip: req.ip,
+            timestamp: new Date().toISOString(),
+          },
+        });
+        logInfo(`Email link clicked: ${messageId} -> ${destinationUrl}`, 'EmailTracking');
+      }
+      
+      res.redirect(302, destinationUrl);
+    } catch (error) {
+      logError("Error tracking email click:", error);
+      const destinationUrl = req.query.url as string;
+      if (destinationUrl) {
+        res.redirect(302, destinationUrl);
+      } else {
+        res.status(500).send('Error processing request');
+      }
+    }
+  });
+
+  // Unsubscribe page
+  app.get("/api/email/unsubscribe/:token", async (req, res) => {
+    try {
+      const token = req.params.token;
+      
+      // Token format: base64(organizationId:email)
+      const decoded = Buffer.from(token, 'base64').toString('utf-8');
+      const [organizationId, email] = decoded.split(':');
+      
+      if (!organizationId || !email) {
+        return res.status(400).send('Invalid unsubscribe link');
+      }
+
+      // Check if already suppressed
+      const existing = await storage.getEmailSuppression(organizationId, email);
+      
+      const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <title>Unsubscribe</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; text-align: center; }
+            .card { background: #f8f9fa; border-radius: 8px; padding: 40px; }
+            h1 { color: #333; margin-bottom: 20px; }
+            p { color: #666; line-height: 1.6; }
+            .btn { display: inline-block; background: #dc3545; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; margin-top: 20px; border: none; cursor: pointer; font-size: 16px; }
+            .btn:hover { background: #c82333; }
+            .success { color: #28a745; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            ${existing ? `
+              <h1 class="success">Already Unsubscribed</h1>
+              <p>You have already been unsubscribed from our email list.</p>
+            ` : `
+              <h1>Unsubscribe</h1>
+              <p>Click the button below to unsubscribe from our emails.</p>
+              <form method="POST" action="/api/email/unsubscribe/${token}">
+                <button type="submit" class="btn">Confirm Unsubscribe</button>
+              </form>
+            `}
+          </div>
+        </body>
+        </html>
+      `;
+      
+      res.send(html);
+    } catch (error) {
+      logError("Error showing unsubscribe page:", error);
+      res.status(500).send('Error processing request');
+    }
+  });
+
+  // Process unsubscribe
+  app.post("/api/email/unsubscribe/:token", async (req, res) => {
+    try {
+      const token = req.params.token;
+      
+      // Token format: base64(organizationId:email)
+      const decoded = Buffer.from(token, 'base64').toString('utf-8');
+      const [organizationId, email] = decoded.split(':');
+      
+      if (!organizationId || !email) {
+        return res.status(400).send('Invalid unsubscribe link');
+      }
+
+      // Add to suppression list
+      const existing = await storage.getEmailSuppression(organizationId, email);
+      if (!existing) {
+        await storage.createEmailSuppression({
+          organizationId,
+          email: email.toLowerCase(),
+          reason: 'unsubscribe',
+          source: 'user_request',
+        });
+        logInfo(`Email unsubscribed: ${email} from org ${organizationId}`, 'EmailTracking');
+      }
+      
+      const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <title>Unsubscribed</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; text-align: center; }
+            .card { background: #f8f9fa; border-radius: 8px; padding: 40px; }
+            h1 { color: #28a745; margin-bottom: 20px; }
+            p { color: #666; line-height: 1.6; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <h1>Unsubscribed Successfully</h1>
+            <p>You have been unsubscribed from our emails. You will no longer receive marketing emails from us.</p>
+          </div>
+        </body>
+        </html>
+      `;
+      
+      res.send(html);
+    } catch (error) {
+      logError("Error processing unsubscribe:", error);
+      res.status(500).send('Error processing request');
+    }
+  });
+
+  // Resend webhook handler
+  app.post("/api/email/webhooks/resend", async (req, res) => {
+    try {
+      const svixId = req.headers['svix-id'];
+      const svixTimestamp = req.headers['svix-timestamp'];
+      const svixSignature = req.headers['svix-signature'];
+      
+      // Basic webhook validation (Resend uses Svix for webhooks)
+      if (!svixId || !svixTimestamp || !svixSignature) {
+        logWarn('Missing webhook signature headers', 'EmailWebhook');
+        // Still process in development, but log warning
+      }
+
+      const event = req.body;
+      const eventType = event.type;
+      const data = event.data;
+      
+      logInfo(`Received Resend webhook: ${eventType}`, 'EmailWebhook');
+
+      if (!data?.email_id) {
+        return res.status(200).json({ received: true });
+      }
+
+      // Find the message by Resend message ID
+      const message = await storage.getEmailMessageByResendId(data.email_id);
+      
+      if (!message) {
+        logWarn(`No message found for Resend ID: ${data.email_id}`, 'EmailWebhook');
+        return res.status(200).json({ received: true });
+      }
+
+      // Handle different event types
+      switch (eventType) {
+        case 'email.delivered':
+          await storage.updateEmailMessage(message.id, {
+            status: 'delivered',
+            deliveredAt: new Date(),
+          });
+          await storage.createEmailEvent({
+            messageId: message.id,
+            organizationId: message.organizationId,
+            eventType: 'delivered',
+            metadata: data,
+          });
+          break;
+
+        case 'email.bounced':
+          await storage.updateEmailMessage(message.id, {
+            status: 'bounced',
+            bouncedAt: new Date(),
+          });
+          await storage.createEmailEvent({
+            messageId: message.id,
+            organizationId: message.organizationId,
+            eventType: 'bounced',
+            metadata: data,
+          });
+          // Add to suppression list for hard bounces
+          if (data.bounce?.type === 'hard') {
+            const existing = await storage.getEmailSuppression(message.organizationId, message.recipientEmail);
+            if (!existing) {
+              await storage.createEmailSuppression({
+                organizationId: message.organizationId,
+                email: message.recipientEmail.toLowerCase(),
+                reason: 'bounce',
+                source: 'resend_webhook',
+              });
+            }
+          }
+          break;
+
+        case 'email.complained':
+          await storage.updateEmailMessage(message.id, {
+            status: 'complained',
+          });
+          await storage.createEmailEvent({
+            messageId: message.id,
+            organizationId: message.organizationId,
+            eventType: 'complained',
+            metadata: data,
+          });
+          // Add to suppression list for complaints
+          const existingSuppression = await storage.getEmailSuppression(message.organizationId, message.recipientEmail);
+          if (!existingSuppression) {
+            await storage.createEmailSuppression({
+              organizationId: message.organizationId,
+              email: message.recipientEmail.toLowerCase(),
+              reason: 'complaint',
+              source: 'resend_webhook',
+            });
+          }
+          break;
+
+        case 'email.opened':
+          await storage.incrementEmailOpenCount(message.id);
+          await storage.createEmailEvent({
+            messageId: message.id,
+            organizationId: message.organizationId,
+            eventType: 'open',
+            metadata: data,
+          });
+          break;
+
+        case 'email.clicked':
+          await storage.incrementEmailClickCount(message.id);
+          await storage.createEmailEvent({
+            messageId: message.id,
+            organizationId: message.organizationId,
+            eventType: 'click',
+            metadata: data,
+          });
+          break;
+
+        default:
+          logInfo(`Unhandled webhook event type: ${eventType}`, 'EmailWebhook');
+      }
+
+      res.status(200).json({ received: true });
+    } catch (error) {
+      logError("Error processing Resend webhook:", error);
+      res.status(500).json({ error: 'Webhook processing failed' });
+    }
+  });
+
+  // Email analytics endpoint (authenticated)
+  app.get("/api/organizations/:organizationId/email-campaigns/:campaignId/analytics", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { organizationId, campaignId } = req.params;
+      
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === organizationId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const analytics = await storage.getEmailAnalyticsByCampaign(organizationId, campaignId);
+      const messages = await storage.getEmailMessagesByCampaign(organizationId, campaignId);
+      
+      res.json({
+        ...analytics,
+        messages: messages.map(m => ({
+          id: m.id,
+          recipientEmail: m.recipientEmail,
+          recipientName: m.recipientName,
+          status: m.status,
+          sentAt: m.sentAt,
+          deliveredAt: m.deliveredAt,
+          openedAt: m.openedAt,
+          clickedAt: m.clickedAt,
+          bouncedAt: m.bouncedAt,
+          openCount: m.openCount,
+          clickCount: m.clickCount,
+        })),
+      });
+    } catch (error) {
+      logError("Error fetching email analytics:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+
+  // Email suppressions management (authenticated)
+  app.get("/api/organizations/:organizationId/email-suppressions", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { organizationId } = req.params;
+      
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === organizationId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const suppressions = await storage.getEmailSuppressions(organizationId);
+      res.json(suppressions);
+    } catch (error) {
+      logError("Error fetching email suppressions:", error);
+      res.status(500).json({ message: "Failed to fetch suppressions" });
+    }
+  });
+
+  app.delete("/api/organizations/:organizationId/email-suppressions/:email", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { organizationId, email } = req.params;
+      
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === organizationId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      await storage.deleteEmailSuppression(organizationId, decodeURIComponent(email));
+      res.json({ success: true });
+    } catch (error) {
+      logError("Error deleting email suppression:", error);
+      res.status(500).json({ message: "Failed to delete suppression" });
     }
   });
 

@@ -31,6 +31,9 @@ import {
   customFields,
   contentAssets,
   eventSponsors,
+  emailMessages,
+  emailEvents,
+  emailSuppressions,
   type User,
   type UpsertUser,
   type Event,
@@ -110,9 +113,15 @@ import {
   type InsertCfpReviewer,
   type CfpReview,
   type InsertCfpReview,
+  type EmailMessage,
+  type InsertEmailMessage,
+  type EmailEvent,
+  type InsertEmailEvent,
+  type EmailSuppression,
+  type InsertEmailSuppression,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, ilike, or, isNull } from "drizzle-orm";
+import { eq, desc, and, ilike, or, isNull, sql, count } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (MANDATORY for Replit Auth)
@@ -375,6 +384,37 @@ export interface IStorage {
   createCfpReview(review: InsertCfpReview): Promise<CfpReview>;
   updateCfpReview(id: number, organizationId: string, updates: Partial<InsertCfpReview>): Promise<CfpReview | undefined>;
   assignReviewerToSubmission(submissionId: number, reviewerId: number, organizationId: string): Promise<CfpReview>;
+
+  // Email Message operations
+  createEmailMessage(message: InsertEmailMessage): Promise<EmailMessage>;
+  getEmailMessage(id: string): Promise<EmailMessage | undefined>;
+  getEmailMessagesByAttendee(organizationId: string, attendeeId: string): Promise<EmailMessage[]>;
+  getEmailMessagesByCampaign(organizationId: string, campaignId: string): Promise<EmailMessage[]>;
+  getEmailMessageByResendId(resendMessageId: string): Promise<EmailMessage | undefined>;
+  updateEmailMessage(id: string, updates: Partial<InsertEmailMessage>): Promise<EmailMessage | undefined>;
+  incrementEmailOpenCount(id: string): Promise<EmailMessage | undefined>;
+  incrementEmailClickCount(id: string): Promise<EmailMessage | undefined>;
+
+  // Email Event operations
+  createEmailEvent(event: InsertEmailEvent): Promise<EmailEvent>;
+  getEmailEventsByMessage(messageId: string): Promise<EmailEvent[]>;
+
+  // Email Suppression operations
+  createEmailSuppression(suppression: InsertEmailSuppression): Promise<EmailSuppression>;
+  getEmailSuppression(organizationId: string, email: string): Promise<EmailSuppression | undefined>;
+  getEmailSuppressions(organizationId: string): Promise<EmailSuppression[]>;
+  deleteEmailSuppression(organizationId: string, email: string): Promise<void>;
+
+  // Email Analytics
+  getEmailAnalyticsByCampaign(organizationId: string, campaignId: string): Promise<{
+    totalSent: number;
+    totalDelivered: number;
+    totalOpened: number;
+    totalClicked: number;
+    totalBounced: number;
+    uniqueOpens: number;
+    uniqueClicks: number;
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1778,6 +1818,150 @@ export class DatabaseStorage implements IStorage {
       status: 'assigned',
     }).returning();
     return review;
+  }
+
+  // Email Message operations
+  async createEmailMessage(message: InsertEmailMessage): Promise<EmailMessage> {
+    const [newMessage] = await db.insert(emailMessages).values(message).returning();
+    return newMessage;
+  }
+
+  async getEmailMessage(id: string): Promise<EmailMessage | undefined> {
+    const [message] = await db.select().from(emailMessages).where(eq(emailMessages.id, id));
+    return message;
+  }
+
+  async getEmailMessagesByAttendee(organizationId: string, attendeeId: string): Promise<EmailMessage[]> {
+    return db.select().from(emailMessages)
+      .where(and(
+        eq(emailMessages.organizationId, organizationId),
+        eq(emailMessages.attendeeId, attendeeId)
+      ))
+      .orderBy(desc(emailMessages.sentAt));
+  }
+
+  async getEmailMessagesByCampaign(organizationId: string, campaignId: string): Promise<EmailMessage[]> {
+    return db.select().from(emailMessages)
+      .where(and(
+        eq(emailMessages.organizationId, organizationId),
+        eq(emailMessages.campaignId, campaignId)
+      ))
+      .orderBy(desc(emailMessages.sentAt));
+  }
+
+  async getEmailMessageByResendId(resendMessageId: string): Promise<EmailMessage | undefined> {
+    const [message] = await db.select().from(emailMessages)
+      .where(eq(emailMessages.resendMessageId, resendMessageId));
+    return message;
+  }
+
+  async updateEmailMessage(id: string, updates: Partial<InsertEmailMessage>): Promise<EmailMessage | undefined> {
+    const [updated] = await db
+      .update(emailMessages)
+      .set(updates)
+      .where(eq(emailMessages.id, id))
+      .returning();
+    return updated;
+  }
+
+  async incrementEmailOpenCount(id: string): Promise<EmailMessage | undefined> {
+    const [updated] = await db
+      .update(emailMessages)
+      .set({
+        openCount: sql`COALESCE(${emailMessages.openCount}, 0) + 1`,
+        openedAt: sql`COALESCE(${emailMessages.openedAt}, NOW())`,
+      })
+      .where(eq(emailMessages.id, id))
+      .returning();
+    return updated;
+  }
+
+  async incrementEmailClickCount(id: string): Promise<EmailMessage | undefined> {
+    const [updated] = await db
+      .update(emailMessages)
+      .set({
+        clickCount: sql`COALESCE(${emailMessages.clickCount}, 0) + 1`,
+        clickedAt: sql`COALESCE(${emailMessages.clickedAt}, NOW())`,
+      })
+      .where(eq(emailMessages.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Email Event operations
+  async createEmailEvent(event: InsertEmailEvent): Promise<EmailEvent> {
+    const [newEvent] = await db.insert(emailEvents).values(event).returning();
+    return newEvent;
+  }
+
+  async getEmailEventsByMessage(messageId: string): Promise<EmailEvent[]> {
+    return db.select().from(emailEvents)
+      .where(eq(emailEvents.messageId, messageId))
+      .orderBy(desc(emailEvents.occurredAt));
+  }
+
+  // Email Suppression operations
+  async createEmailSuppression(suppression: InsertEmailSuppression): Promise<EmailSuppression> {
+    const [newSuppression] = await db.insert(emailSuppressions).values(suppression).returning();
+    return newSuppression;
+  }
+
+  async getEmailSuppression(organizationId: string, email: string): Promise<EmailSuppression | undefined> {
+    const [suppression] = await db.select().from(emailSuppressions)
+      .where(and(
+        eq(emailSuppressions.organizationId, organizationId),
+        eq(emailSuppressions.email, email.toLowerCase())
+      ));
+    return suppression;
+  }
+
+  async getEmailSuppressions(organizationId: string): Promise<EmailSuppression[]> {
+    return db.select().from(emailSuppressions)
+      .where(eq(emailSuppressions.organizationId, organizationId))
+      .orderBy(desc(emailSuppressions.createdAt));
+  }
+
+  async deleteEmailSuppression(organizationId: string, email: string): Promise<void> {
+    await db.delete(emailSuppressions)
+      .where(and(
+        eq(emailSuppressions.organizationId, organizationId),
+        eq(emailSuppressions.email, email.toLowerCase())
+      ));
+  }
+
+  // Email Analytics
+  async getEmailAnalyticsByCampaign(organizationId: string, campaignId: string): Promise<{
+    totalSent: number;
+    totalDelivered: number;
+    totalOpened: number;
+    totalClicked: number;
+    totalBounced: number;
+    uniqueOpens: number;
+    uniqueClicks: number;
+  }> {
+    const messages = await db.select().from(emailMessages)
+      .where(and(
+        eq(emailMessages.organizationId, organizationId),
+        eq(emailMessages.campaignId, campaignId)
+      ));
+
+    const totalSent = messages.length;
+    const totalDelivered = messages.filter(m => m.deliveredAt !== null).length;
+    const totalBounced = messages.filter(m => m.bouncedAt !== null).length;
+    const uniqueOpens = messages.filter(m => m.openedAt !== null).length;
+    const uniqueClicks = messages.filter(m => m.clickedAt !== null).length;
+    const totalOpened = messages.reduce((sum, m) => sum + (m.openCount || 0), 0);
+    const totalClicked = messages.reduce((sum, m) => sum + (m.clickCount || 0), 0);
+
+    return {
+      totalSent,
+      totalDelivered,
+      totalOpened,
+      totalClicked,
+      totalBounced,
+      uniqueOpens,
+      uniqueClicks,
+    };
   }
 }
 
