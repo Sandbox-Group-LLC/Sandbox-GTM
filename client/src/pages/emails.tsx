@@ -756,14 +756,14 @@ export default function Emails() {
                                 <div className="space-y-2">
                                   <Label>Heading Font</Label>
                                   <Select
-                                    value={campaignForm.watch("styles.headingFont") || ""}
-                                    onValueChange={(value) => campaignForm.setValue("styles.headingFont", value)}
+                                    value={campaignForm.watch("styles.headingFont") || "default"}
+                                    onValueChange={(value) => campaignForm.setValue("styles.headingFont", value === "default" ? "" : value)}
                                   >
                                     <SelectTrigger data-testid="select-campaign-heading-font">
                                       <SelectValue placeholder="Default" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      <SelectItem value="">Default</SelectItem>
+                                      <SelectItem value="default">Default</SelectItem>
                                       {FONT_OPTIONS.map((opt) => (
                                         <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                                       ))}
@@ -833,14 +833,14 @@ export default function Emails() {
                                 <div className="space-y-2">
                                   <Label>Body Font</Label>
                                   <Select
-                                    value={campaignForm.watch("styles.bodyFont") || ""}
-                                    onValueChange={(value) => campaignForm.setValue("styles.bodyFont", value)}
+                                    value={campaignForm.watch("styles.bodyFont") || "default"}
+                                    onValueChange={(value) => campaignForm.setValue("styles.bodyFont", value === "default" ? "" : value)}
                                   >
                                     <SelectTrigger data-testid="select-campaign-body-font">
                                       <SelectValue placeholder="Default" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      <SelectItem value="">Default</SelectItem>
+                                      <SelectItem value="default">Default</SelectItem>
                                       {FONT_OPTIONS.map((opt) => (
                                         <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                                       ))}
@@ -1121,14 +1121,14 @@ export default function Emails() {
                                 <div className="space-y-2">
                                   <Label>Heading Font</Label>
                                   <Select
-                                    value={templateForm.watch("styles.headingFont") || ""}
-                                    onValueChange={(value) => templateForm.setValue("styles.headingFont", value)}
+                                    value={templateForm.watch("styles.headingFont") || "default"}
+                                    onValueChange={(value) => templateForm.setValue("styles.headingFont", value === "default" ? "" : value)}
                                   >
                                     <SelectTrigger data-testid="select-template-heading-font">
                                       <SelectValue placeholder="Default" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      <SelectItem value="">Default</SelectItem>
+                                      <SelectItem value="default">Default</SelectItem>
                                       {FONT_OPTIONS.map((opt) => (
                                         <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                                       ))}
@@ -1198,14 +1198,14 @@ export default function Emails() {
                                 <div className="space-y-2">
                                   <Label>Body Font</Label>
                                   <Select
-                                    value={templateForm.watch("styles.bodyFont") || ""}
-                                    onValueChange={(value) => templateForm.setValue("styles.bodyFont", value)}
+                                    value={templateForm.watch("styles.bodyFont") || "default"}
+                                    onValueChange={(value) => templateForm.setValue("styles.bodyFont", value === "default" ? "" : value)}
                                   >
                                     <SelectTrigger data-testid="select-template-body-font">
                                       <SelectValue placeholder="Default" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      <SelectItem value="">Default</SelectItem>
+                                      <SelectItem value="default">Default</SelectItem>
                                       {FONT_OPTIONS.map((opt) => (
                                         <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                                       ))}
