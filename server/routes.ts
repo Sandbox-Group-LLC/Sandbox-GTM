@@ -3636,6 +3636,7 @@ ${urls.map(u => `  <url>
       let clientId: string;
       try {
         clientId = decrypt(linkedinCred.clientId);
+        logInfo(`LinkedIn client ID (first 8 chars): ${clientId.substring(0, 8)}...`);
       } catch (error) {
         logError("Error decrypting LinkedIn client ID:", error);
         return res.status(500).json({ message: "Failed to decrypt LinkedIn credentials" });
