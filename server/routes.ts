@@ -965,6 +965,32 @@ export async function registerRoutes(
     }
   });
 
+  // Server-side schema with transforms for proper type handling
+  const createInviteCodeSchema = z.object({
+    code: z.string().min(1, "Code is required").transform(val => val.toUpperCase().trim()),
+    description: z.string().optional().nullable().transform(val => val?.trim() || null),
+    discountPercent: z.union([z.number(), z.string(), z.null()]).optional().transform(val => {
+      if (val === "" || val === null || val === undefined) return null;
+      const num = typeof val === "string" ? parseInt(val, 10) : val;
+      return isNaN(num) ? null : Math.min(100, Math.max(0, num));
+    }),
+    maxUses: z.union([z.number(), z.string(), z.null()]).optional().transform(val => {
+      if (val === "" || val === null || val === undefined) return null;
+      const num = typeof val === "string" ? parseInt(val, 10) : val;
+      return isNaN(num) || num < 1 ? null : num;
+    }),
+    expiresAt: z.union([z.string(), z.date(), z.null()]).optional().transform(val => {
+      if (!val || val === "") return null;
+      const date = typeof val === "string" ? new Date(val) : val;
+      return isNaN(date.getTime()) ? null : date;
+    }),
+    isActive: z.union([z.boolean(), z.string()]).optional().default(true).transform(val => {
+      if (typeof val === "string") return val === "true";
+      return val ?? true;
+    }),
+    createdBy: z.string().optional().nullable(),
+  });
+
   app.post("/api/admin/signup-invite-codes", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -975,7 +1001,7 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Access denied. Admin privileges required." });
       }
       
-      const data = insertSignupInviteCodeSchema.parse({
+      const data = createInviteCodeSchema.parse({
         ...req.body,
         createdBy: userId,
       });
@@ -989,6 +1015,9 @@ export async function registerRoutes(
     }
   });
 
+  // Partial schema for updates (all fields optional)
+  const updateInviteCodeSchema = createInviteCodeSchema.partial().omit({ createdBy: true });
+
   app.patch("/api/admin/signup-invite-codes/:id", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -999,14 +1028,16 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Access denied. Admin privileges required." });
       }
       
-      const code = await storage.updateSignupInviteCode(req.params.id, req.body);
+      const data = updateInviteCodeSchema.parse(req.body);
+      const code = await storage.updateSignupInviteCode(req.params.id, data);
       if (!code) {
         return res.status(404).json({ message: "Signup invite code not found" });
       }
       res.json(code);
-    } catch (error) {
+    } catch (error: any) {
       logError("Error updating signup invite code:", error);
-      res.status(400).json({ message: "Failed to update signup invite code" });
+      const message = error.errors ? error.errors.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', ') : "Failed to update signup invite code";
+      res.status(400).json({ message });
     }
   });
 
