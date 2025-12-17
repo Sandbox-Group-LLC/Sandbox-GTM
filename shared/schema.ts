@@ -838,6 +838,27 @@ export const emailSuppressions = pgTable("email_suppressions", {
   uniqueIndex("email_suppressions_org_email_idx").on(table.organizationId, table.email),
 ]);
 
+export const signupInviteCodes = pgTable("signup_invite_codes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: varchar("code", { length: 100 }).notNull().unique(),
+  description: varchar("description", { length: 500 }),
+  discountPercent: integer("discount_percent"),
+  maxUses: integer("max_uses"),
+  usesCount: integer("uses_count").default(0),
+  expiresAt: timestamp("expires_at"),
+  createdBy: varchar("created_by").references(() => users.id),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const signupInviteCodeRedemptions = pgTable("signup_invite_code_redemptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  inviteCodeId: varchar("invite_code_id").references(() => signupInviteCodes.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  organizationId: varchar("organization_id").references(() => organizations.id),
+  redeemedAt: timestamp("redeemed_at").defaultNow(),
+});
+
 // Relations
 export const organizationsRelations = relations(organizations, ({ many }) => ({
   members: many(organizationMembers),
@@ -1115,6 +1136,8 @@ export const insertSocialMediaCredentialSchema = createInsertSchema(socialMediaC
 export const insertEmailPlatformConnectionSchema = createInsertSchema(emailPlatformConnections).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertEmailPlatformAudienceSchema = createInsertSchema(emailPlatformAudiences).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertEmailSyncJobSchema = createInsertSchema(emailSyncJobs).omit({ id: true, createdAt: true });
+export const insertSignupInviteCodeSchema = createInsertSchema(signupInviteCodes).omit({ id: true, createdAt: true, usesCount: true });
+export const insertSignupInviteCodeRedemptionSchema = createInsertSchema(signupInviteCodeRedemptions).omit({ id: true, redeemedAt: true });
 
 // Types
 export type UpsertUser = typeof users.$inferInsert;
@@ -1206,3 +1229,7 @@ export type InsertEmailPlatformAudience = z.infer<typeof insertEmailPlatformAudi
 export type EmailPlatformAudience = typeof emailPlatformAudiences.$inferSelect;
 export type InsertEmailSyncJob = z.infer<typeof insertEmailSyncJobSchema>;
 export type EmailSyncJob = typeof emailSyncJobs.$inferSelect;
+export type InsertSignupInviteCode = z.infer<typeof insertSignupInviteCodeSchema>;
+export type SignupInviteCode = typeof signupInviteCodes.$inferSelect;
+export type InsertSignupInviteCodeRedemption = z.infer<typeof insertSignupInviteCodeRedemptionSchema>;
+export type SignupInviteCodeRedemption = typeof signupInviteCodeRedemptions.$inferSelect;
