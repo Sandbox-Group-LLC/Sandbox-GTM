@@ -315,7 +315,7 @@ export default function Social() {
 
   const sortedMonths = Object.keys(groupedByMonth).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
 
-  const connectedCount = connections.filter(c => c.isActive).length;
+  const connectedCount = connections.filter(c => c.isActive && c.accountId).length;
 
   const allPlatforms = ["twitter", "linkedin", "instagram", "facebook"];
 
@@ -496,7 +496,8 @@ export default function Social() {
                     {allPlatforms.map((platform) => {
                       const Icon = platformIcons[platform];
                       const connection = getConnectionForPlatform(platform);
-                      const isConnected = connection && connection.isActive;
+                      const hasValidToken = connection && connection.isActive && connection.accountId;
+                      const needsReconnect = connection && connection.isActive && !connection.accountId;
 
                       return (
                         <Card key={platform} data-testid={`card-connection-${platform}`}>
@@ -508,18 +509,21 @@ export default function Social() {
                                 </div>
                                 <div>
                                   <CardTitle className="text-base">{platformNames[platform]}</CardTitle>
-                                  {isConnected && connection.accountName && (
+                                  {hasValidToken && connection.accountName && (
                                     <CardDescription>{connection.accountName}</CardDescription>
+                                  )}
+                                  {needsReconnect && (
+                                    <CardDescription className="text-amber-600">Reconnection required</CardDescription>
                                   )}
                                 </div>
                               </div>
-                              <Badge variant={isConnected ? "default" : "outline"}>
-                                {isConnected ? "Connected" : "Not connected"}
+                              <Badge variant={hasValidToken ? "default" : needsReconnect ? "secondary" : "outline"}>
+                                {hasValidToken ? "Connected" : needsReconnect ? "Needs reconnect" : "Not connected"}
                               </Badge>
                             </div>
                           </CardHeader>
                           <CardContent>
-                            {isConnected && connection ? (
+                            {hasValidToken && connection ? (
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -531,6 +535,31 @@ export default function Social() {
                                 <Unlink className="h-4 w-4 mr-2" />
                                 {disconnectMutation.isPending ? "Disconnecting..." : "Disconnect"}
                               </Button>
+                            ) : needsReconnect ? (
+                              <div className="space-y-2">
+                                <Button
+                                  variant="default"
+                                  size="sm"
+                                  className="w-full"
+                                  onClick={() => handleConnect(platform)}
+                                  disabled={connectMutation.isPending}
+                                  data-testid={`button-reconnect-${platform}`}
+                                >
+                                  <Link2 className="h-4 w-4 mr-2" />
+                                  {connectMutation.isPending ? "Connecting..." : "Reconnect Account"}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="w-full"
+                                  onClick={() => disconnectMutation.mutate(connection!.id)}
+                                  disabled={disconnectMutation.isPending}
+                                  data-testid={`button-remove-${platform}`}
+                                >
+                                  <Unlink className="h-4 w-4 mr-2" />
+                                  Remove
+                                </Button>
+                              </div>
                             ) : (
                               <Button
                                 variant="outline"
