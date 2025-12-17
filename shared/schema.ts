@@ -73,6 +73,22 @@ export const organizationMembers = pgTable("organization_members", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Social Media Credentials table - stores encrypted OAuth credentials per organization
+export const socialMediaCredentials = pgTable("social_media_credentials", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  provider: varchar("provider", { length: 50 }).notNull(),
+  clientId: text("client_id"),
+  clientSecret: text("client_secret"),
+  isConfigured: boolean("is_configured").default(false),
+  configuredAt: timestamp("configured_at"),
+  configuredBy: varchar("configured_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("IDX_social_credential_unique").on(table.organizationId, table.provider),
+]);
+
 // Events table
 export const events = pgTable("events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1024,6 +1040,7 @@ export const insertCfpReviewSchema = createInsertSchema(cfpReviews);
 export const insertEmailMessageSchema = createInsertSchema(emailMessages).omit({ id: true });
 export const insertEmailEventSchema = createInsertSchema(emailEvents).omit({ id: true });
 export const insertEmailSuppressionSchema = createInsertSchema(emailSuppressions).omit({ id: true, createdAt: true });
+export const insertSocialMediaCredentialSchema = createInsertSchema(socialMediaCredentials).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Types
 export type UpsertUser = typeof users.$inferInsert;
@@ -1107,3 +1124,5 @@ export type InsertEmailEvent = z.infer<typeof insertEmailEventSchema>;
 export type EmailEvent = typeof emailEvents.$inferSelect;
 export type InsertEmailSuppression = z.infer<typeof insertEmailSuppressionSchema>;
 export type EmailSuppression = typeof emailSuppressions.$inferSelect;
+export type InsertSocialMediaCredential = z.infer<typeof insertSocialMediaCredentialSchema>;
+export type SocialMediaCredential = typeof socialMediaCredentials.$inferSelect;

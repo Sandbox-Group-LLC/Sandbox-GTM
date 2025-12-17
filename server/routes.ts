@@ -264,16 +264,149 @@ export async function registerRoutes(
 
   app.get('/api/settings/social-integrations-status', isAuthenticated, async (req: any, res) => {
     try {
-      const status = {
-        linkedin: !!(process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET),
-        twitter: !!(process.env.TWITTER_API_KEY && process.env.TWITTER_API_SECRET),
-        facebook: !!(process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET),
-        instagram: !!(process.env.INSTAGRAM_APP_ID && process.env.INSTAGRAM_APP_SECRET),
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      
+      const credentials = await storage.getSocialMediaCredentials(organizationId);
+      
+      const status: Record<string, boolean> = {
+        linkedin: false,
+        twitter: false,
+        facebook: false,
+        instagram: false,
       };
+      
+      for (const cred of credentials) {
+        if (cred.isConfigured && (cred.provider === 'linkedin' || cred.provider === 'twitter' || 
+            cred.provider === 'facebook' || cred.provider === 'instagram')) {
+          status[cred.provider] = true;
+        }
+      }
+      
       res.json(status);
     } catch (error) {
       logError("Error checking social integrations status:", error);
       res.status(500).json({ message: "Failed to check social integrations status" });
+    }
+  });
+
+  app.get('/api/settings/social-credentials', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      
+      const credentials = await storage.getSocialMediaCredentials(organizationId);
+      
+      const maskedCredentials = credentials.map(cred => {
+        let maskedClientId: string | null = null;
+        if (cred.clientId) {
+          try {
+            const { decrypt } = require('./encryption');
+            const decryptedClientId = decrypt(cred.clientId);
+            maskedClientId = decryptedClientId.length > 4 
+              ? '****' + decryptedClientId.slice(-4) 
+              : '****';
+          } catch {
+            maskedClientId = '****';
+          }
+        }
+        
+        return {
+          id: cred.id,
+          organizationId: cred.organizationId,
+          provider: cred.provider,
+          clientId: maskedClientId,
+          clientSecret: cred.clientSecret ? '********' : null,
+          isConfigured: cred.isConfigured,
+          configuredAt: cred.configuredAt,
+          configuredBy: cred.configuredBy,
+          createdAt: cred.createdAt,
+          updatedAt: cred.updatedAt,
+        };
+      });
+      
+      res.json(maskedCredentials);
+    } catch (error) {
+      logError("Error fetching social credentials:", error);
+      res.status(500).json({ message: "Failed to fetch social credentials" });
+    }
+  });
+
+  app.post('/api/settings/social-credentials/:provider', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const { provider } = req.params;
+      const { clientId, clientSecret } = req.body;
+      
+      const validProviders = ['linkedin', 'twitter', 'facebook', 'instagram'];
+      if (!validProviders.includes(provider)) {
+        return res.status(400).json({ message: "Invalid provider. Must be one of: linkedin, twitter, facebook, instagram" });
+      }
+      
+      if (!clientId || typeof clientId !== 'string' || clientId.trim().length === 0) {
+        return res.status(400).json({ message: "Client ID is required" });
+      }
+      
+      if (!clientSecret || typeof clientSecret !== 'string' || clientSecret.trim().length === 0) {
+        return res.status(400).json({ message: "Client Secret is required" });
+      }
+      
+      const credential = await storage.upsertSocialMediaCredential(
+        organizationId,
+        provider,
+        clientId.trim(),
+        clientSecret.trim(),
+        userId
+      );
+      
+      let maskedClientId: string | null = null;
+      if (credential.clientId) {
+        try {
+          const { decrypt } = require('./encryption');
+          const decryptedClientId = decrypt(credential.clientId);
+          maskedClientId = decryptedClientId.length > 4 
+            ? '****' + decryptedClientId.slice(-4) 
+            : '****';
+        } catch {
+          maskedClientId = '****';
+        }
+      }
+      
+      res.json({
+        id: credential.id,
+        organizationId: credential.organizationId,
+        provider: credential.provider,
+        clientId: maskedClientId,
+        clientSecret: '********',
+        isConfigured: credential.isConfigured,
+        configuredAt: credential.configuredAt,
+        configuredBy: credential.configuredBy,
+        createdAt: credential.createdAt,
+        updatedAt: credential.updatedAt,
+      });
+    } catch (error) {
+      logError("Error saving social credentials:", error);
+      res.status(500).json({ message: "Failed to save social credentials" });
+    }
+  });
+
+  app.delete('/api/settings/social-credentials/:provider', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const { provider } = req.params;
+      
+      const validProviders = ['linkedin', 'twitter', 'facebook', 'instagram'];
+      if (!validProviders.includes(provider)) {
+        return res.status(400).json({ message: "Invalid provider. Must be one of: linkedin, twitter, facebook, instagram" });
+      }
+      
+      await storage.deleteSocialMediaCredential(organizationId, provider);
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting social credentials:", error);
+      res.status(500).json({ message: "Failed to delete social credentials" });
     }
   });
 

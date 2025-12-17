@@ -34,6 +34,7 @@ import {
   emailMessages,
   emailEvents,
   emailSuppressions,
+  socialMediaCredentials,
   type User,
   type UpsertUser,
   type Event,
@@ -119,7 +120,10 @@ import {
   type InsertEmailEvent,
   type EmailSuppression,
   type InsertEmailSuppression,
+  type SocialMediaCredential,
+  type InsertSocialMediaCredential,
 } from "@shared/schema";
+import { encrypt, decrypt } from "./encryption";
 import { db } from "./db";
 import { eq, desc, and, ilike, or, isNull, sql, count } from "drizzle-orm";
 
@@ -415,6 +419,12 @@ export interface IStorage {
     uniqueOpens: number;
     uniqueClicks: number;
   }>;
+
+  // Social Media Credentials operations
+  getSocialMediaCredentials(organizationId: string): Promise<SocialMediaCredential[]>;
+  getSocialMediaCredential(organizationId: string, provider: string): Promise<SocialMediaCredential | null>;
+  upsertSocialMediaCredential(organizationId: string, provider: string, clientId: string, clientSecret: string, userId: string): Promise<SocialMediaCredential>;
+  deleteSocialMediaCredential(organizationId: string, provider: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1962,6 +1972,66 @@ export class DatabaseStorage implements IStorage {
       uniqueOpens,
       uniqueClicks,
     };
+  }
+
+  // Social Media Credentials operations
+  async getSocialMediaCredentials(organizationId: string): Promise<SocialMediaCredential[]> {
+    return db.select().from(socialMediaCredentials)
+      .where(eq(socialMediaCredentials.organizationId, organizationId));
+  }
+
+  async getSocialMediaCredential(organizationId: string, provider: string): Promise<SocialMediaCredential | null> {
+    const [credential] = await db.select().from(socialMediaCredentials)
+      .where(and(
+        eq(socialMediaCredentials.organizationId, organizationId),
+        eq(socialMediaCredentials.provider, provider)
+      ));
+    return credential || null;
+  }
+
+  async upsertSocialMediaCredential(
+    organizationId: string,
+    provider: string,
+    clientId: string,
+    clientSecret: string,
+    userId: string
+  ): Promise<SocialMediaCredential> {
+    const encryptedClientId = encrypt(clientId);
+    const encryptedClientSecret = encrypt(clientSecret);
+    
+    const [credential] = await db
+      .insert(socialMediaCredentials)
+      .values({
+        organizationId,
+        provider,
+        clientId: encryptedClientId,
+        clientSecret: encryptedClientSecret,
+        isConfigured: true,
+        configuredAt: new Date(),
+        configuredBy: userId,
+      })
+      .onConflictDoUpdate({
+        target: [socialMediaCredentials.organizationId, socialMediaCredentials.provider],
+        set: {
+          clientId: encryptedClientId,
+          clientSecret: encryptedClientSecret,
+          isConfigured: true,
+          configuredAt: new Date(),
+          configuredBy: userId,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    
+    return credential;
+  }
+
+  async deleteSocialMediaCredential(organizationId: string, provider: string): Promise<void> {
+    await db.delete(socialMediaCredentials)
+      .where(and(
+        eq(socialMediaCredentials.organizationId, organizationId),
+        eq(socialMediaCredentials.provider, provider)
+      ));
   }
 }
 
