@@ -441,11 +441,13 @@ export default function Settings() {
                         <li>Create a new app with your company page</li>
                         <li>Request the required API products (Share on LinkedIn, Sign In with LinkedIn)</li>
                         <li>Copy your Client ID and Client Secret</li>
+                        <li>In Replit, open the <strong>Secrets</strong> tab (padlock icon in the left sidebar)</li>
+                        <li>Add the secrets listed below with your copied values</li>
                       </ol>
                       <div className="mt-3 p-2 bg-muted rounded text-xs">
-                        <p className="font-medium mb-1">Required Secrets:</p>
-                        <code>LINKEDIN_CLIENT_ID</code><br />
-                        <code>LINKEDIN_CLIENT_SECRET</code>
+                        <p className="font-medium mb-1">Add these secrets in the Replit Secrets tab:</p>
+                        <code>LINKEDIN_CLIENT_ID</code> = your Client ID<br />
+                        <code>LINKEDIN_CLIENT_SECRET</code> = your Client Secret
                       </div>
                     </div>
                   </AccordionContent>
@@ -466,11 +468,13 @@ export default function Settings() {
                         <li>Create a new project and app</li>
                         <li>Enable OAuth 2.0 and configure permissions</li>
                         <li>Generate and copy your API Key and API Secret</li>
+                        <li>In Replit, open the <strong>Secrets</strong> tab (padlock icon in the left sidebar)</li>
+                        <li>Add the secrets listed below with your copied values</li>
                       </ol>
                       <div className="mt-3 p-2 bg-muted rounded text-xs">
-                        <p className="font-medium mb-1">Required Secrets:</p>
-                        <code>TWITTER_API_KEY</code><br />
-                        <code>TWITTER_API_SECRET</code>
+                        <p className="font-medium mb-1">Add these secrets in the Replit Secrets tab:</p>
+                        <code>TWITTER_API_KEY</code> = your API Key<br />
+                        <code>TWITTER_API_SECRET</code> = your API Secret
                       </div>
                     </div>
                   </AccordionContent>
@@ -491,11 +495,13 @@ export default function Settings() {
                         <li>Create a new app (Business or Consumer type)</li>
                         <li>Add Facebook Login and Pages API products</li>
                         <li>Copy your App ID and App Secret from Settings</li>
+                        <li>In Replit, open the <strong>Secrets</strong> tab (padlock icon in the left sidebar)</li>
+                        <li>Add the secrets listed below with your copied values</li>
                       </ol>
                       <div className="mt-3 p-2 bg-muted rounded text-xs">
-                        <p className="font-medium mb-1">Required Secrets:</p>
-                        <code>FACEBOOK_APP_ID</code><br />
-                        <code>FACEBOOK_APP_SECRET</code>
+                        <p className="font-medium mb-1">Add these secrets in the Replit Secrets tab:</p>
+                        <code>FACEBOOK_APP_ID</code> = your App ID<br />
+                        <code>FACEBOOK_APP_SECRET</code> = your App Secret
                       </div>
                     </div>
                   </AccordionContent>
@@ -515,12 +521,14 @@ export default function Settings() {
                         <li>Go to <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">Meta Developer Portal <ExternalLink className="h-3 w-3" /></a></li>
                         <li>Create or use an existing Meta app</li>
                         <li>Add Instagram Basic Display or Instagram Graph API</li>
-                        <li>Configure Instagram App ID and Secret</li>
+                        <li>Copy your Instagram App ID and Secret</li>
+                        <li>In Replit, open the <strong>Secrets</strong> tab (padlock icon in the left sidebar)</li>
+                        <li>Add the secrets listed below with your copied values</li>
                       </ol>
                       <div className="mt-3 p-2 bg-muted rounded text-xs">
-                        <p className="font-medium mb-1">Required Secrets:</p>
-                        <code>INSTAGRAM_APP_ID</code><br />
-                        <code>INSTAGRAM_APP_SECRET</code>
+                        <p className="font-medium mb-1">Add these secrets in the Replit Secrets tab:</p>
+                        <code>INSTAGRAM_APP_ID</code> = your App ID<br />
+                        <code>INSTAGRAM_APP_SECRET</code> = your App Secret
                       </div>
                     </div>
                   </AccordionContent>
