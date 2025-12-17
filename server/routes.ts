@@ -59,6 +59,7 @@ import {
   insertCfpSubmissionSchema,
   insertCfpReviewerSchema,
   insertCfpReviewSchema,
+  insertSignupInviteCodeSchema,
   pageVersions,
   eventPages,
   emailPlatformConnections,
@@ -942,6 +943,105 @@ export async function registerRoutes(
     } catch (error) {
       logError("Error deleting organization:", error);
       res.status(500).json({ message: "Failed to delete organization" });
+    }
+  });
+
+  // Signup Invite Code Admin routes (super admin only)
+  app.get("/api/admin/signup-invite-codes", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      const isSuperAdmin = user?.email?.toLowerCase().endsWith("@makemysandbox.com") ?? false;
+      if (!isSuperAdmin) {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+      
+      const codes = await storage.getSignupInviteCodes();
+      res.json(codes);
+    } catch (error) {
+      logError("Error fetching signup invite codes:", error);
+      res.status(500).json({ message: "Failed to fetch signup invite codes" });
+    }
+  });
+
+  app.post("/api/admin/signup-invite-codes", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      const isSuperAdmin = user?.email?.toLowerCase().endsWith("@makemysandbox.com") ?? false;
+      if (!isSuperAdmin) {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+      
+      const data = insertSignupInviteCodeSchema.parse({
+        ...req.body,
+        createdBy: userId,
+      });
+      
+      const code = await storage.createSignupInviteCode(data);
+      res.status(201).json(code);
+    } catch (error: any) {
+      logError("Error creating signup invite code:", error);
+      const message = error.errors ? error.errors.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', ') : "Invalid signup invite code data";
+      res.status(400).json({ message });
+    }
+  });
+
+  app.patch("/api/admin/signup-invite-codes/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      const isSuperAdmin = user?.email?.toLowerCase().endsWith("@makemysandbox.com") ?? false;
+      if (!isSuperAdmin) {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+      
+      const code = await storage.updateSignupInviteCode(req.params.id, req.body);
+      if (!code) {
+        return res.status(404).json({ message: "Signup invite code not found" });
+      }
+      res.json(code);
+    } catch (error) {
+      logError("Error updating signup invite code:", error);
+      res.status(400).json({ message: "Failed to update signup invite code" });
+    }
+  });
+
+  app.delete("/api/admin/signup-invite-codes/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      const isSuperAdmin = user?.email?.toLowerCase().endsWith("@makemysandbox.com") ?? false;
+      if (!isSuperAdmin) {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+      
+      await storage.deleteSignupInviteCode(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting signup invite code:", error);
+      res.status(500).json({ message: "Failed to delete signup invite code" });
+    }
+  });
+
+  // Public signup invite code validation endpoint
+  app.post("/api/signup-invite-codes/validate", async (req: any, res) => {
+    try {
+      const { code } = req.body;
+      
+      if (!code || typeof code !== 'string') {
+        return res.status(400).json({ message: "Code is required" });
+      }
+      
+      const result = await storage.validateSignupInviteCode(code);
+      res.json(result);
+    } catch (error) {
+      logError("Error validating signup invite code:", error);
+      res.status(500).json({ message: "Failed to validate signup invite code" });
     }
   });
 

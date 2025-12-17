@@ -38,6 +38,8 @@ import {
   emailPlatformConnections,
   emailPlatformAudiences,
   emailSyncJobs,
+  signupInviteCodes,
+  signupInviteCodeRedemptions,
   type User,
   type UpsertUser,
   type Event,
@@ -131,6 +133,10 @@ import {
   type InsertEmailPlatformAudience,
   type EmailSyncJob,
   type InsertEmailSyncJob,
+  type SignupInviteCode,
+  type InsertSignupInviteCode,
+  type SignupInviteCodeRedemption,
+  type InsertSignupInviteCodeRedemption,
 } from "@shared/schema";
 import { encrypt, decrypt } from "./encryption";
 import { db } from "./db";
@@ -452,6 +458,16 @@ export interface IStorage {
   getEmailSyncJobs(organizationId: string, connectionId?: string): Promise<EmailSyncJob[]>;
   createEmailSyncJob(data: InsertEmailSyncJob): Promise<EmailSyncJob>;
   updateEmailSyncJob(id: string, data: Partial<InsertEmailSyncJob>): Promise<EmailSyncJob | undefined>;
+
+  // Signup Invite Code operations (super admin only)
+  getSignupInviteCodes(): Promise<SignupInviteCode[]>;
+  getSignupInviteCode(id: string): Promise<SignupInviteCode | undefined>;
+  getSignupInviteCodeByCode(code: string): Promise<SignupInviteCode | undefined>;
+  createSignupInviteCode(data: InsertSignupInviteCode): Promise<SignupInviteCode>;
+  updateSignupInviteCode(id: string, data: Partial<InsertSignupInviteCode>): Promise<SignupInviteCode | undefined>;
+  deleteSignupInviteCode(id: string): Promise<void>;
+  validateSignupInviteCode(code: string): Promise<{ valid: boolean; discountPercent?: number | null }>;
+  redeemSignupInviteCode(code: string, userId: string, organizationId: string | null): Promise<SignupInviteCodeRedemption>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2196,6 +2212,82 @@ export class DatabaseStorage implements IStorage {
       .where(eq(emailSyncJobs.id, id))
       .returning();
     return updated;
+  }
+
+  // Signup Invite Code operations
+  async getSignupInviteCodes(): Promise<SignupInviteCode[]> {
+    return db.select().from(signupInviteCodes).orderBy(desc(signupInviteCodes.createdAt));
+  }
+
+  async getSignupInviteCode(id: string): Promise<SignupInviteCode | undefined> {
+    const [code] = await db.select().from(signupInviteCodes).where(eq(signupInviteCodes.id, id));
+    return code;
+  }
+
+  async getSignupInviteCodeByCode(code: string): Promise<SignupInviteCode | undefined> {
+    const [inviteCode] = await db.select().from(signupInviteCodes).where(eq(signupInviteCodes.code, code));
+    return inviteCode;
+  }
+
+  async createSignupInviteCode(data: InsertSignupInviteCode): Promise<SignupInviteCode> {
+    const [code] = await db.insert(signupInviteCodes).values(data).returning();
+    return code;
+  }
+
+  async updateSignupInviteCode(id: string, data: Partial<InsertSignupInviteCode>): Promise<SignupInviteCode | undefined> {
+    const [updated] = await db.update(signupInviteCodes)
+      .set(data)
+      .where(eq(signupInviteCodes.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteSignupInviteCode(id: string): Promise<void> {
+    await db.delete(signupInviteCodes).where(eq(signupInviteCodes.id, id));
+  }
+
+  async validateSignupInviteCode(code: string): Promise<{ valid: boolean; discountPercent?: number | null }> {
+    const inviteCode = await this.getSignupInviteCodeByCode(code);
+    
+    if (!inviteCode) {
+      return { valid: false };
+    }
+
+    if (!inviteCode.isActive) {
+      return { valid: false };
+    }
+
+    if (inviteCode.expiresAt && new Date() > inviteCode.expiresAt) {
+      return { valid: false };
+    }
+
+    if (inviteCode.maxUses !== null && (inviteCode.usesCount ?? 0) >= inviteCode.maxUses) {
+      return { valid: false };
+    }
+
+    return { valid: true, discountPercent: inviteCode.discountPercent };
+  }
+
+  async redeemSignupInviteCode(code: string, userId: string, organizationId: string | null): Promise<SignupInviteCodeRedemption> {
+    const inviteCode = await this.getSignupInviteCodeByCode(code);
+    
+    if (!inviteCode) {
+      throw new Error("Invite code not found");
+    }
+
+    await db.update(signupInviteCodes)
+      .set({ usesCount: (inviteCode.usesCount ?? 0) + 1 })
+      .where(eq(signupInviteCodes.id, inviteCode.id));
+
+    const [redemption] = await db.insert(signupInviteCodeRedemptions)
+      .values({
+        inviteCodeId: inviteCode.id,
+        userId,
+        organizationId,
+      })
+      .returning();
+
+    return redemption;
   }
 }
 
