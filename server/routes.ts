@@ -1922,7 +1922,12 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
-      const email = await storage.updateEmailCampaign(organizationId, req.params.id, req.body);
+      // Convert scheduledAt string to Date if present
+      const updateData = { ...req.body };
+      if (updateData.scheduledAt && typeof updateData.scheduledAt === 'string') {
+        updateData.scheduledAt = new Date(updateData.scheduledAt);
+      }
+      const email = await storage.updateEmailCampaign(organizationId, req.params.id, updateData);
       if (!email) {
         return res.status(404).json({ message: "Email campaign not found" });
       }
