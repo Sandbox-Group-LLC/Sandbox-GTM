@@ -2673,7 +2673,7 @@ export async function registerRoutes(
             'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
             'X-Restli-Protocol-Version': '2.0.0',
-            'LinkedIn-Version': '202401',
+            'LinkedIn-Version': '202411',
           },
           body: JSON.stringify(linkedinPostBody),
         });
@@ -2771,7 +2771,7 @@ export async function registerRoutes(
             'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
             'X-Restli-Protocol-Version': '2.0.0',
-            'LinkedIn-Version': '202401',
+            'LinkedIn-Version': '202411',
           },
           body: JSON.stringify(linkedinPostBody),
         });
