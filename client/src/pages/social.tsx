@@ -199,7 +199,8 @@ export default function Social() {
 
   const handleConnect = (platform: string) => {
     if (platform === "linkedin") {
-      window.location.href = "/api/social/linkedin/authorize";
+      // Open in new tab to avoid Replit webview blocking external redirects
+      window.open("/api/social/linkedin/authorize", "_blank");
     } else {
       connectMutation.mutate(platform);
     }
