@@ -7,7 +7,7 @@ import { createHmac, timingSafeEqual } from 'crypto';
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 const ADMIN_EMAIL = 'brian@makemysandbox.com';
-const FROM_EMAIL = 'notifications@makemysandbox.com';
+const FROM_EMAIL = 'Sandbox <notifications@makemysandbox.com>';
 
 // Token expiry times in seconds
 const TOKEN_EXPIRY = {
