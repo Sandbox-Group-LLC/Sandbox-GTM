@@ -3660,7 +3660,7 @@ ${urls.map(u => `  <url>
         client_id: clientId,
         redirect_uri: redirectUri,
         state: state,
-        scope: 'openid profile w_member_social',
+        scope: 'openid profile email',
       });
       
       const authUrl = `https://www.linkedin.com/oauth/v2/authorization?${params.toString()}`;
