@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -7,6 +8,7 @@ import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -25,11 +27,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { LogOut, User, Shield, Bell, Palette, CreditCard, AlertTriangle, FileText, Mail, ExternalLink, CheckCircle, XCircle, Share2 } from "lucide-react";
+import { LogOut, User, Shield, Bell, Palette, CreditCard, AlertTriangle, FileText, Mail, ExternalLink, CheckCircle, XCircle, Share2, Info, Trash2 } from "lucide-react";
 import { SiLinkedin, SiX, SiFacebook, SiInstagram } from "react-icons/si";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Link } from "wouter";
 import type { Organization } from "@shared/schema";
+import type { IconType } from "react-icons";
 
 const paymentSettingsSchema = z.object({
   paymentEnabled: z.boolean(),
@@ -38,6 +41,161 @@ const paymentSettingsSchema = z.object({
 });
 
 type PaymentSettingsFormData = z.infer<typeof paymentSettingsSchema>;
+
+interface SocialCredential {
+  provider: string;
+  clientIdMasked: string;
+  isConfigured: boolean;
+}
+
+interface SocialCredentialsFormProps {
+  provider: string;
+  icon: IconType;
+  iconColor?: string;
+  title: string;
+  description: string;
+  helpUrl: string;
+  clientIdLabel: string;
+  clientSecretLabel: string;
+  credential?: SocialCredential;
+  onSave: (provider: string, clientId: string, clientSecret: string) => void;
+  onDelete: (provider: string) => void;
+  isSaving: boolean;
+  isDeleting: boolean;
+}
+
+function SocialCredentialsForm({
+  provider,
+  icon: Icon,
+  iconColor,
+  title,
+  description,
+  helpUrl,
+  clientIdLabel,
+  clientSecretLabel,
+  credential,
+  onSave,
+  onDelete,
+  isSaving,
+  isDeleting,
+}: SocialCredentialsFormProps) {
+  const [clientId, setClientId] = useState("");
+  const [clientSecret, setClientSecret] = useState("");
+
+  const handleSave = () => {
+    if (clientId && clientSecret) {
+      onSave(provider, clientId, clientSecret);
+      setClientId("");
+      setClientSecret("");
+    }
+  };
+
+  const handleDelete = () => {
+    onDelete(provider);
+  };
+
+  return (
+    <AccordionItem value={provider} data-testid={`accordion-${provider}`}>
+      <AccordionTrigger className="text-sm" data-testid={`accordion-trigger-${provider}`}>
+        <div className="flex items-center justify-between gap-2 w-full pr-2">
+          <span className="flex items-center gap-2">
+            <Icon className="h-4 w-4" style={iconColor ? { color: iconColor } : undefined} />
+            {title}
+          </span>
+          {credential?.isConfigured ? (
+            <Badge variant="outline" className="flex items-center gap-1">
+              <CheckCircle className="h-3 w-3 text-green-500" />
+              Configured
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="flex items-center gap-1">
+              <XCircle className="h-3 w-3 text-red-500" />
+              Not Configured
+            </Badge>
+          )}
+        </div>
+      </AccordionTrigger>
+      <AccordionContent>
+        <div className="space-y-4 pt-2">
+          <p className="text-sm text-muted-foreground">{description}</p>
+
+          {credential?.isConfigured && (
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">Current {clientIdLabel}:</span>
+              <code className="bg-muted px-1.5 py-0.5 rounded text-xs">{credential.clientIdMasked}</code>
+            </div>
+          )}
+
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label htmlFor={`${provider}-client-id`}>{clientIdLabel}</Label>
+              <Input
+                id={`${provider}-client-id`}
+                placeholder={`Enter ${clientIdLabel}`}
+                value={clientId}
+                onChange={(e) => setClientId(e.target.value)}
+                data-testid={`input-${provider}-client-id`}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={`${provider}-client-secret`}>{clientSecretLabel}</Label>
+              <Input
+                id={`${provider}-client-secret`}
+                type="password"
+                placeholder={`Enter ${clientSecretLabel}`}
+                value={clientSecret}
+                onChange={(e) => setClientSecret(e.target.value)}
+                data-testid={`input-${provider}-client-secret`}
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button
+              onClick={handleSave}
+              disabled={!clientId || !clientSecret || isSaving}
+              data-testid={`button-save-${provider}`}
+            >
+              {isSaving ? "Saving..." : "Save"}
+            </Button>
+            {credential?.isConfigured && (
+              <Button
+                variant="destructive"
+                onClick={handleDelete}
+                disabled={isDeleting}
+                data-testid={`button-remove-${provider}`}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                {isDeleting ? "Removing..." : "Remove"}
+              </Button>
+            )}
+          </div>
+
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertTitle>Setup Help</AlertTitle>
+            <AlertDescription className="space-y-2">
+              <p>To get your credentials:</p>
+              <ol className="list-decimal list-inside space-y-1 text-sm">
+                <li>Go to the developer portal</li>
+                <li>Create or select your app</li>
+                <li>Copy the {clientIdLabel} and {clientSecretLabel}</li>
+              </ol>
+              <a
+                href={helpUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-primary hover:underline text-sm"
+              >
+                Open Developer Portal <ExternalLink className="h-3 w-3" />
+              </a>
+            </AlertDescription>
+          </Alert>
+        </div>
+      </AccordionContent>
+    </AccordionItem>
+  );
+}
 
 export default function Settings() {
   const { user } = useAuth();
@@ -59,6 +217,60 @@ export default function Settings() {
   }>({
     queryKey: ["/api/settings/social-integrations-status"],
   });
+
+  const { data: socialCredentials, isLoading: credentialsLoading } = useQuery<SocialCredential[]>({
+    queryKey: ['/api/settings/social-credentials'],
+  });
+
+  const saveCredentialsMutation = useMutation({
+    mutationFn: async ({ provider, clientId, clientSecret }: { provider: string; clientId: string; clientSecret: string }) => {
+      await apiRequest('POST', `/api/settings/social-credentials/${provider}`, { clientId, clientSecret });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/settings/social-credentials'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/settings/social-integrations-status'] });
+      toast({ title: "Credentials saved successfully" });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({ title: "Unauthorized", description: "You are logged out. Logging in again...", variant: "destructive" });
+        setTimeout(() => { window.location.href = "/api/login"; }, 500);
+        return;
+      }
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteCredentialsMutation = useMutation({
+    mutationFn: async (provider: string) => {
+      await apiRequest('DELETE', `/api/settings/social-credentials/${provider}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/settings/social-credentials'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/settings/social-integrations-status'] });
+      toast({ title: "Credentials removed" });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({ title: "Unauthorized", description: "You are logged out. Logging in again...", variant: "destructive" });
+        setTimeout(() => { window.location.href = "/api/login"; }, 500);
+        return;
+      }
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const getCredentialByProvider = (provider: string) => {
+    return socialCredentials?.find(c => c.provider === provider);
+  };
+
+  const handleSaveCredentials = (provider: string, clientId: string, clientSecret: string) => {
+    saveCredentialsMutation.mutate({ provider, clientId, clientSecret });
+  };
+
+  const handleDeleteCredentials = (provider: string) => {
+    deleteCredentialsMutation.mutate(provider);
+  };
 
   const form = useForm<PaymentSettingsFormData>({
     resolver: zodResolver(paymentSettingsSchema),
@@ -337,203 +549,76 @@ export default function Settings() {
               <CardDescription>Connect social platforms for marketing and event promotion</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between gap-2" data-testid="social-integration-linkedin">
-                  <div className="flex items-center gap-3">
-                    <SiLinkedin className="h-5 w-5 text-[#0A66C2]" />
-                    <div>
-                      <p className="font-medium">LinkedIn</p>
-                      <p className="text-sm text-muted-foreground">Share event updates and professional networking</p>
-                    </div>
-                  </div>
-                  {socialStatus?.linkedin ? (
-                    <Badge variant="outline" className="flex items-center gap-1">
-                      <CheckCircle className="h-3 w-3 text-green-500" />
-                      Configured
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="flex items-center gap-1">
-                      <XCircle className="h-3 w-3 text-red-500" />
-                      Not Configured
-                    </Badge>
-                  )}
+              {credentialsLoading ? (
+                <div className="space-y-4">
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
                 </div>
-
-                <div className="flex items-center justify-between gap-2" data-testid="social-integration-twitter">
-                  <div className="flex items-center gap-3">
-                    <SiX className="h-5 w-5" />
-                    <div>
-                      <p className="font-medium">Twitter / X</p>
-                      <p className="text-sm text-muted-foreground">Post event announcements and engage attendees</p>
-                    </div>
-                  </div>
-                  {socialStatus?.twitter ? (
-                    <Badge variant="outline" className="flex items-center gap-1">
-                      <CheckCircle className="h-3 w-3 text-green-500" />
-                      Configured
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="flex items-center gap-1">
-                      <XCircle className="h-3 w-3 text-red-500" />
-                      Not Configured
-                    </Badge>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between gap-2" data-testid="social-integration-facebook">
-                  <div className="flex items-center gap-3">
-                    <SiFacebook className="h-5 w-5 text-[#1877F2]" />
-                    <div>
-                      <p className="font-medium">Facebook</p>
-                      <p className="text-sm text-muted-foreground">Create event pages and reach broader audiences</p>
-                    </div>
-                  </div>
-                  {socialStatus?.facebook ? (
-                    <Badge variant="outline" className="flex items-center gap-1">
-                      <CheckCircle className="h-3 w-3 text-green-500" />
-                      Configured
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="flex items-center gap-1">
-                      <XCircle className="h-3 w-3 text-red-500" />
-                      Not Configured
-                    </Badge>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between gap-2" data-testid="social-integration-instagram">
-                  <div className="flex items-center gap-3">
-                    <SiInstagram className="h-5 w-5 text-[#E4405F]" />
-                    <div>
-                      <p className="font-medium">Instagram</p>
-                      <p className="text-sm text-muted-foreground">Share visual content and event highlights</p>
-                    </div>
-                  </div>
-                  {socialStatus?.instagram ? (
-                    <Badge variant="outline" className="flex items-center gap-1">
-                      <CheckCircle className="h-3 w-3 text-green-500" />
-                      Configured
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="flex items-center gap-1">
-                      <XCircle className="h-3 w-3 text-red-500" />
-                      Not Configured
-                    </Badge>
-                  )}
-                </div>
-              </div>
-
-              <Separator />
-
-              <Accordion type="single" collapsible className="w-full">
-                <AccordionItem value="linkedin" data-testid="accordion-linkedin">
-                  <AccordionTrigger className="text-sm" data-testid="accordion-trigger-linkedin">
-                    <span className="flex items-center gap-2">
-                      <SiLinkedin className="h-4 w-4 text-[#0A66C2]" />
-                      LinkedIn Setup Instructions
-                    </span>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="space-y-2 text-sm text-muted-foreground">
-                      <p>To connect LinkedIn, you need to create a LinkedIn App:</p>
-                      <ol className="list-decimal list-inside space-y-1 ml-2">
-                        <li>Go to <a href="https://www.linkedin.com/developers/apps" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">LinkedIn Developer Portal <ExternalLink className="h-3 w-3" /></a></li>
-                        <li>Create a new app with your company page</li>
-                        <li>Request the required API products (Share on LinkedIn, Sign In with LinkedIn)</li>
-                        <li>Copy your Client ID and Client Secret</li>
-                        <li>In Replit, open the <strong>Secrets</strong> tab (padlock icon in the left sidebar)</li>
-                        <li>Add the secrets listed below with your copied values</li>
-                      </ol>
-                      <div className="mt-3 p-2 bg-muted rounded text-xs">
-                        <p className="font-medium mb-1">Add these secrets in the Replit Secrets tab:</p>
-                        <code>LINKEDIN_CLIENT_ID</code> = your Client ID<br />
-                        <code>LINKEDIN_CLIENT_SECRET</code> = your Client Secret
-                      </div>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem value="twitter" data-testid="accordion-twitter">
-                  <AccordionTrigger className="text-sm" data-testid="accordion-trigger-twitter">
-                    <span className="flex items-center gap-2">
-                      <SiX className="h-4 w-4" />
-                      Twitter / X Setup Instructions
-                    </span>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="space-y-2 text-sm text-muted-foreground">
-                      <p>To connect Twitter/X, you need to create a Twitter Developer App:</p>
-                      <ol className="list-decimal list-inside space-y-1 ml-2">
-                        <li>Go to <a href="https://developer.twitter.com/en/portal/dashboard" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">Twitter Developer Portal <ExternalLink className="h-3 w-3" /></a></li>
-                        <li>Create a new project and app</li>
-                        <li>Enable OAuth 2.0 and configure permissions</li>
-                        <li>Generate and copy your API Key and API Secret</li>
-                        <li>In Replit, open the <strong>Secrets</strong> tab (padlock icon in the left sidebar)</li>
-                        <li>Add the secrets listed below with your copied values</li>
-                      </ol>
-                      <div className="mt-3 p-2 bg-muted rounded text-xs">
-                        <p className="font-medium mb-1">Add these secrets in the Replit Secrets tab:</p>
-                        <code>TWITTER_API_KEY</code> = your API Key<br />
-                        <code>TWITTER_API_SECRET</code> = your API Secret
-                      </div>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem value="facebook" data-testid="accordion-facebook">
-                  <AccordionTrigger className="text-sm" data-testid="accordion-trigger-facebook">
-                    <span className="flex items-center gap-2">
-                      <SiFacebook className="h-4 w-4 text-[#1877F2]" />
-                      Facebook Setup Instructions
-                    </span>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="space-y-2 text-sm text-muted-foreground">
-                      <p>To connect Facebook, you need to create a Meta/Facebook App:</p>
-                      <ol className="list-decimal list-inside space-y-1 ml-2">
-                        <li>Go to <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">Meta Developer Portal <ExternalLink className="h-3 w-3" /></a></li>
-                        <li>Create a new app (Business or Consumer type)</li>
-                        <li>Add Facebook Login and Pages API products</li>
-                        <li>Copy your App ID and App Secret from Settings</li>
-                        <li>In Replit, open the <strong>Secrets</strong> tab (padlock icon in the left sidebar)</li>
-                        <li>Add the secrets listed below with your copied values</li>
-                      </ol>
-                      <div className="mt-3 p-2 bg-muted rounded text-xs">
-                        <p className="font-medium mb-1">Add these secrets in the Replit Secrets tab:</p>
-                        <code>FACEBOOK_APP_ID</code> = your App ID<br />
-                        <code>FACEBOOK_APP_SECRET</code> = your App Secret
-                      </div>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem value="instagram" data-testid="accordion-instagram">
-                  <AccordionTrigger className="text-sm" data-testid="accordion-trigger-instagram">
-                    <span className="flex items-center gap-2">
-                      <SiInstagram className="h-4 w-4 text-[#E4405F]" />
-                      Instagram Setup Instructions
-                    </span>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="space-y-2 text-sm text-muted-foreground">
-                      <p>To connect Instagram, you need a Meta/Facebook App with Instagram API:</p>
-                      <ol className="list-decimal list-inside space-y-1 ml-2">
-                        <li>Go to <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">Meta Developer Portal <ExternalLink className="h-3 w-3" /></a></li>
-                        <li>Create or use an existing Meta app</li>
-                        <li>Add Instagram Basic Display or Instagram Graph API</li>
-                        <li>Copy your Instagram App ID and Secret</li>
-                        <li>In Replit, open the <strong>Secrets</strong> tab (padlock icon in the left sidebar)</li>
-                        <li>Add the secrets listed below with your copied values</li>
-                      </ol>
-                      <div className="mt-3 p-2 bg-muted rounded text-xs">
-                        <p className="font-medium mb-1">Add these secrets in the Replit Secrets tab:</p>
-                        <code>INSTAGRAM_APP_ID</code> = your App ID<br />
-                        <code>INSTAGRAM_APP_SECRET</code> = your App Secret
-                      </div>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
+              ) : (
+                <Accordion type="single" collapsible className="w-full">
+                  <SocialCredentialsForm
+                    provider="linkedin"
+                    icon={SiLinkedin}
+                    iconColor="#0A66C2"
+                    title="LinkedIn"
+                    description="Share event updates and professional networking"
+                    helpUrl="https://www.linkedin.com/developers/apps"
+                    clientIdLabel="Client ID"
+                    clientSecretLabel="Client Secret"
+                    credential={getCredentialByProvider('linkedin')}
+                    onSave={handleSaveCredentials}
+                    onDelete={handleDeleteCredentials}
+                    isSaving={saveCredentialsMutation.isPending}
+                    isDeleting={deleteCredentialsMutation.isPending}
+                  />
+                  <SocialCredentialsForm
+                    provider="twitter"
+                    icon={SiX}
+                    title="Twitter / X"
+                    description="Post event announcements and engage attendees"
+                    helpUrl="https://developer.twitter.com/en/portal/dashboard"
+                    clientIdLabel="API Key"
+                    clientSecretLabel="API Secret"
+                    credential={getCredentialByProvider('twitter')}
+                    onSave={handleSaveCredentials}
+                    onDelete={handleDeleteCredentials}
+                    isSaving={saveCredentialsMutation.isPending}
+                    isDeleting={deleteCredentialsMutation.isPending}
+                  />
+                  <SocialCredentialsForm
+                    provider="facebook"
+                    icon={SiFacebook}
+                    iconColor="#1877F2"
+                    title="Facebook"
+                    description="Create event pages and reach broader audiences"
+                    helpUrl="https://developers.facebook.com/apps"
+                    clientIdLabel="App ID"
+                    clientSecretLabel="App Secret"
+                    credential={getCredentialByProvider('facebook')}
+                    onSave={handleSaveCredentials}
+                    onDelete={handleDeleteCredentials}
+                    isSaving={saveCredentialsMutation.isPending}
+                    isDeleting={deleteCredentialsMutation.isPending}
+                  />
+                  <SocialCredentialsForm
+                    provider="instagram"
+                    icon={SiInstagram}
+                    iconColor="#E4405F"
+                    title="Instagram"
+                    description="Share visual content and event highlights"
+                    helpUrl="https://developers.facebook.com/apps"
+                    clientIdLabel="App ID"
+                    clientSecretLabel="App Secret"
+                    credential={getCredentialByProvider('instagram')}
+                    onSave={handleSaveCredentials}
+                    onDelete={handleDeleteCredentials}
+                    isSaving={saveCredentialsMutation.isPending}
+                    isDeleting={deleteCredentialsMutation.isPending}
+                  />
+                </Accordion>
+              )}
             </CardContent>
           </Card>
 
