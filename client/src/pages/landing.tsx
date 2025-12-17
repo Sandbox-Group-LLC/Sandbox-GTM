@@ -6,7 +6,7 @@ import logoImage from "@assets/Orange_bug_-_no_background_1765765097769.png";
 
 const integrations = [
   { icon: SiStripe, name: "Stripe", color: "#635BFF", description: "Payment processing" },
-  { icon: SiMailchimp, name: "Mailchimp", color: "#FFE01B", description: "Email marketing" },
+  { icon: SiMailchimp, name: "Mailchimp", color: "#241C15", description: "Email marketing" },
   { icon: SiGooglesheets, name: "Google Sheets", color: "#34A853", description: "Data import" },
   { icon: SiLinkedin, name: "LinkedIn", color: "#0A66C2", description: "Social posting" },
   { icon: SiX, name: "X (Twitter)", color: "#000000", description: "Social posting" },
