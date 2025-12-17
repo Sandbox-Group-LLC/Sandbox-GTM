@@ -58,6 +58,7 @@ Data is isolated by `organizationId` across all tables. New users automatically 
 - **Email Templates**: Reusable templates with merge tags, header images, and test email functionality.
 - **Media Library**: Hosts images (via Replit Object Storage) for use in templates, with upload, public URL generation, and deletion features.
 - **Call for Papers (CFP)**: System for collecting, reviewing, and managing paper/abstract submissions, including admin configuration, public submission forms, and reviewer portals.
+- **Email Analytics**: Comprehensive tracking for email campaigns including open tracking (via pixel), click tracking (wrapped links), and unsubscribe handling. Analytics dashboard shows campaign metrics (sent, delivered, opened, clicked, bounced, complained counts with rates). Individual attendee records display email activity history. Uses signed HMAC-SHA256 tokens for secure tracking endpoints and Resend webhook integration for delivery events.
 
 ## External Dependencies
 
