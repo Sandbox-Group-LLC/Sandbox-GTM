@@ -2,11 +2,171 @@ import { Resend } from 'resend';
 import { replaceMergeTags, replaceMergeTagsWithLabels, type MergeTagContext } from '@shared/mergeTags';
 import { logInfo, logError, logWarn } from './logger';
 import { storage } from './storage';
+import { createHmac, timingSafeEqual } from 'crypto';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 const ADMIN_EMAIL = 'brian@makemysandbox.com';
 const FROM_EMAIL = 'notifications@makemysandbox.com';
+
+// Token expiry times in seconds
+const TOKEN_EXPIRY = {
+  open: 365 * 24 * 60 * 60, // 1 year for open tracking
+  click: 365 * 24 * 60 * 60, // 1 year for click tracking
+  unsubscribe: 30 * 24 * 60 * 60, // 30 days for unsubscribe
+};
+
+function getSigningSecret(): string {
+  return process.env.EMAIL_TRACKING_SECRET || process.env.SESSION_SECRET || 'default-dev-secret';
+}
+
+// Generate HMAC-SHA256 signature for tracking data
+function generateSignature(data: string): string {
+  return createHmac('sha256', getSigningSecret()).update(data).digest('hex');
+}
+
+// Create a signed token for tracking (base64url encoded JSON with signature)
+export function createTrackingToken(payload: {
+  type: 'open' | 'click' | 'unsubscribe';
+  messageId?: string;
+  linkIndex?: number;
+  url?: string;
+  organizationId?: string;
+  email?: string;
+}): string {
+  const timestamp = Math.floor(Date.now() / 1000);
+  const data = { ...payload, ts: timestamp };
+  const dataStr = JSON.stringify(data);
+  const signature = generateSignature(dataStr);
+  const token = Buffer.from(JSON.stringify({ d: data, s: signature })).toString('base64url');
+  return token;
+}
+
+// Validate and decode a tracking token
+export function validateTrackingToken(token: string): {
+  valid: boolean;
+  expired: boolean;
+  data?: {
+    type: 'open' | 'click' | 'unsubscribe';
+    messageId?: string;
+    linkIndex?: number;
+    url?: string;
+    organizationId?: string;
+    email?: string;
+    ts: number;
+  };
+} {
+  try {
+    const decoded = JSON.parse(Buffer.from(token, 'base64url').toString('utf-8'));
+    const { d: data, s: signature } = decoded;
+    
+    if (!data || !signature) {
+      return { valid: false, expired: false };
+    }
+    
+    // Verify signature using timing-safe comparison
+    const expectedSignature = generateSignature(JSON.stringify(data));
+    const signatureBuffer = Buffer.from(signature, 'hex');
+    const expectedBuffer = Buffer.from(expectedSignature, 'hex');
+    
+    if (signatureBuffer.length !== expectedBuffer.length || !timingSafeEqual(signatureBuffer, expectedBuffer)) {
+      return { valid: false, expired: false };
+    }
+    
+    // Check expiry
+    const now = Math.floor(Date.now() / 1000);
+    const expiry = TOKEN_EXPIRY[data.type as keyof typeof TOKEN_EXPIRY] || TOKEN_EXPIRY.click;
+    if (now - data.ts > expiry) {
+      return { valid: true, expired: true, data };
+    }
+    
+    return { valid: true, expired: false, data };
+  } catch {
+    return { valid: false, expired: false };
+  }
+}
+
+// Verify Resend webhook signature (Svix-based)
+export function verifyResendWebhookSignature(
+  payload: string,
+  headers: {
+    svixId?: string;
+    svixTimestamp?: string;
+    svixSignature?: string;
+  }
+): boolean {
+  const webhookSecret = process.env.RESEND_WEBHOOK_SECRET;
+  
+  if (!webhookSecret) {
+    logWarn('RESEND_WEBHOOK_SECRET not configured - skipping signature verification', 'EmailWebhook');
+    return true; // Allow in development if not configured
+  }
+  
+  const { svixId, svixTimestamp, svixSignature } = headers;
+  
+  if (!svixId || !svixTimestamp || !svixSignature) {
+    return false;
+  }
+  
+  // Check timestamp is within 5 minutes
+  const now = Math.floor(Date.now() / 1000);
+  const timestamp = parseInt(svixTimestamp, 10);
+  if (isNaN(timestamp) || Math.abs(now - timestamp) > 300) {
+    return false;
+  }
+  
+  // Svix signature format: v1,signature1 v1,signature2 ...
+  // Build the signed payload: msgId.timestamp.payload
+  const signedPayload = `${svixId}.${svixTimestamp}.${payload}`;
+  
+  // Decode the webhook secret (it's base64 encoded, prefixed with "whsec_")
+  let secretBytes: Buffer;
+  try {
+    const secretValue = webhookSecret.startsWith('whsec_') 
+      ? webhookSecret.slice(6) 
+      : webhookSecret;
+    secretBytes = Buffer.from(secretValue, 'base64');
+  } catch {
+    logError('Invalid RESEND_WEBHOOK_SECRET format', 'EmailWebhook');
+    return false;
+  }
+  
+  // Generate expected signature
+  const expectedSignature = createHmac('sha256', secretBytes)
+    .update(signedPayload)
+    .digest('base64');
+  
+  // Parse signatures (format: "v1,base64sig v1,base64sig ...")
+  const signatures = svixSignature.split(' ').map(s => {
+    const parts = s.split(',');
+    return parts.length === 2 ? parts[1] : null;
+  }).filter(Boolean) as string[];
+  
+  // Check if any signature matches using timing-safe comparison
+  for (const sig of signatures) {
+    try {
+      const sigBuffer = Buffer.from(sig, 'base64');
+      const expectedBuffer = Buffer.from(expectedSignature, 'base64');
+      if (sigBuffer.length === expectedBuffer.length && timingSafeEqual(sigBuffer, expectedBuffer)) {
+        return true;
+      }
+    } catch {
+      continue;
+    }
+  }
+  
+  return false;
+}
+
+// Validate redirect URL for click tracking (only allow http/https)
+export function isValidRedirectUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
 
 export interface CampaignRecipient {
   email: string;
@@ -52,27 +212,40 @@ function getBaseUrl(): string {
     : 'http://localhost:5000';
 }
 
-function generateUnsubscribeToken(organizationId: string, email: string): string {
-  return Buffer.from(`${organizationId}:${email}`).toString('base64');
-}
-
-function wrapLinksForTracking(html: string, messageId: string, baseUrl: string): string {
+function wrapLinksForTracking(html: string, messageId: string, baseUrl: string): { html: string; trackedUrls: string[] } {
   let linkIndex = 0;
-  return html.replace(
+  const trackedUrls: string[] = [];
+  
+  const wrappedHtml = html.replace(
     /<a\s+([^>]*href=["'])([^"']+)(["'][^>]*)>/gi,
     (match, prefix, url, suffix) => {
       if (url.startsWith('mailto:') || url.startsWith('tel:') || url.includes('/api/email/')) {
         return match;
       }
-      const trackingUrl = `${baseUrl}/api/email/track/click/${messageId}_${linkIndex}?url=${encodeURIComponent(url)}`;
+      // Store the original URL for validation later
+      trackedUrls.push(url);
+      // Create signed token with messageId, linkIndex, and the URL
+      const token = createTrackingToken({
+        type: 'click',
+        messageId,
+        linkIndex,
+        url,
+      });
+      const trackingUrl = `${baseUrl}/api/email/track/click/${token}`;
       linkIndex++;
       return `<a ${prefix}${trackingUrl}${suffix}>`;
     }
   );
+  
+  return { html: wrappedHtml, trackedUrls };
 }
 
 function addTrackingPixel(html: string, messageId: string, baseUrl: string): string {
-  const pixelUrl = `${baseUrl}/api/email/track/open/${messageId}.gif`;
+  const token = createTrackingToken({
+    type: 'open',
+    messageId,
+  });
+  const pixelUrl = `${baseUrl}/api/email/track/open/${token}.gif`;
   const pixelHtml = `<img src="${pixelUrl}" width="1" height="1" style="display:none;visibility:hidden;" alt="" />`;
   
   if (html.includes('</body>')) {
@@ -82,7 +255,11 @@ function addTrackingPixel(html: string, messageId: string, baseUrl: string): str
 }
 
 function addUnsubscribeFooter(html: string, organizationId: string, email: string, baseUrl: string): string {
-  const unsubscribeToken = generateUnsubscribeToken(organizationId, email);
+  const unsubscribeToken = createTrackingToken({
+    type: 'unsubscribe',
+    organizationId,
+    email,
+  });
   const unsubscribeUrl = `${baseUrl}/api/email/unsubscribe/${unsubscribeToken}`;
   
   const footer = `
@@ -171,7 +348,8 @@ export async function sendCampaignEmails(params: CampaignEmailParams): Promise<S
 
       // Add tracking if enabled
       if (enableTracking) {
-        emailHtml = wrapLinksForTracking(emailHtml, emailMessage.id, baseUrl);
+        const { html: wrappedHtml } = wrapLinksForTracking(emailHtml, emailMessage.id, baseUrl);
+        emailHtml = wrappedHtml;
         emailHtml = addTrackingPixel(emailHtml, emailMessage.id, baseUrl);
         emailHtml = addUnsubscribeFooter(emailHtml, organizationId, recipient.email, baseUrl);
       }

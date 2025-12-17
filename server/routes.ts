@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { sendNewOrganizationAlert, sendCampaignEmails, sendTestEmail } from "./email";
+import { sendNewOrganizationAlert, sendCampaignEmails, sendTestEmail, validateTrackingToken, verifyResendWebhookSignature, isValidRedirectUrl } from "./email";
 import { createPaymentIntent, getPaymentIntent, calculateFinalPrice } from "./stripe";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
@@ -4148,14 +4148,35 @@ ${urls.map(u => `  <url>
     }
   });
 
-  // Email Tracking Endpoints (PUBLIC - no auth required)
+  // Email Tracking Endpoints (PUBLIC - no auth required, but token validation)
   
   // 1x1 transparent tracking pixel for email opens
   const TRACKING_PIXEL = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
   
-  app.get("/api/email/track/open/:id.gif", async (req, res) => {
+  app.get("/api/email/track/open/:token.gif", async (req, res) => {
     try {
-      const messageId = req.params.id;
+      const token = req.params.token;
+      
+      // Validate signed token
+      const validation = validateTrackingToken(token);
+      if (!validation.valid) {
+        logWarn('Invalid open tracking token', 'EmailTracking');
+        res.set('Content-Type', 'image/gif');
+        return res.send(TRACKING_PIXEL);
+      }
+      
+      if (validation.expired) {
+        logWarn('Expired open tracking token', 'EmailTracking');
+        res.set('Content-Type', 'image/gif');
+        return res.send(TRACKING_PIXEL);
+      }
+      
+      const messageId = validation.data?.messageId;
+      if (!messageId) {
+        res.set('Content-Type', 'image/gif');
+        return res.send(TRACKING_PIXEL);
+      }
+      
       const message = await storage.getEmailMessage(messageId);
       
       if (message) {
@@ -4189,44 +4210,58 @@ ${urls.map(u => `  <url>
   });
 
   // Click tracking redirect
-  app.get("/api/email/track/click/:id", async (req, res) => {
+  app.get("/api/email/track/click/:token", async (req, res) => {
     try {
-      const clickId = req.params.id;
-      const destinationUrl = req.query.url as string;
+      const token = req.params.token;
       
-      if (!destinationUrl) {
-        return res.status(400).send('Missing destination URL');
+      // Validate signed token
+      const validation = validateTrackingToken(token);
+      if (!validation.valid) {
+        logWarn('Invalid click tracking token', 'EmailTracking');
+        return res.status(400).send('Invalid tracking link');
       }
-
-      // Parse the click ID to extract message ID (format: messageId_linkIndex)
-      const [messageId] = clickId.split('_');
-      const message = await storage.getEmailMessage(messageId);
+      
+      if (validation.expired) {
+        logWarn('Expired click tracking token', 'EmailTracking');
+        return res.status(400).send('This link has expired');
+      }
+      
+      const data = validation.data;
+      if (!data?.messageId || !data?.url) {
+        return res.status(400).send('Invalid tracking data');
+      }
+      
+      const destinationUrl = data.url;
+      
+      // Validate URL scheme (only allow http/https)
+      if (!isValidRedirectUrl(destinationUrl)) {
+        logWarn(`Invalid redirect URL scheme: ${destinationUrl}`, 'EmailTracking');
+        return res.status(400).send('Invalid redirect URL');
+      }
+      
+      const message = await storage.getEmailMessage(data.messageId);
       
       if (message) {
-        await storage.incrementEmailClickCount(messageId);
+        await storage.incrementEmailClickCount(data.messageId);
         await storage.createEmailEvent({
-          messageId,
+          messageId: data.messageId,
           organizationId: message.organizationId,
           eventType: 'click',
           metadata: {
             destinationUrl,
+            linkIndex: data.linkIndex,
             userAgent: req.headers['user-agent'],
             ip: req.ip,
             timestamp: new Date().toISOString(),
           },
         });
-        logInfo(`Email link clicked: ${messageId} -> ${destinationUrl}`, 'EmailTracking');
+        logInfo(`Email link clicked: ${data.messageId} -> ${destinationUrl}`, 'EmailTracking');
       }
       
       res.redirect(302, destinationUrl);
     } catch (error) {
       logError("Error tracking email click:", error);
-      const destinationUrl = req.query.url as string;
-      if (destinationUrl) {
-        res.redirect(302, destinationUrl);
-      } else {
-        res.status(500).send('Error processing request');
-      }
+      res.status(500).send('Error processing request');
     }
   });
 
@@ -4235,13 +4270,22 @@ ${urls.map(u => `  <url>
     try {
       const token = req.params.token;
       
-      // Token format: base64(organizationId:email)
-      const decoded = Buffer.from(token, 'base64').toString('utf-8');
-      const [organizationId, email] = decoded.split(':');
-      
-      if (!organizationId || !email) {
+      // Validate signed token
+      const validation = validateTrackingToken(token);
+      if (!validation.valid) {
         return res.status(400).send('Invalid unsubscribe link');
       }
+      
+      if (validation.expired) {
+        return res.status(400).send('This unsubscribe link has expired. Please contact support.');
+      }
+      
+      const data = validation.data;
+      if (!data?.organizationId || !data?.email) {
+        return res.status(400).send('Invalid unsubscribe link');
+      }
+      
+      const { organizationId, email } = data;
 
       // Check if already suppressed
       const existing = await storage.getEmailSuppression(organizationId, email);
@@ -4292,13 +4336,22 @@ ${urls.map(u => `  <url>
     try {
       const token = req.params.token;
       
-      // Token format: base64(organizationId:email)
-      const decoded = Buffer.from(token, 'base64').toString('utf-8');
-      const [organizationId, email] = decoded.split(':');
-      
-      if (!organizationId || !email) {
+      // Validate signed token
+      const validation = validateTrackingToken(token);
+      if (!validation.valid) {
         return res.status(400).send('Invalid unsubscribe link');
       }
+      
+      if (validation.expired) {
+        return res.status(400).send('This unsubscribe link has expired. Please contact support.');
+      }
+      
+      const data = validation.data;
+      if (!data?.organizationId || !data?.email) {
+        return res.status(400).send('Invalid unsubscribe link');
+      }
+      
+      const { organizationId, email } = data;
 
       // Add to suppression list
       const existing = await storage.getEmailSuppression(organizationId, email);
@@ -4345,14 +4398,21 @@ ${urls.map(u => `  <url>
   // Resend webhook handler
   app.post("/api/email/webhooks/resend", async (req, res) => {
     try {
-      const svixId = req.headers['svix-id'];
-      const svixTimestamp = req.headers['svix-timestamp'];
-      const svixSignature = req.headers['svix-signature'];
+      const svixId = req.headers['svix-id'] as string | undefined;
+      const svixTimestamp = req.headers['svix-timestamp'] as string | undefined;
+      const svixSignature = req.headers['svix-signature'] as string | undefined;
       
-      // Basic webhook validation (Resend uses Svix for webhooks)
-      if (!svixId || !svixTimestamp || !svixSignature) {
-        logWarn('Missing webhook signature headers', 'EmailWebhook');
-        // Still process in development, but log warning
+      // Verify webhook signature (Resend uses Svix for webhooks)
+      const rawBody = JSON.stringify(req.body);
+      const isValidSignature = verifyResendWebhookSignature(rawBody, {
+        svixId,
+        svixTimestamp,
+        svixSignature,
+      });
+      
+      if (!isValidSignature) {
+        logWarn('Invalid webhook signature', 'EmailWebhook');
+        return res.status(401).json({ error: 'Invalid webhook signature' });
       }
 
       const event = req.body;
@@ -4478,6 +4538,12 @@ ${urls.map(u => `  <url>
         return res.status(403).json({ message: "Access denied" });
       }
 
+      // Verify campaign belongs to this organization
+      const campaign = await storage.getEmailCampaign(organizationId, campaignId);
+      if (!campaign) {
+        return res.status(404).json({ message: "Campaign not found" });
+      }
+
       const analytics = await storage.getEmailAnalyticsByCampaign(organizationId, campaignId);
       const messages = await storage.getEmailMessagesByCampaign(organizationId, campaignId);
       
@@ -4552,6 +4618,12 @@ ${urls.map(u => `  <url>
       const membership = members.find(m => m.organizationId === organizationId);
       if (!membership) {
         return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Verify attendee belongs to an event owned by this organization
+      const attendee = await storage.getAttendee(organizationId, attendeeId);
+      if (!attendee) {
+        return res.status(404).json({ message: "Attendee not found" });
       }
 
       const messages = await storage.getEmailMessagesByAttendee(organizationId, attendeeId);
