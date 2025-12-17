@@ -722,6 +722,10 @@ export const socialConnections = pgTable("social_connections", {
   refreshToken: text("refresh_token"),
   tokenExpiresAt: timestamp("token_expires_at"),
   isActive: boolean("is_active").default(true),
+  // For LinkedIn organization pages
+  connectionType: varchar("connection_type", { length: 20 }).default("personal"), // 'personal' or 'organization'
+  organizationUrn: varchar("organization_urn", { length: 255 }), // e.g., 'urn:li:organization:12345'
+  organizationName: varchar("organization_name", { length: 255 }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

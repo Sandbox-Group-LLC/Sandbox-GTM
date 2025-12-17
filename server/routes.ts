@@ -2631,7 +2631,18 @@ export async function registerRoutes(
       const { status, platform, content } = req.body;
       
       if (status === 'published' && platform === 'linkedin') {
-        const connection = await storage.getSocialConnectionByPlatform(userId, 'linkedin');
+        // Support connectionId to specify which LinkedIn connection to use
+        const connectionId = req.body.connectionId;
+        let connection;
+        
+        if (connectionId) {
+          // Use specific connection (personal or organization)
+          const connections = await storage.getSocialConnections(userId);
+          connection = connections.find(c => c.id === connectionId && c.platform === 'linkedin');
+        } else {
+          // Fall back to personal connection
+          connection = await storage.getSocialConnectionByPlatform(userId, 'linkedin');
+        }
         
         if (!connection || !connection.accessToken || !connection.isActive) {
           return res.status(400).json({ 
@@ -2653,10 +2664,13 @@ export async function registerRoutes(
           return res.status(500).json({ message: "Failed to decrypt access token" });
         }
         
-        const personUrn = `urn:li:person:${connection.accountId}`;
+        // Use organization URN for org connections, person URN for personal
+        const authorUrn = connection.connectionType === 'organization' && connection.organizationUrn
+          ? connection.organizationUrn
+          : `urn:li:person:${connection.accountId}`;
         
         const linkedinPostBody = {
-          author: personUrn,
+          author: authorUrn,
           commentary: content,
           visibility: "PUBLIC",
           distribution: {
@@ -3661,7 +3675,7 @@ ${urls.map(u => `  <url>
         client_id: clientId,
         redirect_uri: redirectUri,
         state: state,
-        scope: 'openid profile email w_member_social',
+        scope: 'openid profile email w_member_social r_organization_admin w_organization_social',
       });
       
       const authUrl = `https://www.linkedin.com/oauth/v2/authorization?${params.toString()}`;
@@ -3793,6 +3807,103 @@ ${urls.map(u => `  <url>
     } catch (error) {
       logError("Error in LinkedIn OAuth callback:", error);
       res.redirect('/social?error=' + encodeURIComponent('An unexpected error occurred'));
+    }
+  });
+
+  // LinkedIn organization pages endpoint - get list of pages user can admin
+  app.get("/api/social/linkedin/organizations", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const connection = await storage.getSocialConnectionByPlatform(userId, 'linkedin');
+      
+      if (!connection || !connection.accessToken) {
+        return res.status(400).json({ message: "No LinkedIn connection found. Please connect your LinkedIn account first." });
+      }
+      
+      let accessToken: string;
+      try {
+        accessToken = decrypt(connection.accessToken);
+      } catch (error) {
+        return res.status(400).json({ message: "Failed to decrypt access token. Please reconnect your LinkedIn account." });
+      }
+      
+      // Fetch organization admin roles
+      const orgResponse = await fetch('https://api.linkedin.com/rest/organizationAcls?q=roleAssignee&role=ADMINISTRATOR&projection=(elements*(organization~(id,localizedName,vanityName,logoV2(original~:playableStreams))))', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'LinkedIn-Version': '202412',
+          'X-Restli-Protocol-Version': '2.0.0',
+        },
+      });
+      
+      if (!orgResponse.ok) {
+        const errorData = await orgResponse.text();
+        logError("Failed to fetch LinkedIn organizations:", errorData);
+        // Return empty array if user doesn't have org admin access
+        return res.json({ organizations: [] });
+      }
+      
+      const orgData = await orgResponse.json() as { elements?: Array<{ organization?: string; 'organization~'?: { id?: number; localizedName?: string; vanityName?: string } }> };
+      
+      const organizations = (orgData.elements || []).map((elem: any) => ({
+        urn: elem.organization,
+        id: elem['organization~']?.id,
+        name: elem['organization~']?.localizedName || 'Unknown Organization',
+        vanityName: elem['organization~']?.vanityName,
+      })).filter((org: any) => org.urn);
+      
+      res.json({ organizations });
+    } catch (error) {
+      logError("Error fetching LinkedIn organizations:", error);
+      res.status(500).json({ message: "Failed to fetch LinkedIn organizations" });
+    }
+  });
+
+  // Add LinkedIn organization page connection
+  app.post("/api/social/linkedin/organizations", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { organizationUrn, organizationName } = req.body;
+      
+      if (!organizationUrn || !organizationName) {
+        return res.status(400).json({ message: "Organization URN and name are required" });
+      }
+      
+      // Get the user's personal LinkedIn connection to copy the access token
+      const personalConnection = await storage.getSocialConnectionByPlatform(userId, 'linkedin');
+      
+      if (!personalConnection || !personalConnection.accessToken) {
+        return res.status(400).json({ message: "No LinkedIn connection found. Please connect your LinkedIn account first." });
+      }
+      
+      // Check if this org page is already connected
+      const existingConnections = await storage.getSocialConnections(userId);
+      const existingOrgConnection = existingConnections.find(
+        c => c.platform === 'linkedin' && c.organizationUrn === organizationUrn
+      );
+      
+      if (existingOrgConnection) {
+        return res.status(400).json({ message: "This organization page is already connected" });
+      }
+      
+      // Create a new connection for the organization page
+      const newConnection = await storage.createSocialConnection({
+        userId,
+        platform: 'linkedin',
+        accessToken: personalConnection.accessToken, // Same token works for org
+        accountId: personalConnection.accountId,
+        accountName: organizationName,
+        tokenExpiresAt: personalConnection.tokenExpiresAt,
+        isActive: true,
+        connectionType: 'organization',
+        organizationUrn,
+        organizationName,
+      });
+      
+      res.status(201).json(newConnection);
+    } catch (error) {
+      logError("Error adding LinkedIn organization connection:", error);
+      res.status(500).json({ message: "Failed to add organization connection" });
     }
   });
 
