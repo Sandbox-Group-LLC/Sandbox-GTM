@@ -27,8 +27,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { LogOut, User, Shield, Bell, Palette, CreditCard, AlertTriangle, FileText, Mail, ExternalLink, CheckCircle, XCircle, Share2, Info, Trash2 } from "lucide-react";
-import { SiLinkedin, SiX, SiFacebook, SiInstagram } from "react-icons/si";
+import { LogOut, User, Shield, Bell, Palette, CreditCard, AlertTriangle, FileText, Mail, ExternalLink, CheckCircle, XCircle, Share2, Info, Trash2, Eye, EyeOff, RefreshCw, Users, ChevronDown, Loader2 } from "lucide-react";
+import { SiLinkedin, SiX, SiFacebook, SiInstagram, SiMailchimp } from "react-icons/si";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Link } from "wouter";
 import type { Organization } from "@shared/schema";
@@ -194,6 +196,417 @@ function SocialCredentialsForm({
         </div>
       </AccordionContent>
     </AccordionItem>
+  );
+}
+
+interface EmailConnection {
+  id: string;
+  provider: string;
+  accountName: string | null;
+  status: string | null;
+  apiKeyMasked?: string;
+  lastSyncedAt: string | null;
+}
+
+interface EmailAudience {
+  id: string;
+  externalId: string;
+  name: string;
+  memberCount: number | null;
+}
+
+function EmailMarketingSection() {
+  const { toast } = useToast();
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [newProvider, setNewProvider] = useState("mailchimp");
+  const [newApiKey, setNewApiKey] = useState("");
+  const [expandedConnections, setExpandedConnections] = useState<Set<string>>(new Set());
+  const [syncingAudiences, setSyncingAudiences] = useState<Set<string>>(new Set());
+
+  const { data: connections, isLoading: connectionsLoading } = useQuery<EmailConnection[]>({
+    queryKey: ["/api/email-integrations"],
+  });
+
+  const createConnectionMutation = useMutation({
+    mutationFn: async ({ provider, apiKey }: { provider: string; apiKey: string }) => {
+      return await apiRequest("POST", "/api/email-integrations", { provider, apiKey });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/email-integrations"] });
+      toast({ title: "Connection created successfully" });
+      setNewApiKey("");
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({ title: "Unauthorized", description: "You are logged out. Logging in again...", variant: "destructive" });
+        setTimeout(() => { window.location.href = "/api/login"; }, 500);
+        return;
+      }
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteConnectionMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/email-integrations/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/email-integrations"] });
+      toast({ title: "Connection removed" });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({ title: "Unauthorized", description: "You are logged out. Logging in again...", variant: "destructive" });
+        setTimeout(() => { window.location.href = "/api/login"; }, 500);
+        return;
+      }
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleCreateConnection = () => {
+    if (newApiKey.trim()) {
+      createConnectionMutation.mutate({ provider: newProvider, apiKey: newApiKey });
+    }
+  };
+
+  const toggleConnectionExpanded = (id: string) => {
+    setExpandedConnections(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const getProviderIcon = (provider: string) => {
+    switch (provider) {
+      case "mailchimp":
+        return <SiMailchimp className="h-5 w-5" style={{ color: "#FFE01B" }} />;
+      default:
+        return <Mail className="h-5 w-5" />;
+    }
+  };
+
+  const getProviderName = (provider: string) => {
+    switch (provider) {
+      case "mailchimp":
+        return "Mailchimp";
+      default:
+        return provider;
+    }
+  };
+
+  return (
+    <Card data-testid="card-email-marketing">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Mail className="h-5 w-5" />
+          Email Marketing Platforms
+        </CardTitle>
+        <CardDescription>Connect email marketing platforms to sync attendees and manage campaigns</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {connectionsLoading ? (
+          <div className="space-y-4">
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-16 w-full" />
+          </div>
+        ) : (
+          <>
+            {connections && connections.length > 0 && (
+              <div className="space-y-4">
+                <h4 className="text-sm font-medium">Connected Platforms</h4>
+                {connections.map((connection) => (
+                  <EmailConnectionItem
+                    key={connection.id}
+                    connection={connection}
+                    isExpanded={expandedConnections.has(connection.id)}
+                    onToggleExpand={() => toggleConnectionExpanded(connection.id)}
+                    onDelete={() => deleteConnectionMutation.mutate(connection.id)}
+                    isDeleting={deleteConnectionMutation.isPending}
+                    getProviderIcon={getProviderIcon}
+                    getProviderName={getProviderName}
+                    syncingAudiences={syncingAudiences}
+                    setSyncingAudiences={setSyncingAudiences}
+                  />
+                ))}
+              </div>
+            )}
+
+            <Separator />
+
+            <div className="space-y-4">
+              <h4 className="text-sm font-medium">Add Connection</h4>
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="email-provider">Provider</Label>
+                  <Select value={newProvider} onValueChange={setNewProvider}>
+                    <SelectTrigger id="email-provider" data-testid="select-email-provider">
+                      <SelectValue placeholder="Select provider" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="mailchimp" data-testid="select-item-mailchimp">
+                        <span className="flex items-center gap-2">
+                          <SiMailchimp className="h-4 w-4" style={{ color: "#FFE01B" }} />
+                          Mailchimp
+                        </span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email-api-key">API Key</Label>
+                  <div className="relative">
+                    <Input
+                      id="email-api-key"
+                      type={showApiKey ? "text" : "password"}
+                      placeholder="Enter your API key"
+                      value={newApiKey}
+                      onChange={(e) => setNewApiKey(e.target.value)}
+                      className="pr-10"
+                      data-testid="input-email-api-key"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-full px-3"
+                      onClick={() => setShowApiKey(!showApiKey)}
+                      data-testid="button-toggle-api-key-visibility"
+                    >
+                      {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+                <Button
+                  onClick={handleCreateConnection}
+                  disabled={!newApiKey.trim() || createConnectionMutation.isPending}
+                  data-testid="button-connect-email-platform"
+                >
+                  {createConnectionMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Connecting...
+                    </>
+                  ) : (
+                    "Connect"
+                  )}
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+interface EmailConnectionItemProps {
+  connection: EmailConnection;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+  onDelete: () => void;
+  isDeleting: boolean;
+  getProviderIcon: (provider: string) => JSX.Element;
+  getProviderName: (provider: string) => string;
+  syncingAudiences: Set<string>;
+  setSyncingAudiences: React.Dispatch<React.SetStateAction<Set<string>>>;
+}
+
+function EmailConnectionItem({
+  connection,
+  isExpanded,
+  onToggleExpand,
+  onDelete,
+  isDeleting,
+  getProviderIcon,
+  getProviderName,
+  syncingAudiences,
+  setSyncingAudiences,
+}: EmailConnectionItemProps) {
+  const { toast } = useToast();
+
+  const { data: audiences, isLoading: audiencesLoading, refetch: refetchAudiences } = useQuery<EmailAudience[]>({
+    queryKey: ["/api/email-integrations", connection.id, "audiences"],
+    enabled: isExpanded,
+  });
+
+  const refreshAudiencesMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("GET", `/api/email-integrations/${connection.id}/audiences`);
+    },
+    onSuccess: () => {
+      refetchAudiences();
+      toast({ title: "Audiences refreshed" });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({ title: "Unauthorized", description: "You are logged out. Logging in again...", variant: "destructive" });
+        setTimeout(() => { window.location.href = "/api/login"; }, 500);
+        return;
+      }
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const syncAttendeesMutation = useMutation({
+    mutationFn: async ({ audienceId }: { audienceId: string }) => {
+      return await apiRequest("POST", `/api/email-integrations/${connection.id}/sync`, {
+        audienceId,
+        direction: "push",
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Attendees sync started" });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({ title: "Unauthorized", description: "You are logged out. Logging in again...", variant: "destructive" });
+        setTimeout(() => { window.location.href = "/api/login"; }, 500);
+        return;
+      }
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+    onSettled: (_, __, variables) => {
+      setSyncingAudiences(prev => {
+        const next = new Set(prev);
+        next.delete(variables.audienceId);
+        return next;
+      });
+    },
+  });
+
+  const handleSyncAudience = (audienceId: string) => {
+    setSyncingAudiences(prev => new Set(prev).add(audienceId));
+    syncAttendeesMutation.mutate({ audienceId });
+  };
+
+  return (
+    <div className="border rounded-lg p-4 space-y-3" data-testid={`email-connection-${connection.id}`}>
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          {getProviderIcon(connection.provider)}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-medium" data-testid={`text-provider-name-${connection.id}`}>
+                {getProviderName(connection.provider)}
+              </span>
+              {connection.accountName && (
+                <span className="text-muted-foreground text-sm" data-testid={`text-account-name-${connection.id}`}>
+                  ({connection.accountName})
+                </span>
+              )}
+              <Badge
+                variant={connection.status === "active" ? "outline" : "destructive"}
+                className="flex items-center gap-1"
+                data-testid={`badge-status-${connection.id}`}
+              >
+                {connection.status === "active" ? (
+                  <CheckCircle className="h-3 w-3 text-green-500" />
+                ) : (
+                  <XCircle className="h-3 w-3" />
+                )}
+                {connection.status === "active" ? "Active" : "Error"}
+              </Badge>
+            </div>
+            <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1 flex-wrap">
+              {connection.apiKeyMasked && (
+                <span data-testid={`text-api-key-masked-${connection.id}`}>
+                  API Key: {connection.apiKeyMasked}
+                </span>
+              )}
+              {connection.lastSyncedAt && (
+                <span data-testid={`text-last-synced-${connection.id}`}>
+                  Last synced: {new Date(connection.lastSyncedAt).toLocaleDateString()}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onDelete}
+          disabled={isDeleting}
+          data-testid={`button-delete-connection-${connection.id}`}
+        >
+          <Trash2 className="h-4 w-4 text-destructive" />
+        </Button>
+      </div>
+
+      <Collapsible open={isExpanded} onOpenChange={onToggleExpand}>
+        <CollapsibleTrigger asChild>
+          <Button variant="ghost" size="sm" className="w-full justify-start" data-testid={`button-toggle-audiences-${connection.id}`}>
+            <ChevronDown className={`h-4 w-4 mr-2 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+            {isExpanded ? "Hide Audiences" : "Show Audiences"}
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-3 pt-3">
+          <div className="flex items-center justify-between gap-2">
+            <h5 className="text-sm font-medium">Available Audiences</h5>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refreshAudiencesMutation.mutate()}
+              disabled={refreshAudiencesMutation.isPending}
+              data-testid={`button-refresh-audiences-${connection.id}`}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${refreshAudiencesMutation.isPending ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+          </div>
+
+          {audiencesLoading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : audiences && audiences.length > 0 ? (
+            <div className="space-y-2">
+              {audiences.map((audience) => (
+                <div
+                  key={audience.id}
+                  className="flex items-center justify-between gap-2 p-2 border rounded"
+                  data-testid={`audience-item-${audience.id}`}
+                >
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm truncate" data-testid={`text-audience-name-${audience.id}`}>
+                      {audience.name}
+                    </span>
+                    <Badge variant="secondary" className="text-xs" data-testid={`badge-member-count-${audience.id}`}>
+                      {audience.memberCount ?? 0} members
+                    </Badge>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleSyncAudience(audience.externalId)}
+                    disabled={syncingAudiences.has(audience.externalId)}
+                    data-testid={`button-sync-attendees-${audience.id}`}
+                  >
+                    {syncingAudiences.has(audience.externalId) ? (
+                      <>
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        Syncing...
+                      </>
+                    ) : (
+                      "Sync Attendees"
+                    )}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No audiences found. Click refresh to fetch audiences.</p>
+          )}
+        </CollapsibleContent>
+      </Collapsible>
+    </div>
   );
 }
 
@@ -621,6 +1034,8 @@ export default function Settings() {
               )}
             </CardContent>
           </Card>
+
+          <EmailMarketingSection />
 
           <Card>
             <CardHeader>
