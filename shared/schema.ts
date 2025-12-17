@@ -89,6 +89,73 @@ export const socialMediaCredentials = pgTable("social_media_credentials", {
   uniqueIndex("IDX_social_credential_unique").on(table.organizationId, table.provider),
 ]);
 
+// Email Platform Connections table - stores connections to email marketing platforms (Mailchimp, HubSpot, etc.)
+export const emailPlatformConnections = pgTable("email_platform_connections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  provider: varchar("provider", { length: 50 }).notNull(), // 'mailchimp', 'hubspot', 'constantcontact', etc.
+  accountName: varchar("account_name", { length: 255 }),
+  accountId: varchar("account_id", { length: 255 }),
+  accessToken: text("access_token"), // encrypted
+  refreshToken: text("refresh_token"), // encrypted
+  apiKey: text("api_key"), // encrypted - for platforms that use API key auth
+  serverPrefix: varchar("server_prefix", { length: 50 }), // e.g., 'us21' for Mailchimp
+  tokenExpiresAt: timestamp("token_expires_at"),
+  defaultAudienceId: varchar("default_audience_id", { length: 255 }),
+  status: varchar("status", { length: 50 }).default("active"), // 'active', 'disconnected', 'error'
+  lastSyncedAt: timestamp("last_synced_at"),
+  errorMessage: text("error_message"),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  connectedBy: varchar("connected_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("IDX_email_platform_connection_unique").on(table.organizationId, table.provider),
+]);
+
+// Email Platform Audiences table - stores audience/list info from connected platforms
+export const emailPlatformAudiences = pgTable("email_platform_audiences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  connectionId: varchar("connection_id").references(() => emailPlatformConnections.id).notNull(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  externalId: varchar("external_id", { length: 255 }).notNull(), // ID from the platform
+  name: varchar("name", { length: 255 }).notNull(),
+  memberCount: integer("member_count").default(0),
+  listType: varchar("list_type", { length: 50 }), // 'list', 'segment', 'tag', etc.
+  isPrimary: boolean("is_primary").default(false),
+  lastSyncedAt: timestamp("last_synced_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Email Sync Jobs table - tracks sync operations between CMS and email platforms
+export const emailSyncJobs = pgTable("email_sync_jobs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  connectionId: varchar("connection_id").references(() => emailPlatformConnections.id).notNull(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id),
+  audienceId: varchar("audience_id").references(() => emailPlatformAudiences.id),
+  jobType: varchar("job_type", { length: 50 }).notNull(), // 'push_attendees', 'import_contacts', 'two_way_sync'
+  direction: varchar("direction", { length: 20 }).default("push"), // 'push', 'pull', 'both'
+  status: varchar("status", { length: 50 }).default("pending"), // 'pending', 'running', 'completed', 'failed'
+  startedAt: timestamp("started_at"),
+  finishedAt: timestamp("finished_at"),
+  totalRecords: integer("total_records").default(0),
+  processedRecords: integer("processed_records").default(0),
+  successCount: integer("success_count").default(0),
+  errorCount: integer("error_count").default(0),
+  skippedCount: integer("skipped_count").default(0),
+  errorMessage: text("error_message"),
+  stats: jsonb("stats").$type<{
+    created?: number;
+    updated?: number;
+    deleted?: number;
+    errors?: Array<{ email?: string; error: string }>;
+  }>(),
+  initiatedBy: varchar("initiated_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Events table
 export const events = pgTable("events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1043,6 +1110,9 @@ export const insertEmailMessageSchema = createInsertSchema(emailMessages).omit({
 export const insertEmailEventSchema = createInsertSchema(emailEvents).omit({ id: true });
 export const insertEmailSuppressionSchema = createInsertSchema(emailSuppressions).omit({ id: true, createdAt: true });
 export const insertSocialMediaCredentialSchema = createInsertSchema(socialMediaCredentials).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertEmailPlatformConnectionSchema = createInsertSchema(emailPlatformConnections).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertEmailPlatformAudienceSchema = createInsertSchema(emailPlatformAudiences).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertEmailSyncJobSchema = createInsertSchema(emailSyncJobs).omit({ id: true, createdAt: true });
 
 // Types
 export type UpsertUser = typeof users.$inferInsert;
@@ -1128,3 +1198,9 @@ export type InsertEmailSuppression = z.infer<typeof insertEmailSuppressionSchema
 export type EmailSuppression = typeof emailSuppressions.$inferSelect;
 export type InsertSocialMediaCredential = z.infer<typeof insertSocialMediaCredentialSchema>;
 export type SocialMediaCredential = typeof socialMediaCredentials.$inferSelect;
+export type InsertEmailPlatformConnection = z.infer<typeof insertEmailPlatformConnectionSchema>;
+export type EmailPlatformConnection = typeof emailPlatformConnections.$inferSelect;
+export type InsertEmailPlatformAudience = z.infer<typeof insertEmailPlatformAudienceSchema>;
+export type EmailPlatformAudience = typeof emailPlatformAudiences.$inferSelect;
+export type InsertEmailSyncJob = z.infer<typeof insertEmailSyncJobSchema>;
+export type EmailSyncJob = typeof emailSyncJobs.$inferSelect;
