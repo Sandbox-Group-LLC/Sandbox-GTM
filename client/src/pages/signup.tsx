@@ -1,6 +1,10 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Check, Loader2, Tag, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import logoImage from "@assets/Orange_bug_-_no_background_1765765097769.png";
 
 const benefits = [
@@ -13,6 +17,53 @@ const benefits = [
 ];
 
 export default function Signup() {
+  const [inviteCode, setInviteCode] = useState("");
+  const [isValidating, setIsValidating] = useState(false);
+  const [validationResult, setValidationResult] = useState<{
+    valid: boolean;
+    discountPercent?: number | null;
+    error?: string;
+  } | null>(null);
+
+  const validateInviteCode = async () => {
+    if (!inviteCode.trim()) {
+      setValidationResult(null);
+      return;
+    }
+
+    setIsValidating(true);
+    try {
+      const response = await fetch("/api/signup-invite-codes/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: inviteCode.trim() }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setValidationResult(data);
+      } else {
+        setValidationResult({ valid: false, error: "Invalid invite code" });
+      }
+    } catch {
+      setValidationResult({ valid: false, error: "Failed to validate code" });
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
+  const handleCreateAccount = () => {
+    if (validationResult?.valid && inviteCode.trim()) {
+      localStorage.setItem("signupInviteCode", inviteCode.trim());
+    }
+    window.location.href = "/api/login";
+  };
+
+  const clearInviteCode = () => {
+    setInviteCode("");
+    setValidationResult(null);
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <header className="border-b border-border">
@@ -42,8 +93,80 @@ export default function Signup() {
               ))}
             </ul>
 
-            <Button className="w-full" size="lg" asChild data-testid="button-create-account">
-              <a href="/api/login">Create Account</a>
+            <div className="space-y-2">
+              <Label htmlFor="invite-code" className="flex items-center gap-2">
+                <Tag className="h-4 w-4" />
+                Invite Code (optional)
+              </Label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Input
+                    id="invite-code"
+                    type="text"
+                    placeholder="Enter invite code"
+                    value={inviteCode}
+                    onChange={(e) => {
+                      setInviteCode(e.target.value);
+                      setValidationResult(null);
+                    }}
+                    data-testid="input-invite-code"
+                  />
+                  {inviteCode && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6"
+                      onClick={clearInviteCode}
+                      data-testid="button-clear-invite-code"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={validateInviteCode}
+                  disabled={!inviteCode.trim() || isValidating}
+                  data-testid="button-validate-code"
+                >
+                  {isValidating ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Apply"
+                  )}
+                </Button>
+              </div>
+
+              {validationResult && (
+                <div className="mt-2">
+                  {validationResult.valid ? (
+                    <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+                      <Check className="h-4 w-4" />
+                      <span>Invite code applied</span>
+                      {validationResult.discountPercent && validationResult.discountPercent > 0 && (
+                        <Badge variant="secondary" className="ml-1">
+                          {validationResult.discountPercent}% discount
+                        </Badge>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-destructive" data-testid="text-invite-code-error">
+                      {validationResult.error || "Invalid invite code"}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <Button 
+              className="w-full" 
+              size="lg" 
+              onClick={handleCreateAccount}
+              data-testid="button-create-account"
+            >
+              Create Account
             </Button>
 
             <p className="text-center text-sm text-muted-foreground">
