@@ -1019,7 +1019,9 @@ export const insertDeliverableSchema = createInsertSchema(deliverables).omit({ i
 export const insertEmailCampaignSchema = createInsertSchema(emailCampaigns).omit({ id: true, createdAt: true, updatedAt: true }).extend({
   scheduledAt: z.union([z.date(), z.string().transform(s => new Date(s))]).optional().nullable(),
 });
-export const insertSocialPostSchema = createInsertSchema(socialPosts).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertSocialPostSchema = createInsertSchema(socialPosts).omit({ id: true, createdAt: true, updatedAt: true }).extend({
+  scheduledAt: z.union([z.date(), z.string().transform(s => new Date(s))]).optional().nullable(),
+});
 export const insertEmailTemplateSchema = createInsertSchema(emailTemplates).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSocialConnectionSchema = createInsertSchema(socialConnections).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertAttendeeTypeSchema = createInsertSchema(attendeeTypes).omit({ id: true, createdAt: true, updatedAt: true });
