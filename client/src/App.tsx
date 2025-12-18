@@ -7,7 +7,9 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { useAuth } from "@/hooks/useAuth";
+import { useSignupStatus } from "@/hooks/useSignupStatus";
 import NotFound from "@/pages/not-found";
+import RequireInviteCode from "@/pages/require-invite-code";
 import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
 import Events from "@/pages/events";
@@ -68,6 +70,7 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
+  const { requiresInvite, userIsSuperAdmin, redemption, isLoading: signupStatusLoading } = useSignupStatus();
 
   if (isLoading) {
     return (
@@ -92,6 +95,18 @@ function Router() {
         <Route component={Landing} />
       </Switch>
     );
+  }
+
+  if (signupStatusLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-pulse text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  if (requiresInvite && !userIsSuperAdmin && !redemption) {
+    return <RequireInviteCode />;
   }
 
   return (

@@ -514,6 +514,7 @@ export interface IStorage {
   deleteSignupInviteCode(id: string): Promise<void>;
   validateSignupInviteCode(code: string): Promise<{ valid: boolean; discountPercent?: number | null }>;
   redeemSignupInviteCode(code: string, userId: string, organizationId: string | null): Promise<SignupInviteCodeRedemption>;
+  getSignupRedemptionForUser(userId: string): Promise<{ redemption: SignupInviteCodeRedemption; inviteCode: SignupInviteCode } | null>;
 
   // Passkey (Cvent) Housing Integration operations
   getPasskeyConnection(organizationId: string): Promise<PasskeyConnection | undefined>;
@@ -2541,6 +2542,25 @@ export class DatabaseStorage implements IStorage {
       .returning();
 
     return redemption;
+  }
+
+  async getSignupRedemptionForUser(userId: string): Promise<{ redemption: SignupInviteCodeRedemption; inviteCode: SignupInviteCode } | null> {
+    const result = await db
+      .select({
+        redemption: signupInviteCodeRedemptions,
+        inviteCode: signupInviteCodes,
+      })
+      .from(signupInviteCodeRedemptions)
+      .innerJoin(signupInviteCodes, eq(signupInviteCodeRedemptions.inviteCodeId, signupInviteCodes.id))
+      .where(eq(signupInviteCodeRedemptions.userId, userId))
+      .orderBy(desc(signupInviteCodeRedemptions.redeemedAt))
+      .limit(1);
+
+    if (result.length === 0) {
+      return null;
+    }
+
+    return result[0];
   }
 
   // Passkey Connection operations

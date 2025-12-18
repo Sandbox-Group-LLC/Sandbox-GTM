@@ -30,6 +30,10 @@ async function verifyPassword(password: string, hash: string): Promise<boolean> 
   const storedBuffer = Buffer.from(storedHash, "hex");
   return timingSafeEqual(derivedKey, storedBuffer);
 }
+
+function isSuperAdmin(email: string | null | undefined): boolean {
+  return email?.toLowerCase().endsWith("@makemysandbox.com") ?? false;
+}
 import {
   insertEventSchema,
   insertAttendeeSchema,
@@ -83,6 +87,38 @@ export async function registerRoutes(
 ): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
+
+  // Middleware to require signup invite code redemption
+  // Super admins bypass this check
+  const requireInviteRedemption = async (req: any, res: any, next: any) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const user = await storage.getUser(userId);
+      
+      // Super admins bypass invite code requirement
+      if (isSuperAdmin(user?.email)) {
+        return next();
+      }
+      
+      // Check if user has redeemed an invite code
+      const redemption = await storage.getSignupRedemptionForUser(userId);
+      if (!redemption) {
+        return res.status(403).json({ 
+          message: "Invite code required. Please redeem a valid invite code to access this feature.",
+          code: "INVITE_REQUIRED"
+        });
+      }
+      
+      return next();
+    } catch (error) {
+      logError("Error checking invite redemption:", error);
+      return res.status(500).json({ message: "Failed to verify access" });
+    }
+  };
 
   // Helper function to get user's organization (creates default if none exists)
   async function getOrganizationId(userId: string): Promise<string> {
@@ -342,7 +378,7 @@ export async function registerRoutes(
   });
 
   // Settings routes
-  app.get('/api/settings/resend-status', isAuthenticated, async (req: any, res) => {
+  app.get('/api/settings/resend-status', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const configured = !!process.env.RESEND_API_KEY;
       res.json({ configured });
@@ -352,7 +388,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get('/api/settings/social-integrations-status', isAuthenticated, async (req: any, res) => {
+  app.get('/api/settings/social-integrations-status', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -380,7 +416,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get('/api/settings/social-credentials', isAuthenticated, async (req: any, res) => {
+  app.get('/api/settings/social-credentials', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -422,7 +458,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post('/api/settings/social-credentials/:provider', isAuthenticated, async (req: any, res) => {
+  app.post('/api/settings/social-credentials/:provider', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -481,7 +517,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete('/api/settings/social-credentials/:provider', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/settings/social-credentials/:provider', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -534,7 +570,7 @@ export async function registerRoutes(
     };
   }
 
-  app.get('/api/email-integrations', isAuthenticated, async (req: any, res) => {
+  app.get('/api/email-integrations', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -547,7 +583,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post('/api/email-integrations', isAuthenticated, async (req: any, res) => {
+  app.post('/api/email-integrations', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -597,7 +633,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete('/api/email-integrations/:id', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/email-integrations/:id', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -618,7 +654,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get('/api/email-integrations/:id/audiences', isAuthenticated, async (req: any, res) => {
+  app.get('/api/email-integrations/:id/audiences', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -680,7 +716,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post('/api/email-integrations/:id/sync', isAuthenticated, async (req: any, res) => {
+  app.post('/api/email-integrations/:id/sync', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -815,7 +851,7 @@ export async function registerRoutes(
     };
   }
 
-  app.get('/api/passkey/connection', isAuthenticated, async (req: any, res) => {
+  app.get('/api/passkey/connection', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -832,7 +868,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post('/api/passkey/connection', isAuthenticated, async (req: any, res) => {
+  app.post('/api/passkey/connection', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -870,7 +906,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete('/api/passkey/connection', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/passkey/connection', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -884,7 +920,7 @@ export async function registerRoutes(
   });
 
   // Passkey Event Mapping routes
-  app.get('/api/passkey/events/:eventId/mapping', isAuthenticated, async (req: any, res) => {
+  app.get('/api/passkey/events/:eventId/mapping', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -898,7 +934,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post('/api/passkey/events/:eventId/mapping', isAuthenticated, async (req: any, res) => {
+  app.post('/api/passkey/events/:eventId/mapping', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -937,7 +973,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete('/api/passkey/events/:eventId/mapping', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/passkey/events/:eventId/mapping', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -952,7 +988,7 @@ export async function registerRoutes(
   });
 
   // Passkey Reservation routes
-  app.get('/api/passkey/events/:eventId/reservations', isAuthenticated, async (req: any, res) => {
+  app.get('/api/passkey/events/:eventId/reservations', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -967,7 +1003,7 @@ export async function registerRoutes(
   });
 
   // Generate booking link for attendee
-  app.get('/api/passkey/attendees/:attendeeId/booking-link', isAuthenticated, async (req: any, res) => {
+  app.get('/api/passkey/attendees/:attendeeId/booking-link', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -1010,7 +1046,7 @@ export async function registerRoutes(
   });
 
   // Onboarding routes
-  app.get('/api/onboarding/status', isAuthenticated, async (req: any, res) => {
+  app.get('/api/onboarding/status', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -1083,7 +1119,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post('/api/onboarding/complete-step', isAuthenticated, async (req: any, res) => {
+  app.post('/api/onboarding/complete-step', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -1164,7 +1200,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post('/api/onboarding/skip-step', isAuthenticated, async (req: any, res) => {
+  app.post('/api/onboarding/skip-step', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -1199,7 +1235,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post('/api/onboarding/dismiss', isAuthenticated, async (req: any, res) => {
+  app.post('/api/onboarding/dismiss', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -1239,7 +1275,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/organizations/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/organizations/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
@@ -1387,8 +1423,95 @@ export async function registerRoutes(
     }
   });
 
+  // Signup status endpoint - returns whether user needs invite code
+  app.get("/api/auth/signup-status", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      const userIsSuperAdmin = isSuperAdmin(user?.email);
+      
+      if (userIsSuperAdmin) {
+        return res.json({
+          requiresInvite: false,
+          userIsSuperAdmin: true,
+        });
+      }
+      
+      const redemptionData = await storage.getSignupRedemptionForUser(userId);
+      
+      if (redemptionData) {
+        return res.json({
+          requiresInvite: false,
+          userIsSuperAdmin: false,
+          redemption: {
+            inviteCodeId: redemptionData.redemption.inviteCodeId,
+            redeemedAt: redemptionData.redemption.redeemedAt,
+            code: redemptionData.inviteCode.code,
+            description: redemptionData.inviteCode.description,
+          },
+        });
+      }
+      
+      return res.json({
+        requiresInvite: true,
+        userIsSuperAdmin: false,
+      });
+    } catch (error) {
+      logError("Error fetching signup status:", error);
+      res.status(500).json({ message: "Failed to fetch signup status" });
+    }
+  });
+
+  // Redeem signup invite code endpoint
+  app.post("/api/signup-invite-codes/redeem", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { code } = req.body;
+      
+      if (!code || typeof code !== 'string') {
+        return res.status(400).json({ message: "Code is required" });
+      }
+      
+      const validation = await storage.validateSignupInviteCode(code);
+      if (!validation.valid) {
+        return res.status(400).json({ message: "Invalid, expired, or fully used invite code" });
+      }
+      
+      const memberships = await storage.getUserOrganizations(userId);
+      const organizationId = memberships.length > 0 ? memberships[0].organizationId : null;
+      
+      await storage.redeemSignupInviteCode(code, userId, organizationId);
+      
+      const user = await storage.getUser(userId);
+      const userIsSuperAdmin = isSuperAdmin(user?.email);
+      const redemptionData = await storage.getSignupRedemptionForUser(userId);
+      
+      if (redemptionData) {
+        return res.json({
+          requiresInvite: false,
+          userIsSuperAdmin,
+          redemption: {
+            inviteCodeId: redemptionData.redemption.inviteCodeId,
+            redeemedAt: redemptionData.redemption.redeemedAt,
+            code: redemptionData.inviteCode.code,
+            description: redemptionData.inviteCode.description,
+          },
+        });
+      }
+      
+      return res.json({
+        requiresInvite: false,
+        userIsSuperAdmin,
+      });
+    } catch (error) {
+      logError("Error redeeming signup invite code:", error);
+      res.status(500).json({ message: "Failed to redeem signup invite code" });
+    }
+  });
+
   // Event routes
-  app.get("/api/events", isAuthenticated, async (req: any, res) => {
+  app.get("/api/events", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -1400,7 +1523,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/events", isAuthenticated, async (req: any, res) => {
+  app.post("/api/events", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -1423,7 +1546,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/events/:id", isAuthenticated, async (req: any, res) => {
+  app.get("/api/events/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -1438,7 +1561,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/events/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/events/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -1453,7 +1576,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/events/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/events/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -1466,7 +1589,7 @@ export async function registerRoutes(
   });
 
   // Dashboard stats
-  app.get("/api/dashboard/stats", isAuthenticated, async (req: any, res) => {
+  app.get("/api/dashboard/stats", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -1505,7 +1628,7 @@ export async function registerRoutes(
   });
 
   // Attendee routes
-  app.get("/api/attendees", isAuthenticated, async (req: any, res) => {
+  app.get("/api/attendees", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -1518,7 +1641,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/attendees", isAuthenticated, async (req: any, res) => {
+  app.post("/api/attendees", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -1625,7 +1748,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/attendees/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/attendees/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -1640,7 +1763,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/attendees/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/attendees/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -1653,7 +1776,7 @@ export async function registerRoutes(
   });
 
   // Bulk import attendees
-  app.post("/api/attendees/bulk-import", isAuthenticated, async (req: any, res) => {
+  app.post("/api/attendees/bulk-import", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -1747,7 +1870,7 @@ export async function registerRoutes(
   });
 
   // Attendee Type routes
-  app.get("/api/attendee-types", isAuthenticated, async (req: any, res) => {
+  app.get("/api/attendee-types", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -1760,7 +1883,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/attendee-types/:id", isAuthenticated, async (req: any, res) => {
+  app.get("/api/attendee-types/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -1775,7 +1898,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/attendee-types", isAuthenticated, async (req: any, res) => {
+  app.post("/api/attendee-types", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -1788,7 +1911,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/attendee-types/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/attendee-types/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -1803,7 +1926,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/attendee-types/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/attendee-types/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -1816,7 +1939,7 @@ export async function registerRoutes(
   });
 
   // Package routes (global to organization, not event-specific)
-  app.get("/api/packages", isAuthenticated, async (req: any, res) => {
+  app.get("/api/packages", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -1828,7 +1951,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/packages/:id", isAuthenticated, async (req: any, res) => {
+  app.get("/api/packages/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -1843,7 +1966,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/packages", isAuthenticated, async (req: any, res) => {
+  app.post("/api/packages", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -1861,7 +1984,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/packages/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/packages/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -1880,7 +2003,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/packages/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/packages/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -1893,7 +2016,7 @@ export async function registerRoutes(
   });
 
   // Get events assigned to a package
-  app.get("/api/packages/:id/events", isAuthenticated, async (req: any, res) => {
+  app.get("/api/packages/:id/events", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -1906,7 +2029,7 @@ export async function registerRoutes(
   });
 
   // Event Package routes (per-event package overrides)
-  app.get("/api/events/:eventId/packages", isAuthenticated, async (req: any, res) => {
+  app.get("/api/events/:eventId/packages", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -1940,7 +2063,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/events/:eventId/packages/:packageId", isAuthenticated, async (req: any, res) => {
+  app.put("/api/events/:eventId/packages/:packageId", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -1963,7 +2086,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/events/:eventId/packages/:packageId", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/events/:eventId/packages/:packageId", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -1978,7 +2101,7 @@ export async function registerRoutes(
   });
 
   // Invite Code routes
-  app.get("/api/invite-codes", isAuthenticated, async (req: any, res) => {
+  app.get("/api/invite-codes", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -1991,7 +2114,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/invite-codes/:id", isAuthenticated, async (req: any, res) => {
+  app.get("/api/invite-codes/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -2006,7 +2129,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/invite-codes", isAuthenticated, async (req: any, res) => {
+  app.post("/api/invite-codes", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -2019,7 +2142,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/invite-codes/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/invite-codes/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -2034,7 +2157,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/invite-codes/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/invite-codes/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -2047,7 +2170,7 @@ export async function registerRoutes(
   });
 
   // Speaker routes
-  app.get("/api/speakers", isAuthenticated, async (req: any, res) => {
+  app.get("/api/speakers", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -2060,7 +2183,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/speakers", isAuthenticated, async (req: any, res) => {
+  app.post("/api/speakers", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -2073,7 +2196,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/speakers/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/speakers/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -2088,7 +2211,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/speakers/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/speakers/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -2101,7 +2224,7 @@ export async function registerRoutes(
   });
 
   // Event Sponsor routes
-  app.get("/api/events/:eventId/sponsors", isAuthenticated, async (req: any, res) => {
+  app.get("/api/events/:eventId/sponsors", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -2118,7 +2241,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/events/:eventId/sponsors", isAuthenticated, async (req: any, res) => {
+  app.post("/api/events/:eventId/sponsors", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -2157,7 +2280,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/events/:eventId/sponsors/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/events/:eventId/sponsors/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -2213,7 +2336,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/events/:eventId/sponsors/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/events/:eventId/sponsors/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -2226,7 +2349,7 @@ export async function registerRoutes(
   });
 
   // Sponsor Contacts routes (admin)
-  app.get("/api/sponsors/:sponsorId/contacts", isAuthenticated, async (req: any, res) => {
+  app.get("/api/sponsors/:sponsorId/contacts", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -2238,7 +2361,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/sponsors/:sponsorId/contacts/:id", isAuthenticated, async (req: any, res) => {
+  app.get("/api/sponsors/:sponsorId/contacts/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -2253,7 +2376,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/sponsors/:sponsorId/contacts", isAuthenticated, async (req: any, res) => {
+  app.post("/api/sponsors/:sponsorId/contacts", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -2266,7 +2389,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/sponsors/:sponsorId/contacts/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/sponsors/:sponsorId/contacts/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -2281,7 +2404,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/sponsors/:sponsorId/contacts/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/sponsors/:sponsorId/contacts/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -2294,7 +2417,7 @@ export async function registerRoutes(
   });
 
   // Sponsor Tasks routes (admin, event-scoped)
-  app.get("/api/events/:eventId/sponsor-tasks", isAuthenticated, async (req: any, res) => {
+  app.get("/api/events/:eventId/sponsor-tasks", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -2306,7 +2429,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/sponsor-tasks/:id", isAuthenticated, async (req: any, res) => {
+  app.get("/api/sponsor-tasks/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -2321,7 +2444,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/events/:eventId/sponsor-tasks", isAuthenticated, async (req: any, res) => {
+  app.post("/api/events/:eventId/sponsor-tasks", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -2334,7 +2457,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/sponsor-tasks/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/sponsor-tasks/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -2349,7 +2472,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/sponsor-tasks/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/sponsor-tasks/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -2362,7 +2485,7 @@ export async function registerRoutes(
   });
 
   // Sponsor Task Completions routes (admin)
-  app.get("/api/sponsors/:sponsorId/task-completions", isAuthenticated, async (req: any, res) => {
+  app.get("/api/sponsors/:sponsorId/task-completions", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -2375,7 +2498,7 @@ export async function registerRoutes(
   });
 
   // Event-scoped task completions (for admin task management page)
-  app.get("/api/events/:eventId/sponsor-task-completions", isAuthenticated, async (req: any, res) => {
+  app.get("/api/events/:eventId/sponsor-task-completions", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -2398,7 +2521,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/task-completions/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/task-completions/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -2414,7 +2537,7 @@ export async function registerRoutes(
   });
 
   // Portal access token generation route (admin)
-  app.post("/api/sponsors/:sponsorId/generate-portal-token", isAuthenticated, async (req: any, res) => {
+  app.post("/api/sponsors/:sponsorId/generate-portal-token", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -2441,7 +2564,7 @@ export async function registerRoutes(
   });
 
   // Send portal access email to sponsor
-  app.post("/api/sponsors/:sponsorId/send-portal-email", isAuthenticated, async (req: any, res) => {
+  app.post("/api/sponsors/:sponsorId/send-portal-email", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -2858,7 +2981,7 @@ export async function registerRoutes(
   });
 
   // Session routes
-  app.get("/api/sessions", isAuthenticated, async (req: any, res) => {
+  app.get("/api/sessions", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -2871,7 +2994,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/sessions", isAuthenticated, async (req: any, res) => {
+  app.post("/api/sessions", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -2884,7 +3007,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/sessions/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/sessions/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -2899,7 +3022,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/sessions/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/sessions/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -2912,7 +3035,7 @@ export async function registerRoutes(
   });
 
   // Session Tracks routes
-  app.get("/api/session-tracks", isAuthenticated, async (req: any, res) => {
+  app.get("/api/session-tracks", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -2924,7 +3047,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/session-tracks", isAuthenticated, async (req: any, res) => {
+  app.post("/api/session-tracks", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -2937,7 +3060,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/session-tracks/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/session-tracks/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -2953,7 +3076,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/session-tracks/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/session-tracks/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -2966,7 +3089,7 @@ export async function registerRoutes(
   });
 
   // Session Rooms routes
-  app.get("/api/session-rooms", isAuthenticated, async (req: any, res) => {
+  app.get("/api/session-rooms", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -2978,7 +3101,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/session-rooms", isAuthenticated, async (req: any, res) => {
+  app.post("/api/session-rooms", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -2991,7 +3114,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/session-rooms/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/session-rooms/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3007,7 +3130,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/session-rooms/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/session-rooms/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3020,7 +3143,7 @@ export async function registerRoutes(
   });
 
   // Session-Speaker relationship routes
-  app.get("/api/sessions/:sessionId/speakers", isAuthenticated, async (req: any, res) => {
+  app.get("/api/sessions/:sessionId/speakers", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3036,7 +3159,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/sessions/:sessionId/speakers", isAuthenticated, async (req: any, res) => {
+  app.put("/api/sessions/:sessionId/speakers", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3055,7 +3178,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/speakers/:speakerId/sessions", isAuthenticated, async (req: any, res) => {
+  app.get("/api/speakers/:speakerId/sessions", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3071,7 +3194,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/speakers/:speakerId/sessions", isAuthenticated, async (req: any, res) => {
+  app.put("/api/speakers/:speakerId/sessions", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3091,7 +3214,7 @@ export async function registerRoutes(
   });
 
   // Content routes
-  app.get("/api/content", isAuthenticated, async (req: any, res) => {
+  app.get("/api/content", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3105,7 +3228,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/content", isAuthenticated, async (req: any, res) => {
+  app.post("/api/content", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3118,7 +3241,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/content/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/content/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3133,7 +3256,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/content/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/content/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3146,7 +3269,7 @@ export async function registerRoutes(
   });
 
   // Budget routes
-  app.get("/api/budget", isAuthenticated, async (req: any, res) => {
+  app.get("/api/budget", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3159,7 +3282,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/budget", isAuthenticated, async (req: any, res) => {
+  app.post("/api/budget", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3177,7 +3300,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/budget/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/budget/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3197,7 +3320,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/budget/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/budget/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3210,7 +3333,7 @@ export async function registerRoutes(
   });
 
   // Budget Categories routes (org-scoped)
-  app.get("/api/budget-categories", isAuthenticated, async (req: any, res) => {
+  app.get("/api/budget-categories", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3222,7 +3345,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/budget-categories", isAuthenticated, async (req: any, res) => {
+  app.post("/api/budget-categories", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3235,7 +3358,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/budget-categories/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/budget-categories/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3250,7 +3373,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/budget-categories/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/budget-categories/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3263,7 +3386,7 @@ export async function registerRoutes(
   });
 
   // Budget Offsets routes (event-scoped)
-  app.get("/api/budget-offsets", isAuthenticated, async (req: any, res) => {
+  app.get("/api/budget-offsets", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3276,7 +3399,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/budget-offsets", isAuthenticated, async (req: any, res) => {
+  app.post("/api/budget-offsets", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3289,7 +3412,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/budget-offsets/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/budget-offsets/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3304,7 +3427,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/budget-offsets/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/budget-offsets/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3317,7 +3440,7 @@ export async function registerRoutes(
   });
 
   // Event Budget Settings routes
-  app.get("/api/events/:eventId/budget-settings", isAuthenticated, async (req: any, res) => {
+  app.get("/api/events/:eventId/budget-settings", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3333,7 +3456,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/events/:eventId/budget-settings", isAuthenticated, async (req: any, res) => {
+  app.put("/api/events/:eventId/budget-settings", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3354,7 +3477,7 @@ export async function registerRoutes(
   });
 
   // Budget Payments routes (event-scoped)
-  app.get("/api/budget-payments", isAuthenticated, async (req: any, res) => {
+  app.get("/api/budget-payments", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3367,7 +3490,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/budget-payments", isAuthenticated, async (req: any, res) => {
+  app.post("/api/budget-payments", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3380,7 +3503,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/budget-payments/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/budget-payments/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3395,7 +3518,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/budget-payments/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/budget-payments/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3408,7 +3531,7 @@ export async function registerRoutes(
   });
 
   // Milestone routes
-  app.get("/api/milestones", isAuthenticated, async (req: any, res) => {
+  app.get("/api/milestones", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3421,7 +3544,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/milestones", isAuthenticated, async (req: any, res) => {
+  app.post("/api/milestones", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3434,7 +3557,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/milestones/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/milestones/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3449,7 +3572,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/milestones/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/milestones/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3462,7 +3585,7 @@ export async function registerRoutes(
   });
 
   // Deliverable routes
-  app.get("/api/deliverables", isAuthenticated, async (req: any, res) => {
+  app.get("/api/deliverables", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3475,7 +3598,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/deliverables", isAuthenticated, async (req: any, res) => {
+  app.post("/api/deliverables", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3488,7 +3611,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/deliverables/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/deliverables/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3503,7 +3626,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/deliverables/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/deliverables/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3516,7 +3639,7 @@ export async function registerRoutes(
   });
 
   // Email campaign routes
-  app.get("/api/emails", isAuthenticated, async (req: any, res) => {
+  app.get("/api/emails", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3529,7 +3652,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/emails", isAuthenticated, async (req: any, res) => {
+  app.post("/api/emails", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3542,7 +3665,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/emails/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/emails/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3562,7 +3685,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/emails/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/emails/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3575,7 +3698,7 @@ export async function registerRoutes(
   });
 
   // Send email campaign with merge tag replacement
-  app.post("/api/emails/:id/send", isAuthenticated, async (req: any, res) => {
+  app.post("/api/emails/:id/send", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3686,7 +3809,7 @@ export async function registerRoutes(
   });
 
   // Social post routes
-  app.get("/api/social", isAuthenticated, async (req: any, res) => {
+  app.get("/api/social", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3699,7 +3822,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/social", isAuthenticated, async (req: any, res) => {
+  app.post("/api/social", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -3872,7 +3995,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/social/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/social/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -4056,7 +4179,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/social/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/social/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -4069,7 +4192,7 @@ export async function registerRoutes(
   });
 
   // Email template routes
-  app.get("/api/email-templates", isAuthenticated, async (req: any, res) => {
+  app.get("/api/email-templates", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -4082,7 +4205,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/email-templates", isAuthenticated, async (req: any, res) => {
+  app.post("/api/email-templates", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -4095,7 +4218,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/email-templates/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/email-templates/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -4110,7 +4233,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/email-templates/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/email-templates/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -4122,7 +4245,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/email-templates/:id/test-email", isAuthenticated, async (req: any, res) => {
+  app.post("/api/email-templates/:id/test-email", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -4160,7 +4283,7 @@ export async function registerRoutes(
   });
 
   // Check-in routes (code-based access - no organizationId verification needed for scan)
-  app.post("/api/check-in/scan", isAuthenticated, async (req, res) => {
+  app.post("/api/check-in/scan", isAuthenticated, requireInviteRedemption, async (req, res) => {
     try {
       const { code } = req.body;
       if (!code) {
@@ -4184,7 +4307,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/check-in/stats", isAuthenticated, async (req: any, res) => {
+  app.get("/api/check-in/stats", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -4834,7 +4957,7 @@ ${urls.map(u => `  <url>
   });
 
   // Analytics routes
-  app.get("/api/analytics/overview", isAuthenticated, async (req: any, res) => {
+  app.get("/api/analytics/overview", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -4925,7 +5048,7 @@ ${urls.map(u => `  <url>
   });
 
   // Social connections routes (user-scoped - no organizationId needed)
-  app.get("/api/social-connections", isAuthenticated, async (req: any, res) => {
+  app.get("/api/social-connections", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const connections = await storage.getSocialConnections(userId);
@@ -4936,7 +5059,7 @@ ${urls.map(u => `  <url>
     }
   });
 
-  app.post("/api/social-connections", isAuthenticated, async (req: any, res) => {
+  app.post("/api/social-connections", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { platform, accountName } = req.body;
@@ -4959,7 +5082,7 @@ ${urls.map(u => `  <url>
     }
   });
 
-  app.delete("/api/social-connections/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/social-connections/:id", isAuthenticated, requireInviteRedemption, async (req, res) => {
     try {
       await storage.deleteSocialConnection(req.params.id);
       res.status(204).send();
@@ -4970,7 +5093,7 @@ ${urls.map(u => `  <url>
   });
 
   // LinkedIn OAuth endpoints
-  app.get("/api/social/linkedin/authorize", isAuthenticated, async (req: any, res) => {
+  app.get("/api/social/linkedin/authorize", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -5148,7 +5271,7 @@ ${urls.map(u => `  <url>
   });
 
   // LinkedIn organization pages endpoint - get list of pages user can admin
-  app.get("/api/social/linkedin/organizations", isAuthenticated, async (req: any, res) => {
+  app.get("/api/social/linkedin/organizations", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const connection = await storage.getSocialConnectionByPlatform(userId, 'linkedin');
@@ -5197,7 +5320,7 @@ ${urls.map(u => `  <url>
   });
 
   // Add LinkedIn organization page connection
-  app.post("/api/social/linkedin/organizations", isAuthenticated, async (req: any, res) => {
+  app.post("/api/social/linkedin/organizations", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { organizationUrn, organizationName } = req.body;
@@ -5245,7 +5368,7 @@ ${urls.map(u => `  <url>
   });
 
   // Twitter/X OAuth 2.0 with PKCE endpoints
-  app.get("/api/social/twitter/authorize", isAuthenticated, async (req: any, res) => {
+  app.get("/api/social/twitter/authorize", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -5444,7 +5567,7 @@ ${urls.map(u => `  <url>
   });
 
   // Event Pages routes (site builder)
-  app.get("/api/events/:eventId/pages", isAuthenticated, async (req: any, res) => {
+  app.get("/api/events/:eventId/pages", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -5457,7 +5580,7 @@ ${urls.map(u => `  <url>
     }
   });
 
-  app.get("/api/events/:eventId/pages/:pageType", isAuthenticated, async (req: any, res) => {
+  app.get("/api/events/:eventId/pages/:pageType", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -5473,7 +5596,7 @@ ${urls.map(u => `  <url>
     }
   });
 
-  app.post("/api/events/:eventId/pages", isAuthenticated, async (req: any, res) => {
+  app.post("/api/events/:eventId/pages", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -5495,7 +5618,7 @@ ${urls.map(u => `  <url>
     }
   });
 
-  app.patch("/api/events/:eventId/pages/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/events/:eventId/pages/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -5520,7 +5643,7 @@ ${urls.map(u => `  <url>
     }
   });
 
-  app.delete("/api/events/:eventId/pages/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/events/:eventId/pages/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -5533,7 +5656,7 @@ ${urls.map(u => `  <url>
   });
 
   // Page Version routes (version history)
-  app.get("/api/events/:eventId/pages/:pageId/versions", isAuthenticated, async (req: any, res) => {
+  app.get("/api/events/:eventId/pages/:pageId/versions", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -5559,7 +5682,7 @@ ${urls.map(u => `  <url>
     seo: z.record(z.any()).optional(),
   });
 
-  app.post("/api/events/:eventId/pages/:pageId/versions", isAuthenticated, async (req: any, res) => {
+  app.post("/api/events/:eventId/pages/:pageId/versions", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -5589,7 +5712,7 @@ ${urls.map(u => `  <url>
     }
   });
 
-  app.post("/api/events/:eventId/pages/:pageId/versions/:versionId/restore", isAuthenticated, async (req: any, res) => {
+  app.post("/api/events/:eventId/pages/:pageId/versions/:versionId/restore", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -5654,7 +5777,7 @@ ${urls.map(u => `  <url>
   });
 
   // Registration config routes
-  app.get("/api/events/:eventId/registration-config", isAuthenticated, async (req: any, res) => {
+  app.get("/api/events/:eventId/registration-config", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -5666,7 +5789,7 @@ ${urls.map(u => `  <url>
     }
   });
 
-  app.post("/api/events/:eventId/registration-config", isAuthenticated, async (req: any, res) => {
+  app.post("/api/events/:eventId/registration-config", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -5685,7 +5808,7 @@ ${urls.map(u => `  <url>
   });
 
   // Custom Fields routes
-  app.get("/api/custom-fields", isAuthenticated, async (req: any, res) => {
+  app.get("/api/custom-fields", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -5697,7 +5820,7 @@ ${urls.map(u => `  <url>
     }
   });
 
-  app.post("/api/custom-fields", isAuthenticated, async (req: any, res) => {
+  app.post("/api/custom-fields", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -5710,7 +5833,7 @@ ${urls.map(u => `  <url>
     }
   });
 
-  app.patch("/api/custom-fields/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/custom-fields/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -5725,7 +5848,7 @@ ${urls.map(u => `  <url>
     }
   });
 
-  app.delete("/api/custom-fields/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/custom-fields/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -5976,7 +6099,7 @@ ${urls.map(u => `  <url>
   });
 
   // Get presigned upload URL
-  app.post("/api/content/assets/upload", isAuthenticated, async (req: any, res) => {
+  app.post("/api/content/assets/upload", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const uploadUrl = await objectStorageService.getObjectEntityUploadURL();
       res.json({ uploadUrl });
@@ -5987,7 +6110,7 @@ ${urls.map(u => `  <url>
   });
 
   // Create content asset record after upload
-  app.post("/api/content/assets", isAuthenticated, async (req: any, res) => {
+  app.post("/api/content/assets", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -6026,7 +6149,7 @@ ${urls.map(u => `  <url>
   });
 
   // List all content assets for the organization
-  app.get("/api/content/assets", isAuthenticated, async (req: any, res) => {
+  app.get("/api/content/assets", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -6039,7 +6162,7 @@ ${urls.map(u => `  <url>
   });
 
   // Delete a content asset
-  app.delete("/api/content/assets/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/content/assets/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -6058,7 +6181,7 @@ ${urls.map(u => `  <url>
   });
 
   // AI Content Generation endpoint
-  app.post("/api/ai/generate-content", isAuthenticated, async (req: any, res) => {
+  app.post("/api/ai/generate-content", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -6117,7 +6240,7 @@ ${urls.map(u => `  <url>
   // ============================================
 
   // Admin CFP Config Routes
-  app.get("/api/events/:eventId/cfp", isAuthenticated, async (req: any, res) => {
+  app.get("/api/events/:eventId/cfp", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -6138,7 +6261,7 @@ ${urls.map(u => `  <url>
     }
   });
 
-  app.post("/api/events/:eventId/cfp", isAuthenticated, async (req: any, res) => {
+  app.post("/api/events/:eventId/cfp", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -6181,7 +6304,7 @@ ${urls.map(u => `  <url>
     }
   });
 
-  app.patch("/api/events/:eventId/cfp", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/events/:eventId/cfp", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -6216,7 +6339,7 @@ ${urls.map(u => `  <url>
   });
 
   // CFP Topics Routes
-  app.get("/api/events/:eventId/cfp/topics", isAuthenticated, async (req: any, res) => {
+  app.get("/api/events/:eventId/cfp/topics", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -6239,7 +6362,7 @@ ${urls.map(u => `  <url>
     }
   });
 
-  app.post("/api/events/:eventId/cfp/topics", isAuthenticated, async (req: any, res) => {
+  app.post("/api/events/:eventId/cfp/topics", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -6268,7 +6391,7 @@ ${urls.map(u => `  <url>
     }
   });
 
-  app.patch("/api/events/:eventId/cfp/topics/:topicId", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/events/:eventId/cfp/topics/:topicId", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -6291,7 +6414,7 @@ ${urls.map(u => `  <url>
     }
   });
 
-  app.delete("/api/events/:eventId/cfp/topics/:topicId", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/events/:eventId/cfp/topics/:topicId", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -6313,7 +6436,7 @@ ${urls.map(u => `  <url>
   });
 
   // CFP Submissions Routes
-  app.get("/api/events/:eventId/cfp/submissions", isAuthenticated, async (req: any, res) => {
+  app.get("/api/events/:eventId/cfp/submissions", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -6336,7 +6459,7 @@ ${urls.map(u => `  <url>
     }
   });
 
-  app.get("/api/events/:eventId/cfp/submissions/:submissionId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/events/:eventId/cfp/submissions/:submissionId", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -6361,7 +6484,7 @@ ${urls.map(u => `  <url>
     }
   });
 
-  app.patch("/api/events/:eventId/cfp/submissions/:submissionId", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/events/:eventId/cfp/submissions/:submissionId", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -6448,7 +6571,7 @@ ${urls.map(u => `  <url>
     }
   });
 
-  app.post("/api/events/:eventId/cfp/submissions/:submissionId/resend-acceptance", isAuthenticated, async (req: any, res) => {
+  app.post("/api/events/:eventId/cfp/submissions/:submissionId/resend-acceptance", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -6513,7 +6636,7 @@ ${urls.map(u => `  <url>
     }
   });
 
-  app.delete("/api/events/:eventId/cfp/submissions/:submissionId", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/events/:eventId/cfp/submissions/:submissionId", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -6535,7 +6658,7 @@ ${urls.map(u => `  <url>
   });
 
   // CFP Reviewers Routes
-  app.get("/api/events/:eventId/cfp/reviewers", isAuthenticated, async (req: any, res) => {
+  app.get("/api/events/:eventId/cfp/reviewers", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -6558,7 +6681,7 @@ ${urls.map(u => `  <url>
     }
   });
 
-  app.post("/api/events/:eventId/cfp/reviewers", isAuthenticated, async (req: any, res) => {
+  app.post("/api/events/:eventId/cfp/reviewers", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -6587,7 +6710,7 @@ ${urls.map(u => `  <url>
     }
   });
 
-  app.patch("/api/events/:eventId/cfp/reviewers/:reviewerId", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/events/:eventId/cfp/reviewers/:reviewerId", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -6610,7 +6733,7 @@ ${urls.map(u => `  <url>
     }
   });
 
-  app.delete("/api/events/:eventId/cfp/reviewers/:reviewerId", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/events/:eventId/cfp/reviewers/:reviewerId", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -6632,7 +6755,7 @@ ${urls.map(u => `  <url>
   });
 
   // Assign reviewer to submission
-  app.post("/api/events/:eventId/cfp/submissions/:submissionId/assign-reviewer", isAuthenticated, async (req: any, res) => {
+  app.post("/api/events/:eventId/cfp/submissions/:submissionId/assign-reviewer", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -6688,7 +6811,7 @@ ${urls.map(u => `  <url>
   });
 
   // Create session from accepted submission
-  app.post("/api/events/:eventId/cfp/submissions/:submissionId/create-session", isAuthenticated, async (req: any, res) => {
+  app.post("/api/events/:eventId/cfp/submissions/:submissionId/create-session", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
@@ -6823,7 +6946,7 @@ ${urls.map(u => `  <url>
   // Reviewer Routes (authenticated)
   // ============================================
 
-  app.get("/api/reviewer/assignments", isAuthenticated, async (req: any, res) => {
+  app.get("/api/reviewer/assignments", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const userEmail = req.user.claims.email;
@@ -6875,7 +6998,7 @@ ${urls.map(u => `  <url>
     }
   });
 
-  app.get("/api/reviewer/assignments/:submissionId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/reviewer/assignments/:submissionId", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const userEmail = req.user.claims.email;
@@ -6917,7 +7040,7 @@ ${urls.map(u => `  <url>
     }
   });
 
-  app.patch("/api/reviewer/reviews/:reviewId", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/reviewer/reviews/:reviewId", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const userEmail = req.user.claims.email;
@@ -7336,7 +7459,7 @@ ${urls.map(u => `  <url>
   });
 
   // Email analytics endpoint (authenticated)
-  app.get("/api/organizations/:organizationId/email-campaigns/:campaignId/analytics", isAuthenticated, async (req: any, res) => {
+  app.get("/api/organizations/:organizationId/email-campaigns/:campaignId/analytics", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { organizationId, campaignId } = req.params;
@@ -7379,7 +7502,7 @@ ${urls.map(u => `  <url>
   });
 
   // Email suppressions management (authenticated)
-  app.get("/api/organizations/:organizationId/email-suppressions", isAuthenticated, async (req: any, res) => {
+  app.get("/api/organizations/:organizationId/email-suppressions", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { organizationId } = req.params;
@@ -7398,7 +7521,7 @@ ${urls.map(u => `  <url>
     }
   });
 
-  app.delete("/api/organizations/:organizationId/email-suppressions/:email", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/organizations/:organizationId/email-suppressions/:email", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { organizationId, email } = req.params;
@@ -7418,7 +7541,7 @@ ${urls.map(u => `  <url>
   });
 
   // Attendee email messages endpoint
-  app.get("/api/organizations/:organizationId/attendees/:attendeeId/email-messages", isAuthenticated, async (req: any, res) => {
+  app.get("/api/organizations/:organizationId/attendees/:attendeeId/email-messages", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { organizationId, attendeeId } = req.params;
@@ -7456,7 +7579,7 @@ ${urls.map(u => `  <url>
   });
 
   // Send email to a specific attendee using a template
-  app.post("/api/organizations/:organizationId/attendees/:attendeeId/send-email", isAuthenticated, async (req: any, res) => {
+  app.post("/api/organizations/:organizationId/attendees/:attendeeId/send-email", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { organizationId, attendeeId } = req.params;
