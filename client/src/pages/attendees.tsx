@@ -153,6 +153,7 @@ export default function Attendees() {
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [eventFilter, setEventFilter] = useState<string>("all");
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
 
   const { data: attendees = [], isLoading } = useQuery<Attendee[]>({
@@ -395,10 +396,11 @@ export default function Attendees() {
   const clearFilters = () => {
     setStatusFilter("all");
     setTypeFilter("all");
+    setEventFilter("all");
     setSearchQuery("");
   };
 
-  const hasActiveFilters = statusFilter !== "all" || typeFilter !== "all" || searchQuery !== "";
+  const hasActiveFilters = statusFilter !== "all" || typeFilter !== "all" || eventFilter !== "all" || searchQuery !== "";
 
   const processedAttendees = useMemo(() => {
     let result = [...attendees];
@@ -422,6 +424,11 @@ export default function Attendees() {
     // Apply type filter
     if (typeFilter !== "all") {
       result = result.filter((attendee) => attendee.attendeeType === typeFilter);
+    }
+
+    // Apply event filter
+    if (eventFilter !== "all") {
+      result = result.filter((attendee) => attendee.eventId === eventFilter);
     }
 
     // Apply sorting
@@ -461,7 +468,7 @@ export default function Attendees() {
     }
 
     return result;
-  }, [attendees, searchQuery, statusFilter, typeFilter, sortConfig, eventLookup]);
+  }, [attendees, searchQuery, statusFilter, typeFilter, eventFilter, sortConfig, eventLookup]);
 
   const getSortIcon = (columnKey: string) => {
     if (sortConfig?.key !== columnKey) {
@@ -901,6 +908,21 @@ export default function Attendees() {
                 data-testid="input-search"
               />
             </div>
+            
+            {/* Event Filter */}
+            <Select value={eventFilter} onValueChange={setEventFilter}>
+              <SelectTrigger className="w-[180px]" data-testid="select-filter-event">
+                <SelectValue placeholder="Filter by event" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Events</SelectItem>
+                {events.map((event) => (
+                  <SelectItem key={event.id} value={event.id}>
+                    {event.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             
             {/* Status Filter */}
             <Select value={statusFilter} onValueChange={setStatusFilter}>
