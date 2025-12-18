@@ -636,7 +636,7 @@ export async function sendSubmissionAcceptanceEmail(params: {
   }
 
   const baseUrl = getBaseUrl();
-  const registrationUrl = `${baseUrl}/register/${eventSlug}?attendeeType=speaker`;
+  const registrationUrl = `${baseUrl}/event/${eventSlug}/register?attendeeType=speaker`;
 
   try {
     const { data, error } = await resend.emails.send({
