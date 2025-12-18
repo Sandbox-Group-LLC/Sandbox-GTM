@@ -1364,6 +1364,30 @@ export async function registerRoutes(
         }
       }
       
+      // If attendee type is "Speaker" (case-insensitive), create speaker record
+      const isSpeakerType = attendeeType && attendeeType.toLowerCase() === 'speaker';
+      if (isSpeakerType && attendeeData.eventId) {
+        try {
+          let speaker = await storage.getSpeakerByEmail(organizationId, attendeeData.eventId, attendee.email);
+          if (!speaker) {
+            speaker = await storage.createSpeaker({
+              organizationId,
+              eventId: attendeeData.eventId,
+              firstName: attendee.firstName,
+              lastName: attendee.lastName,
+              email: attendee.email,
+              phone: attendee.phone || undefined,
+              company: attendee.company || undefined,
+              jobTitle: attendee.jobTitle || undefined,
+              speakerRole: 'speaker',
+            });
+            logInfo(`Created speaker ${speaker.id} for attendee with speaker type`);
+          }
+        } catch (e) {
+          logError("Failed to create speaker from attendee:", e);
+        }
+      }
+      
       res.status(201).json(attendee);
     } catch (error) {
       logError("Error creating attendee:", error);
@@ -1450,7 +1474,31 @@ export async function registerRoutes(
           };
           
           const parsed = insertAttendeeSchema.parse(attendeeData);
-          await storage.createAttendee(parsed);
+          const createdAttendee = await storage.createAttendee(parsed);
+          
+          // If attendee type is "Speaker" (case-insensitive), create speaker record
+          const isSpeakerType = attendeeData.attendeeType && attendeeData.attendeeType.toLowerCase() === 'speaker';
+          if (isSpeakerType) {
+            try {
+              let speaker = await storage.getSpeakerByEmail(organizationId, eventId, createdAttendee.email);
+              if (!speaker) {
+                await storage.createSpeaker({
+                  organizationId,
+                  eventId,
+                  firstName: createdAttendee.firstName,
+                  lastName: createdAttendee.lastName,
+                  email: createdAttendee.email,
+                  phone: createdAttendee.phone || undefined,
+                  company: createdAttendee.company || undefined,
+                  jobTitle: createdAttendee.jobTitle || undefined,
+                  speakerRole: 'speaker',
+                });
+              }
+            } catch (speakerError) {
+              logError("Failed to create speaker from bulk import:", speakerError);
+            }
+          }
+          
           success++;
         } catch (error: any) {
           failed++;
@@ -3671,6 +3719,33 @@ ${urls.map(u => `  <url>
           } catch (e) {
             logError("Failed to create speaker from CFP submission:", e);
           }
+        }
+      }
+      
+      // If attendee type is "Speaker" (case-insensitive), ensure they appear on the Speakers page
+      const isSpeakerType = attendeeType && attendeeType.toLowerCase() === 'speaker';
+      if (isSpeakerType) {
+        try {
+          // Check if speaker already exists for this email
+          let speaker = await storage.getSpeakerByEmail(event.organizationId, event.id, attendee.email);
+          
+          if (!speaker) {
+            // Create a new speaker record
+            speaker = await storage.createSpeaker({
+              organizationId: event.organizationId,
+              eventId: event.id,
+              firstName: attendee.firstName,
+              lastName: attendee.lastName,
+              email: attendee.email,
+              phone: attendee.phone || undefined,
+              company: attendee.company || undefined,
+              jobTitle: attendee.jobTitle || undefined,
+              speakerRole: 'speaker',
+            });
+            logInfo(`Created speaker ${speaker.id} for attendee with speaker type`);
+          }
+        } catch (e) {
+          logError("Failed to create speaker from attendee registration:", e);
         }
       }
       
