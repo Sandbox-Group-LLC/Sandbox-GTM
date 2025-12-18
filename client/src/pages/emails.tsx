@@ -65,6 +65,7 @@ const emailFormSchema = z.object({
   recipientType: z.string().default("all"),
   status: z.string().default("draft"),
   scheduledAt: z.string().optional(),
+  isInviteEmail: z.boolean().default(false),
   styles: emailStylesSchema,
 });
 
@@ -175,6 +176,7 @@ export default function Emails() {
       recipientType: "all",
       status: "draft",
       scheduledAt: "",
+      isInviteEmail: false,
       styles: {},
     },
   });
@@ -346,6 +348,7 @@ export default function Emails() {
       recipientType: email.recipientType || "all",
       status: email.status || "draft",
       scheduledAt: email.scheduledAt ? new Date(email.scheduledAt).toISOString().slice(0, 16) : "",
+      isInviteEmail: email.isInviteEmail || false,
       styles: email.styles || {},
     });
     setIsCampaignDialogOpen(true);
@@ -373,6 +376,7 @@ export default function Emails() {
       recipientType: "all",
       status: "draft",
       scheduledAt: "",
+      isInviteEmail: template.isInviteEmail || false,
       styles: template.styles || {},
     });
     setActiveTab("campaigns");
@@ -674,6 +678,27 @@ export default function Emails() {
                             <Input type="datetime-local" {...field} data-testid="input-scheduled" />
                           </FormControl>
                           <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={campaignForm.control}
+                      name="isInviteEmail"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                          <div className="space-y-0.5">
+                            <FormLabel>Invite Email</FormLabel>
+                            <p className="text-sm text-muted-foreground">
+                              When sent, this email will automatically update attendee status to "Invited"
+                            </p>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              data-testid="switch-campaign-invite-email"
+                            />
+                          </FormControl>
                         </FormItem>
                       )}
                     />

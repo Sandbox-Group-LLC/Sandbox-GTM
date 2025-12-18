@@ -2725,6 +2725,23 @@ export async function registerRoutes(
         sentAt: new Date(),
       });
 
+      // If this is an invite email campaign, update attendee statuses to "invited" (only for successful sends)
+      if (campaign.isInviteEmail && result.totalSent > 0) {
+        // Get set of failed emails to skip them
+        const failedEmails = new Set(result.errors.map(e => e.email));
+        for (const attendee of attendees) {
+          // Only update status if email was successfully sent (not in failed list and not suppressed)
+          if (!failedEmails.has(attendee.email)) {
+            const suppression = await storage.getEmailSuppression(organizationId, attendee.email);
+            if (!suppression) {
+              await storage.updateAttendee(organizationId, attendee.id, {
+                registrationStatus: "invited",
+              });
+            }
+          }
+        }
+      }
+
       res.json({
         message: `Campaign sent successfully`,
         totalSent: result.totalSent,
@@ -6517,6 +6534,19 @@ ${urls.map(u => `  <url>
         });
       }
 
+      if (result.totalSkipped > 0) {
+        return res.status(400).json({ 
+          message: "Email was skipped (recipient may be on suppression list)" 
+        });
+      }
+
+      // If this is an invite email template, update attendee status to "invited" (only if actually sent)
+      if (template.isInviteEmail && result.totalSent > 0) {
+        await storage.updateAttendee(organizationId, attendeeId, {
+          registrationStatus: "invited",
+        });
+      }
+
       res.json({ 
         success: true, 
         message: "Email sent successfully",
@@ -6613,6 +6643,23 @@ ${urls.map(u => `  <url>
               status: "sent",
               sentAt: new Date(),
             });
+
+            // If this is an invite email campaign, update attendee statuses to "invited" (only for successful sends)
+            if (campaign.isInviteEmail && result.totalSent > 0) {
+              // Get set of failed emails to skip them
+              const failedEmails = new Set(result.errors.map(e => e.email));
+              for (const attendee of attendees) {
+                // Only update status if email was successfully sent (not in failed list and not suppressed)
+                if (!failedEmails.has(attendee.email)) {
+                  const suppression = await storage.getEmailSuppression(org.id, attendee.email);
+                  if (!suppression) {
+                    await storage.updateAttendee(org.id, attendee.id, {
+                      registrationStatus: "invited",
+                    });
+                  }
+                }
+              }
+            }
 
             logInfo(`Scheduled campaign ${campaign.id} sent: ${result.totalSent} emails, ${result.totalFailed} failed`);
           } catch (campaignError) {
