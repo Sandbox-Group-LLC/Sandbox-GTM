@@ -175,7 +175,7 @@ export default function Landing() {
 
         <section className="py-20 px-6">
           <div className="container mx-auto max-w-3xl text-center">
-            <h2 className="text-2xl font-semibold mb-4">
+            <h2 className="text-2xl font-semibold mb-4 text-[#ffffff]">
               Ready to Transform Your Event Planning?
             </h2>
             <p className="text-muted-foreground mb-8">
