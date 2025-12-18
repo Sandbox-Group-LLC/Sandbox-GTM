@@ -627,8 +627,9 @@ export async function sendSubmissionAcceptanceEmail(params: {
   submissionTitle: string;
   eventName: string;
   eventSlug: string;
+  inviteCode?: string;
 }): Promise<{ success: boolean; error?: string }> {
-  const { authorEmail, authorName, submissionTitle, eventName, eventSlug } = params;
+  const { authorEmail, authorName, submissionTitle, eventName, eventSlug, inviteCode } = params;
   
   if (!resend) {
     logWarn('Resend not configured - skipping acceptance notification email', 'Email');
@@ -636,7 +637,9 @@ export async function sendSubmissionAcceptanceEmail(params: {
   }
 
   const baseUrl = getBaseUrl();
-  const registrationUrl = `${baseUrl}/event/${eventSlug}/register?attendeeType=speaker`;
+  const registrationUrl = inviteCode 
+    ? `${baseUrl}/event/${eventSlug}/register?attendeeType=speaker&code=${encodeURIComponent(inviteCode)}`
+    : `${baseUrl}/event/${eventSlug}/register?attendeeType=speaker`;
 
   try {
     const { data, error } = await resend.emails.send({

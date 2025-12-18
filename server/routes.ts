@@ -3432,7 +3432,27 @@ ${urls.map(u => `  <url>
         }
       }
       
-      // Return invite code info with discount details
+      // Get submission data if this is a speaker invite code
+      let submissionData = null;
+      if (inviteCode.cfpSubmissionId) {
+        const submission = await storage.getCfpSubmission(inviteCode.cfpSubmissionId, event.organizationId);
+        if (submission) {
+          // Parse name into first and last name
+          const nameParts = submission.authorName.trim().split(/\s+/);
+          const firstName = nameParts[0] || '';
+          const lastName = nameParts.slice(1).join(' ') || '';
+          
+          submissionData = {
+            firstName,
+            lastName,
+            email: submission.authorEmail,
+            company: submission.authorAffiliation || '',
+            submissionTitle: submission.title,
+          };
+        }
+      }
+      
+      // Return invite code info with discount details and submission data
       res.json({
         valid: true,
         inviteCode: {
@@ -3443,8 +3463,10 @@ ${urls.map(u => `  <url>
           packageId: inviteCode.packageId,
           attendeeTypeId: inviteCode.attendeeTypeId,
           forcePackage: inviteCode.forcePackage ?? false,
+          cfpSubmissionId: inviteCode.cfpSubmissionId,
         },
         unlockedPackage,
+        submissionData,
       });
     } catch (error) {
       logError("Error validating invite code:", error);
@@ -5231,12 +5253,29 @@ ${urls.map(u => `  <url>
         try {
           const event = await storage.getEvent(organizationId, eventId);
           if (event && updated.authorEmail) {
+            // Check if invite code already exists for this submission
+            let existingCode = await storage.getInviteCodeBySubmission(organizationId, eventId, submissionId);
+            
+            // Create a unique invite code for the speaker if one doesn't exist
+            if (!existingCode) {
+              const uniqueCode = `SPEAKER-${submissionId}-${randomBytes(4).toString('hex').toUpperCase()}`;
+              existingCode = await storage.createInviteCode({
+                organizationId,
+                eventId,
+                code: uniqueCode,
+                quantity: 1,
+                cfpSubmissionId: submissionId,
+                isActive: true,
+              });
+            }
+            
             await sendSubmissionAcceptanceEmail({
               authorEmail: updated.authorEmail,
               authorName: updated.authorName,
               submissionTitle: updated.title,
               eventName: event.name,
               eventSlug: event.publicSlug || event.id,
+              inviteCode: existingCode.code,
             });
           }
         } catch (emailError) {
@@ -5281,12 +5320,29 @@ ${urls.map(u => `  <url>
         return res.status(400).json({ message: "Submission has no author email" });
       }
       
+      // Check if invite code already exists for this submission
+      let existingCode = await storage.getInviteCodeBySubmission(organizationId, eventId, submissionId);
+      
+      // Create a unique invite code for the speaker if one doesn't exist
+      if (!existingCode) {
+        const uniqueCode = `SPEAKER-${submissionId}-${randomBytes(4).toString('hex').toUpperCase()}`;
+        existingCode = await storage.createInviteCode({
+          organizationId,
+          eventId,
+          code: uniqueCode,
+          quantity: 1,
+          cfpSubmissionId: submissionId,
+          isActive: true,
+        });
+      }
+      
       const result = await sendSubmissionAcceptanceEmail({
         authorEmail: submission.authorEmail,
         authorName: submission.authorName,
         submissionTitle: submission.title,
         eventName: event.name,
         eventSlug: event.publicSlug || event.id,
+        inviteCode: existingCode.code,
       });
       
       if (!result.success) {

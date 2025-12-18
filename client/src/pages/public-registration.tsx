@@ -48,6 +48,15 @@ interface ValidatedInviteCode {
   packageId: string | null;
   attendeeTypeId: string | null;
   forcePackage: boolean | null;
+  cfpSubmissionId: number | null;
+}
+
+interface SubmissionData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  company: string;
+  submissionTitle: string;
 }
 
 interface PaymentConfig {
@@ -437,12 +446,17 @@ export default function PublicRegistration() {
   const [finalPrice, setFinalPrice] = useState<number>(0);
   const [isCreatingPaymentIntent, setIsCreatingPaymentIntent] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [urlCodeAttempted, setUrlCodeAttempted] = useState<string | null>(null);
 
-  // Parse attendeeType from URL query parameter (e.g., ?attendeeType=speaker)
+  // Parse URL query parameters (e.g., ?attendeeType=speaker&code=SPEAKER-123-ABCD)
   const search = useSearch();
   const attendeeTypeFromUrl = useMemo(() => {
     const params = new URLSearchParams(search);
     return params.get("attendeeType");
+  }, [search]);
+  const inviteCodeFromUrl = useMemo(() => {
+    const params = new URLSearchParams(search);
+    return params.get("code");
   }, [search]);
 
   const { data, isLoading, error } = useQuery<PublicRegistrationData>({
@@ -519,31 +533,51 @@ export default function PublicRegistration() {
     return paymentConfig?.paymentEnabled && selectedPackagePrice > 0;
   }, [paymentConfig, selectedPackagePrice]);
 
-  const validateInviteCode = async () => {
-    if (!inviteCodeInput.trim()) return;
+  const validateInviteCode = async (codeToValidate?: string, silent?: boolean) => {
+    const code = codeToValidate || inviteCodeInput.trim();
+    if (!code) return;
     setIsValidatingCode(true);
     try {
       const res = await fetch(`/api/public/validate-invite-code/${slug}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: inviteCodeInput.trim() }),
+        body: JSON.stringify({ code }),
       });
       const result = await res.json();
       if (result.valid) {
         setValidatedCode(result.inviteCode);
         setUnlockedPackage(result.unlockedPackage);
-        form.setValue("inviteCode", inviteCodeInput.trim());
-        toast({ title: "Invite code applied!", description: result.unlockedPackage ? "Package unlocked" : "Code validated" });
+        setInviteCodeInput(code);
+        form.setValue("inviteCode", code);
+        
+        // Pre-populate form with submission data if available (speaker registration)
+        if (result.submissionData) {
+          const subData = result.submissionData as SubmissionData;
+          form.setValue("firstName", subData.firstName);
+          form.setValue("lastName", subData.lastName);
+          form.setValue("email", subData.email);
+          if (subData.company) {
+            form.setValue("company", subData.company);
+          }
+        }
+        
+        if (!silent) {
+          toast({ title: "Invite code applied!", description: result.unlockedPackage ? "Package unlocked" : "Code validated" });
+        }
         if (result.unlockedPackage && !selectedPackageId) {
           setSelectedPackageId(result.unlockedPackage.id);
         }
       } else {
-        toast({ title: "Invalid code", description: result.message || "Please check the code and try again", variant: "destructive" });
+        if (!silent) {
+          toast({ title: "Invalid code", description: result.message || "Please check the code and try again", variant: "destructive" });
+        }
         setValidatedCode(null);
         setUnlockedPackage(null);
       }
     } catch {
-      toast({ title: "Error", description: "Failed to validate code", variant: "destructive" });
+      if (!silent) {
+        toast({ title: "Error", description: "Failed to validate code", variant: "destructive" });
+      }
     } finally {
       setIsValidatingCode(false);
     }
@@ -590,6 +624,14 @@ export default function PublicRegistration() {
       customData: defaultCustomData,
     },
   });
+
+  // Auto-validate invite code from URL on page load (for speaker registration links)
+  useEffect(() => {
+    if (inviteCodeFromUrl && !validatedCode && !isValidatingCode && slug && urlCodeAttempted !== inviteCodeFromUrl) {
+      setUrlCodeAttempted(inviteCodeFromUrl);
+      validateInviteCode(inviteCodeFromUrl, true);
+    }
+  }, [inviteCodeFromUrl, slug, urlCodeAttempted, validatedCode, isValidatingCode]);
 
   const registerMutation = useMutation({
     mutationFn: async (formData: RegistrationFormData) => {
