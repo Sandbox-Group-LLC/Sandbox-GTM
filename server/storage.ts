@@ -708,6 +708,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteAttendee(organizationId: string, id: string): Promise<void> {
+    // First delete related email messages to avoid foreign key constraint violation
+    await db.delete(emailMessages).where(eq(emailMessages.attendeeId, id));
+    // Then delete the attendee
     await db.delete(attendees).where(and(eq(attendees.organizationId, organizationId), eq(attendees.id, id)));
   }
 
