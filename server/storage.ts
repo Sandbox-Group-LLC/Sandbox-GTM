@@ -889,6 +889,16 @@ export class DatabaseStorage implements IStorage {
     return speaker;
   }
 
+  async getSpeakerByEmail(organizationId: string, eventId: string, email: string): Promise<Speaker | undefined> {
+    const [speaker] = await db.select().from(speakers)
+      .where(and(
+        eq(speakers.organizationId, organizationId),
+        eq(speakers.eventId, eventId),
+        eq(speakers.email, email)
+      ));
+    return speaker;
+  }
+
   async createSpeaker(speaker: InsertSpeaker): Promise<Speaker> {
     const [newSpeaker] = await db.insert(speakers).values(speaker as typeof speakers.$inferInsert).returning();
     return newSpeaker;

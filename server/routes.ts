@@ -3617,6 +3617,61 @@ ${urls.map(u => `  <url>
         } catch (e) {
           logError("Failed to update invite code usage count:", e);
         }
+        
+        // If this invite code is linked to a CFP submission, create speaker and link to session
+        if (foundInviteCode.cfpSubmissionId) {
+          try {
+            const submission = await storage.getCfpSubmission(foundInviteCode.cfpSubmissionId, event.organizationId);
+            if (submission && submission.sessionId) {
+              // Check if speaker already exists for this email
+              let speaker = await storage.getSpeakerByEmail(event.organizationId, event.id, attendee.email);
+              
+              if (speaker) {
+                // Update existing speaker with latest info
+                speaker = await storage.updateSpeaker(event.organizationId, speaker.id, {
+                  firstName: attendee.firstName,
+                  lastName: attendee.lastName,
+                  phone: attendee.phone || undefined,
+                  company: attendee.company || undefined,
+                  jobTitle: attendee.jobTitle || undefined,
+                  bio: submission.bio || speaker.bio || undefined,
+                }) || speaker;
+                logInfo(`Updated existing speaker ${speaker.id} for CFP submission ${submission.id}`);
+              } else {
+                // Create a new speaker record
+                const speakerData = {
+                  organizationId: event.organizationId,
+                  eventId: event.id,
+                  firstName: attendee.firstName,
+                  lastName: attendee.lastName,
+                  email: attendee.email,
+                  phone: attendee.phone || undefined,
+                  company: attendee.company || undefined,
+                  jobTitle: attendee.jobTitle || undefined,
+                  bio: submission.bio || undefined,
+                  speakerRole: 'speaker',
+                };
+                speaker = await storage.createSpeaker(speakerData);
+                logInfo(`Created new speaker ${speaker.id} for CFP submission ${submission.id}`);
+              }
+              
+              // Check if speaker is already linked to this session
+              const existingLinks = await storage.getSessionSpeakersBySession(event.organizationId, submission.sessionId);
+              const alreadyLinked = existingLinks.some(link => link.speakerId === speaker!.id);
+              
+              if (!alreadyLinked) {
+                // Link the speaker to the session
+                await storage.createSessionSpeaker({
+                  sessionId: submission.sessionId,
+                  speakerId: speaker.id,
+                });
+                logInfo(`Linked speaker ${speaker.id} to session ${submission.sessionId}`);
+              }
+            }
+          } catch (e) {
+            logError("Failed to create speaker from CFP submission:", e);
+          }
+        }
       }
       
       res.status(201).json({ message: "Registration successful", attendee });
