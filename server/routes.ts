@@ -126,6 +126,87 @@ export async function registerRoutes(
     };
   }
 
+  // Helper to refresh Twitter access token if expired
+  async function refreshTwitterAccessToken(
+    connection: any, 
+    organizationId: string
+  ): Promise<{ accessToken: string; refreshed: boolean } | null> {
+    if (!connection.accessToken) return null;
+    
+    // Check if token is expired or about to expire (within 5 minutes)
+    const expiryThreshold = new Date(Date.now() + 5 * 60 * 1000);
+    if (!connection.tokenExpiresAt || new Date(connection.tokenExpiresAt) > expiryThreshold) {
+      // Token is still valid
+      try {
+        return { accessToken: decrypt(connection.accessToken), refreshed: false };
+      } catch (error) {
+        logError("Error decrypting Twitter access token:", error);
+        return null;
+      }
+    }
+    
+    // Token is expired, try to refresh
+    if (!connection.refreshToken) {
+      logWarn("Twitter token expired and no refresh token available");
+      return null;
+    }
+    
+    const credentials = await storage.getSocialMediaCredentials(organizationId);
+    const twitterCred = credentials.find(c => c.provider === 'twitter');
+    
+    if (!twitterCred || !twitterCred.clientId || !twitterCred.clientSecret) {
+      logError("Twitter credentials not found for token refresh");
+      return null;
+    }
+    
+    let clientId: string, clientSecret: string, refreshToken: string;
+    try {
+      clientId = decrypt(twitterCred.clientId);
+      clientSecret = decrypt(twitterCred.clientSecret);
+      refreshToken = decrypt(connection.refreshToken);
+    } catch (error) {
+      logError("Error decrypting credentials for token refresh:", error);
+      return null;
+    }
+    
+    const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+    
+    const refreshResponse = await fetch('https://api.twitter.com/2/oauth2/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Basic ${basicAuth}`,
+      },
+      body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+      }).toString(),
+    });
+    
+    if (!refreshResponse.ok) {
+      const errorData = await refreshResponse.text();
+      logError("Twitter token refresh failed:", errorData);
+      return null;
+    }
+    
+    const tokenData = await refreshResponse.json() as {
+      access_token: string;
+      expires_in: number;
+      refresh_token?: string;
+    };
+    
+    // Update the connection with new tokens
+    const newTokenExpiresAt = new Date(Date.now() + tokenData.expires_in * 1000);
+    await storage.updateSocialConnection(connection.id, {
+      accessToken: encrypt(tokenData.access_token),
+      refreshToken: tokenData.refresh_token ? encrypt(tokenData.refresh_token) : connection.refreshToken,
+      tokenExpiresAt: newTokenExpiresAt,
+    });
+    
+    logInfo(`Twitter token refreshed for connection ${connection.id}`);
+    return { accessToken: tokenData.access_token, refreshed: true };
+  }
+
   app.get('/api/auth/organization', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -2730,19 +2811,14 @@ export async function registerRoutes(
           });
         }
         
-        if (connection.tokenExpiresAt && new Date(connection.tokenExpiresAt) < new Date()) {
+        // Use helper to get access token (refreshes if expired)
+        const tokenResult = await refreshTwitterAccessToken(connection, organizationId);
+        if (!tokenResult) {
           return res.status(400).json({ 
             message: "Twitter access token has expired. Please reconnect your Twitter account." 
           });
         }
-        
-        let accessToken: string;
-        try {
-          accessToken = decrypt(connection.accessToken);
-        } catch (error) {
-          logError("Error decrypting Twitter access token:", error);
-          return res.status(500).json({ message: "Failed to decrypt access token" });
-        }
+        const accessToken = tokenResult.accessToken;
         
         // Post tweet using Twitter API v2
         const tweetResponse = await fetch('https://api.twitter.com/2/tweets', {
@@ -2922,19 +2998,14 @@ export async function registerRoutes(
           });
         }
         
-        if (connection.tokenExpiresAt && new Date(connection.tokenExpiresAt) < new Date()) {
+        // Use helper to get access token (refreshes if expired)
+        const tokenResult = await refreshTwitterAccessToken(connection, organizationId);
+        if (!tokenResult) {
           return res.status(400).json({ 
             message: "Twitter access token has expired. Please reconnect your Twitter account." 
           });
         }
-        
-        let accessToken: string;
-        try {
-          accessToken = decrypt(connection.accessToken);
-        } catch (error) {
-          logError("Error decrypting Twitter access token:", error);
-          return res.status(500).json({ message: "Failed to decrypt access token" });
-        }
+        const accessToken = tokenResult.accessToken;
         
         const content = req.body.content || existingPost.content;
         
