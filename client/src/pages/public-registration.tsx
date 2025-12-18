@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useParams, Link } from "wouter";
+import { useParams, Link, useSearch } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -438,6 +438,13 @@ export default function PublicRegistration() {
   const [isCreatingPaymentIntent, setIsCreatingPaymentIntent] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
+  // Parse attendeeType from URL query parameter (e.g., ?attendeeType=speaker)
+  const search = useSearch();
+  const attendeeTypeFromUrl = useMemo(() => {
+    const params = new URLSearchParams(search);
+    return params.get("attendeeType");
+  }, [search]);
+
   const { data, isLoading, error } = useQuery<PublicRegistrationData>({
     queryKey: ["/api/public/event", slug, "registration"],
     queryFn: async () => {
@@ -591,6 +598,7 @@ export default function PublicRegistration() {
         packageId: selectedPackageId,
         inviteCodeId: validatedCode?.id || undefined,
         paymentIntentId: paymentIntentId || undefined,
+        attendeeType: attendeeTypeFromUrl || undefined,
       });
       return res.json();
     },
