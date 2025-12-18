@@ -5887,6 +5887,66 @@ ${urls.map(u => `  <url>
     }
   });
 
+  // Public housing/booking link endpoint (for post-registration flow)
+  // Requires checkInCode as a secret to verify the request is from the attendee
+  app.get("/api/public/event/:slug/housing/:attendeeId", async (req, res) => {
+    try {
+      const { slug, attendeeId } = req.params;
+      const { code } = req.query;
+      
+      // Require checkInCode for authentication
+      if (!code || typeof code !== 'string') {
+        return res.status(400).json({ message: "Check-in code is required" });
+      }
+      
+      const event = await storage.getEventBySlug(slug);
+      if (!event || (!event.isPublic && event.status !== 'published')) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      // Get the attendee and verify they belong to this event
+      const attendee = await storage.getAttendee(event.organizationId, attendeeId);
+      if (!attendee || attendee.eventId !== event.id) {
+        return res.status(404).json({ message: "Attendee not found" });
+      }
+      
+      // Verify the checkInCode matches (security check)
+      if (attendee.checkInCode !== code) {
+        return res.status(403).json({ message: "Invalid check-in code" });
+      }
+      
+      // Check if housing is enabled for this event
+      const mapping = await storage.getPasskeyEventMapping(event.organizationId, event.id);
+      if (!mapping || !mapping.isEnabled) {
+        return res.json({ housingEnabled: false });
+      }
+      
+      // Build the booking URL with attendee information if regLinkUrl is configured
+      let bookingUrl = null;
+      if (mapping.regLinkUrl) {
+        const url = new URL(mapping.regLinkUrl);
+        url.searchParams.set('firstName', attendee.firstName);
+        url.searchParams.set('lastName', attendee.lastName);
+        if (attendee.email) {
+          url.searchParams.set('email', attendee.email);
+        }
+        if (attendee.phone) {
+          url.searchParams.set('phone', attendee.phone);
+        }
+        bookingUrl = url.toString();
+      }
+      
+      res.json({
+        housingEnabled: true,
+        bookingUrl,
+        passkeyEventName: mapping.passkeyEventName,
+      });
+    } catch (error) {
+      logError("Error fetching housing info:", error);
+      res.status(500).json({ message: "Failed to fetch housing information" });
+    }
+  });
+
   // Object Storage routes
   const objectStorageService = new ObjectStorageService();
 

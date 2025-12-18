@@ -32,7 +32,7 @@ import {
   FormMessage,
   FormDescription,
 } from "@/components/ui/form";
-import { Calendar, MapPin, CheckCircle, AlertCircle, ArrowLeft, ArrowRight, Tag, Check, Loader2, CreditCard } from "lucide-react";
+import { Calendar, MapPin, CheckCircle, AlertCircle, ArrowLeft, ArrowRight, Tag, Check, Loader2, CreditCard, Hotel, ExternalLink } from "lucide-react";
 import type { Event, Attendee, EventPage, EventPageTheme, CustomField, Package } from "@shared/schema";
 
 interface PackageWithEffectivePrice extends Package {
@@ -69,6 +69,12 @@ interface PaymentIntentResponse {
   clientSecret?: string;
   paymentIntentId?: string;
   finalPrice?: number;
+}
+
+interface HousingInfo {
+  housingEnabled: boolean;
+  bookingUrl?: string | null;
+  passkeyEventName?: string | null;
 }
 
 const calculateDiscount = (price: number, discountType: string | null, discountValue: string | null): number => {
@@ -505,6 +511,17 @@ export default function PublicRegistration() {
     enabled: !!slug,
   });
 
+  // Fetch housing info after registration is complete (requires checkInCode for security)
+  const { data: housingInfo } = useQuery<HousingInfo>({
+    queryKey: ["/api/public/event", slug, "housing", registeredAttendee?.id, registeredAttendee?.checkInCode],
+    queryFn: async () => {
+      const res = await fetch(`/api/public/event/${slug}/housing/${registeredAttendee!.id}?code=${encodeURIComponent(registeredAttendee!.checkInCode || '')}`);
+      if (!res.ok) return { housingEnabled: false };
+      return res.json();
+    },
+    enabled: !!slug && !!registeredAttendee?.id && !!registeredAttendee?.checkInCode && registrationComplete,
+  });
+
   const availablePackages = useMemo(() => {
     if (unlockedPackage && validatedCode?.forcePackage) {
       return [unlockedPackage];
@@ -792,6 +809,36 @@ export default function PublicRegistration() {
               <p><strong>Email:</strong> {registeredAttendee.email}</p>
               {registeredAttendee.company && <p><strong>Company:</strong> {registeredAttendee.company}</p>}
             </div>
+
+            {housingInfo?.housingEnabled && (
+              <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <Hotel className="w-5 h-5 text-blue-600" />
+                  <h3 className="font-medium text-blue-900 dark:text-blue-100">Hotel Accommodations</h3>
+                </div>
+                <p className="text-sm text-blue-800 dark:text-blue-200 mb-3">
+                  Book your hotel room through our official room block for special event rates.
+                </p>
+                {housingInfo.bookingUrl ? (
+                  <Button 
+                    size="sm" 
+                    className="w-full"
+                    asChild
+                    data-testid="button-book-hotel"
+                  >
+                    <a href={housingInfo.bookingUrl} target="_blank" rel="noopener noreferrer">
+                      <Hotel className="w-4 h-4 mr-2" />
+                      Book Your Hotel Room
+                      <ExternalLink className="w-3 h-3 ml-2" />
+                    </a>
+                  </Button>
+                ) : (
+                  <p className="text-xs text-blue-700 dark:text-blue-300">
+                    Hotel booking will be available soon. Check back in the attendee portal.
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className="flex flex-col gap-2">
               <Button asChild>
