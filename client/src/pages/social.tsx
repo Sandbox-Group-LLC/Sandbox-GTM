@@ -244,6 +244,9 @@ export default function Social() {
     if (platform === "linkedin") {
       // Open in new tab to avoid Replit webview blocking external redirects
       window.open("/api/social/linkedin/authorize", "_blank");
+    } else if (platform === "twitter") {
+      // Twitter also uses OAuth 2.0 PKCE flow
+      window.open("/api/social/twitter/authorize", "_blank");
     } else {
       connectMutation.mutate(platform);
     }

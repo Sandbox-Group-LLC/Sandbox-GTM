@@ -2912,6 +2912,67 @@ export async function registerRoutes(
         }
         const post = await storage.updateSocialPost(organizationId, req.params.id, updateData);
         res.json({ ...post, linkedinShareUrn: shareUrn });
+      } else if (status === 'published' && existingPost.status !== 'published' && existingPost.platform === 'twitter') {
+        // Twitter publishing from draft
+        const connection = await storage.getSocialConnectionByPlatform(userId, 'twitter');
+        
+        if (!connection || !connection.accessToken || !connection.isActive) {
+          return res.status(400).json({ 
+            message: "Twitter account not connected. Please connect your Twitter account first by clicking 'Connect Account' on the Social Media page." 
+          });
+        }
+        
+        if (connection.tokenExpiresAt && new Date(connection.tokenExpiresAt) < new Date()) {
+          return res.status(400).json({ 
+            message: "Twitter access token has expired. Please reconnect your Twitter account." 
+          });
+        }
+        
+        let accessToken: string;
+        try {
+          accessToken = decrypt(connection.accessToken);
+        } catch (error) {
+          logError("Error decrypting Twitter access token:", error);
+          return res.status(500).json({ message: "Failed to decrypt access token" });
+        }
+        
+        const content = req.body.content || existingPost.content;
+        
+        // Post tweet using Twitter API v2
+        const tweetResponse = await fetch('https://api.twitter.com/2/tweets', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ text: content }),
+        });
+        
+        if (!tweetResponse.ok) {
+          const errorData = await tweetResponse.text();
+          let errorMessage = 'Failed to post to Twitter';
+          try {
+            const errorJson = JSON.parse(errorData);
+            errorMessage = errorJson.detail || errorJson.title || errorJson.message || errorMessage;
+          } catch {
+            errorMessage = errorData || errorMessage;
+          }
+          logError("Twitter post failed:", errorData);
+          return res.status(tweetResponse.status).json({ 
+            message: `Twitter posting failed: ${errorMessage}` 
+          });
+        }
+        
+        const tweetData = await tweetResponse.json() as { data?: { id?: string } };
+        const tweetId = tweetData.data?.id;
+        logInfo(`Twitter post created successfully via PATCH: ${tweetId}`);
+        
+        const updateData: Record<string, any> = { ...req.body, status: 'published' };
+        if (connection.id) {
+          updateData.connectionId = connection.id;
+        }
+        const post = await storage.updateSocialPost(organizationId, req.params.id, updateData);
+        res.json({ ...post, tweetId });
       } else {
         // For non-publish updates, only include connectionId if explicitly provided
         const updateData = { ...req.body };
