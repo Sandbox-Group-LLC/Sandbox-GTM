@@ -72,6 +72,7 @@ import {
   PlusCircle,
   Copy,
   ExternalLink,
+  Mail,
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Event, CfpConfig, CfpTopic, CfpSubmission, CfpReviewer, CfpReview } from "@shared/schema";
@@ -448,6 +449,23 @@ export default function CallForPapers() {
       toast({ title: "Session created from submission" });
       setCreateSessionDialogOpen(false);
       setSelectedSubmission(null);
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({ title: "Unauthorized", description: "Please log in again", variant: "destructive" });
+        setTimeout(() => { window.location.href = "/api/login"; }, 500);
+        return;
+      }
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const resendAcceptanceEmailMutation = useMutation({
+    mutationFn: async (submissionId: number) => {
+      return await apiRequest("POST", `/api/events/${selectedEventId}/cfp/submissions/${submissionId}/resend-acceptance`);
+    },
+    onSuccess: () => {
+      toast({ title: "Acceptance email sent", description: "The speaker has been notified" });
     },
     onError: (error: Error) => {
       if (isUnauthorizedError(error)) {
@@ -1258,24 +1276,36 @@ export default function CallForPapers() {
                                   Assign Reviewer
                                 </Button>
 
-                                {selectedSubmission.status === "accepted" && !selectedSubmission.sessionId && (
-                                  <Button
-                                    onClick={() => {
-                                      // Default to event start date if available
-                                      const defaultDate = selectedEvent?.startDate || new Date().toISOString().split('T')[0];
-                                      setSessionFormData({
-                                        sessionDate: defaultDate,
-                                        startTime: "09:00",
-                                        endTime: "10:00",
-                                      });
-                                      setCreateSessionDialogOpen(true);
-                                    }}
-                                    disabled={createSessionMutation.isPending}
-                                    data-testid="button-create-session"
-                                  >
-                                    <PlusCircle className="h-4 w-4 mr-2" />
-                                    Create Session
-                                  </Button>
+                                {selectedSubmission.status === "accepted" && (
+                                  <>
+                                    {!selectedSubmission.sessionId && (
+                                      <Button
+                                        onClick={() => {
+                                          const defaultDate = selectedEvent?.startDate || new Date().toISOString().split('T')[0];
+                                          setSessionFormData({
+                                            sessionDate: defaultDate,
+                                            startTime: "09:00",
+                                            endTime: "10:00",
+                                          });
+                                          setCreateSessionDialogOpen(true);
+                                        }}
+                                        disabled={createSessionMutation.isPending}
+                                        data-testid="button-create-session"
+                                      >
+                                        <PlusCircle className="h-4 w-4 mr-2" />
+                                        Create Session
+                                      </Button>
+                                    )}
+                                    <Button
+                                      variant="outline"
+                                      onClick={() => resendAcceptanceEmailMutation.mutate(selectedSubmission.id)}
+                                      disabled={resendAcceptanceEmailMutation.isPending}
+                                      data-testid="button-resend-acceptance-email"
+                                    >
+                                      <Mail className="h-4 w-4 mr-2" />
+                                      {resendAcceptanceEmailMutation.isPending ? "Sending..." : "Resend Acceptance Email"}
+                                    </Button>
+                                  </>
                                 )}
 
                                 {selectedSubmission.sessionId && (

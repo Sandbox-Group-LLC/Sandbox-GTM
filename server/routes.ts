@@ -5252,6 +5252,54 @@ ${urls.map(u => `  <url>
     }
   });
 
+  app.post("/api/events/:eventId/cfp/submissions/:submissionId/resend-acceptance", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const eventId = req.params.eventId;
+      const submissionId = parseInt(req.params.submissionId, 10);
+      
+      if (isNaN(submissionId)) {
+        return res.status(400).json({ message: "Invalid submission ID" });
+      }
+      
+      const submission = await storage.getCfpSubmission(submissionId, organizationId);
+      if (!submission) {
+        return res.status(404).json({ message: "Submission not found" });
+      }
+      
+      if (submission.status !== 'accepted') {
+        return res.status(400).json({ message: "Can only resend acceptance email for accepted submissions" });
+      }
+      
+      const event = await storage.getEvent(organizationId, eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      if (!submission.authorEmail) {
+        return res.status(400).json({ message: "Submission has no author email" });
+      }
+      
+      const result = await sendSubmissionAcceptanceEmail({
+        authorEmail: submission.authorEmail,
+        authorName: submission.authorName,
+        submissionTitle: submission.title,
+        eventName: event.name,
+        eventSlug: event.publicSlug || event.id,
+      });
+      
+      if (!result.success) {
+        return res.status(500).json({ message: result.error || "Failed to send email" });
+      }
+      
+      res.json({ message: "Acceptance email sent successfully" });
+    } catch (error) {
+      logError("Error resending acceptance email:", error);
+      res.status(500).json({ message: "Failed to resend acceptance email" });
+    }
+  });
+
   app.delete("/api/events/:eventId/cfp/submissions/:submissionId", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
