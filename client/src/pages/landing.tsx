@@ -82,11 +82,10 @@ export default function Landing() {
           </Button>
         </div>
       </header>
-
       <main>
         <section className="py-20 px-6">
           <div className="container mx-auto max-w-4xl text-center">
-            <h1 className="text-4xl md:text-5xl font-semibold tracking-tight mb-6">
+            <h1 className="text-4xl md:text-5xl font-semibold tracking-tight mb-6 text-[#ffffff]">
               Streamline Your Event Management
             </h1>
             <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
@@ -188,7 +187,6 @@ export default function Landing() {
           </div>
         </section>
       </main>
-
       <footer className="border-t border-border py-8 px-6">
         <div className="container mx-auto text-center text-sm text-muted-foreground">
           Sandbox - Event Management Made Simple
