@@ -188,7 +188,7 @@ export default function Landing() {
         </section>
       </main>
       <footer className="border-t border-border py-8 px-6">
-        <div className="container mx-auto text-center text-sm text-muted-foreground">
+        <div className="container mx-auto text-center text-sm text-[#b8b8b8]">
           Sandbox - Event Management Made Simple
           <span className="mx-2">|</span>
           <a href="/privacy-policy" className="hover:underline">Privacy Policy</a>
