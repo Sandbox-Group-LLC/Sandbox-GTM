@@ -135,6 +135,12 @@ export default function CallForPapers() {
   const [searchQuery, setSearchQuery] = useState("");
   const [assignReviewerDialogOpen, setAssignReviewerDialogOpen] = useState(false);
   const [selectedReviewerId, setSelectedReviewerId] = useState<string>("");
+  const [createSessionDialogOpen, setCreateSessionDialogOpen] = useState(false);
+  const [sessionFormData, setSessionFormData] = useState({
+    sessionDate: "",
+    startTime: "09:00",
+    endTime: "10:00",
+  });
 
   // Fetch submission details with reviews when a submission is selected
   const { data: submissionDetails } = useQuery<CfpSubmission & { reviews?: CfpReview[] }>({
@@ -433,13 +439,15 @@ export default function CallForPapers() {
   });
 
   const createSessionMutation = useMutation({
-    mutationFn: async (submissionId: number) => {
-      return await apiRequest("POST", `/api/events/${selectedEventId}/cfp/submissions/${submissionId}/create-session`, {});
+    mutationFn: async ({ submissionId, sessionData }: { submissionId: number; sessionData: typeof sessionFormData }) => {
+      return await apiRequest("POST", `/api/events/${selectedEventId}/cfp/submissions/${submissionId}/create-session`, sessionData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/events", selectedEventId, "cfp", "submissions"] });
       queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
       toast({ title: "Session created from submission" });
+      setCreateSessionDialogOpen(false);
+      setSelectedSubmission(null);
     },
     onError: (error: Error) => {
       if (isUnauthorizedError(error)) {
@@ -1252,7 +1260,16 @@ export default function CallForPapers() {
 
                                 {selectedSubmission.status === "accepted" && !selectedSubmission.sessionId && (
                                   <Button
-                                    onClick={() => createSessionMutation.mutate(selectedSubmission.id)}
+                                    onClick={() => {
+                                      // Default to event start date if available
+                                      const defaultDate = selectedEvent?.startDate || new Date().toISOString().split('T')[0];
+                                      setSessionFormData({
+                                        sessionDate: defaultDate,
+                                        startTime: "09:00",
+                                        endTime: "10:00",
+                                      });
+                                      setCreateSessionDialogOpen(true);
+                                    }}
                                     disabled={createSessionMutation.isPending}
                                     data-testid="button-create-session"
                                   >
@@ -1309,6 +1326,70 @@ export default function CallForPapers() {
                         data-testid="button-confirm-assign"
                       >
                         {assignReviewerMutation.isPending ? "Assigning..." : "Assign Reviewer"}
+                      </Button>
+                    </DialogFooter>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              <Dialog open={createSessionDialogOpen} onOpenChange={setCreateSessionDialogOpen}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Create Session</DialogTitle>
+                    <DialogDescription>
+                      Set the date and time for this session
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium block mb-2">Session Date *</label>
+                      <Input
+                        type="date"
+                        value={sessionFormData.sessionDate}
+                        onChange={(e) => setSessionFormData({ ...sessionFormData, sessionDate: e.target.value })}
+                        data-testid="input-session-date"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium block mb-2">Start Time *</label>
+                        <Input
+                          type="time"
+                          value={sessionFormData.startTime}
+                          onChange={(e) => setSessionFormData({ ...sessionFormData, startTime: e.target.value })}
+                          data-testid="input-start-time"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium block mb-2">End Time *</label>
+                        <Input
+                          type="time"
+                          value={sessionFormData.endTime}
+                          onChange={(e) => setSessionFormData({ ...sessionFormData, endTime: e.target.value })}
+                          data-testid="input-end-time"
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button
+                        variant="outline"
+                        onClick={() => setCreateSessionDialogOpen(false)}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          if (selectedSubmission && sessionFormData.sessionDate && sessionFormData.startTime && sessionFormData.endTime) {
+                            createSessionMutation.mutate({
+                              submissionId: selectedSubmission.id,
+                              sessionData: sessionFormData,
+                            });
+                          }
+                        }}
+                        disabled={!sessionFormData.sessionDate || !sessionFormData.startTime || !sessionFormData.endTime || createSessionMutation.isPending}
+                        data-testid="button-confirm-create-session"
+                      >
+                        {createSessionMutation.isPending ? "Creating..." : "Create Session"}
                       </Button>
                     </DialogFooter>
                   </div>
