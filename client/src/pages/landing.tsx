@@ -102,7 +102,7 @@ export default function Landing() {
             <h2 className="text-2xl font-semibold text-center mb-4 text-[#ffffff]">
               Everything You Need to Run Successful Events
             </h2>
-            <p className="text-muted-foreground text-center mb-12 max-w-2xl mx-auto">
+            <p className="text-center mb-12 max-w-2xl mx-auto text-[#b8b8b8]">
               A complete platform that handles every aspect of event management, from initial planning to day-of execution.
             </p>
             
