@@ -116,7 +116,7 @@ export default function Landing() {
                     <CardTitle className="text-lg">{pillar.title}</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <CardDescription className="text-sm leading-relaxed">{pillar.description}</CardDescription>
+                    <CardDescription className="text-sm leading-relaxed text-[#b8b8b8]">{pillar.description}</CardDescription>
                   </CardContent>
                 </Card>
               ))}
