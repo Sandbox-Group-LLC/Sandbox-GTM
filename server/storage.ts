@@ -197,6 +197,7 @@ export interface IStorage {
   getInviteCodes(organizationId: string, eventId?: string): Promise<InviteCode[]>;
   getInviteCode(organizationId: string, id: string): Promise<InviteCode | undefined>;
   getInviteCodeByCode(organizationId: string, eventId: string, code: string): Promise<InviteCode | undefined>;
+  getInviteCodeBySubmission(organizationId: string, eventId: string, submissionId: number): Promise<InviteCode | undefined>;
   createInviteCode(inviteCode: InsertInviteCode): Promise<InviteCode>;
   updateInviteCode(organizationId: string, id: string, inviteCode: Partial<InsertInviteCode>): Promise<InviteCode | undefined>;
   deleteInviteCode(organizationId: string, id: string): Promise<void>;
@@ -842,6 +843,16 @@ export class DatabaseStorage implements IStorage {
         eq(inviteCodes.organizationId, organizationId),
         eq(inviteCodes.eventId, eventId),
         eq(inviteCodes.code, code)
+      ));
+    return inviteCode;
+  }
+
+  async getInviteCodeBySubmission(organizationId: string, eventId: string, submissionId: number): Promise<InviteCode | undefined> {
+    const [inviteCode] = await db.select().from(inviteCodes)
+      .where(and(
+        eq(inviteCodes.organizationId, organizationId),
+        eq(inviteCodes.eventId, eventId),
+        eq(inviteCodes.cfpSubmissionId, submissionId)
       ));
     return inviteCode;
   }
