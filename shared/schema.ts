@@ -239,6 +239,7 @@ export const inviteCodes = pgTable("invite_codes", {
   discountValue: decimal("discount_value", { precision: 10, scale: 2 }),
   isActive: boolean("is_active").default(true),
   cfpSubmissionId: integer("cfp_submission_id"),
+  sponsorId: varchar("sponsor_id"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -466,7 +467,70 @@ export const eventSponsors = pgTable("event_sponsors", {
   description: text("description"),
   displayOrder: integer("display_order").default(0),
   isActive: boolean("is_active").default(true),
+  bio: text("bio"),
+  contactEmail: varchar("contact_email", { length: 255 }),
+  contactName: varchar("contact_name", { length: 255 }),
+  contactPhone: varchar("contact_phone", { length: 50 }),
+  socialLinks: jsonb("social_links").$type<{ linkedin?: string; twitter?: string; facebook?: string; instagram?: string }>(),
+  registrationSeats: integer("registration_seats").default(0),
+  seatsUsed: integer("seats_used").default(0),
+  baseInviteCodeId: varchar("base_invite_code_id"),
+  portalAccessToken: varchar("portal_access_token", { length: 255 }),
+  portalTokenExpiresAt: timestamp("portal_token_expires_at"),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Sponsor Contacts table (people from sponsor company with portal access)
+export const sponsorContacts = pgTable("sponsor_contacts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  sponsorId: varchar("sponsor_id").references(() => eventSponsors.id).notNull(),
+  firstName: varchar("first_name", { length: 100 }).notNull(),
+  lastName: varchar("last_name", { length: 100 }).notNull(),
+  email: varchar("email", { length: 255 }).notNull(),
+  jobTitle: varchar("job_title", { length: 255 }),
+  phone: varchar("phone", { length: 50 }),
+  isPrimary: boolean("is_primary").default(false),
+  portalAccessToken: varchar("portal_access_token", { length: 255 }),
+  portalTokenExpiresAt: timestamp("portal_token_expires_at"),
+  lastLoginAt: timestamp("last_login_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Sponsor Tasks table (tasks that organizers assign to sponsors)
+export const sponsorTasks = pgTable("sponsor_tasks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  taskType: varchar("task_type", { length: 50 }).notNull(),
+  requiredFields: jsonb("required_fields").$type<string[]>(),
+  isRequired: boolean("is_required").default(false),
+  dueDate: date("due_date"),
+  displayOrder: integer("display_order").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Sponsor Task Completions table (track task completion per sponsor)
+export const sponsorTaskCompletions = pgTable("sponsor_task_completions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  taskId: varchar("task_id").references(() => sponsorTasks.id).notNull(),
+  sponsorId: varchar("sponsor_id").references(() => eventSponsors.id).notNull(),
+  status: varchar("status", { length: 50 }).default("pending"),
+  submittedData: jsonb("submitted_data").$type<Record<string, unknown>>(),
+  completedAt: timestamp("completed_at"),
+  completedBy: varchar("completed_by"),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewedBy: varchar("reviewed_by"),
+  reviewNotes: text("review_notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Sessions table
@@ -915,9 +979,28 @@ export const speakersRelations = relations(speakers, ({ one, many }) => ({
   sessionSpeakers: many(sessionSpeakers),
 }));
 
-export const eventSponsorsRelations = relations(eventSponsors, ({ one }) => ({
+export const eventSponsorsRelations = relations(eventSponsors, ({ one, many }) => ({
   organization: one(organizations, { fields: [eventSponsors.organizationId], references: [organizations.id] }),
   event: one(events, { fields: [eventSponsors.eventId], references: [events.id] }),
+  contacts: many(sponsorContacts),
+  taskCompletions: many(sponsorTaskCompletions),
+}));
+
+export const sponsorContactsRelations = relations(sponsorContacts, ({ one }) => ({
+  organization: one(organizations, { fields: [sponsorContacts.organizationId], references: [organizations.id] }),
+  sponsor: one(eventSponsors, { fields: [sponsorContacts.sponsorId], references: [eventSponsors.id] }),
+}));
+
+export const sponsorTasksRelations = relations(sponsorTasks, ({ one, many }) => ({
+  organization: one(organizations, { fields: [sponsorTasks.organizationId], references: [organizations.id] }),
+  event: one(events, { fields: [sponsorTasks.eventId], references: [events.id] }),
+  completions: many(sponsorTaskCompletions),
+}));
+
+export const sponsorTaskCompletionsRelations = relations(sponsorTaskCompletions, ({ one }) => ({
+  organization: one(organizations, { fields: [sponsorTaskCompletions.organizationId], references: [organizations.id] }),
+  task: one(sponsorTasks, { fields: [sponsorTaskCompletions.taskId], references: [sponsorTasks.id] }),
+  sponsor: one(eventSponsors, { fields: [sponsorTaskCompletions.sponsorId], references: [eventSponsors.id] }),
 }));
 
 export const eventSessionsRelations = relations(eventSessions, ({ one, many }) => ({
@@ -1132,7 +1215,10 @@ export const insertPageVersionSchema = createInsertSchema(pageVersions).omit({ i
 export const insertRegistrationConfigSchema = createInsertSchema(registrationConfigs).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertCustomFieldSchema = createInsertSchema(customFields).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertContentAssetSchema = createInsertSchema(contentAssets).omit({ id: true, createdAt: true });
-export const insertEventSponsorSchema = createInsertSchema(eventSponsors).omit({ id: true, createdAt: true });
+export const insertEventSponsorSchema = createInsertSchema(eventSponsors).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertSponsorContactSchema = createInsertSchema(sponsorContacts).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertSponsorTaskSchema = createInsertSchema(sponsorTasks).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertSponsorTaskCompletionSchema = createInsertSchema(sponsorTaskCompletions).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertCfpConfigSchema = createInsertSchema(cfpConfigs).omit({ createdAt: true });
 export const insertCfpTopicSchema = createInsertSchema(cfpTopics);
 export const insertCfpSubmissionSchema = createInsertSchema(cfpSubmissions).omit({ submittedAt: true });
@@ -1214,6 +1300,12 @@ export type InsertContentAsset = z.infer<typeof insertContentAssetSchema>;
 export type ContentAsset = typeof contentAssets.$inferSelect;
 export type InsertEventSponsor = z.infer<typeof insertEventSponsorSchema>;
 export type EventSponsor = typeof eventSponsors.$inferSelect;
+export type InsertSponsorContact = z.infer<typeof insertSponsorContactSchema>;
+export type SponsorContact = typeof sponsorContacts.$inferSelect;
+export type InsertSponsorTask = z.infer<typeof insertSponsorTaskSchema>;
+export type SponsorTask = typeof sponsorTasks.$inferSelect;
+export type InsertSponsorTaskCompletion = z.infer<typeof insertSponsorTaskCompletionSchema>;
+export type SponsorTaskCompletion = typeof sponsorTaskCompletions.$inferSelect;
 export type InsertCfpConfig = z.infer<typeof insertCfpConfigSchema>;
 export type CfpConfig = typeof cfpConfigs.$inferSelect;
 export type InsertCfpTopic = z.infer<typeof insertCfpTopicSchema>;
