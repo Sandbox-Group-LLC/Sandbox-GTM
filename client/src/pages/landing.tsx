@@ -88,9 +88,7 @@ export default function Landing() {
             <h1 className="text-4xl md:text-5xl font-semibold tracking-tight mb-6 text-[#ffffff]">
               Streamline Your Event Management
             </h1>
-            <p className="text-lg mb-8 max-w-2xl mx-auto text-[#b8b8b8]">
-              A unified platform for managing events, registrations, speakers, content, and marketing—seamlessly integrating with leading tools to complete your GTM tech stack. Everything you need, in one place.
-            </p>
+            <p className="text-lg mb-8 max-w-2xl mx-auto text-[#b8b8b8]">A unified platform for managing events, registrations, speakers, sponsors, content, and marketing—seamlessly integrating with leading tools to complete your GTM tech stack. Everything you need, in one place.</p>
             <Button size="lg" asChild data-testid="button-get-started">
               <a href="/signup">Get Started</a>
             </Button>
