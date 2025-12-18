@@ -75,7 +75,7 @@ export default function Landing() {
         <div className="container mx-auto px-6 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <img src={logoImage} alt="Sandbox" className="h-6 w-6" />
-            <span className="font-semibold text-lg">Sandbox</span>
+            <span className="font-semibold text-lg text-[#ffffff]">Sandbox</span>
           </div>
           <Button asChild data-testid="button-login-header">
             <a href="/api/login">Sign In</a>
