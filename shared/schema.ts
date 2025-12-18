@@ -238,6 +238,7 @@ export const inviteCodes = pgTable("invite_codes", {
   discountType: varchar("discount_type", { length: 20 }),
   discountValue: decimal("discount_value", { precision: 10, scale: 2 }),
   isActive: boolean("is_active").default(true),
+  cfpSubmissionId: integer("cfp_submission_id"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
