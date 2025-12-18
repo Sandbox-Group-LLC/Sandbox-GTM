@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { sendNewOrganizationAlert, sendCampaignEmails, sendTestEmail, validateTrackingToken, verifyResendWebhookSignature, isValidRedirectUrl, sendReviewerNotificationEmail } from "./email";
+import { sendNewOrganizationAlert, sendCampaignEmails, sendTestEmail, validateTrackingToken, verifyResendWebhookSignature, isValidRedirectUrl, sendReviewerNotificationEmail, sendSubmissionAcceptanceEmail } from "./email";
 import { createPaymentIntent, getPaymentIntent, calculateFinalPrice } from "./stripe";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
@@ -5207,10 +5207,17 @@ ${urls.map(u => `  <url>
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
+      const eventId = req.params.eventId;
       const submissionId = parseInt(req.params.submissionId, 10);
       
       if (isNaN(submissionId)) {
         return res.status(400).json({ message: "Invalid submission ID" });
+      }
+      
+      // Get the current submission to check if status is changing to accepted
+      const currentSubmission = await storage.getCfpSubmission(submissionId, organizationId);
+      if (!currentSubmission) {
+        return res.status(404).json({ message: "Submission not found" });
       }
       
       const data = insertCfpSubmissionSchema.partial().parse(req.body);
@@ -5218,6 +5225,25 @@ ${urls.map(u => `  <url>
       if (!updated) {
         return res.status(404).json({ message: "Submission not found" });
       }
+      
+      // Send acceptance email if status changed to accepted
+      if (data.status === 'accepted' && currentSubmission.status !== 'accepted') {
+        try {
+          const event = await storage.getEvent(organizationId, eventId);
+          if (event && updated.authorEmail) {
+            await sendSubmissionAcceptanceEmail({
+              authorEmail: updated.authorEmail,
+              authorName: updated.authorName,
+              submissionTitle: updated.title,
+              eventName: event.name,
+              eventSlug: event.publicSlug || event.id,
+            });
+          }
+        } catch (emailError) {
+          logError("Failed to send acceptance notification email:", emailError);
+        }
+      }
+      
       res.json(updated);
     } catch (error: any) {
       logError("Error updating CFP submission:", error);

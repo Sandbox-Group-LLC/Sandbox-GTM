@@ -620,6 +620,72 @@ export async function sendNewOrganizationAlert(organizationName: string, organiz
   }
 }
 
+// Send acceptance notification to CFP submitter
+export async function sendSubmissionAcceptanceEmail(params: {
+  authorEmail: string;
+  authorName: string;
+  submissionTitle: string;
+  eventName: string;
+  eventSlug: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const { authorEmail, authorName, submissionTitle, eventName, eventSlug } = params;
+  
+  if (!resend) {
+    logWarn('Resend not configured - skipping acceptance notification email', 'Email');
+    return { success: false, error: 'Email service not configured' };
+  }
+
+  const baseUrl = getBaseUrl();
+  const registrationUrl = `${baseUrl}/register/${eventSlug}?attendeeType=speaker`;
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: authorEmail,
+      subject: `Congratulations! Your Submission Has Been Accepted: ${submissionTitle}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #2e7d32; margin-bottom: 20px;">Your Submission Has Been Accepted!</h2>
+          
+          <p style="color: #555; font-size: 16px;">Dear ${authorName},</p>
+          
+          <p style="color: #555; font-size: 16px;">We are pleased to inform you that your submission has been accepted for <strong>${eventName}</strong>.</p>
+          
+          <div style="background-color: #e8f5e9; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #2e7d32;">
+            <h3 style="color: #2e7d32; margin: 0 0 10px 0;">Accepted Submission</h3>
+            <p style="color: #555; margin: 5px 0;"><strong>Title:</strong> ${submissionTitle}</p>
+            <p style="color: #555; margin: 5px 0;"><strong>Event:</strong> ${eventName}</p>
+          </div>
+          
+          <p style="color: #555; font-size: 16px;"><strong>Next Steps:</strong></p>
+          <p style="color: #555; font-size: 16px;">Please complete your speaker registration by clicking the button below. This will confirm your participation as a speaker at the event.</p>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${registrationUrl}" style="display: inline-block; background-color: #2e7d32; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Complete Speaker Registration</a>
+          </div>
+          
+          <p style="color: #555; font-size: 14px;">If you have any questions about your presentation or the event, please don't hesitate to reach out to the event organizers.</p>
+          
+          <p style="color: #999; font-size: 12px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+            This is an automated notification from the Event Management CMS. If you did not submit to this event, please ignore this email.
+          </p>
+        </div>
+      `,
+    });
+
+    if (error) {
+      logError(`Failed to send acceptance notification: ${error.message || 'Unknown error'}`, 'Email');
+      return { success: false, error: error.message || 'Unknown error' };
+    }
+
+    logInfo(`Acceptance notification sent to ${authorEmail}: ${data?.id}`, 'Email');
+    return { success: true };
+  } catch (err) {
+    logError(`Error sending acceptance notification: ${err}`, 'Email');
+    return { success: false, error: String(err) };
+  }
+}
+
 // Send notification to reviewer when assigned to a submission
 export async function sendReviewerNotificationEmail(params: {
   reviewerEmail: string;
