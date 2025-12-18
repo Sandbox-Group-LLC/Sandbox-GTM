@@ -90,8 +90,7 @@ export default function Landing() {
               Streamline Your Event Management
             </h1>
             <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-              A comprehensive platform for managing events, registrations, speakers, content, 
-              and marketing campaigns. Everything you need in one place.
+              A unified platform for managing events, registrations, speakers, content, and marketing—seamlessly integrating with leading tools to complete your GTM tech stack. Everything you need, in one place.
             </p>
             <Button size="lg" asChild data-testid="button-get-started">
               <a href="/signup">Get Started</a>
