@@ -99,7 +99,7 @@ export default function Landing() {
 
         <section className="py-16 px-6 bg-card">
           <div className="container mx-auto max-w-6xl">
-            <h2 className="text-2xl font-semibold text-center mb-4">
+            <h2 className="text-2xl font-semibold text-center mb-4 text-[#ffffff]">
               Everything You Need to Run Successful Events
             </h2>
             <p className="text-muted-foreground text-center mb-12 max-w-2xl mx-auto">
