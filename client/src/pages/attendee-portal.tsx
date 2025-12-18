@@ -34,7 +34,9 @@ import {
   AlertCircle,
   Edit,
   Check,
-  X
+  X,
+  Hotel,
+  ExternalLink
 } from "lucide-react";
 import type { Attendee, Event } from "@shared/schema";
 
@@ -42,6 +44,12 @@ interface AttendeePortalData {
   attendee: Omit<Attendee, 'passwordHash'>;
   event: { id: string; name: string; publicSlug: string } | null;
   package: { id: string; name: string; features: string[] | null } | null;
+}
+
+interface HousingInfo {
+  housingEnabled: boolean;
+  bookingUrl?: string;
+  passkeyEventName?: string;
 }
 
 const profileSchema = z.object({
@@ -94,6 +102,19 @@ export default function AttendeePortal() {
       return res.json();
     },
     retry: false,
+  });
+
+  const { data: housingInfo } = useQuery<HousingInfo>({
+    queryKey: ["/api/public/event", slug, "housing", data?.attendee?.id, data?.attendee?.checkInCode],
+    queryFn: async () => {
+      if (!data?.attendee?.id || !data?.attendee?.checkInCode) {
+        return { housingEnabled: false };
+      }
+      const res = await fetch(`/api/public/event/${slug}/housing/${data.attendee.id}?code=${encodeURIComponent(data.attendee.checkInCode || '')}`);
+      if (!res.ok) return { housingEnabled: false };
+      return res.json();
+    },
+    enabled: !!data?.attendee?.id && !!data?.attendee?.checkInCode && !!slug,
   });
 
   const form = useForm<ProfileFormData>({
@@ -448,6 +469,35 @@ export default function AttendeePortal() {
               </CardFooter>
             )}
           </Card>
+
+          {housingInfo?.housingEnabled && (
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Hotel className="w-5 h-5" />
+                  Hotel Accommodations
+                </CardTitle>
+                <CardDescription>
+                  Book your hotel room through our official room block for special event rates
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {housingInfo.bookingUrl ? (
+                  <Button asChild data-testid="button-book-hotel">
+                    <a href={housingInfo.bookingUrl} target="_blank" rel="noopener noreferrer">
+                      <Hotel className="w-4 h-4 mr-2" />
+                      Book Your Hotel Room
+                      <ExternalLink className="w-3 h-3 ml-2" />
+                    </a>
+                  </Button>
+                ) : (
+                  <p className="text-muted-foreground text-sm">
+                    Hotel booking will be available soon. Please check back later.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {(attendee.ticketType || packageInfo) && (
             <Card className="lg:col-span-2">
