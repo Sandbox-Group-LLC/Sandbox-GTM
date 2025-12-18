@@ -13,7 +13,7 @@ import {
   publicRegistrationLimiter,
   validateInviteCodeLimiter,
 } from "./rateLimit";
-import { scrypt, randomBytes, timingSafeEqual } from "crypto";
+import { scrypt, randomBytes, timingSafeEqual, createHash } from "crypto";
 import { promisify } from "util";
 
 const scryptAsync = promisify(scrypt);
@@ -2720,8 +2720,71 @@ export async function registerRoutes(
         });
         const post = await storage.createSocialPost(data);
         res.status(201).json({ ...post, linkedinShareUrn: shareUrn });
+      } else if (status === 'published' && platform === 'twitter') {
+        // Twitter posting
+        const connection = await storage.getSocialConnectionByPlatform(userId, 'twitter');
+        
+        if (!connection || !connection.accessToken || !connection.isActive) {
+          return res.status(400).json({ 
+            message: "Twitter account not connected. Please connect your Twitter account first by clicking 'Connect Account' on the Social Media page." 
+          });
+        }
+        
+        if (connection.tokenExpiresAt && new Date(connection.tokenExpiresAt) < new Date()) {
+          return res.status(400).json({ 
+            message: "Twitter access token has expired. Please reconnect your Twitter account." 
+          });
+        }
+        
+        let accessToken: string;
+        try {
+          accessToken = decrypt(connection.accessToken);
+        } catch (error) {
+          logError("Error decrypting Twitter access token:", error);
+          return res.status(500).json({ message: "Failed to decrypt access token" });
+        }
+        
+        // Post tweet using Twitter API v2
+        const tweetResponse = await fetch('https://api.twitter.com/2/tweets', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ text: content }),
+        });
+        
+        if (!tweetResponse.ok) {
+          const errorData = await tweetResponse.text();
+          let errorMessage = 'Failed to post to Twitter';
+          try {
+            const errorJson = JSON.parse(errorData);
+            errorMessage = errorJson.detail || errorJson.title || errorJson.message || errorMessage;
+          } catch {
+            errorMessage = errorData || errorMessage;
+          }
+          logError("Twitter post failed:", errorData);
+          return res.status(tweetResponse.status).json({ 
+            message: `Twitter posting failed: ${errorMessage}` 
+          });
+        }
+        
+        const tweetData = await tweetResponse.json() as { data?: { id?: string } };
+        const tweetId = tweetData.data?.id;
+        logInfo(`Twitter post created successfully: ${tweetId}`);
+        
+        const data = insertSocialPostSchema.parse({ 
+          ...req.body, 
+          organizationId, 
+          eventId: req.body.eventId || null, 
+          connectionId: connection.id,
+          createdBy: userId,
+          status: 'published',
+        });
+        const post = await storage.createSocialPost(data);
+        res.status(201).json({ ...post, tweetId });
       } else {
-        // Ensure connectionId is null instead of empty string to avoid FK constraint violations
+        // Draft post or unsupported platform - just save to database
         const connectionId = req.body.connectionId || null;
         const data = insertSocialPostSchema.parse({ 
           ...req.body, 
@@ -3948,6 +4011,205 @@ ${urls.map(u => `  <url>
     } catch (error) {
       logError("Error adding LinkedIn organization connection:", error);
       res.status(500).json({ message: "Failed to add organization connection" });
+    }
+  });
+
+  // Twitter/X OAuth 2.0 with PKCE endpoints
+  app.get("/api/social/twitter/authorize", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      
+      const credentials = await storage.getSocialMediaCredentials(organizationId);
+      const twitterCred = credentials.find(c => c.provider === 'twitter');
+      
+      if (!twitterCred || !twitterCred.clientId || !twitterCred.isConfigured) {
+        return res.status(400).json({ 
+          message: "Twitter OAuth is not configured. Please add your Twitter App credentials in Settings > Integrations." 
+        });
+      }
+      
+      let clientId: string;
+      try {
+        clientId = decrypt(twitterCred.clientId);
+        logInfo(`Twitter client ID (first 8 chars): ${clientId.substring(0, 8)}...`);
+      } catch (error) {
+        logError("Error decrypting Twitter client ID:", error);
+        return res.status(500).json({ message: "Failed to decrypt Twitter credentials" });
+      }
+      
+      // Generate PKCE code verifier and challenge
+      const codeVerifier = randomBytes(32).toString('base64url');
+      const codeChallenge = createHash('sha256').update(codeVerifier).digest('base64url');
+      const state = randomBytes(32).toString('hex');
+      
+      (req.session as any).twitterState = state;
+      (req.session as any).twitterCodeVerifier = codeVerifier;
+      (req.session as any).twitterUserId = userId;
+      
+      const appUrl = process.env.APP_URL || 
+        (process.env.REPLIT_DEV_DOMAIN 
+          ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+          : (process.env.REPL_SLUG && process.env.REPL_OWNER 
+            ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER.toLowerCase()}.repl.co`
+            : 'http://localhost:5000'));
+      const redirectUri = `${appUrl}/api/social/twitter/callback`;
+      
+      logInfo(`Twitter OAuth redirect URI: ${redirectUri}`);
+      
+      const params = new URLSearchParams({
+        response_type: 'code',
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        state: state,
+        scope: 'tweet.write tweet.read users.read offline.access',
+        code_challenge: codeChallenge,
+        code_challenge_method: 'S256',
+      });
+      
+      const authUrl = `https://twitter.com/i/oauth2/authorize?${params.toString()}`;
+      res.redirect(authUrl);
+    } catch (error) {
+      logError("Error initiating Twitter OAuth:", error);
+      res.status(500).json({ message: "Failed to initiate Twitter OAuth" });
+    }
+  });
+
+  app.get("/api/social/twitter/callback", async (req: any, res) => {
+    try {
+      const { code, state, error, error_description } = req.query;
+      
+      if (error) {
+        logError("Twitter OAuth error:", error, error_description);
+        return res.redirect('/social?error=' + encodeURIComponent(error_description || error));
+      }
+      
+      if (!code || !state) {
+        return res.redirect('/social?error=' + encodeURIComponent('Missing authorization code or state'));
+      }
+      
+      const sessionState = (req.session as any).twitterState;
+      const codeVerifier = (req.session as any).twitterCodeVerifier;
+      const userId = (req.session as any).twitterUserId;
+      
+      if (!sessionState || state !== sessionState) {
+        return res.redirect('/social?error=' + encodeURIComponent('Invalid state parameter. Please try again.'));
+      }
+      
+      delete (req.session as any).twitterState;
+      delete (req.session as any).twitterCodeVerifier;
+      delete (req.session as any).twitterUserId;
+      
+      if (!userId || !codeVerifier) {
+        return res.redirect('/social?error=' + encodeURIComponent('Session expired. Please log in and try again.'));
+      }
+      
+      const organizationId = await getOrganizationId(userId);
+      const credentials = await storage.getSocialMediaCredentials(organizationId);
+      const twitterCred = credentials.find(c => c.provider === 'twitter');
+      
+      if (!twitterCred || !twitterCred.clientId || !twitterCred.clientSecret) {
+        return res.redirect('/social?error=' + encodeURIComponent('Twitter credentials not found'));
+      }
+      
+      let clientId: string, clientSecret: string;
+      try {
+        clientId = decrypt(twitterCred.clientId);
+        clientSecret = decrypt(twitterCred.clientSecret);
+      } catch (error) {
+        logError("Error decrypting Twitter credentials:", error);
+        return res.redirect('/social?error=' + encodeURIComponent('Failed to decrypt credentials'));
+      }
+      
+      const appUrl = process.env.APP_URL || 
+        (process.env.REPLIT_DEV_DOMAIN 
+          ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+          : (process.env.REPL_SLUG && process.env.REPL_OWNER 
+            ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER.toLowerCase()}.repl.co`
+            : 'http://localhost:5000'));
+      const redirectUri = `${appUrl}/api/social/twitter/callback`;
+      
+      // Exchange authorization code for access token
+      const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+      
+      const tokenResponse = await fetch('https://api.twitter.com/2/oauth2/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Authorization': `Basic ${basicAuth}`,
+        },
+        body: new URLSearchParams({
+          grant_type: 'authorization_code',
+          code: code as string,
+          redirect_uri: redirectUri,
+          code_verifier: codeVerifier,
+        }).toString(),
+      });
+      
+      if (!tokenResponse.ok) {
+        const errorData = await tokenResponse.text();
+        logError("Twitter token exchange failed:", errorData);
+        return res.redirect('/social?error=' + encodeURIComponent('Failed to exchange authorization code'));
+      }
+      
+      const tokenData = await tokenResponse.json() as { 
+        access_token: string; 
+        expires_in: number; 
+        refresh_token?: string;
+        token_type: string;
+      };
+      const accessToken = tokenData.access_token;
+      const refreshToken = tokenData.refresh_token;
+      const expiresIn = tokenData.expires_in;
+      
+      // Get user info from Twitter
+      const userInfoResponse = await fetch('https://api.twitter.com/2/users/me', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      });
+      
+      let accountId = 'unknown';
+      let accountName = 'Twitter User';
+      
+      if (userInfoResponse.ok) {
+        const userInfo = await userInfoResponse.json() as { data?: { id?: string; username?: string; name?: string } };
+        accountId = userInfo.data?.id || 'unknown';
+        accountName = userInfo.data?.name || userInfo.data?.username || 'Twitter User';
+      } else {
+        logWarn("Failed to fetch Twitter user info, continuing with unknown ID");
+      }
+      
+      const existingConnection = await storage.getSocialConnectionByPlatform(userId, 'twitter');
+      const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000);
+      
+      if (existingConnection) {
+        await storage.updateSocialConnection(existingConnection.id, {
+          accessToken: encrypt(accessToken),
+          refreshToken: refreshToken ? encrypt(refreshToken) : null,
+          accountId,
+          accountName,
+          tokenExpiresAt,
+          isActive: true,
+        });
+      } else {
+        await storage.createSocialConnection({
+          userId,
+          platform: 'twitter',
+          accessToken: encrypt(accessToken),
+          refreshToken: refreshToken ? encrypt(refreshToken) : null,
+          accountId,
+          accountName,
+          tokenExpiresAt,
+          isActive: true,
+        });
+      }
+      
+      logInfo(`Twitter OAuth completed for user ${userId}`);
+      res.redirect('/social?success=' + encodeURIComponent('Twitter account connected successfully!'));
+    } catch (error) {
+      logError("Error in Twitter OAuth callback:", error);
+      res.redirect('/social?error=' + encodeURIComponent('An unexpected error occurred'));
     }
   });
 
