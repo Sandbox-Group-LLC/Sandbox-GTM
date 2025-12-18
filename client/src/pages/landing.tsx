@@ -178,7 +178,7 @@ export default function Landing() {
             <h2 className="text-2xl font-semibold mb-4 text-[#ffffff]">
               Ready to Transform Your Event Planning?
             </h2>
-            <p className="text-muted-foreground mb-8">
+            <p className="mb-8 text-[#b8b8b8]">
               Join event organizers who have simplified their workflow with our platform.
             </p>
             <Button size="lg" asChild data-testid="button-start-now">
