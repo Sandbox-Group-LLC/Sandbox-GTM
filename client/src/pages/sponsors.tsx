@@ -68,6 +68,9 @@ import {
   Phone,
   Ticket,
   ImageIcon,
+  Copy,
+  Send,
+  Loader2,
 } from "lucide-react";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { Badge } from "@/components/ui/badge";
@@ -250,6 +253,33 @@ export default function Sponsors() {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
+
+  const emailPortalLinkMutation = useMutation({
+    mutationFn: async (sponsorId: string) => {
+      return await apiRequest("POST", `/api/sponsors/${sponsorId}/send-portal-email`);
+    },
+    onSuccess: () => {
+      toast({ title: "Portal link sent", description: "The sponsor has been emailed their portal access link." });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({ title: "Unauthorized", description: "You are logged out. Logging in again...", variant: "destructive" });
+        setTimeout(() => { window.location.href = "/api/login"; }, 500);
+        return;
+      }
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const copyPortalLink = (sponsor: EventSponsor) => {
+    if (!sponsor.portalAccessToken) {
+      toast({ title: "No portal token", description: "Generate a portal token first.", variant: "destructive" });
+      return;
+    }
+    const portalUrl = `${window.location.origin}/sponsor-portal?token=${sponsor.portalAccessToken}`;
+    navigator.clipboard.writeText(portalUrl);
+    toast({ title: "Link copied", description: "Portal link copied to clipboard." });
+  };
 
   const onSubmit = (data: SponsorFormData) => {
     if (editingSponsor) {
@@ -794,6 +824,7 @@ export default function Sponsors() {
                                 variant="ghost"
                                 onClick={() => handleEdit(sponsor)}
                                 data-testid={`button-edit-${sponsor.id}`}
+                                title="Edit sponsor"
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
@@ -803,14 +834,40 @@ export default function Sponsors() {
                                 onClick={() => generateTokenMutation.mutate(sponsor.id)}
                                 disabled={generateTokenMutation.isPending}
                                 data-testid={`button-generate-token-${sponsor.id}`}
+                                title="Generate portal token"
                               >
                                 <Key className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => copyPortalLink(sponsor)}
+                                disabled={!sponsor.portalAccessToken}
+                                data-testid={`button-copy-portal-link-${sponsor.id}`}
+                                title="Copy portal link"
+                              >
+                                <Copy className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => emailPortalLinkMutation.mutate(sponsor.id)}
+                                disabled={!sponsor.portalAccessToken || !sponsor.contactEmail || emailPortalLinkMutation.isPending}
+                                data-testid={`button-email-portal-link-${sponsor.id}`}
+                                title="Email portal link to sponsor"
+                              >
+                                {emailPortalLinkMutation.isPending ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Send className="h-4 w-4" />
+                                )}
                               </Button>
                               {sponsor.websiteUrl && (
                                 <Button
                                   size="icon"
                                   variant="ghost"
                                   asChild
+                                  title="Visit website"
                                 >
                                   <a href={sponsor.websiteUrl} target="_blank" rel="noopener noreferrer">
                                     <ExternalLink className="h-4 w-4" />
@@ -822,6 +879,7 @@ export default function Sponsors() {
                                 variant="ghost"
                                 onClick={() => setDeletingSponsor(sponsor)}
                                 data-testid={`button-delete-${sponsor.id}`}
+                                title="Delete sponsor"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>

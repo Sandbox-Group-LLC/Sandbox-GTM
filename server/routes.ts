@@ -2213,6 +2213,88 @@ export async function registerRoutes(
     }
   });
 
+  // Send portal access email to sponsor
+  app.post("/api/sponsors/:sponsorId/send-portal-email", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const sponsorId = req.params.sponsorId;
+      
+      const sponsor = await storage.getEventSponsor(organizationId, sponsorId);
+      if (!sponsor) {
+        return res.status(404).json({ message: "Sponsor not found" });
+      }
+      
+      if (!sponsor.portalAccessToken) {
+        return res.status(400).json({ message: "No portal token exists. Generate a token first." });
+      }
+      
+      if (!sponsor.contactEmail) {
+        return res.status(400).json({ message: "No contact email set for this sponsor." });
+      }
+      
+      // Get event details for the email
+      const event = await storage.getEvent(organizationId, sponsor.eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      // Build portal URL - handle both direct and proxied requests (TLS termination)
+      const forwardedProto = req.get('x-forwarded-proto');
+      const protocol = forwardedProto || req.protocol || 'https';
+      const host = req.get('host') || req.headers.host;
+      const baseUrl = `${protocol}://${host}`;
+      const portalUrl = `${baseUrl}/sponsor-portal?token=${sponsor.portalAccessToken}`;
+      
+      // Build email content
+      const eventDate = event.startDate ? new Date(event.startDate).toLocaleDateString("en-US", { 
+        weekday: "long", 
+        year: "numeric", 
+        month: "long", 
+        day: "numeric" 
+      }) : "TBD";
+      
+      const emailBody = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">Welcome to the ${event.name} Sponsor Portal</h2>
+          <p>Dear ${sponsor.contactName || sponsor.name},</p>
+          <p>You have been granted access to the sponsor portal for <strong>${event.name}</strong>${eventDate !== "TBD" ? ` on ${eventDate}` : ""}.</p>
+          <p>Through the portal, you can:</p>
+          <ul>
+            <li>Update your company profile and logo</li>
+            <li>Complete assigned tasks</li>
+            <li>Register team members for the event</li>
+            <li>Send invite emails to your team</li>
+          </ul>
+          <p style="margin: 30px 0;">
+            <a href="${portalUrl}" style="background-color: #0066cc; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">Access Your Sponsor Portal</a>
+          </p>
+          <p style="color: #666; font-size: 14px;">This link is valid for 30 days. If it expires, please contact the event organizer for a new access link.</p>
+          <p style="color: #666; font-size: 14px;">If the button doesn't work, copy and paste this link into your browser:<br/><a href="${portalUrl}" style="color: #0066cc;">${portalUrl}</a></p>
+        </div>
+      `;
+      
+      // Send the email using Resend
+      const emailResult = await sendCampaignEmails(
+        [{
+          to: sponsor.contactEmail,
+          subject: `Your Sponsor Portal Access for ${event.name}`,
+          html: emailBody,
+        }],
+        { enableTracking: false }
+      );
+      
+      if (emailResult.failed > 0) {
+        return res.status(500).json({ message: "Failed to send portal email" });
+      }
+      
+      res.json({ success: true, message: "Portal email sent successfully" });
+    } catch (error) {
+      logError("Error sending portal email:", error);
+      res.status(500).json({ message: "Failed to send portal email" });
+    }
+  });
+
   // Public sponsor portal routes (no auth required, token-based)
   app.get("/api/sponsor-portal/auth", async (req: any, res) => {
     try {
