@@ -71,6 +71,7 @@ import {
   Columns2,
   LayoutGrid,
   FileText,
+  Hotel,
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Event, EventPage, EventPageTheme } from "@shared/schema";
@@ -90,7 +91,7 @@ import {
 
 type PageType = "landing" | "registration" | "portal" | "confirmation";
 
-type SectionType = "hero" | "text" | "cta" | "features" | "countdown" | "speakers" | "agenda" | "faq" | "testimonials" | "gallery" | "html" | "sponsors" | "map" | "video" | "footer" | "navigation" | "columns" | "columns-flex" | "registration-form";
+type SectionType = "hero" | "text" | "cta" | "features" | "countdown" | "speakers" | "agenda" | "faq" | "testimonials" | "gallery" | "html" | "sponsors" | "map" | "video" | "footer" | "navigation" | "columns" | "columns-flex" | "registration-form" | "housing";
 
 interface SectionStyles {
   backgroundColor?: string;
@@ -137,6 +138,7 @@ const SECTION_TYPES: { type: SectionType; label: string; icon: React.ComponentTy
   { type: "columns", label: "Simple Columns", icon: Columns2, description: "Multi-column layout with text" },
   { type: "columns-flex", label: "Flexible Columns", icon: LayoutGrid, description: "Columns with icons, images, buttons" },
   { type: "registration-form", label: "Registration Form", icon: FileText, description: "Embed the event registration form" },
+  { type: "housing", label: "Hotel Housing", icon: Hotel, description: "Hotel booking section for Passkey integration" },
 ];
 
 const GOOGLE_FONTS = [
@@ -279,6 +281,13 @@ const getDefaultConfig = (type: SectionType): Record<string, unknown> => {
         heading: "Register Now",
         description: "Complete the form below to register for this event.",
         showHeading: true,
+      };
+    case "housing":
+      return { 
+        heading: "Hotel Accommodations", 
+        description: "Book your hotel room through our official room block for special event rates.",
+        buttonText: "Book Your Hotel Room",
+        showWhenDisabled: false 
       };
     default:
       return {};
@@ -591,6 +600,9 @@ export default function SiteBuilder() {
         break;
       case "registration-form":
         previewText = (config.heading as string) || "Registration form";
+        break;
+      case "housing":
+        previewText = (config.heading as string) || "Hotel Housing";
         break;
       default:
         previewText = "Section content";
@@ -3070,6 +3082,58 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId }: S
             <div className="p-4 bg-muted rounded-md">
               <p className="text-sm text-muted-foreground">
                 The registration form will be automatically embedded here with your event's configured registration fields and packages.
+              </p>
+            </div>
+          </>
+        );
+      case "housing":
+        return (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="heading">Heading</Label>
+              <Input
+                id="heading"
+                value={(config.heading as string) || ""}
+                onChange={(e) => updateConfig("heading", e.target.value)}
+                placeholder="Hotel Accommodations"
+                data-testid="input-housing-heading"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={(config.description as string) || ""}
+                onChange={(e) => updateConfig("description", e.target.value)}
+                placeholder="Book your hotel room through our official room block for special event rates."
+                rows={3}
+                data-testid="textarea-housing-description"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="buttonText">Button Text</Label>
+              <Input
+                id="buttonText"
+                value={(config.buttonText as string) || ""}
+                onChange={(e) => updateConfig("buttonText", e.target.value)}
+                placeholder="Book Your Hotel Room"
+                data-testid="input-housing-button-text"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="showWhenDisabled"
+                checked={(config.showWhenDisabled as boolean) ?? false}
+                onChange={(e) => updateConfig("showWhenDisabled", e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300"
+                data-testid="checkbox-housing-show-when-disabled"
+              />
+              <Label htmlFor="showWhenDisabled">Show section even when housing is not configured</Label>
+            </div>
+            <div className="p-4 bg-muted rounded-md">
+              <p className="text-sm text-muted-foreground">
+                This section will display a button linking to your Passkey hotel booking portal. Configure your Passkey integration in the Integrations page to enable hotel booking.
               </p>
             </div>
           </>

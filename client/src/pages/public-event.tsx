@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Calendar, MapPin, Clock, Mic, AlertCircle, ArrowRight, ChevronDown, ChevronUp, Quote, Star, Zap, Heart, Check, Award, Target, Users, Mail, Phone, Globe, LogIn } from "lucide-react";
+import { Calendar, MapPin, Clock, Mic, AlertCircle, ArrowRight, ChevronDown, ChevronUp, Quote, Star, Zap, Heart, Check, Award, Target, Users, Mail, Phone, Globe, LogIn, Hotel, ExternalLink } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import type { Event, EventSession, Speaker, EventPage, EventPageTheme, EventSponsor } from "@shared/schema";
@@ -1415,6 +1415,9 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
         </div>
       );
 
+    case "housing":
+      return <HousingSection config={config} section={section} event={event} theme={theme} styles={styles} wrapWithMargins={wrapWithMargins} />;
+
     default:
       return null;
   }
@@ -1485,6 +1488,102 @@ function CountdownSection({ config, event, sectionId, theme }: { config: Record<
             <div className="text-sm" style={secondaryTextStyles}>{item.label}</div>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+interface HousingSectionProps {
+  config: Record<string, unknown>;
+  section: Section;
+  event: Event;
+  theme?: EventPageTheme | null;
+  styles?: SectionStyles;
+  wrapWithMargins: (content: React.ReactNode) => React.ReactNode;
+}
+
+function HousingSection({ config, section, event, theme, styles, wrapWithMargins }: HousingSectionProps) {
+  const { data: housingStatus, isLoading } = useQuery<{ housingEnabled: boolean; bookingUrl?: string; eventName?: string }>({
+    queryKey: ["/api/public/event", event.publicSlug, "housing-status"],
+    queryFn: async () => {
+      const res = await fetch(`/api/public/event/${event.publicSlug}/housing-status`);
+      if (!res.ok) throw new Error("Failed to fetch housing status");
+      return res.json();
+    },
+    enabled: !!event.publicSlug,
+  });
+
+  const heading = (config.heading as string) || "Hotel Accommodations";
+  const description = (config.description as string) || "";
+  const buttonText = (config.buttonText as string) || "Book Your Hotel Room";
+  const showWhenDisabled = (config.showWhenDisabled as boolean) ?? false;
+
+  const borderRadiusMap: Record<string, string> = {
+    none: "0px", small: "4px", medium: "8px", large: "16px", pill: "9999px",
+  };
+  const themeRadius = borderRadiusMap[theme?.borderRadius || "medium"];
+
+  const headingStyles: React.CSSProperties = {
+    fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined,
+    color: styles?.textColor || theme?.textColor || undefined,
+  };
+
+  const secondaryTextStyles: React.CSSProperties = {
+    fontFamily: theme?.bodyFont ? `"${theme.bodyFont}", sans-serif` : undefined,
+    color: styles?.textColor || theme?.textSecondaryColor || undefined,
+  };
+
+  const buttonStyles: React.CSSProperties = {
+    backgroundColor: theme?.buttonColor || undefined,
+    color: theme?.buttonTextColor || undefined,
+    borderRadius: themeRadius,
+  };
+
+  const cardStyles: React.CSSProperties = {
+    backgroundColor: theme?.cardBackground || undefined,
+    borderRadius: themeRadius,
+  };
+
+  if (isLoading) {
+    return wrapWithMargins(
+      <div className="text-center p-8" data-testid={`section-housing-${section.id}`}>
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-muted rounded w-64 mx-auto"></div>
+          <div className="h-4 bg-muted rounded w-96 mx-auto"></div>
+          <div className="h-10 bg-muted rounded w-48 mx-auto"></div>
+        </div>
+      </div>
+    );
+  }
+
+  const housingEnabled = housingStatus?.housingEnabled ?? false;
+  const bookingUrl = housingStatus?.bookingUrl;
+
+  if (!housingEnabled && !showWhenDisabled) {
+    return null;
+  }
+
+  return wrapWithMargins(
+    <div className="text-center" data-testid={`section-housing-${section.id}`}>
+      <div className="flex flex-col items-center gap-4">
+        <div className="p-3 rounded-full" style={{ backgroundColor: `${theme?.primaryColor || "#3b82f6"}20` }}>
+          <Hotel className="h-8 w-8" style={{ color: theme?.primaryColor || "#3b82f6" }} />
+        </div>
+        {heading && <h3 className="text-2xl font-semibold" style={headingStyles}>{heading}</h3>}
+        {description && <p className="max-w-2xl" style={secondaryTextStyles}>{description}</p>}
+        
+        {housingEnabled && bookingUrl ? (
+          <Button asChild style={buttonStyles} data-testid="button-book-hotel">
+            <a href={bookingUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2">
+              {buttonText}
+              <ExternalLink className="h-4 w-4" />
+            </a>
+          </Button>
+        ) : (
+          <div className="p-4 rounded-md" style={cardStyles} data-testid="housing-coming-soon">
+            <p style={secondaryTextStyles}>Hotel booking coming soon</p>
+          </div>
+        )}
       </div>
     </div>
   );

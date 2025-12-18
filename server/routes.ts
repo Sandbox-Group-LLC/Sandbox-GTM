@@ -4469,6 +4469,35 @@ ${urls.map(u => `  <url>
     }
   });
 
+  // Get housing status for public event page
+  app.get("/api/public/event/:slug/housing-status", async (req, res) => {
+    try {
+      const event = await storage.getEventBySlug(req.params.slug);
+      if (!event || (!event.isPublic && event.status !== 'published')) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      const mapping = await storage.getPasskeyEventMapping(event.organizationId, event.id);
+      
+      if (!mapping || !mapping.isEnabled || !mapping.regLinkUrl) {
+        return res.json({ 
+          housingEnabled: false,
+          bookingUrl: null,
+          eventName: null
+        });
+      }
+      
+      res.json({ 
+        housingEnabled: true,
+        bookingUrl: mapping.regLinkUrl,
+        eventName: mapping.passkeyEventName || null
+      });
+    } catch (error) {
+      logError("Error fetching housing status:", error);
+      res.status(500).json({ message: "Failed to fetch housing status" });
+    }
+  });
+
   // Get public packages for an event (public ones + any unlocked by invite code)
   app.get("/api/public/event/:slug/packages", async (req, res) => {
     try {
