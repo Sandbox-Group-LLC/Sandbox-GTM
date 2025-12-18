@@ -84,6 +84,7 @@ const ATTENDEE_TYPE_OPTIONS = [
 
 const STATUS_OPTIONS = [
   { value: "pending", label: "Pending" },
+  { value: "invited", label: "Invited" },
   { value: "confirmed", label: "Confirmed" },
   { value: "waitlist", label: "Waitlist" },
   { value: "cancelled", label: "Cancelled" },
@@ -787,6 +788,7 @@ export default function Attendees() {
                           </FormControl>
                           <SelectContent>
                             <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="invited">Invited</SelectItem>
                             <SelectItem value="confirmed">Confirmed</SelectItem>
                             <SelectItem value="waitlist">Waitlist</SelectItem>
                             <SelectItem value="cancelled">Cancelled</SelectItem>
