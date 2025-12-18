@@ -150,8 +150,8 @@ export default function Events() {
 
   // Passkey event mapping mutation
   const savePasskeyMappingMutation = useMutation({
-    mutationFn: async ({ eventId, passkeyEventId, housingEnabled }: { eventId: string; passkeyEventId: string; housingEnabled: boolean }) => {
-      return await apiRequest("POST", `/api/passkey/events/${eventId}/mapping`, { passkeyEventId, housingEnabled });
+    mutationFn: async ({ eventId, passkeyEventId, isEnabled }: { eventId: string; passkeyEventId: string; isEnabled: boolean }) => {
+      return await apiRequest("POST", `/api/passkey/events/${eventId}/mapping`, { passkeyEventId, isEnabled });
     },
     onSuccess: () => {
       toast({ title: "Housing settings saved successfully" });
@@ -711,7 +711,7 @@ export default function Events() {
                         <div className="flex items-center gap-2">
                           <Hotel className="h-5 w-5" />
                           <h3 className="font-semibold">Hotel Housing</h3>
-                          {passkeyMapping?.housingEnabled ? (
+                          {passkeyMapping?.isEnabled ? (
                             <Badge variant="outline" className="flex items-center gap-1">
                               <CheckCircle className="h-3 w-3 text-green-500" />
                               Enabled
@@ -749,12 +749,12 @@ export default function Events() {
                               </div>
                               <Switch 
                                 id="housing-enabled"
-                                checked={passkeyMapping.housingEnabled}
+                                checked={passkeyMapping.isEnabled}
                                 onCheckedChange={(checked) => {
                                   savePasskeyMappingMutation.mutate({
                                     eventId: selectedEvent!.id,
                                     passkeyEventId: passkeyMapping.passkeyEventId,
-                                    housingEnabled: checked,
+                                    isEnabled: checked,
                                   });
                                 }}
                                 data-testid="switch-housing-enabled"
@@ -807,7 +807,7 @@ export default function Events() {
                                   savePasskeyMappingMutation.mutate({
                                     eventId: selectedEvent.id,
                                     passkeyEventId: passkeyEventId.trim(),
-                                    housingEnabled,
+                                    isEnabled: housingEnabled,
                                   });
                                 }
                               }}
