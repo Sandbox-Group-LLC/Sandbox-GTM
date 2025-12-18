@@ -61,6 +61,7 @@ type AttendeeTypeFormData = z.infer<typeof attendeeTypeFormSchema>;
 
 const typeOptions = [
   { value: "attendee", label: "Attendee" },
+  { value: "speaker", label: "Speaker" },
   { value: "vendor", label: "Vendor" },
   { value: "employee", label: "Employee" },
   { value: "press & media", label: "Press & Media" },

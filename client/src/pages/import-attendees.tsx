@@ -55,6 +55,7 @@ import type { Event } from "@shared/schema";
 
 const ATTENDEE_TYPE_OPTIONS = [
   { value: "attendee", label: "Attendee" },
+  { value: "speaker", label: "Speaker" },
   { value: "vendor", label: "Vendor" },
   { value: "employee", label: "Employee" },
   { value: "press_media", label: "Press & Media" },
