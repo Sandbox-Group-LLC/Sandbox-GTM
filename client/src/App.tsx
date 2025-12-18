@@ -21,7 +21,6 @@ import Emails from "@/pages/emails";
 import Social from "@/pages/social";
 import Settings from "@/pages/settings";
 import CheckIn from "@/pages/check-in";
-import Analytics from "@/pages/analytics";
 import PublicEvent from "@/pages/public-event";
 import PublicRegistration from "@/pages/public-registration";
 import PublicPortal from "@/pages/public-portal";
@@ -117,7 +116,6 @@ function Router() {
         <Route path="/emails" component={Emails} />
         <Route path="/email-analytics" component={EmailAnalytics} />
         <Route path="/social" component={Social} />
-        <Route path="/analytics" component={Analytics} />
         <Route path="/integrations" component={Integrations} />
         <Route path="/settings" component={Settings} />
         <Route path="/my-organization" component={MyOrganization} />
