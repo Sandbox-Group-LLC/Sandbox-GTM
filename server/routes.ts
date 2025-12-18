@@ -4963,9 +4963,9 @@ ${urls.map(u => `  <url>
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
-      const eventId = parseInt(req.params.eventId, 10);
+      const eventId = req.params.eventId;
       
-      if (isNaN(eventId)) {
+      if (!eventId) {
         return res.status(400).json({ message: "Invalid event ID" });
       }
       
@@ -4984,24 +4984,33 @@ ${urls.map(u => `  <url>
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
-      const eventId = parseInt(req.params.eventId, 10);
+      const eventId = req.params.eventId;
       
-      if (isNaN(eventId)) {
+      if (!eventId) {
         return res.status(400).json({ message: "Invalid event ID" });
+      }
+      
+      // Convert date strings to Date objects
+      const body = { ...req.body };
+      if (body.submissionDeadline && typeof body.submissionDeadline === 'string') {
+        body.submissionDeadline = new Date(body.submissionDeadline);
+      }
+      if (body.notificationDate && typeof body.notificationDate === 'string') {
+        body.notificationDate = new Date(body.notificationDate);
       }
       
       // Check if config already exists
       const existing = await storage.getCfpConfig(eventId, organizationId);
       if (existing) {
         // Update existing config
-        const data = insertCfpConfigSchema.partial().parse(req.body);
+        const data = insertCfpConfigSchema.partial().parse(body);
         const updated = await storage.updateCfpConfig(existing.id, organizationId, data);
         return res.json(updated);
       }
       
       // Create new config
       const data = insertCfpConfigSchema.parse({
-        ...req.body,
+        ...body,
         eventId,
         organizationId,
       });
@@ -5018,10 +5027,19 @@ ${urls.map(u => `  <url>
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
-      const eventId = parseInt(req.params.eventId, 10);
+      const eventId = req.params.eventId;
       
-      if (isNaN(eventId)) {
+      if (!eventId) {
         return res.status(400).json({ message: "Invalid event ID" });
+      }
+      
+      // Convert date strings to Date objects
+      const body = { ...req.body };
+      if (body.submissionDeadline && typeof body.submissionDeadline === 'string') {
+        body.submissionDeadline = new Date(body.submissionDeadline);
+      }
+      if (body.notificationDate && typeof body.notificationDate === 'string') {
+        body.notificationDate = new Date(body.notificationDate);
       }
       
       const existing = await storage.getCfpConfig(eventId, organizationId);
@@ -5029,7 +5047,7 @@ ${urls.map(u => `  <url>
         return res.status(404).json({ message: "CFP config not found" });
       }
       
-      const data = insertCfpConfigSchema.partial().parse(req.body);
+      const data = insertCfpConfigSchema.partial().parse(body);
       const updated = await storage.updateCfpConfig(existing.id, organizationId, data);
       res.json(updated);
     } catch (error: any) {
@@ -5044,9 +5062,9 @@ ${urls.map(u => `  <url>
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
-      const eventId = parseInt(req.params.eventId, 10);
+      const eventId = req.params.eventId;
       
-      if (isNaN(eventId)) {
+      if (!eventId) {
         return res.status(400).json({ message: "Invalid event ID" });
       }
       
@@ -5067,9 +5085,9 @@ ${urls.map(u => `  <url>
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
-      const eventId = parseInt(req.params.eventId, 10);
+      const eventId = req.params.eventId;
       
-      if (isNaN(eventId)) {
+      if (!eventId) {
         return res.status(400).json({ message: "Invalid event ID" });
       }
       
@@ -5141,9 +5159,9 @@ ${urls.map(u => `  <url>
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
-      const eventId = parseInt(req.params.eventId, 10);
+      const eventId = req.params.eventId;
       
-      if (isNaN(eventId)) {
+      if (!eventId) {
         return res.status(400).json({ message: "Invalid event ID" });
       }
       
@@ -5234,9 +5252,9 @@ ${urls.map(u => `  <url>
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
-      const eventId = parseInt(req.params.eventId, 10);
+      const eventId = req.params.eventId;
       
-      if (isNaN(eventId)) {
+      if (!eventId) {
         return res.status(400).json({ message: "Invalid event ID" });
       }
       
@@ -5257,9 +5275,9 @@ ${urls.map(u => `  <url>
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
-      const eventId = parseInt(req.params.eventId, 10);
+      const eventId = req.params.eventId;
       
-      if (isNaN(eventId)) {
+      if (!eventId) {
         return res.status(400).json({ message: "Invalid event ID" });
       }
       
