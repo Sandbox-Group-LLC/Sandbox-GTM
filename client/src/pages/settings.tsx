@@ -26,7 +26,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { LogOut, User, Shield, Bell, CreditCard, AlertTriangle, Mail, ExternalLink, CheckCircle } from "lucide-react";
+import { LogOut, User, Shield, Bell, Palette, CreditCard, AlertTriangle, FileText, Mail, ExternalLink, CheckCircle, XCircle } from "lucide-react";
 import { Link } from "wouter";
 import type { Organization } from "@shared/schema";
 
