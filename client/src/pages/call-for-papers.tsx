@@ -70,6 +70,8 @@ import {
   XCircle,
   AlertCircle,
   PlusCircle,
+  Copy,
+  ExternalLink,
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Event, CfpConfig, CfpTopic, CfpSubmission, CfpReviewer, CfpReview } from "@shared/schema";
@@ -137,6 +139,8 @@ export default function CallForPapers() {
   const { data: events = [], isLoading: eventsLoading } = useQuery<Event[]>({
     queryKey: ["/api/events"],
   });
+
+  const selectedEvent = events.find(e => e.id === selectedEventId);
 
   useEffect(() => {
     if (events.length > 0 && !selectedEventId) {
@@ -718,6 +722,53 @@ export default function CallForPapers() {
                             </FormItem>
                           )}
                         />
+
+                        {selectedEvent?.publicSlug && cfpConfig && (
+                          <div className="rounded-lg border p-4 space-y-2">
+                            <div className="flex items-center justify-between gap-4 flex-wrap">
+                              <div className="space-y-0.5">
+                                <p className="text-sm font-medium">Public Submission Link</p>
+                                <p className="text-sm text-muted-foreground">
+                                  Share this link with authors to submit papers
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    const url = `${window.location.origin}/event/${selectedEvent.publicSlug}/cfp`;
+                                    navigator.clipboard.writeText(url);
+                                    toast({
+                                      title: "Link copied",
+                                      description: "The public submission link has been copied to your clipboard",
+                                    });
+                                  }}
+                                  data-testid="button-copy-cfp-link"
+                                >
+                                  <Copy className="h-4 w-4 mr-2" />
+                                  Copy Link
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    window.open(`/event/${selectedEvent.publicSlug}/cfp`, "_blank");
+                                  }}
+                                  data-testid="button-open-cfp-link"
+                                >
+                                  <ExternalLink className="h-4 w-4 mr-2" />
+                                  Preview
+                                </Button>
+                              </div>
+                            </div>
+                            <code className="block text-xs bg-muted p-2 rounded break-all">
+                              {`${window.location.origin}/event/${selectedEvent.publicSlug}/cfp`}
+                            </code>
+                          </div>
+                        )}
 
                         <FormField
                           control={settingsForm.control}
