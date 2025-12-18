@@ -5324,6 +5324,27 @@ ${urls.map(u => `  <url>
               });
             }
             
+            // Create a speaker record for the submitter so they appear on the Speakers page
+            const nameParts = updated.authorName.trim().split(/\s+/);
+            const firstName = nameParts[0] || '';
+            const lastName = nameParts.slice(1).join(' ') || '';
+            
+            // Check if speaker already exists for this email
+            let speaker = await storage.getSpeakerByEmail(organizationId, eventId, updated.authorEmail);
+            if (!speaker) {
+              speaker = await storage.createSpeaker({
+                organizationId,
+                eventId,
+                firstName,
+                lastName,
+                email: updated.authorEmail,
+                company: updated.authorAffiliation || undefined,
+                bio: updated.bio || undefined,
+                speakerRole: 'speaker',
+              });
+              logInfo(`Created speaker ${speaker.id} from accepted CFP submission ${submissionId}`);
+            }
+            
             await sendSubmissionAcceptanceEmail({
               authorEmail: updated.authorEmail,
               authorName: updated.authorName,

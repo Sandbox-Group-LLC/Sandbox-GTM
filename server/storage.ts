@@ -205,6 +205,7 @@ export interface IStorage {
   // Speaker operations
   getSpeakers(organizationId: string, eventId?: string): Promise<Speaker[]>;
   getSpeaker(organizationId: string, id: string): Promise<Speaker | undefined>;
+  getSpeakerByEmail(organizationId: string, eventId: string, email: string): Promise<Speaker | undefined>;
   createSpeaker(speaker: InsertSpeaker): Promise<Speaker>;
   updateSpeaker(organizationId: string, id: string, speaker: Partial<InsertSpeaker>): Promise<Speaker | undefined>;
   deleteSpeaker(organizationId: string, id: string): Promise<void>;
