@@ -140,7 +140,7 @@ import {
 } from "@shared/schema";
 import { encrypt, decrypt } from "./encryption";
 import { db } from "./db";
-import { eq, desc, and, ilike, or, isNull, sql, count } from "drizzle-orm";
+import { eq, desc, and, ilike, or, isNull, sql, count, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (MANDATORY for Replit Auth)
@@ -708,8 +708,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteAttendee(organizationId: string, id: string): Promise<void> {
-    // First delete related email messages to avoid foreign key constraint violation
+    // First get all email messages for this attendee
+    const messages = await db.select({ id: emailMessages.id }).from(emailMessages).where(eq(emailMessages.attendeeId, id));
+    
+    // Delete email events that reference these messages
+    if (messages.length > 0) {
+      const messageIds = messages.map(m => m.id);
+      await db.delete(emailEvents).where(inArray(emailEvents.messageId, messageIds));
+    }
+    
+    // Delete email messages for this attendee
     await db.delete(emailMessages).where(eq(emailMessages.attendeeId, id));
+    
     // Then delete the attendee
     await db.delete(attendees).where(and(eq(attendees.organizationId, organizationId), eq(attendees.id, id)));
   }
