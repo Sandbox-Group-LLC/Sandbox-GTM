@@ -129,7 +129,7 @@ export default function Landing() {
               {features.map((feature) => (
                 <Card key={feature.title} className="border-card-border" data-testid={`card-feature-${feature.title.toLowerCase().replace(/\s+/g, '-')}`}>
                   <CardHeader className="pb-2 flex flex-row items-start gap-4">
-                    <div className="h-10 w-10 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
+                    <div className="h-10 w-10 rounded-md flex items-center justify-center flex-shrink-0 bg-[#3d3d3d] text-[#fcfdff]">
                       <feature.icon className="h-5 w-5 text-muted-foreground" />
                     </div>
                     <div>
