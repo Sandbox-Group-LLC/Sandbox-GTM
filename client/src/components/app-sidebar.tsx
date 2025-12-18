@@ -50,7 +50,6 @@ import { useAuth } from "@/hooks/useAuth";
 
 const mainMenuItems = [
   { title: "Dashboard", icon: LayoutDashboard, path: "/" },
-  { title: "Content", icon: FolderOpen, path: "/content" },
 ];
 
 const sessionsSubItems = [
@@ -58,6 +57,10 @@ const sessionsSubItems = [
   { title: "Speakers", path: "/speakers" },
   { title: "Tracks", path: "/tracks" },
   { title: "Rooms", path: "/rooms" },
+];
+
+const contentSubItems = [
+  { title: "Media Library", path: "/content" },
   { title: "Call for Papers", path: "/call-for-papers" },
 ];
 
@@ -98,8 +101,9 @@ export function AppSidebar() {
   const [wizardOpen, setWizardOpen] = useState(false);
 
   const isEventsActive = location === "/events" || location === "/check-in" || location === "/registration" || location === "/site-builder" || location === "/custom-fields";
-  const isSessionsActive = location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/rooms" || location === "/call-for-papers";
+  const isSessionsActive = location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/rooms";
   const isAttendeesActive = location === "/attendees" || location === "/import-attendees" || location === "/attendee-types" || location === "/invite-codes" || location === "/packages";
+  const isContentActive = location === "/content" || location === "/call-for-papers";
   
   const isSuperAdmin = user?.email?.toLowerCase().endsWith("@makemysandbox.com") ?? false;
 
@@ -242,20 +246,39 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               </Collapsible>
 
-              {mainMenuItems.slice(1).map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location === item.path}
-                    data-testid={`nav-${item.title.toLowerCase()}`}
-                  >
-                    <Link href={item.path}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
+              <Collapsible defaultOpen={isContentActive} className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton
+                      isActive={isContentActive}
+                      data-testid="nav-content"
+                    >
+                      <FolderOpen className="h-4 w-4" />
+                      <span>Content</span>
+                      <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {contentSubItems.map((item) => (
+                        <SidebarMenuSubItem key={item.title}>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={location === item.path}
+                          >
+                            <Link
+                              href={item.path}
+                              data-testid={`nav-${item.title.toLowerCase().replace(/ /g, "-")}`}
+                            >
+                              <span>{item.title}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
                 </SidebarMenuItem>
-              ))}
+              </Collapsible>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
