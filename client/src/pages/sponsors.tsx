@@ -67,7 +67,9 @@ import {
   Mail,
   Phone,
   Ticket,
+  ImageIcon,
 } from "lucide-react";
+import { ObjectUploader } from "@/components/ObjectUploader";
 import { Badge } from "@/components/ui/badge";
 import { EventSelectField } from "@/components/event-select-field";
 import type { EventSponsor, Event, InviteCode } from "@shared/schema";
@@ -410,13 +412,49 @@ export default function Sponsors() {
                       name="logoUrl"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Logo URL</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="https://..." data-testid="input-logo-url" />
-                          </FormControl>
-                          <FormDescription>
-                            Enter a URL to the sponsor logo image.
-                          </FormDescription>
+                          <FormLabel>Company Logo</FormLabel>
+                          <div className="flex items-start gap-4 flex-wrap">
+                            {field.value ? (
+                              <div className="relative">
+                                <img
+                                  src={field.value}
+                                  alt="Sponsor logo"
+                                  className="h-20 w-auto max-w-40 object-contain border rounded-md p-2"
+                                  data-testid="img-logo-preview"
+                                />
+                                <Button
+                                  type="button"
+                                  size="icon"
+                                  variant="destructive"
+                                  className="absolute -top-2 -right-2 h-6 w-6"
+                                  onClick={() => form.setValue("logoUrl", "")}
+                                  data-testid="button-remove-logo"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="h-20 w-20 border rounded-md flex items-center justify-center bg-muted">
+                                <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                              </div>
+                            )}
+                            <div className="flex flex-col gap-2">
+                              <ObjectUploader
+                                onComplete={(result) => form.setValue("logoUrl", result.uploadUrl)}
+                                accept="image/*"
+                                buttonText="Upload Logo"
+                                buttonVariant="outline"
+                              />
+                              <FormControl>
+                                <Input 
+                                  {...field} 
+                                  placeholder="Or paste logo URL..." 
+                                  className="max-w-xs"
+                                  data-testid="input-logo-url" 
+                                />
+                              </FormControl>
+                            </div>
+                          </div>
                           <FormMessage />
                         </FormItem>
                       )}

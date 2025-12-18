@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { ObjectUploader } from "@/components/ObjectUploader";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,8 @@ import {
   ExternalLink,
   Copy,
   Check,
+  ImageIcon,
+  Trash2,
 } from "lucide-react";
 import { SiLinkedin, SiX, SiFacebook, SiInstagram } from "react-icons/si";
 import type { EventSponsor, SponsorTask, SponsorTaskCompletion } from "@shared/schema";
@@ -59,6 +62,7 @@ const profileFormSchema = z.object({
   contactEmail: z.string().email("Invalid email address").optional().or(z.literal("")),
   contactName: z.string().optional(),
   contactPhone: z.string().optional(),
+  logoUrl: z.string().url("Invalid URL").optional().or(z.literal("")),
   socialLinks: z.object({
     linkedin: z.string().url("Invalid URL").optional().or(z.literal("")),
     twitter: z.string().url("Invalid URL").optional().or(z.literal("")),
@@ -117,6 +121,7 @@ function ProfileTab({ sponsor, token }: { sponsor: SponsorWithEvent; token: stri
       contactEmail: sponsor.contactEmail || "",
       contactName: sponsor.contactName || "",
       contactPhone: sponsor.contactPhone || "",
+      logoUrl: sponsor.logoUrl || "",
       socialLinks: {
         linkedin: sponsor.socialLinks?.linkedin || "",
         twitter: sponsor.socialLinks?.twitter || "",
@@ -234,6 +239,47 @@ function ProfileTab({ sponsor, token }: { sponsor: SponsorWithEvent; token: stri
                   </FormItem>
                 )}
               />
+
+              <div className="space-y-2">
+                <FormLabel>Company Logo</FormLabel>
+                <div className="flex items-start gap-4 flex-wrap">
+                  {form.watch("logoUrl") ? (
+                    <div className="relative">
+                      <img
+                        src={form.watch("logoUrl")}
+                        alt="Company logo"
+                        className="h-24 w-auto max-w-48 object-contain border rounded-md p-2"
+                        data-testid="img-logo-preview"
+                      />
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="destructive"
+                        className="absolute -top-2 -right-2 h-6 w-6"
+                        onClick={() => form.setValue("logoUrl", "")}
+                        data-testid="button-remove-logo"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="h-24 w-24 border rounded-md flex items-center justify-center bg-muted">
+                      <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                  )}
+                  <div className="flex flex-col gap-2">
+                    <ObjectUploader
+                      onComplete={(result) => form.setValue("logoUrl", result.uploadUrl)}
+                      accept="image/*"
+                      buttonText="Upload Logo"
+                      buttonVariant="outline"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Recommended: Square image, at least 200x200 pixels
+                    </p>
+                  </div>
+                </div>
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
