@@ -637,7 +637,7 @@ export async function sendReviewerNotificationEmail(params: {
   }
 
   const baseUrl = getBaseUrl();
-  const reviewUrl = `${baseUrl}/reviewer`;
+  const reviewUrl = `${baseUrl}/reviewer/portal`;
 
   try {
     const { data, error } = await resend.emails.send({

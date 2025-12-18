@@ -109,6 +109,7 @@ function Router() {
         <Route path="/rooms" component={Rooms} />
         <Route path="/call-for-papers" component={CallForPapers} />
         <Route path="/reviewer/portal" component={ReviewerPortal} />
+        <Route path="/reviewer">{() => { window.location.href = "/reviewer/portal"; return null; }}</Route>
         <Route path="/speakers" component={Speakers} />
         <Route path="/content" component={Content} />
         <Route path="/budget" component={Budget} />

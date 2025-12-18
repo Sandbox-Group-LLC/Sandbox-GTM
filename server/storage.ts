@@ -393,6 +393,7 @@ export interface IStorage {
   getCfpReviewers(cfpConfigId: number, organizationId: string): Promise<CfpReviewer[]>;
   getCfpReviewer(id: number, organizationId: string): Promise<CfpReviewer | undefined>;
   getCfpReviewerByEmail(cfpConfigId: number, email: string): Promise<CfpReviewer | undefined>;
+  getCfpReviewersByEmail(email: string): Promise<CfpReviewer[]>;
   getCfpReviewersByUserId(userId: string): Promise<CfpReviewer[]>;
   createCfpReviewer(reviewer: InsertCfpReviewer): Promise<CfpReviewer>;
   updateCfpReviewer(id: number, organizationId: string, updates: Partial<InsertCfpReviewer>): Promise<CfpReviewer | undefined>;
@@ -1818,6 +1819,11 @@ export class DatabaseStorage implements IStorage {
     const [reviewer] = await db.select().from(cfpReviewers)
       .where(and(eq(cfpReviewers.cfpConfigId, cfpConfigId), eq(cfpReviewers.email, email)));
     return reviewer;
+  }
+
+  async getCfpReviewersByEmail(email: string): Promise<CfpReviewer[]> {
+    return db.select().from(cfpReviewers)
+      .where(eq(cfpReviewers.email, email));
   }
 
   async getCfpReviewersByUserId(userId: string): Promise<CfpReviewer[]> {

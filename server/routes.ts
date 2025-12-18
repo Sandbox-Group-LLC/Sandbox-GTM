@@ -5539,9 +5539,28 @@ ${urls.map(u => `  <url>
   app.get("/api/reviewer/assignments", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const userEmail = req.user.claims.email;
       
-      // Get all reviewer records for this user
-      const reviewerRecords = await storage.getCfpReviewersByUserId(userId);
+      // Get all reviewer records for this user by userId
+      let reviewerRecords = await storage.getCfpReviewersByUserId(userId);
+      
+      // If no records found by userId, try to find by email and auto-link
+      if (reviewerRecords.length === 0 && userEmail) {
+        const reviewersByEmail = await storage.getCfpReviewersByEmail(userEmail);
+        // Link these reviewers to the user
+        for (const reviewer of reviewersByEmail) {
+          if (!reviewer.userId) {
+            await storage.updateCfpReviewer(reviewer.id, reviewer.organizationId, { userId });
+          }
+        }
+        // Fetch again after linking
+        reviewerRecords = await storage.getCfpReviewersByUserId(userId);
+        // If still empty, return the email-matched ones
+        if (reviewerRecords.length === 0) {
+          reviewerRecords = reviewersByEmail;
+        }
+      }
+      
       if (reviewerRecords.length === 0) {
         return res.json([]);
       }
@@ -5572,14 +5591,18 @@ ${urls.map(u => `  <url>
   app.get("/api/reviewer/assignments/:submissionId", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const userEmail = req.user.claims.email;
       const submissionId = parseInt(req.params.submissionId, 10);
       
       if (isNaN(submissionId)) {
         return res.status(400).json({ message: "Invalid submission ID" });
       }
       
-      // Get all reviewer records for this user
-      const reviewerRecords = await storage.getCfpReviewersByUserId(userId);
+      // Get all reviewer records for this user (by userId or email)
+      let reviewerRecords = await storage.getCfpReviewersByUserId(userId);
+      if (reviewerRecords.length === 0 && userEmail) {
+        reviewerRecords = await storage.getCfpReviewersByEmail(userEmail);
+      }
       if (reviewerRecords.length === 0) {
         return res.status(403).json({ message: "Not authorized as a reviewer" });
       }
@@ -5610,6 +5633,7 @@ ${urls.map(u => `  <url>
   app.patch("/api/reviewer/reviews/:reviewId", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const userEmail = req.user.claims.email;
       const reviewId = parseInt(req.params.reviewId, 10);
       
       if (isNaN(reviewId)) {
@@ -5617,7 +5641,10 @@ ${urls.map(u => `  <url>
       }
       
       // Get all reviewer records for this user to find the one that owns this review
-      const reviewerRecords = await storage.getCfpReviewersByUserId(userId);
+      let reviewerRecords = await storage.getCfpReviewersByUserId(userId);
+      if (reviewerRecords.length === 0 && userEmail) {
+        reviewerRecords = await storage.getCfpReviewersByEmail(userEmail);
+      }
       if (reviewerRecords.length === 0) {
         return res.status(403).json({ message: "Not authorized as a reviewer" });
       }
