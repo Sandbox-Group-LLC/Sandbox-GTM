@@ -982,6 +982,71 @@ export const passkeyReservations = pgTable("passkey_reservations", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Document Folders - Organization-scoped folders for organizing documents
+export const documentFolders = pgTable("document_folders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id), // Optional - can be org-level or event-specific
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  parentId: varchar("parent_id"), // Self-referential for nested folders
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Documents - Main document/file records
+export const documents = pgTable("documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id), // Optional - can be org-level or event-specific
+  folderId: varchar("folder_id").references(() => documentFolders.id),
+  name: varchar("name", { length: 500 }).notNull(),
+  description: text("description"),
+  fileName: text("file_name").notNull(),
+  mimeType: text("mime_type").notNull(),
+  byteSize: integer("byte_size").notNull(),
+  objectPath: text("object_path").notNull(), // Path in object storage
+  accessLevel: varchar("access_level", { length: 50 }).default("private"), // 'private', 'organization', 'shared'
+  version: integer("version").default(1),
+  uploadedBy: varchar("uploaded_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Document Shares - Sharing permissions for documents
+export const documentShares = pgTable("document_shares", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  documentId: varchar("document_id").references(() => documents.id).notNull(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  shareType: varchar("share_type", { length: 50 }).notNull(), // 'user', 'email', 'role', 'link'
+  shareValue: varchar("share_value", { length: 255 }).notNull(), // userId, email address, role name, or link token
+  permission: varchar("permission", { length: 50 }).default("view"), // 'view', 'download', 'edit'
+  expiresAt: timestamp("expires_at"),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_document_shares_document").on(table.documentId),
+  index("IDX_document_shares_share_value").on(table.shareValue),
+]);
+
+// Document Activity - Audit trail for document actions
+export const documentActivity = pgTable("document_activity", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  documentId: varchar("document_id").references(() => documents.id).notNull(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  actorType: varchar("actor_type", { length: 50 }).notNull(), // 'user', 'vendor', 'system'
+  actorId: varchar("actor_id", { length: 255 }), // userId or vendorId
+  actorEmail: varchar("actor_email", { length: 255 }),
+  action: varchar("action", { length: 50 }).notNull(), // 'upload', 'view', 'download', 'edit', 'share', 'unshare', 'delete'
+  details: jsonb("details").$type<Record<string, unknown>>(),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_document_activity_document").on(table.documentId),
+  index("IDX_document_activity_created_at").on(table.createdAt),
+]);
+
 // Relations
 export const organizationsRelations = relations(organizations, ({ many }) => ({
   members: many(organizationMembers),
