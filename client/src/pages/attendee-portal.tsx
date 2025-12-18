@@ -104,17 +104,20 @@ export default function AttendeePortal() {
     retry: false,
   });
 
+  // Use the attendee's actual event slug, not the URL parameter
+  const attendeeEventSlug = data?.event?.publicSlug;
+  
   const { data: housingInfo } = useQuery<HousingInfo>({
-    queryKey: ["/api/public/event", slug, "housing", data?.attendee?.id, data?.attendee?.checkInCode],
+    queryKey: ["/api/public/event", attendeeEventSlug, "housing", data?.attendee?.id, data?.attendee?.checkInCode],
     queryFn: async () => {
-      if (!data?.attendee?.id || !data?.attendee?.checkInCode) {
+      if (!data?.attendee?.id || !data?.attendee?.checkInCode || !attendeeEventSlug) {
         return { housingEnabled: false };
       }
-      const res = await fetch(`/api/public/event/${slug}/housing/${data.attendee.id}?code=${encodeURIComponent(data.attendee.checkInCode || '')}`);
+      const res = await fetch(`/api/public/event/${attendeeEventSlug}/housing/${data.attendee.id}?code=${encodeURIComponent(data.attendee.checkInCode || '')}`);
       if (!res.ok) return { housingEnabled: false };
       return res.json();
     },
-    enabled: !!data?.attendee?.id && !!data?.attendee?.checkInCode && !!slug,
+    enabled: !!data?.attendee?.id && !!data?.attendee?.checkInCode && !!attendeeEventSlug,
   });
 
   const form = useForm<ProfileFormData>({
