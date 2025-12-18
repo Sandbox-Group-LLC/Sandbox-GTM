@@ -3262,8 +3262,8 @@ ${urls.map(u => `  <url>
         return res.status(404).json({ message: "Event not found" });
       }
       
-      if (!event.isPublic) {
-        logInfo(`[Public Event] Event ${event.id} is not public`);
+      if (!event.isPublic && event.status !== 'published') {
+        logInfo(`[Public Event] Event ${event.id} is not public or published`);
         return res.status(404).json({ message: "Event not found" });
       }
       
@@ -3293,7 +3293,7 @@ ${urls.map(u => `  <url>
   app.get("/api/public/event/:slug/registration", async (req, res) => {
     try {
       const event = await storage.getEventBySlug(req.params.slug);
-      if (!event || !event.isPublic) {
+      if (!event || (!event.isPublic && event.status !== 'published')) {
         return res.status(404).json({ message: "Event not found" });
       }
       
@@ -3327,7 +3327,7 @@ ${urls.map(u => `  <url>
   app.get("/api/public/event/:slug/portal", async (req, res) => {
     try {
       const event = await storage.getEventBySlug(req.params.slug);
-      if (!event || !event.isPublic) {
+      if (!event || (!event.isPublic && event.status !== 'published')) {
         return res.status(404).json({ message: "Event not found" });
       }
       
@@ -3356,7 +3356,7 @@ ${urls.map(u => `  <url>
   app.get("/api/public/event/:slug/packages", async (req, res) => {
     try {
       const event = await storage.getEventBySlug(req.params.slug);
-      if (!event || !event.isPublic) {
+      if (!event || (!event.isPublic && event.status !== 'published')) {
         return res.status(404).json({ message: "Event not found" });
       }
       
@@ -3396,7 +3396,7 @@ ${urls.map(u => `  <url>
   app.post("/api/public/validate-invite-code/:slug", validateInviteCodeLimiter, async (req, res) => {
     try {
       const event = await storage.getEventBySlug(req.params.slug);
-      if (!event || !event.isPublic) {
+      if (!event || (!event.isPublic && event.status !== 'published')) {
         return res.status(404).json({ message: "Event not found" });
       }
       
@@ -3455,7 +3455,7 @@ ${urls.map(u => `  <url>
   app.post("/api/public/register/:slug", publicRegistrationLimiter, async (req, res) => {
     try {
       const event = await storage.getEventBySlug(req.params.slug);
-      if (!event || !event.isPublic || !event.registrationOpen) {
+      if (!event || (!event.isPublic && event.status !== 'published') || !event.registrationOpen) {
         return res.status(404).json({ message: "Registration not available" });
       }
       
@@ -4654,7 +4654,7 @@ ${urls.map(u => `  <url>
   app.get("/api/public/event/:slug/payment-config", async (req, res) => {
     try {
       const event = await storage.getEventBySlug(req.params.slug);
-      if (!event || !event.isPublic) {
+      if (!event || (!event.isPublic && event.status !== 'published')) {
         return res.status(404).json({ message: "Event not found" });
       }
       
@@ -4676,7 +4676,7 @@ ${urls.map(u => `  <url>
   app.post("/api/public/event/:slug/create-payment-intent", createPaymentIntentLimiter, async (req, res) => {
     try {
       const event = await storage.getEventBySlug(req.params.slug);
-      if (!event || !event.isPublic || !event.registrationOpen) {
+      if (!event || (!event.isPublic && event.status !== 'published') || !event.registrationOpen) {
         return res.status(404).json({ message: "Registration not available" });
       }
       
@@ -4758,7 +4758,7 @@ ${urls.map(u => `  <url>
   app.post("/api/public/event/:slug/verify-payment", verifyPaymentLimiter, async (req, res) => {
     try {
       const event = await storage.getEventBySlug(req.params.slug);
-      if (!event || !event.isPublic) {
+      if (!event || (!event.isPublic && event.status !== 'published')) {
         return res.status(404).json({ message: "Event not found" });
       }
       
