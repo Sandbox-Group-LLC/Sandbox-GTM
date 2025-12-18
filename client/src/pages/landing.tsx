@@ -166,7 +166,7 @@ export default function Landing() {
                     />
                   </div>
                   <span className="font-medium text-sm">{integration.name}</span>
-                  <span className="text-xs text-muted-foreground mt-1">{integration.description}</span>
+                  <span className="text-xs mt-1 text-[#b8b8b8]">{integration.description}</span>
                 </div>
               ))}
             </div>
