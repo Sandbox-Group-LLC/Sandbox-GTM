@@ -47,7 +47,8 @@ import {
   XCircle, 
   AlertTriangle,
   RefreshCw,
-  Loader2
+  Loader2,
+  Hotel
 } from "lucide-react";
 import type { IconType } from "react-icons";
 import type { Organization } from "@shared/schema";
@@ -90,9 +91,28 @@ const stripeSchema = z.object({
   paymentEnabled: z.boolean(),
 });
 
+const passkeySchema = z.object({
+  clientId: z.string().min(1, "Client ID is required"),
+  clientSecret: z.string().min(1, "Client Secret is required"),
+});
+
 type SocialCredentialsFormData = z.infer<typeof socialCredentialsSchema>;
 type MailchimpFormData = z.infer<typeof mailchimpSchema>;
 type StripeFormData = z.infer<typeof stripeSchema>;
+type PasskeyFormData = z.infer<typeof passkeySchema>;
+
+interface PasskeyConnection {
+  id: string;
+  organizationId: string;
+  clientId: string | null;
+  clientSecret: string | null;
+  hasCredentials: boolean;
+  status: string;
+  errorMessage: string | null;
+  tokenExpiresAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
 const developerPortalLinks: Record<string, string> = {
   twitter: "https://developer.twitter.com/en/portal/dashboard",
@@ -985,6 +1005,210 @@ function GoogleSheetsIntegrationCard() {
   );
 }
 
+function PasskeyIntegrationCard() {
+  const [isOpen, setIsOpen] = useState(false);
+  const { toast } = useToast();
+
+  const { data: connection, isLoading } = useQuery<PasskeyConnection | null>({
+    queryKey: ["/api/passkey/connection"],
+  });
+
+  const isConfigured = connection?.hasCredentials ?? false;
+
+  const form = useForm<PasskeyFormData>({
+    resolver: zodResolver(passkeySchema),
+    defaultValues: {
+      clientId: "",
+      clientSecret: "",
+    },
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: PasskeyFormData) => {
+      return await apiRequest("POST", "/api/passkey/connection", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/passkey/connection"] });
+      toast({ title: "Passkey credentials saved successfully" });
+      form.reset();
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({ title: "Unauthorized", description: "Session expired. Logging in again...", variant: "destructive" });
+        setTimeout(() => { window.location.href = "/api/login"; }, 500);
+        return;
+      }
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const disconnectMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("DELETE", "/api/passkey/connection");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/passkey/connection"] });
+      toast({ title: "Passkey connection removed" });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({ title: "Unauthorized", description: "Session expired. Logging in again...", variant: "destructive" });
+        setTimeout(() => { window.location.href = "/api/login"; }, 500);
+        return;
+      }
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  return (
+    <Card data-testid="card-integration-passkey">
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <CardHeader>
+          <div className="flex items-start gap-4">
+            <div className="p-2 rounded-md bg-muted">
+              <Hotel className="h-6 w-6" data-testid="icon-passkey" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <CardTitle className="text-base" data-testid="title-passkey">
+                  Passkey (Cvent Housing)
+                </CardTitle>
+                {isLoading ? (
+                  <Skeleton className="h-5 w-20" />
+                ) : isConfigured ? (
+                  <Badge variant="outline" className="flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3 text-green-500" />
+                    Configured
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="flex items-center gap-1">
+                    <XCircle className="h-3 w-3 text-muted-foreground" />
+                    Not Configured
+                  </Badge>
+                )}
+              </div>
+              <CardDescription className="mt-1" data-testid="description-passkey">
+                Manage hotel room blocks and attendee housing reservations
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <CollapsibleTrigger asChild>
+            <Button 
+              variant="outline" 
+              size="sm"
+              data-testid="button-configure-passkey"
+              className="flex items-center gap-1"
+            >
+              Configure
+              {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </Button>
+          </CollapsibleTrigger>
+
+          <CollapsibleContent className="mt-4 space-y-4">
+            <Separator />
+
+            {isConfigured && connection?.clientId && (
+              <div className="p-3 bg-muted rounded-md space-y-2">
+                <p className="text-sm font-medium">Connected Account</p>
+                <p className="text-sm text-muted-foreground">
+                  Client ID: {connection.clientId}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Status: {connection.status === 'active' ? 'Active' : connection.status}
+                </p>
+              </div>
+            )}
+
+            {!isConfigured ? (
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit((data) => saveMutation.mutate(data))} className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="clientId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Client ID</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="Enter your Passkey Client ID" 
+                            {...field} 
+                            data-testid="input-passkey-client-id"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="clientSecret"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Client Secret</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="password"
+                            placeholder="Enter your Passkey Client Secret" 
+                            {...field} 
+                            data-testid="input-passkey-client-secret"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="text-sm text-muted-foreground space-y-2">
+                    <p className="font-medium">Setup Instructions</p>
+                    <ol className="list-decimal list-inside space-y-1">
+                      <li>Contact your Passkey/Cvent representative to obtain API credentials</li>
+                      <li>Enter the Client ID and Client Secret provided</li>
+                      <li>After connecting, configure each event with its Passkey Event ID</li>
+                    </ol>
+                  </div>
+
+                  <Button 
+                    type="submit" 
+                    size="sm"
+                    disabled={saveMutation.isPending}
+                    data-testid="button-save-passkey"
+                  >
+                    {saveMutation.isPending ? "Saving..." : "Save Credentials"}
+                  </Button>
+                </form>
+              </Form>
+            ) : (
+              <div className="space-y-4">
+                <div className="text-sm text-muted-foreground">
+                  <p className="font-medium">Next Steps</p>
+                  <p>
+                    Go to each event's settings to configure the Passkey Event ID and enable housing management for that event.
+                  </p>
+                </div>
+
+                <Separator />
+
+                <Button 
+                  variant="destructive" 
+                  size="sm"
+                  onClick={() => disconnectMutation.mutate()}
+                  disabled={disconnectMutation.isPending}
+                  data-testid="button-disconnect-passkey"
+                >
+                  {disconnectMutation.isPending ? "Disconnecting..." : "Disconnect"}
+                </Button>
+              </div>
+            )}
+          </CollapsibleContent>
+        </CardContent>
+      </Collapsible>
+    </Card>
+  );
+}
+
 export default function Integrations() {
   return (
     <div className="flex flex-col h-full">
@@ -1055,6 +1279,15 @@ export default function Integrations() {
           </h2>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             <GoogleSheetsIntegrationCard />
+          </div>
+        </section>
+
+        <section data-testid="section-housing">
+          <h2 className="text-xl font-semibold mb-4" data-testid="heading-housing">
+            Hotel Housing
+          </h2>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <PasskeyIntegrationCard />
           </div>
         </section>
       </div>
