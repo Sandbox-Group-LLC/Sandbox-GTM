@@ -159,7 +159,7 @@ export default function Landing() {
                   className="flex flex-col items-center text-center p-6 rounded-lg bg-card border border-border"
                   data-testid={`integration-${integration.name.toLowerCase().replace(/[^a-z]/g, '-')}`}
                 >
-                  <div className="h-12 w-12 rounded-md bg-muted flex items-center justify-center mb-3">
+                  <div className="h-12 w-12 rounded-md flex items-center justify-center mb-3 bg-[#ffffff]">
                     <integration.icon 
                       className="h-6 w-6" 
                       style={integration.color ? { color: integration.color } : undefined}
