@@ -931,6 +931,57 @@ export const signupInviteCodeRedemptions = pgTable("signup_invite_code_redemptio
   redeemedAt: timestamp("redeemed_at").defaultNow(),
 });
 
+// Passkey (Cvent) Housing Integration
+export const passkeyConnections = pgTable("passkey_connections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  clientId: text("client_id"), // encrypted
+  clientSecret: text("client_secret"), // encrypted
+  accessToken: text("access_token"), // encrypted OAuth token
+  tokenExpiresAt: timestamp("token_expires_at"),
+  status: varchar("status", { length: 50 }).default("disconnected"), // 'active', 'disconnected', 'error'
+  errorMessage: text("error_message"),
+  connectedBy: varchar("connected_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("passkey_connections_org_idx").on(table.organizationId),
+]);
+
+export const passkeyEventMappings = pgTable("passkey_event_mappings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id).notNull(),
+  passkeyEventId: varchar("passkey_event_id", { length: 255 }).notNull(),
+  passkeyEventName: varchar("passkey_event_name", { length: 500 }),
+  regLinkUrl: text("reglink_url"), // The URL to redirect attendees to Passkey
+  isEnabled: boolean("is_enabled").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("passkey_event_mappings_event_idx").on(table.eventId),
+]);
+
+export const passkeyReservations = pgTable("passkey_reservations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id).notNull(),
+  attendeeId: varchar("attendee_id").references(() => attendees.id),
+  passkeyReservationId: varchar("passkey_reservation_id", { length: 255 }),
+  hotelName: varchar("hotel_name", { length: 255 }),
+  checkInDate: date("check_in_date"),
+  checkOutDate: date("check_out_date"),
+  roomType: varchar("room_type", { length: 255 }),
+  confirmationNumber: varchar("confirmation_number", { length: 100 }),
+  status: varchar("status", { length: 50 }).default("pending"), // 'pending', 'confirmed', 'cancelled', 'modified'
+  guestFirstName: varchar("guest_first_name", { length: 255 }),
+  guestLastName: varchar("guest_last_name", { length: 255 }),
+  guestEmail: varchar("guest_email", { length: 255 }),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Relations
 export const organizationsRelations = relations(organizations, ({ many }) => ({
   members: many(organizationMembers),
@@ -1177,6 +1228,22 @@ export const emailSuppressionsRelations = relations(emailSuppressions, ({ one })
   organization: one(organizations, { fields: [emailSuppressions.organizationId], references: [organizations.id] }),
 }));
 
+export const passkeyConnectionsRelations = relations(passkeyConnections, ({ one }) => ({
+  organization: one(organizations, { fields: [passkeyConnections.organizationId], references: [organizations.id] }),
+  connectedByUser: one(users, { fields: [passkeyConnections.connectedBy], references: [users.id] }),
+}));
+
+export const passkeyEventMappingsRelations = relations(passkeyEventMappings, ({ one }) => ({
+  organization: one(organizations, { fields: [passkeyEventMappings.organizationId], references: [organizations.id] }),
+  event: one(events, { fields: [passkeyEventMappings.eventId], references: [events.id] }),
+}));
+
+export const passkeyReservationsRelations = relations(passkeyReservations, ({ one }) => ({
+  organization: one(organizations, { fields: [passkeyReservations.organizationId], references: [organizations.id] }),
+  event: one(events, { fields: [passkeyReservations.eventId], references: [events.id] }),
+  attendee: one(attendees, { fields: [passkeyReservations.attendeeId], references: [attendees.id] }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true, updatedAt: true });
 export const insertOrganizationSchema = createInsertSchema(organizations).omit({ id: true, createdAt: true, updatedAt: true });
@@ -1233,6 +1300,9 @@ export const insertEmailPlatformAudienceSchema = createInsertSchema(emailPlatfor
 export const insertEmailSyncJobSchema = createInsertSchema(emailSyncJobs).omit({ id: true, createdAt: true });
 export const insertSignupInviteCodeSchema = createInsertSchema(signupInviteCodes).omit({ id: true, createdAt: true, usesCount: true });
 export const insertSignupInviteCodeRedemptionSchema = createInsertSchema(signupInviteCodeRedemptions).omit({ id: true, redeemedAt: true });
+export const insertPasskeyConnectionSchema = createInsertSchema(passkeyConnections).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertPasskeyEventMappingSchema = createInsertSchema(passkeyEventMappings).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertPasskeyReservationSchema = createInsertSchema(passkeyReservations).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Types
 export type UpsertUser = typeof users.$inferInsert;
@@ -1334,3 +1404,9 @@ export type InsertSignupInviteCode = z.infer<typeof insertSignupInviteCodeSchema
 export type SignupInviteCode = typeof signupInviteCodes.$inferSelect;
 export type InsertSignupInviteCodeRedemption = z.infer<typeof insertSignupInviteCodeRedemptionSchema>;
 export type SignupInviteCodeRedemption = typeof signupInviteCodeRedemptions.$inferSelect;
+export type InsertPasskeyConnection = z.infer<typeof insertPasskeyConnectionSchema>;
+export type PasskeyConnection = typeof passkeyConnections.$inferSelect;
+export type InsertPasskeyEventMapping = z.infer<typeof insertPasskeyEventMappingSchema>;
+export type PasskeyEventMapping = typeof passkeyEventMappings.$inferSelect;
+export type InsertPasskeyReservation = z.infer<typeof insertPasskeyReservationSchema>;
+export type PasskeyReservation = typeof passkeyReservations.$inferSelect;
