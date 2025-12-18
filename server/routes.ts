@@ -5441,7 +5441,7 @@ ${urls.map(u => `  <url>
         return res.status(404).json({ message: "CFP not found" });
       }
       
-      const config = await storage.getCfpConfig(parseInt(event.id, 10), event.organizationId);
+      const config = await storage.getCfpConfig(event.id, event.organizationId);
       if (!config || !config.isOpen) {
         return res.status(404).json({ message: "CFP not found or not open" });
       }
@@ -5477,7 +5477,7 @@ ${urls.map(u => `  <url>
         return res.status(404).json({ message: "CFP not found" });
       }
       
-      const config = await storage.getCfpConfig(parseInt(event.id, 10), event.organizationId);
+      const config = await storage.getCfpConfig(event.id, event.organizationId);
       if (!config) {
         return res.status(404).json({ message: "CFP not found" });
       }
@@ -5495,7 +5495,7 @@ ${urls.map(u => `  <url>
       const data = insertCfpSubmissionSchema.parse({
         ...req.body,
         cfpConfigId: config.id,
-        eventId: parseInt(event.id, 10),
+        eventId: event.id,
         organizationId: event.organizationId,
         status: 'pending',
       });

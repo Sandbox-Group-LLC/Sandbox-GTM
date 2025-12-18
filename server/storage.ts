@@ -371,7 +371,7 @@ export interface IStorage {
   deleteContentAsset(id: string, organizationId: string): Promise<void>;
 
   // CFP Config operations
-  getCfpConfig(eventId: number, organizationId: string): Promise<CfpConfig | undefined>;
+  getCfpConfig(eventId: string, organizationId: string): Promise<CfpConfig | undefined>;
   createCfpConfig(config: InsertCfpConfig): Promise<CfpConfig>;
   updateCfpConfig(id: number, organizationId: string, updates: Partial<InsertCfpConfig>): Promise<CfpConfig | undefined>;
 
@@ -1716,7 +1716,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // CFP Config operations
-  async getCfpConfig(eventId: number, organizationId: string): Promise<CfpConfig | undefined> {
+  async getCfpConfig(eventId: string, organizationId: string): Promise<CfpConfig | undefined> {
     const [config] = await db.select().from(cfpConfigs)
       .where(and(eq(cfpConfigs.eventId, eventId), eq(cfpConfigs.organizationId, organizationId)));
     return config;
