@@ -148,7 +148,7 @@ export default function Landing() {
             <h2 className="text-2xl font-semibold text-center mb-4 text-[#ffffff]">
               Powerful Integrations
             </h2>
-            <p className="text-muted-foreground text-center mb-12 max-w-2xl mx-auto">
+            <p className="text-center mb-12 max-w-2xl mx-auto text-[#b8b8b8]">
               Connect with the tools you already use. Our platform integrates seamlessly with leading services for payments, marketing, and social media.
             </p>
             
