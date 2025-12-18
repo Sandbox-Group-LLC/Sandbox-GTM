@@ -2714,13 +2714,22 @@ export async function registerRoutes(
           ...req.body, 
           organizationId, 
           eventId: req.body.eventId || null, 
+          connectionId: connection.id,
           createdBy: userId,
           status: 'published',
         });
         const post = await storage.createSocialPost(data);
         res.status(201).json({ ...post, linkedinShareUrn: shareUrn });
       } else {
-        const data = insertSocialPostSchema.parse({ ...req.body, organizationId, eventId: req.body.eventId || null, createdBy: userId });
+        // Ensure connectionId is null instead of empty string to avoid FK constraint violations
+        const connectionId = req.body.connectionId || null;
+        const data = insertSocialPostSchema.parse({ 
+          ...req.body, 
+          organizationId, 
+          eventId: req.body.eventId || null, 
+          connectionId,
+          createdBy: userId 
+        });
         const post = await storage.createSocialPost(data);
         res.status(201).json(post);
       }
