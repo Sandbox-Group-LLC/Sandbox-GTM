@@ -695,6 +695,7 @@ export const emailTemplates = pgTable("email_templates", {
     lineHeight?: 'tight' | 'normal' | 'relaxed';
   }>().default({}),
   isDefault: boolean("is_default").default(false),
+  isInviteEmail: boolean("is_invite_email").default(false),
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

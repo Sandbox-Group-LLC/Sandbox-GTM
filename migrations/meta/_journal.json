@@ -15,6 +15,13 @@
       "when": 1766040334243,
       "tag": "0001_motionless_wrecking_crew",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1766042830305,
+      "tag": "0002_add_invite_email_field",
+      "breakpoints": true
     }
   ]
 }

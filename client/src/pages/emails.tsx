@@ -40,6 +40,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { titleCase } from "@/lib/utils";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { Switch } from "@/components/ui/switch";
 import { Plus, Mail, Send, Clock, CheckCircle, FileText, Copy, Trash2, X, Type, Palette } from "lucide-react";
 import { EventSelectField } from "@/components/event-select-field";
 import { MergeTagPicker } from "@/components/merge-tag-picker";
@@ -73,6 +74,7 @@ const templateFormSchema = z.object({
   content: z.string().min(1, "Content is required"),
   category: z.string().default("general"),
   headerImageUrl: z.string().optional(),
+  isInviteEmail: z.boolean().default(false),
   styles: emailStylesSchema,
 });
 
@@ -185,6 +187,7 @@ export default function Emails() {
       content: "",
       category: "general",
       headerImageUrl: "",
+      isInviteEmail: false,
       styles: {},
     },
   });
@@ -356,6 +359,7 @@ export default function Emails() {
       content: template.content,
       category: template.category || "general",
       headerImageUrl: template.headerImageUrl || "",
+      isInviteEmail: template.isInviteEmail || false,
       styles: template.styles || {},
     });
     setIsTemplateDialogOpen(true);
@@ -965,6 +969,27 @@ export default function Emails() {
                         )}
                       />
                     </div>
+                    <FormField
+                      control={templateForm.control}
+                      name="isInviteEmail"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                          <div className="space-y-0.5">
+                            <FormLabel>Invite Email</FormLabel>
+                            <p className="text-sm text-muted-foreground">
+                              When sent, this email will automatically update attendee status to "Invited"
+                            </p>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              data-testid="switch-invite-email"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
                     <FormField
                       control={templateForm.control}
                       name="subject"

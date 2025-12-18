@@ -1,0 +1,1 @@
+ALTER TABLE "email_templates" ADD COLUMN "is_invite_email" boolean DEFAULT false;
