@@ -136,6 +136,18 @@ export default function CallForPapers() {
   const [assignReviewerDialogOpen, setAssignReviewerDialogOpen] = useState(false);
   const [selectedReviewerId, setSelectedReviewerId] = useState<string>("");
 
+  // Fetch submission details with reviews when a submission is selected
+  const { data: submissionDetails } = useQuery<CfpSubmission & { reviews?: CfpReview[] }>({
+    queryKey: ["/api/events", selectedEventId, "cfp", "submissions", selectedSubmission?.id],
+    queryFn: async () => {
+      if (!selectedEventId || !selectedSubmission?.id) return null;
+      const res = await fetch(`/api/events/${selectedEventId}/cfp/submissions/${selectedSubmission.id}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch submission details");
+      return res.json();
+    },
+    enabled: !!selectedEventId && !!selectedSubmission?.id,
+  });
+
   const { data: events = [], isLoading: eventsLoading } = useQuery<Event[]>({
     queryKey: ["/api/events"],
   });
@@ -1158,6 +1170,47 @@ export default function CallForPapers() {
                             <h4 className="font-medium mb-2">Abstract</h4>
                             <p className="text-sm whitespace-pre-wrap">{selectedSubmission.abstract}</p>
                           </div>
+
+                          {/* Reviewer Recommendations Section */}
+                          {submissionDetails?.reviews && submissionDetails.reviews.length > 0 && (
+                            <div className="border-t pt-4">
+                              <h4 className="font-medium mb-3">Reviewer Recommendations</h4>
+                              <div className="space-y-3">
+                                {submissionDetails.reviews.map((review) => {
+                                  const reviewer = reviewers.find(r => r.id === review.reviewerId);
+                                  const recommendationColors: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+                                    accept: "default",
+                                    reject: "destructive",
+                                    revise: "secondary",
+                                    undecided: "outline",
+                                  };
+                                  return (
+                                    <div key={review.id} className="p-3 bg-muted/50 rounded-md space-y-2">
+                                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                                        <span className="text-sm font-medium">{reviewer?.name || 'Unknown Reviewer'}</span>
+                                        <div className="flex items-center gap-2">
+                                          {review.score && (
+                                            <Badge variant="outline">Score: {review.score}/5</Badge>
+                                          )}
+                                          {review.recommendation && (
+                                            <Badge variant={recommendationColors[review.recommendation] || "secondary"}>
+                                              {titleCase(review.recommendation)}
+                                            </Badge>
+                                          )}
+                                          <Badge variant={review.status === 'completed' ? 'default' : 'secondary'}>
+                                            {titleCase(review.status || 'assigned')}
+                                          </Badge>
+                                        </div>
+                                      </div>
+                                      {review.comments && (
+                                        <p className="text-sm text-muted-foreground">{review.comments}</p>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
 
                           <div className="border-t pt-4">
                             <h4 className="font-medium mb-4">Actions</h4>
