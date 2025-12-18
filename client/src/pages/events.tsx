@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
-import { Plus, X, Globe, Calendar, Pencil, Trash2, ArrowLeft, Users, Presentation, Package } from "lucide-react";
+import { Plus, X, Globe, Calendar, Pencil, Trash2, ArrowLeft, Users, Presentation, Package, Hotel, Loader2, CheckCircle, XCircle, ExternalLink } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { titleCase } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,9 @@ import {
 import { Form } from "@/components/ui/form";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { EventFormFields, eventFormSchema, type EventFormValues } from "@/components/event-form-fields";
@@ -59,6 +62,21 @@ export default function Events() {
     queryKey: ["/api/events", selectedEvent?.id, "packages"],
     enabled: !!selectedEvent,
   });
+
+  // Fetch Passkey connection for org
+  const { data: passkeyConnection, isLoading: passkeyConnectionLoading } = useQuery<any | null>({
+    queryKey: ["/api/passkey/connection"],
+  });
+
+  // Fetch Passkey event mapping for selected event
+  const { data: passkeyMapping, isLoading: passkeyMappingLoading } = useQuery<any | null>({
+    queryKey: ["/api/passkey/events", selectedEvent?.id, "mapping"],
+    enabled: !!selectedEvent && !!passkeyConnection?.hasCredentials,
+  });
+
+  // State for Passkey Event ID input
+  const [passkeyEventId, setPasskeyEventId] = useState("");
+  const [housingEnabled, setHousingEnabled] = useState(false);
 
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventFormSchema),
@@ -124,6 +142,39 @@ export default function Events() {
       queryClient.invalidateQueries({ queryKey: ["/api/events"] });
       setSelectedEvent(null);
       setShowDeleteConfirm(false);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Passkey event mapping mutation
+  const savePasskeyMappingMutation = useMutation({
+    mutationFn: async ({ eventId, passkeyEventId, housingEnabled }: { eventId: string; passkeyEventId: string; housingEnabled: boolean }) => {
+      return await apiRequest("POST", `/api/passkey/events/${eventId}/mapping`, { passkeyEventId, housingEnabled });
+    },
+    onSuccess: () => {
+      toast({ title: "Housing settings saved successfully" });
+      if (selectedEvent) {
+        queryClient.invalidateQueries({ queryKey: ["/api/passkey/events", selectedEvent.id, "mapping"] });
+      }
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const removePasskeyMappingMutation = useMutation({
+    mutationFn: async (eventId: string) => {
+      return await apiRequest("DELETE", `/api/passkey/events/${eventId}/mapping`);
+    },
+    onSuccess: () => {
+      toast({ title: "Housing settings removed" });
+      if (selectedEvent) {
+        queryClient.invalidateQueries({ queryKey: ["/api/passkey/events", selectedEvent.id, "mapping"] });
+      }
+      setPasskeyEventId("");
+      setHousingEnabled(false);
     },
     onError: (error: Error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -390,6 +441,13 @@ export default function Events() {
                     >
                       Packages
                     </TabsTrigger>
+                    <TabsTrigger 
+                      value="housing" 
+                      className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
+                      data-testid="tab-housing"
+                    >
+                      Housing
+                    </TabsTrigger>
                   </TabsList>
                   
                   <TabsContent value="details" className="flex-1 overflow-auto p-4 mt-0" data-testid="content-details">
@@ -625,6 +683,141 @@ export default function Events() {
                         <p className="text-sm text-muted-foreground max-w-xs">
                           Registration packages for this event will be shown here.
                         </p>
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="housing" className="flex-1 overflow-auto p-4 mt-0" data-testid="content-housing">
+                    {passkeyConnectionLoading || passkeyMappingLoading ? (
+                      <div className="flex items-center justify-center py-12">
+                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : !passkeyConnection?.hasCredentials ? (
+                      <div className="flex flex-col items-center justify-center py-12 text-center">
+                        <Hotel className="h-12 w-12 text-muted-foreground mb-4" />
+                        <h3 className="text-lg font-medium mb-2">Passkey Not Configured</h3>
+                        <p className="text-sm text-muted-foreground max-w-xs mb-4">
+                          Connect your Passkey (Cvent Housing) account in Integrations to enable hotel room block management for this event.
+                        </p>
+                        <Button variant="outline" size="sm" asChild>
+                          <a href="/integrations" data-testid="link-integrations">
+                            <ExternalLink className="h-4 w-4 mr-2" />
+                            Go to Integrations
+                          </a>
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        <div className="flex items-center gap-2">
+                          <Hotel className="h-5 w-5" />
+                          <h3 className="font-semibold">Hotel Housing</h3>
+                          {passkeyMapping?.housingEnabled ? (
+                            <Badge variant="outline" className="flex items-center gap-1">
+                              <CheckCircle className="h-3 w-3 text-green-500" />
+                              Enabled
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="flex items-center gap-1">
+                              <XCircle className="h-3 w-3 text-muted-foreground" />
+                              Disabled
+                            </Badge>
+                          )}
+                        </div>
+
+                        <p className="text-sm text-muted-foreground">
+                          Connect this event to Passkey to allow attendees to book hotel rooms through their reservation portal. 
+                          Attendees will be redirected to Passkey after registration to complete their hotel booking.
+                        </p>
+
+                        <Separator />
+
+                        {passkeyMapping ? (
+                          <div className="space-y-4">
+                            <div className="p-3 bg-muted rounded-md space-y-2">
+                              <p className="text-sm font-medium">Connected to Passkey</p>
+                              <p className="text-sm text-muted-foreground">
+                                Passkey Event ID: {passkeyMapping.passkeyEventId}
+                              </p>
+                            </div>
+
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="space-y-0.5">
+                                <Label htmlFor="housing-enabled">Show Housing Link</Label>
+                                <p className="text-sm text-muted-foreground">
+                                  Display hotel booking link after registration
+                                </p>
+                              </div>
+                              <Switch 
+                                id="housing-enabled"
+                                checked={passkeyMapping.housingEnabled}
+                                onCheckedChange={(checked) => {
+                                  savePasskeyMappingMutation.mutate({
+                                    eventId: selectedEvent!.id,
+                                    passkeyEventId: passkeyMapping.passkeyEventId,
+                                    housingEnabled: checked,
+                                  });
+                                }}
+                                data-testid="switch-housing-enabled"
+                              />
+                            </div>
+
+                            <Separator />
+
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => removePasskeyMappingMutation.mutate(selectedEvent!.id)}
+                              disabled={removePasskeyMappingMutation.isPending}
+                              data-testid="button-disconnect-housing"
+                            >
+                              {removePasskeyMappingMutation.isPending ? "Removing..." : "Remove Housing Connection"}
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="space-y-4">
+                            <div>
+                              <Label htmlFor="passkey-event-id">Passkey Event ID</Label>
+                              <Input
+                                id="passkey-event-id"
+                                placeholder="Enter the Passkey Event ID for this event"
+                                value={passkeyEventId}
+                                onChange={(e) => setPasskeyEventId(e.target.value)}
+                                className="mt-1.5"
+                                data-testid="input-passkey-event-id"
+                              />
+                              <p className="text-sm text-muted-foreground mt-1">
+                                You can find this ID in your Passkey dashboard for the corresponding event.
+                              </p>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <Switch 
+                                id="housing-enabled-new"
+                                checked={housingEnabled}
+                                onCheckedChange={setHousingEnabled}
+                                data-testid="switch-housing-enabled-new"
+                              />
+                              <Label htmlFor="housing-enabled-new">Enable housing link immediately</Label>
+                            </div>
+
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                if (selectedEvent && passkeyEventId.trim()) {
+                                  savePasskeyMappingMutation.mutate({
+                                    eventId: selectedEvent.id,
+                                    passkeyEventId: passkeyEventId.trim(),
+                                    housingEnabled,
+                                  });
+                                }
+                              }}
+                              disabled={!passkeyEventId.trim() || savePasskeyMappingMutation.isPending}
+                              data-testid="button-save-housing"
+                            >
+                              {savePasskeyMappingMutation.isPending ? "Saving..." : "Save Housing Settings"}
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </TabsContent>
