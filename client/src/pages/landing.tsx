@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, Users, Mic2, ClipboardList, DollarSign, Mail, CheckSquare, FileSpreadsheet, CreditCard, LayoutGrid, Send } from "lucide-react";
+import { Calendar, Users, Mic2, ClipboardList, DollarSign, Mail, CheckSquare, FileSpreadsheet, CreditCard, LayoutGrid, Send, Hotel, Zap } from "lucide-react";
 import { SiX, SiLinkedin, SiInstagram, SiFacebook, SiMailchimp, SiStripe, SiGooglesheets } from "react-icons/si";
 import logoImage from "@assets/Orange_bug_-_no_background_1765765097769.png";
 
@@ -13,6 +13,8 @@ const integrations = [
   { icon: SiFacebook, name: "Facebook", color: "#1877F2", description: "Social posting" },
   { icon: SiInstagram, name: "Instagram", color: "#E4405F", description: "Social posting" },
   { icon: Send, name: "Resend", color: null, description: "Transactional email" },
+  { icon: Hotel, name: "Passkey", color: "#4A90D9", description: "Hotel housing" },
+  { icon: Zap, name: "Instantly", color: "#FF6B35", description: "Email outreach" },
 ];
 
 const corePillars = [
