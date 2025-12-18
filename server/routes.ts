@@ -782,6 +782,233 @@ export async function registerRoutes(
     }
   });
 
+  // Passkey (Cvent) Housing Integration routes
+  function sanitizePasskeyConnection(connection: any) {
+    let maskedClientId = null;
+    let maskedClientSecret = null;
+    
+    if (connection.clientId) {
+      try {
+        const decrypted = decrypt(connection.clientId);
+        maskedClientId = decrypted.length > 4 ? '****' + decrypted.slice(-4) : '****';
+      } catch {
+        maskedClientId = '****';
+      }
+    }
+    
+    if (connection.clientSecret) {
+      maskedClientSecret = '********';
+    }
+    
+    return {
+      id: connection.id,
+      organizationId: connection.organizationId,
+      clientId: maskedClientId,
+      clientSecret: maskedClientSecret,
+      hasCredentials: !!(connection.clientId && connection.clientSecret),
+      status: connection.status,
+      errorMessage: connection.errorMessage,
+      connectedBy: connection.connectedBy,
+      tokenExpiresAt: connection.tokenExpiresAt,
+      createdAt: connection.createdAt,
+      updatedAt: connection.updatedAt,
+    };
+  }
+
+  app.get('/api/passkey/connection', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      
+      const connection = await storage.getPasskeyConnection(organizationId);
+      if (!connection) {
+        return res.json(null);
+      }
+      
+      res.json(sanitizePasskeyConnection(connection));
+    } catch (error) {
+      logError("Error fetching Passkey connection:", error);
+      res.status(500).json({ message: "Failed to fetch Passkey connection" });
+    }
+  });
+
+  app.post('/api/passkey/connection', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const { clientId, clientSecret } = req.body;
+      
+      if (!clientId || !clientSecret) {
+        return res.status(400).json({ message: "Client ID and Client Secret are required" });
+      }
+      
+      const existingConnection = await storage.getPasskeyConnection(organizationId);
+      
+      let connection;
+      if (existingConnection) {
+        connection = await storage.updatePasskeyConnection(organizationId, {
+          clientId,
+          clientSecret,
+          status: 'active',
+          errorMessage: null,
+          connectedBy: userId,
+        });
+      } else {
+        connection = await storage.createPasskeyConnection({
+          organizationId,
+          clientId,
+          clientSecret,
+          status: 'active',
+          connectedBy: userId,
+        });
+      }
+      
+      res.status(existingConnection ? 200 : 201).json(sanitizePasskeyConnection(connection));
+    } catch (error) {
+      logError("Error saving Passkey connection:", error);
+      res.status(500).json({ message: "Failed to save Passkey connection" });
+    }
+  });
+
+  app.delete('/api/passkey/connection', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      
+      await storage.deletePasskeyConnection(organizationId);
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting Passkey connection:", error);
+      res.status(500).json({ message: "Failed to delete Passkey connection" });
+    }
+  });
+
+  // Passkey Event Mapping routes
+  app.get('/api/passkey/events/:eventId/mapping', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const { eventId } = req.params;
+      
+      const mapping = await storage.getPasskeyEventMapping(organizationId, eventId);
+      res.json(mapping || null);
+    } catch (error) {
+      logError("Error fetching Passkey event mapping:", error);
+      res.status(500).json({ message: "Failed to fetch Passkey event mapping" });
+    }
+  });
+
+  app.post('/api/passkey/events/:eventId/mapping', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const { eventId } = req.params;
+      const { passkeyEventId, passkeyEventName, regLinkUrl, isEnabled } = req.body;
+      
+      if (!passkeyEventId) {
+        return res.status(400).json({ message: "Passkey Event ID is required" });
+      }
+      
+      const existingMapping = await storage.getPasskeyEventMapping(organizationId, eventId);
+      
+      let mapping;
+      if (existingMapping) {
+        mapping = await storage.updatePasskeyEventMapping(organizationId, eventId, {
+          passkeyEventId,
+          passkeyEventName,
+          regLinkUrl,
+          isEnabled: isEnabled !== undefined ? isEnabled : true,
+        });
+      } else {
+        mapping = await storage.createPasskeyEventMapping({
+          organizationId,
+          eventId,
+          passkeyEventId,
+          passkeyEventName,
+          regLinkUrl,
+          isEnabled: isEnabled !== undefined ? isEnabled : true,
+        });
+      }
+      
+      res.status(existingMapping ? 200 : 201).json(mapping);
+    } catch (error) {
+      logError("Error saving Passkey event mapping:", error);
+      res.status(500).json({ message: "Failed to save Passkey event mapping" });
+    }
+  });
+
+  app.delete('/api/passkey/events/:eventId/mapping', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const { eventId } = req.params;
+      
+      await storage.deletePasskeyEventMapping(organizationId, eventId);
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting Passkey event mapping:", error);
+      res.status(500).json({ message: "Failed to delete Passkey event mapping" });
+    }
+  });
+
+  // Passkey Reservation routes
+  app.get('/api/passkey/events/:eventId/reservations', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const { eventId } = req.params;
+      
+      const reservations = await storage.getPasskeyReservations(organizationId, eventId);
+      res.json(reservations);
+    } catch (error) {
+      logError("Error fetching Passkey reservations:", error);
+      res.status(500).json({ message: "Failed to fetch Passkey reservations" });
+    }
+  });
+
+  // Generate booking link for attendee
+  app.get('/api/passkey/attendees/:attendeeId/booking-link', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const { attendeeId } = req.params;
+      
+      const attendee = await storage.getAttendee(organizationId, attendeeId);
+      if (!attendee) {
+        return res.status(404).json({ message: "Attendee not found" });
+      }
+      
+      const mapping = await storage.getPasskeyEventMapping(organizationId, attendee.eventId);
+      if (!mapping || !mapping.isEnabled) {
+        return res.status(404).json({ message: "Passkey housing is not configured for this event" });
+      }
+      
+      if (!mapping.regLinkUrl) {
+        return res.status(400).json({ message: "RegLink URL is not configured for this event" });
+      }
+      
+      // Build the booking URL with attendee information
+      const bookingUrl = new URL(mapping.regLinkUrl);
+      bookingUrl.searchParams.set('firstName', attendee.firstName);
+      bookingUrl.searchParams.set('lastName', attendee.lastName);
+      if (attendee.email) {
+        bookingUrl.searchParams.set('email', attendee.email);
+      }
+      if (attendee.phone) {
+        bookingUrl.searchParams.set('phone', attendee.phone);
+      }
+      
+      res.json({ 
+        bookingUrl: bookingUrl.toString(),
+        passkeyEventId: mapping.passkeyEventId,
+        passkeyEventName: mapping.passkeyEventName,
+      });
+    } catch (error) {
+      logError("Error generating Passkey booking link:", error);
+      res.status(500).json({ message: "Failed to generate booking link" });
+    }
+  });
+
   // Onboarding routes
   app.get('/api/onboarding/status', isAuthenticated, async (req: any, res) => {
     try {

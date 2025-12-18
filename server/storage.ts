@@ -43,6 +43,9 @@ import {
   emailSyncJobs,
   signupInviteCodes,
   signupInviteCodeRedemptions,
+  passkeyConnections,
+  passkeyEventMappings,
+  passkeyReservations,
   type User,
   type UpsertUser,
   type Event,
@@ -146,6 +149,12 @@ import {
   type InsertSignupInviteCode,
   type SignupInviteCodeRedemption,
   type InsertSignupInviteCodeRedemption,
+  type PasskeyConnection,
+  type InsertPasskeyConnection,
+  type PasskeyEventMapping,
+  type InsertPasskeyEventMapping,
+  type PasskeyReservation,
+  type InsertPasskeyReservation,
 } from "@shared/schema";
 import { encrypt, decrypt } from "./encryption";
 import { db } from "./db";
@@ -505,6 +514,26 @@ export interface IStorage {
   deleteSignupInviteCode(id: string): Promise<void>;
   validateSignupInviteCode(code: string): Promise<{ valid: boolean; discountPercent?: number | null }>;
   redeemSignupInviteCode(code: string, userId: string, organizationId: string | null): Promise<SignupInviteCodeRedemption>;
+
+  // Passkey (Cvent) Housing Integration operations
+  getPasskeyConnection(organizationId: string): Promise<PasskeyConnection | undefined>;
+  createPasskeyConnection(data: InsertPasskeyConnection): Promise<PasskeyConnection>;
+  updatePasskeyConnection(organizationId: string, data: Partial<InsertPasskeyConnection>): Promise<PasskeyConnection | undefined>;
+  deletePasskeyConnection(organizationId: string): Promise<void>;
+  
+  // Passkey Event Mapping operations
+  getPasskeyEventMappings(organizationId: string): Promise<PasskeyEventMapping[]>;
+  getPasskeyEventMapping(organizationId: string, eventId: string): Promise<PasskeyEventMapping | undefined>;
+  createPasskeyEventMapping(data: InsertPasskeyEventMapping): Promise<PasskeyEventMapping>;
+  updatePasskeyEventMapping(organizationId: string, eventId: string, data: Partial<InsertPasskeyEventMapping>): Promise<PasskeyEventMapping | undefined>;
+  deletePasskeyEventMapping(organizationId: string, eventId: string): Promise<void>;
+  
+  // Passkey Reservation operations
+  getPasskeyReservations(organizationId: string, eventId?: string): Promise<PasskeyReservation[]>;
+  getPasskeyReservation(organizationId: string, id: string): Promise<PasskeyReservation | undefined>;
+  getPasskeyReservationByAttendee(organizationId: string, attendeeId: string): Promise<PasskeyReservation | undefined>;
+  createPasskeyReservation(data: InsertPasskeyReservation): Promise<PasskeyReservation>;
+  updatePasskeyReservation(organizationId: string, id: string, data: Partial<InsertPasskeyReservation>): Promise<PasskeyReservation | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2512,6 +2541,159 @@ export class DatabaseStorage implements IStorage {
       .returning();
 
     return redemption;
+  }
+
+  // Passkey Connection operations
+  async getPasskeyConnection(organizationId: string): Promise<PasskeyConnection | undefined> {
+    const [connection] = await db.select().from(passkeyConnections)
+      .where(eq(passkeyConnections.organizationId, organizationId));
+    return connection;
+  }
+
+  async createPasskeyConnection(data: InsertPasskeyConnection): Promise<PasskeyConnection> {
+    const encryptedData = { ...data };
+    if (data.clientId) {
+      encryptedData.clientId = encrypt(data.clientId);
+    }
+    if (data.clientSecret) {
+      encryptedData.clientSecret = encrypt(data.clientSecret);
+    }
+    if (data.accessToken) {
+      encryptedData.accessToken = encrypt(data.accessToken);
+    }
+    
+    const [connection] = await db.insert(passkeyConnections)
+      .values(encryptedData)
+      .returning();
+    return connection;
+  }
+
+  async updatePasskeyConnection(
+    organizationId: string,
+    data: Partial<InsertPasskeyConnection>
+  ): Promise<PasskeyConnection | undefined> {
+    const updateData = { ...data, updatedAt: new Date() };
+    if (data.clientId) {
+      updateData.clientId = encrypt(data.clientId);
+    }
+    if (data.clientSecret) {
+      updateData.clientSecret = encrypt(data.clientSecret);
+    }
+    if (data.accessToken) {
+      updateData.accessToken = encrypt(data.accessToken);
+    }
+    
+    const [updated] = await db.update(passkeyConnections)
+      .set(updateData)
+      .where(eq(passkeyConnections.organizationId, organizationId))
+      .returning();
+    return updated;
+  }
+
+  async deletePasskeyConnection(organizationId: string): Promise<void> {
+    await db.delete(passkeyConnections)
+      .where(eq(passkeyConnections.organizationId, organizationId));
+  }
+
+  // Passkey Event Mapping operations
+  async getPasskeyEventMappings(organizationId: string): Promise<PasskeyEventMapping[]> {
+    return db.select().from(passkeyEventMappings)
+      .where(eq(passkeyEventMappings.organizationId, organizationId))
+      .orderBy(desc(passkeyEventMappings.createdAt));
+  }
+
+  async getPasskeyEventMapping(organizationId: string, eventId: string): Promise<PasskeyEventMapping | undefined> {
+    const [mapping] = await db.select().from(passkeyEventMappings)
+      .where(and(
+        eq(passkeyEventMappings.organizationId, organizationId),
+        eq(passkeyEventMappings.eventId, eventId)
+      ));
+    return mapping;
+  }
+
+  async createPasskeyEventMapping(data: InsertPasskeyEventMapping): Promise<PasskeyEventMapping> {
+    const [mapping] = await db.insert(passkeyEventMappings)
+      .values(data)
+      .returning();
+    return mapping;
+  }
+
+  async updatePasskeyEventMapping(
+    organizationId: string,
+    eventId: string,
+    data: Partial<InsertPasskeyEventMapping>
+  ): Promise<PasskeyEventMapping | undefined> {
+    const [updated] = await db.update(passkeyEventMappings)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(
+        eq(passkeyEventMappings.organizationId, organizationId),
+        eq(passkeyEventMappings.eventId, eventId)
+      ))
+      .returning();
+    return updated;
+  }
+
+  async deletePasskeyEventMapping(organizationId: string, eventId: string): Promise<void> {
+    await db.delete(passkeyEventMappings)
+      .where(and(
+        eq(passkeyEventMappings.organizationId, organizationId),
+        eq(passkeyEventMappings.eventId, eventId)
+      ));
+  }
+
+  // Passkey Reservation operations
+  async getPasskeyReservations(organizationId: string, eventId?: string): Promise<PasskeyReservation[]> {
+    if (eventId) {
+      return db.select().from(passkeyReservations)
+        .where(and(
+          eq(passkeyReservations.organizationId, organizationId),
+          eq(passkeyReservations.eventId, eventId)
+        ))
+        .orderBy(desc(passkeyReservations.createdAt));
+    }
+    return db.select().from(passkeyReservations)
+      .where(eq(passkeyReservations.organizationId, organizationId))
+      .orderBy(desc(passkeyReservations.createdAt));
+  }
+
+  async getPasskeyReservation(organizationId: string, id: string): Promise<PasskeyReservation | undefined> {
+    const [reservation] = await db.select().from(passkeyReservations)
+      .where(and(
+        eq(passkeyReservations.organizationId, organizationId),
+        eq(passkeyReservations.id, id)
+      ));
+    return reservation;
+  }
+
+  async getPasskeyReservationByAttendee(organizationId: string, attendeeId: string): Promise<PasskeyReservation | undefined> {
+    const [reservation] = await db.select().from(passkeyReservations)
+      .where(and(
+        eq(passkeyReservations.organizationId, organizationId),
+        eq(passkeyReservations.attendeeId, attendeeId)
+      ));
+    return reservation;
+  }
+
+  async createPasskeyReservation(data: InsertPasskeyReservation): Promise<PasskeyReservation> {
+    const [reservation] = await db.insert(passkeyReservations)
+      .values(data)
+      .returning();
+    return reservation;
+  }
+
+  async updatePasskeyReservation(
+    organizationId: string,
+    id: string,
+    data: Partial<InsertPasskeyReservation>
+  ): Promise<PasskeyReservation | undefined> {
+    const [updated] = await db.update(passkeyReservations)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(
+        eq(passkeyReservations.organizationId, organizationId),
+        eq(passkeyReservations.id, id)
+      ))
+      .returning();
+    return updated;
   }
 }
 
