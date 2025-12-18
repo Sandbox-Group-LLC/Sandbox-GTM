@@ -31,6 +31,9 @@ import {
   customFields,
   contentAssets,
   eventSponsors,
+  sponsorContacts,
+  sponsorTasks,
+  sponsorTaskCompletions,
   emailMessages,
   emailEvents,
   emailSuppressions,
@@ -104,6 +107,12 @@ import {
   type InsertContentAsset,
   type EventSponsor,
   type InsertEventSponsor,
+  type SponsorContact,
+  type InsertSponsorContact,
+  type SponsorTask,
+  type InsertSponsorTask,
+  type SponsorTaskCompletion,
+  type InsertSponsorTaskCompletion,
   cfpConfigs,
   cfpTopics,
   cfpSubmissions,
@@ -140,7 +149,7 @@ import {
 } from "@shared/schema";
 import { encrypt, decrypt } from "./encryption";
 import { db } from "./db";
-import { eq, desc, and, ilike, or, isNull, sql, count, inArray } from "drizzle-orm";
+import { eq, desc, and, ilike, or, isNull, sql, count, inArray, gt } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (MANDATORY for Replit Auth)
@@ -168,6 +177,7 @@ export interface IStorage {
   // Attendee operations
   getAttendees(organizationId: string, eventId?: string): Promise<Attendee[]>;
   getAttendee(organizationId: string, id: string): Promise<Attendee | undefined>;
+  getAttendeesByInviteCode(organizationId: string, inviteCodeId: string): Promise<Attendee[]>;
   createAttendee(attendee: InsertAttendee): Promise<Attendee>;
   updateAttendee(organizationId: string, id: string, attendee: Partial<InsertAttendee>): Promise<Attendee | undefined>;
   deleteAttendee(organizationId: string, id: string): Promise<void>;
@@ -216,6 +226,29 @@ export interface IStorage {
   createEventSponsor(sponsor: InsertEventSponsor): Promise<EventSponsor>;
   updateEventSponsor(organizationId: string, id: string, sponsor: Partial<InsertEventSponsor>): Promise<EventSponsor | undefined>;
   deleteEventSponsor(organizationId: string, id: string): Promise<void>;
+  getEventSponsorByToken(token: string): Promise<EventSponsor | undefined>;
+
+  // Sponsor Contact operations
+  getSponsorContacts(organizationId: string, sponsorId: string): Promise<SponsorContact[]>;
+  getSponsorContact(organizationId: string, id: string): Promise<SponsorContact | undefined>;
+  getSponsorContactByToken(token: string): Promise<SponsorContact | undefined>;
+  getSponsorContactByEmail(organizationId: string, sponsorId: string, email: string): Promise<SponsorContact | undefined>;
+  createSponsorContact(contact: InsertSponsorContact): Promise<SponsorContact>;
+  updateSponsorContact(organizationId: string, id: string, contact: Partial<InsertSponsorContact>): Promise<SponsorContact | undefined>;
+  deleteSponsorContact(organizationId: string, id: string): Promise<void>;
+
+  // Sponsor Task operations
+  getSponsorTasks(organizationId: string, eventId: string): Promise<SponsorTask[]>;
+  getSponsorTask(organizationId: string, id: string): Promise<SponsorTask | undefined>;
+  createSponsorTask(task: InsertSponsorTask): Promise<SponsorTask>;
+  updateSponsorTask(organizationId: string, id: string, task: Partial<InsertSponsorTask>): Promise<SponsorTask | undefined>;
+  deleteSponsorTask(organizationId: string, id: string): Promise<void>;
+
+  // Sponsor Task Completion operations
+  getSponsorTaskCompletions(organizationId: string, sponsorId: string): Promise<SponsorTaskCompletion[]>;
+  getSponsorTaskCompletion(organizationId: string, taskId: string, sponsorId: string): Promise<SponsorTaskCompletion | undefined>;
+  upsertSponsorTaskCompletion(completion: InsertSponsorTaskCompletion): Promise<SponsorTaskCompletion>;
+  updateSponsorTaskCompletion(organizationId: string, id: string, completion: Partial<InsertSponsorTaskCompletion>): Promise<SponsorTaskCompletion | undefined>;
 
   // Session operations
   getSessions(organizationId: string, eventId?: string): Promise<EventSession[]>;
@@ -693,6 +726,12 @@ export class DatabaseStorage implements IStorage {
     return attendee;
   }
 
+  async getAttendeesByInviteCode(organizationId: string, inviteCodeId: string): Promise<Attendee[]> {
+    return db.select().from(attendees)
+      .where(and(eq(attendees.organizationId, organizationId), eq(attendees.inviteCodeId, inviteCodeId)))
+      .orderBy(desc(attendees.createdAt));
+  }
+
   async createAttendee(attendee: InsertAttendee): Promise<Attendee> {
     const [newAttendee] = await db.insert(attendees).values(attendee).returning();
     return newAttendee;
@@ -973,6 +1012,143 @@ export class DatabaseStorage implements IStorage {
 
   async deleteEventSponsor(organizationId: string, id: string): Promise<void> {
     await db.delete(eventSponsors).where(and(eq(eventSponsors.organizationId, organizationId), eq(eventSponsors.id, id)));
+  }
+
+  async getEventSponsorByToken(token: string): Promise<EventSponsor | undefined> {
+    const [sponsor] = await db.select().from(eventSponsors)
+      .where(and(
+        eq(eventSponsors.portalAccessToken, token),
+        gt(eventSponsors.portalTokenExpiresAt, new Date())
+      ));
+    return sponsor;
+  }
+
+  // Sponsor Contact operations
+  async getSponsorContacts(organizationId: string, sponsorId: string): Promise<SponsorContact[]> {
+    return db.select().from(sponsorContacts)
+      .where(and(eq(sponsorContacts.organizationId, organizationId), eq(sponsorContacts.sponsorId, sponsorId)));
+  }
+
+  async getSponsorContact(organizationId: string, id: string): Promise<SponsorContact | undefined> {
+    const [contact] = await db.select().from(sponsorContacts)
+      .where(and(eq(sponsorContacts.organizationId, organizationId), eq(sponsorContacts.id, id)));
+    return contact;
+  }
+
+  async getSponsorContactByToken(token: string): Promise<SponsorContact | undefined> {
+    const [contact] = await db.select().from(sponsorContacts)
+      .where(and(
+        eq(sponsorContacts.portalAccessToken, token),
+        gt(sponsorContacts.portalTokenExpiresAt, new Date())
+      ));
+    return contact;
+  }
+
+  async getSponsorContactByEmail(organizationId: string, sponsorId: string, email: string): Promise<SponsorContact | undefined> {
+    const [contact] = await db.select().from(sponsorContacts)
+      .where(and(
+        eq(sponsorContacts.organizationId, organizationId),
+        eq(sponsorContacts.sponsorId, sponsorId),
+        eq(sponsorContacts.email, email)
+      ));
+    return contact;
+  }
+
+  async createSponsorContact(contact: InsertSponsorContact): Promise<SponsorContact> {
+    const [newContact] = await db.insert(sponsorContacts).values(contact).returning();
+    return newContact;
+  }
+
+  async updateSponsorContact(organizationId: string, id: string, contact: Partial<InsertSponsorContact>): Promise<SponsorContact | undefined> {
+    const [updated] = await db
+      .update(sponsorContacts)
+      .set({ ...contact, updatedAt: new Date() })
+      .where(and(eq(sponsorContacts.organizationId, organizationId), eq(sponsorContacts.id, id)))
+      .returning();
+    return updated;
+  }
+
+  async deleteSponsorContact(organizationId: string, id: string): Promise<void> {
+    await db.delete(sponsorContacts).where(and(eq(sponsorContacts.organizationId, organizationId), eq(sponsorContacts.id, id)));
+  }
+
+  // Sponsor Task operations
+  async getSponsorTasks(organizationId: string, eventId: string): Promise<SponsorTask[]> {
+    return db.select().from(sponsorTasks)
+      .where(and(eq(sponsorTasks.organizationId, organizationId), eq(sponsorTasks.eventId, eventId)))
+      .orderBy(sponsorTasks.displayOrder);
+  }
+
+  async getSponsorTask(organizationId: string, id: string): Promise<SponsorTask | undefined> {
+    const [task] = await db.select().from(sponsorTasks)
+      .where(and(eq(sponsorTasks.organizationId, organizationId), eq(sponsorTasks.id, id)));
+    return task;
+  }
+
+  async createSponsorTask(task: InsertSponsorTask): Promise<SponsorTask> {
+    const [newTask] = await db.insert(sponsorTasks).values(task).returning();
+    return newTask;
+  }
+
+  async updateSponsorTask(organizationId: string, id: string, task: Partial<InsertSponsorTask>): Promise<SponsorTask | undefined> {
+    const [updated] = await db
+      .update(sponsorTasks)
+      .set({ ...task, updatedAt: new Date() })
+      .where(and(eq(sponsorTasks.organizationId, organizationId), eq(sponsorTasks.id, id)))
+      .returning();
+    return updated;
+  }
+
+  async deleteSponsorTask(organizationId: string, id: string): Promise<void> {
+    await db.delete(sponsorTasks).where(and(eq(sponsorTasks.organizationId, organizationId), eq(sponsorTasks.id, id)));
+  }
+
+  // Sponsor Task Completion operations
+  async getSponsorTaskCompletions(organizationId: string, sponsorId: string): Promise<SponsorTaskCompletion[]> {
+    return db.select().from(sponsorTaskCompletions)
+      .where(and(eq(sponsorTaskCompletions.organizationId, organizationId), eq(sponsorTaskCompletions.sponsorId, sponsorId)));
+  }
+
+  async getSponsorTaskCompletion(organizationId: string, taskId: string, sponsorId: string): Promise<SponsorTaskCompletion | undefined> {
+    const [completion] = await db.select().from(sponsorTaskCompletions)
+      .where(and(
+        eq(sponsorTaskCompletions.organizationId, organizationId),
+        eq(sponsorTaskCompletions.taskId, taskId),
+        eq(sponsorTaskCompletions.sponsorId, sponsorId)
+      ));
+    return completion;
+  }
+
+  async upsertSponsorTaskCompletion(completion: InsertSponsorTaskCompletion): Promise<SponsorTaskCompletion> {
+    const existing = await db.select().from(sponsorTaskCompletions)
+      .where(and(
+        eq(sponsorTaskCompletions.taskId, completion.taskId),
+        eq(sponsorTaskCompletions.sponsorId, completion.sponsorId)
+      ));
+    
+    if (existing.length > 0) {
+      const [updated] = await db
+        .update(sponsorTaskCompletions)
+        .set({ ...completion, updatedAt: new Date() })
+        .where(and(
+          eq(sponsorTaskCompletions.taskId, completion.taskId),
+          eq(sponsorTaskCompletions.sponsorId, completion.sponsorId)
+        ))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(sponsorTaskCompletions).values(completion).returning();
+      return created;
+    }
+  }
+
+  async updateSponsorTaskCompletion(organizationId: string, id: string, completion: Partial<InsertSponsorTaskCompletion>): Promise<SponsorTaskCompletion | undefined> {
+    const [updated] = await db
+      .update(sponsorTaskCompletions)
+      .set({ ...completion, updatedAt: new Date() })
+      .where(and(eq(sponsorTaskCompletions.organizationId, organizationId), eq(sponsorTaskCompletions.id, id)))
+      .returning();
+    return updated;
   }
 
   // Session operations

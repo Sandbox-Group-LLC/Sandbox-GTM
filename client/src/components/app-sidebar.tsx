@@ -78,6 +78,8 @@ const eventsSubItems = [
   { title: "Registration", path: "/registration" },
   { title: "Site Builder", path: "/site-builder" },
   { title: "Custom Fields", path: "/custom-fields" },
+  { title: "Sponsors", path: "/sponsors" },
+  { title: "Sponsor Tasks", path: "/sponsor-tasks" },
 ];
 
 const projectMenuItems = [
@@ -100,7 +102,7 @@ export function AppSidebar() {
   const { user } = useAuth();
   const [wizardOpen, setWizardOpen] = useState(false);
 
-  const isEventsActive = location === "/events" || location === "/check-in" || location === "/registration" || location === "/site-builder" || location === "/custom-fields";
+  const isEventsActive = location === "/events" || location === "/check-in" || location === "/registration" || location === "/site-builder" || location === "/custom-fields" || location === "/sponsors" || location === "/sponsor-tasks";
   const isSessionsActive = location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/rooms";
   const isAttendeesActive = location === "/attendees" || location === "/import-attendees" || location === "/attendee-types" || location === "/invite-codes" || location === "/packages";
   const isContentActive = location === "/content" || location === "/call-for-papers";

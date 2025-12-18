@@ -44,6 +44,9 @@ import ReviewerPortal from "@/pages/reviewer-portal";
 import EmailAnalytics from "@/pages/email-analytics";
 import Integrations from "@/pages/integrations";
 import Signup from "@/pages/signup";
+import Sponsors from "@/pages/sponsors";
+import SponsorTasks from "@/pages/sponsor-tasks";
+import SponsorPortal from "@/pages/sponsor-portal";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const sidebarStyle = {
@@ -85,6 +88,7 @@ function Router() {
         <Route path="/event/:slug/login" component={AttendeeLogin} />
         <Route path="/event/:slug/cfp" component={PublicCfp} />
         <Route path="/event/:slug" component={PublicEvent} />
+        <Route path="/sponsor-portal" component={SponsorPortal} />
         <Route component={Landing} />
       </Switch>
     );
@@ -111,6 +115,8 @@ function Router() {
         <Route path="/reviewer/portal" component={ReviewerPortal} />
         <Route path="/reviewer">{() => { window.location.href = "/reviewer/portal"; return null; }}</Route>
         <Route path="/speakers" component={Speakers} />
+        <Route path="/sponsors" component={Sponsors} />
+        <Route path="/sponsor-tasks" component={SponsorTasks} />
         <Route path="/content" component={Content} />
         <Route path="/budget" component={Budget} />
         <Route path="/deliverables" component={Deliverables} />
@@ -127,6 +133,7 @@ function Router() {
         <Route path="/event/:slug/login" component={AttendeeLogin} />
         <Route path="/event/:slug/cfp" component={PublicCfp} />
         <Route path="/event/:slug" component={PublicEvent} />
+        <Route path="/sponsor-portal" component={SponsorPortal} />
         <Route component={NotFound} />
       </Switch>
     </AuthenticatedLayout>

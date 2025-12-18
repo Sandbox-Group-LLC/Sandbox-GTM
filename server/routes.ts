@@ -54,6 +54,9 @@ import {
   insertCustomFieldSchema,
   insertContentAssetSchema,
   insertEventSponsorSchema,
+  insertSponsorContactSchema,
+  insertSponsorTaskSchema,
+  insertSponsorTaskCompletionSchema,
   insertCfpConfigSchema,
   insertCfpTopicSchema,
   insertCfpSubmissionSchema,
@@ -1892,9 +1895,35 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
-      const data = insertEventSponsorSchema.parse({ ...req.body, organizationId, eventId: req.params.eventId });
+      const eventId = req.params.eventId;
+      const data = insertEventSponsorSchema.parse({ ...req.body, organizationId, eventId });
+      
+      // Create the sponsor first
       const sponsor = await storage.createEventSponsor(data);
-      res.status(201).json(sponsor);
+      
+      // Auto-create a base invite code for the sponsor if they have registration seats
+      if (data.registrationSeats && data.registrationSeats > 0) {
+        const sponsorCode = `SPONSOR-${sponsor.name.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10)}-${Date.now().toString(36).toUpperCase()}`;
+        const inviteCode = await storage.createInviteCode({
+          organizationId,
+          eventId,
+          code: sponsorCode,
+          quantity: data.registrationSeats,
+          sponsorId: sponsor.id,
+          isActive: true,
+        });
+        
+        // Update sponsor with the base invite code ID
+        await storage.updateEventSponsor(organizationId, sponsor.id, {
+          baseInviteCodeId: inviteCode.id,
+        });
+        
+        // Return sponsor with updated baseInviteCodeId
+        const updatedSponsor = await storage.getEventSponsor(organizationId, sponsor.id);
+        res.status(201).json(updatedSponsor);
+      } else {
+        res.status(201).json(sponsor);
+      }
     } catch (error) {
       logError("Error creating event sponsor:", error);
       res.status(400).json({ message: "Invalid sponsor data" });
@@ -1905,10 +1934,51 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
-      const sponsor = await storage.updateEventSponsor(organizationId, req.params.id, req.body);
+      const eventId = req.params.eventId;
+      const sponsorId = req.params.id;
+      
+      // Get current sponsor to check if invite code needs to be created
+      const currentSponsor = await storage.getEventSponsor(organizationId, sponsorId);
+      if (!currentSponsor) {
+        return res.status(404).json({ message: "Sponsor not found" });
+      }
+      
+      // Update the sponsor
+      const sponsor = await storage.updateEventSponsor(organizationId, sponsorId, req.body);
       if (!sponsor) {
         return res.status(404).json({ message: "Sponsor not found" });
       }
+      
+      // Auto-create invite code if registrationSeats added and no base invite code exists
+      const newSeats = req.body.registrationSeats;
+      if (newSeats && newSeats > 0 && !currentSponsor.baseInviteCodeId) {
+        const sponsorCode = `SPONSOR-${sponsor.name.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10)}-${Date.now().toString(36).toUpperCase()}`;
+        const inviteCode = await storage.createInviteCode({
+          organizationId,
+          eventId,
+          code: sponsorCode,
+          quantity: newSeats,
+          sponsorId: sponsor.id,
+          isActive: true,
+        });
+        
+        // Update sponsor with the base invite code ID
+        await storage.updateEventSponsor(organizationId, sponsor.id, {
+          baseInviteCodeId: inviteCode.id,
+        });
+        
+        // Return sponsor with updated baseInviteCodeId
+        const updatedSponsor = await storage.getEventSponsor(organizationId, sponsor.id);
+        return res.json(updatedSponsor);
+      }
+      
+      // Update invite code quantity if it exists and seats changed
+      if (currentSponsor.baseInviteCodeId && newSeats !== undefined) {
+        await storage.updateInviteCode(organizationId, currentSponsor.baseInviteCodeId, {
+          quantity: newSeats,
+        });
+      }
+      
       res.json(sponsor);
     } catch (error) {
       logError("Error updating event sponsor:", error);
@@ -1925,6 +1995,447 @@ export async function registerRoutes(
     } catch (error) {
       logError("Error deleting event sponsor:", error);
       res.status(500).json({ message: "Failed to delete sponsor" });
+    }
+  });
+
+  // Sponsor Contacts routes (admin)
+  app.get("/api/sponsors/:sponsorId/contacts", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const contacts = await storage.getSponsorContacts(organizationId, req.params.sponsorId);
+      res.json(contacts);
+    } catch (error) {
+      logError("Error fetching sponsor contacts:", error);
+      res.status(500).json({ message: "Failed to fetch sponsor contacts" });
+    }
+  });
+
+  app.get("/api/sponsors/:sponsorId/contacts/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const contact = await storage.getSponsorContact(organizationId, req.params.id);
+      if (!contact) {
+        return res.status(404).json({ message: "Sponsor contact not found" });
+      }
+      res.json(contact);
+    } catch (error) {
+      logError("Error fetching sponsor contact:", error);
+      res.status(500).json({ message: "Failed to fetch sponsor contact" });
+    }
+  });
+
+  app.post("/api/sponsors/:sponsorId/contacts", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const data = insertSponsorContactSchema.parse({ ...req.body, organizationId, sponsorId: req.params.sponsorId });
+      const contact = await storage.createSponsorContact(data);
+      res.status(201).json(contact);
+    } catch (error) {
+      logError("Error creating sponsor contact:", error);
+      res.status(400).json({ message: "Invalid sponsor contact data" });
+    }
+  });
+
+  app.patch("/api/sponsors/:sponsorId/contacts/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const contact = await storage.updateSponsorContact(organizationId, req.params.id, req.body);
+      if (!contact) {
+        return res.status(404).json({ message: "Sponsor contact not found" });
+      }
+      res.json(contact);
+    } catch (error) {
+      logError("Error updating sponsor contact:", error);
+      res.status(400).json({ message: "Failed to update sponsor contact" });
+    }
+  });
+
+  app.delete("/api/sponsors/:sponsorId/contacts/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      await storage.deleteSponsorContact(organizationId, req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting sponsor contact:", error);
+      res.status(500).json({ message: "Failed to delete sponsor contact" });
+    }
+  });
+
+  // Sponsor Tasks routes (admin, event-scoped)
+  app.get("/api/events/:eventId/sponsor-tasks", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const tasks = await storage.getSponsorTasks(organizationId, req.params.eventId);
+      res.json(tasks);
+    } catch (error) {
+      logError("Error fetching sponsor tasks:", error);
+      res.status(500).json({ message: "Failed to fetch sponsor tasks" });
+    }
+  });
+
+  app.get("/api/sponsor-tasks/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const task = await storage.getSponsorTask(organizationId, req.params.id);
+      if (!task) {
+        return res.status(404).json({ message: "Sponsor task not found" });
+      }
+      res.json(task);
+    } catch (error) {
+      logError("Error fetching sponsor task:", error);
+      res.status(500).json({ message: "Failed to fetch sponsor task" });
+    }
+  });
+
+  app.post("/api/events/:eventId/sponsor-tasks", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const data = insertSponsorTaskSchema.parse({ ...req.body, organizationId, eventId: req.params.eventId });
+      const task = await storage.createSponsorTask(data);
+      res.status(201).json(task);
+    } catch (error) {
+      logError("Error creating sponsor task:", error);
+      res.status(400).json({ message: "Invalid sponsor task data" });
+    }
+  });
+
+  app.patch("/api/sponsor-tasks/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const task = await storage.updateSponsorTask(organizationId, req.params.id, req.body);
+      if (!task) {
+        return res.status(404).json({ message: "Sponsor task not found" });
+      }
+      res.json(task);
+    } catch (error) {
+      logError("Error updating sponsor task:", error);
+      res.status(400).json({ message: "Failed to update sponsor task" });
+    }
+  });
+
+  app.delete("/api/sponsor-tasks/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      await storage.deleteSponsorTask(organizationId, req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting sponsor task:", error);
+      res.status(500).json({ message: "Failed to delete sponsor task" });
+    }
+  });
+
+  // Sponsor Task Completions routes (admin)
+  app.get("/api/sponsors/:sponsorId/task-completions", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const completions = await storage.getSponsorTaskCompletions(organizationId, req.params.sponsorId);
+      res.json(completions);
+    } catch (error) {
+      logError("Error fetching sponsor task completions:", error);
+      res.status(500).json({ message: "Failed to fetch task completions" });
+    }
+  });
+
+  // Event-scoped task completions (for admin task management page)
+  app.get("/api/events/:eventId/sponsor-task-completions", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const eventId = req.params.eventId;
+      
+      // Get all sponsors for this event
+      const sponsors = await storage.getEventSponsors(organizationId, eventId, {});
+      
+      // Get all task completions for each sponsor
+      const allCompletions = [];
+      for (const sponsor of sponsors) {
+        const completions = await storage.getSponsorTaskCompletions(organizationId, sponsor.id);
+        allCompletions.push(...completions.map(c => ({ ...c, sponsorName: sponsor.name })));
+      }
+      
+      res.json(allCompletions);
+    } catch (error) {
+      logError("Error fetching event sponsor task completions:", error);
+      res.status(500).json({ message: "Failed to fetch task completions" });
+    }
+  });
+
+  app.patch("/api/task-completions/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const completion = await storage.updateSponsorTaskCompletion(organizationId, req.params.id, req.body);
+      if (!completion) {
+        return res.status(404).json({ message: "Task completion not found" });
+      }
+      res.json(completion);
+    } catch (error) {
+      logError("Error updating task completion:", error);
+      res.status(400).json({ message: "Failed to update task completion" });
+    }
+  });
+
+  // Portal access token generation route (admin)
+  app.post("/api/sponsors/:sponsorId/generate-portal-token", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const sponsorId = req.params.sponsorId;
+      
+      const sponsor = await storage.getEventSponsor(organizationId, sponsorId);
+      if (!sponsor) {
+        return res.status(404).json({ message: "Sponsor not found" });
+      }
+      
+      const token = randomBytes(32).toString("hex");
+      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      
+      await storage.updateEventSponsor(organizationId, sponsorId, {
+        portalAccessToken: token,
+        portalTokenExpiresAt: expiresAt,
+      });
+      
+      res.json({ token, expiresAt });
+    } catch (error) {
+      logError("Error generating portal token:", error);
+      res.status(500).json({ message: "Failed to generate portal token" });
+    }
+  });
+
+  // Public sponsor portal routes (no auth required, token-based)
+  app.get("/api/sponsor-portal/auth", async (req: any, res) => {
+    try {
+      const token = req.query.token as string;
+      if (!token) {
+        return res.status(400).json({ message: "Token is required" });
+      }
+      
+      const sponsor = await storage.getEventSponsorByToken(token);
+      if (!sponsor) {
+        return res.status(401).json({ message: "Invalid or expired token" });
+      }
+      
+      if (sponsor.portalTokenExpiresAt && new Date(sponsor.portalTokenExpiresAt) < new Date()) {
+        return res.status(401).json({ message: "Token has expired" });
+      }
+      
+      res.json(sponsor);
+    } catch (error) {
+      logError("Error validating sponsor portal token:", error);
+      res.status(500).json({ message: "Failed to validate token" });
+    }
+  });
+
+  app.get("/api/sponsor-portal/tasks", async (req: any, res) => {
+    try {
+      const token = req.query.token as string;
+      if (!token) {
+        return res.status(400).json({ message: "Token is required" });
+      }
+      
+      const sponsor = await storage.getEventSponsorByToken(token);
+      if (!sponsor) {
+        return res.status(401).json({ message: "Invalid or expired token" });
+      }
+      
+      if (sponsor.portalTokenExpiresAt && new Date(sponsor.portalTokenExpiresAt) < new Date()) {
+        return res.status(401).json({ message: "Token has expired" });
+      }
+      
+      const allTasks = await storage.getSponsorTasks(sponsor.organizationId, sponsor.eventId);
+      const sponsorTasks = allTasks.filter(task => {
+        if (!task.assignedTiers || task.assignedTiers.length === 0) return true;
+        return task.assignedTiers.includes(sponsor.tier);
+      });
+      
+      const completions = await storage.getSponsorTaskCompletions(sponsor.organizationId, sponsor.id);
+      
+      res.json({ tasks: sponsorTasks, completions });
+    } catch (error) {
+      logError("Error fetching sponsor portal tasks:", error);
+      res.status(500).json({ message: "Failed to fetch tasks" });
+    }
+  });
+
+  app.patch("/api/sponsor-portal/profile", async (req: any, res) => {
+    try {
+      const token = req.query.token as string;
+      if (!token) {
+        return res.status(400).json({ message: "Token is required" });
+      }
+      
+      const sponsor = await storage.getEventSponsorByToken(token);
+      if (!sponsor) {
+        return res.status(401).json({ message: "Invalid or expired token" });
+      }
+      
+      if (sponsor.portalTokenExpiresAt && new Date(sponsor.portalTokenExpiresAt) < new Date()) {
+        return res.status(401).json({ message: "Token has expired" });
+      }
+      
+      const allowedFields = ['bio', 'socialLinks', 'contactEmail', 'contactName', 'contactPhone', 'website'];
+      const updateData: Record<string, any> = {};
+      for (const field of allowedFields) {
+        if (req.body[field] !== undefined) {
+          updateData[field] = req.body[field];
+        }
+      }
+      
+      const updated = await storage.updateEventSponsor(sponsor.organizationId, sponsor.id, updateData);
+      res.json(updated);
+    } catch (error) {
+      logError("Error updating sponsor portal profile:", error);
+      res.status(400).json({ message: "Failed to update profile" });
+    }
+  });
+
+  app.post("/api/sponsor-portal/task-completions/:taskId", async (req: any, res) => {
+    try {
+      const token = req.query.token as string;
+      if (!token) {
+        return res.status(400).json({ message: "Token is required" });
+      }
+      
+      const sponsor = await storage.getEventSponsorByToken(token);
+      if (!sponsor) {
+        return res.status(401).json({ message: "Invalid or expired token" });
+      }
+      
+      if (sponsor.portalTokenExpiresAt && new Date(sponsor.portalTokenExpiresAt) < new Date()) {
+        return res.status(401).json({ message: "Token has expired" });
+      }
+      
+      const taskId = req.params.taskId;
+      const task = await storage.getSponsorTask(sponsor.organizationId, taskId);
+      if (!task) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      
+      const completionData = insertSponsorTaskCompletionSchema.parse({
+        ...req.body,
+        organizationId: sponsor.organizationId,
+        taskId,
+        sponsorId: sponsor.id,
+        status: 'submitted',
+        submittedAt: new Date(),
+      });
+      
+      const completion = await storage.upsertSponsorTaskCompletion(completionData);
+      res.status(201).json(completion);
+    } catch (error) {
+      logError("Error submitting task completion:", error);
+      res.status(400).json({ message: "Failed to submit task completion" });
+    }
+  });
+
+  // Sponsor portal team members routes
+  app.get("/api/sponsor-portal/team-members", async (req: any, res) => {
+    try {
+      const token = req.query.token as string;
+      if (!token) {
+        return res.status(400).json({ message: "Token is required" });
+      }
+      
+      const sponsor = await storage.getEventSponsorByToken(token);
+      if (!sponsor) {
+        return res.status(401).json({ message: "Invalid or expired token" });
+      }
+      
+      if (sponsor.portalTokenExpiresAt && new Date(sponsor.portalTokenExpiresAt) < new Date()) {
+        return res.status(401).json({ message: "Token has expired" });
+      }
+      
+      if (!sponsor.baseInviteCodeId) {
+        return res.json({ teamMembers: [] });
+      }
+      
+      const teamMembers = await storage.getAttendeesByInviteCode(sponsor.organizationId, sponsor.baseInviteCodeId);
+      res.json({ teamMembers });
+    } catch (error) {
+      logError("Error fetching team members:", error);
+      res.status(500).json({ message: "Failed to fetch team members" });
+    }
+  });
+
+  app.post("/api/sponsor-portal/team-members", async (req: any, res) => {
+    try {
+      const token = req.query.token as string;
+      if (!token) {
+        return res.status(400).json({ message: "Token is required" });
+      }
+      
+      const sponsor = await storage.getEventSponsorByToken(token);
+      if (!sponsor) {
+        return res.status(401).json({ message: "Invalid or expired token" });
+      }
+      
+      if (sponsor.portalTokenExpiresAt && new Date(sponsor.portalTokenExpiresAt) < new Date()) {
+        return res.status(401).json({ message: "Token has expired" });
+      }
+      
+      const seatsUsed = sponsor.seatsUsed || 0;
+      const totalSeats = sponsor.registrationSeats || 0;
+      
+      if (seatsUsed >= totalSeats) {
+        return res.status(400).json({ message: "No seats available. All registration seats have been used." });
+      }
+      
+      if (!sponsor.baseInviteCodeId) {
+        return res.status(400).json({ message: "Sponsor does not have a registration invite code configured" });
+      }
+      
+      const { firstName, lastName, email, jobTitle } = req.body;
+      
+      if (!firstName || !lastName || !email) {
+        return res.status(400).json({ message: "First name, last name, and email are required" });
+      }
+      
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({ message: "Invalid email format" });
+      }
+      
+      const existingAttendee = await storage.getAttendeeByEventAndEmail(sponsor.eventId, email);
+      if (existingAttendee) {
+        return res.status(400).json({ message: "An attendee with this email is already registered for this event" });
+      }
+      
+      const checkInCode = `${sponsor.eventId.slice(0, 4).toUpperCase()}${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).substring(2, 5).toUpperCase()}`.slice(0, 12);
+      
+      const attendeeData = {
+        organizationId: sponsor.organizationId,
+        eventId: sponsor.eventId,
+        firstName,
+        lastName,
+        email,
+        jobTitle: jobTitle || null,
+        company: sponsor.name,
+        inviteCodeId: sponsor.baseInviteCodeId,
+        registrationStatus: "confirmed",
+        checkInCode,
+      };
+      
+      const newAttendee = await storage.createAttendee(attendeeData);
+      
+      await storage.updateEventSponsor(sponsor.organizationId, sponsor.id, {
+        seatsUsed: seatsUsed + 1,
+      });
+      
+      res.status(201).json(newAttendee);
+    } catch (error) {
+      logError("Error creating team member:", error);
+      res.status(400).json({ message: "Failed to create team member" });
     }
   });
 
