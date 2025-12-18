@@ -134,7 +134,7 @@ export default function Landing() {
                     </div>
                     <div>
                       <CardTitle className="text-base">{feature.title}</CardTitle>
-                      <CardDescription className="mt-1">{feature.description}</CardDescription>
+                      <CardDescription className="text-sm mt-1 text-[#b8b8b8]">{feature.description}</CardDescription>
                     </div>
                   </CardHeader>
                 </Card>
