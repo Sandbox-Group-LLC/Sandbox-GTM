@@ -40,6 +40,7 @@ import {
   Check,
   ImageIcon,
   Trash2,
+  Send,
 } from "lucide-react";
 import { SiLinkedin, SiX, SiFacebook, SiInstagram } from "react-icons/si";
 import type { EventSponsor, SponsorTask, SponsorTaskCompletion } from "@shared/schema";
@@ -722,6 +723,58 @@ const teamMemberFormSchema = z.object({
 
 type TeamMemberFormData = z.infer<typeof teamMemberFormSchema>;
 
+function SendInviteButton({ attendeeId, memberName }: { attendeeId: string; memberName: string }) {
+  const token = getToken();
+  const { toast } = useToast();
+  const [sending, setSending] = useState(false);
+
+  const handleSendInvite = async () => {
+    if (!token) return;
+    
+    setSending(true);
+    try {
+      const res = await fetch(`/api/sponsor-portal/team-members/${attendeeId}/send-invite?token=${token}`, {
+        method: "POST",
+      });
+      
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || "Failed to send invite");
+      }
+      
+      toast({
+        title: "Invite Sent",
+        description: `An invitation email has been sent to ${memberName}.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Failed to Send Invite",
+        description: error instanceof Error ? error.message : "Could not send the invitation email.",
+        variant: "destructive",
+      });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <Button
+      size="sm"
+      variant="ghost"
+      onClick={handleSendInvite}
+      disabled={sending}
+      data-testid={`button-send-invite-${attendeeId}`}
+      title="Send invitation email"
+    >
+      {sending ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : (
+        <Send className="h-4 w-4" />
+      )}
+    </Button>
+  );
+}
+
 function TeamTab({ sponsor, token }: { sponsor: SponsorWithEvent; token: string }) {
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
@@ -1005,6 +1058,10 @@ function TeamTab({ sponsor, token }: { sponsor: SponsorWithEvent; token: string 
                       {member.jobTitle}
                     </Badge>
                   )}
+                  <SendInviteButton 
+                    attendeeId={member.id} 
+                    memberName={`${member.firstName} ${member.lastName}`}
+                  />
                 </div>
               ))}
             </div>

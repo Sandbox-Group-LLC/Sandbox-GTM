@@ -2439,6 +2439,105 @@ export async function registerRoutes(
     }
   });
 
+  // Send invite email to a team member (sponsor portal)
+  app.post("/api/sponsor-portal/team-members/:attendeeId/send-invite", async (req: any, res) => {
+    try {
+      const token = req.query.token as string;
+      if (!token) {
+        return res.status(400).json({ message: "Token is required" });
+      }
+      
+      const sponsor = await storage.getEventSponsorByToken(token);
+      if (!sponsor) {
+        return res.status(401).json({ message: "Invalid or expired token" });
+      }
+      
+      if (sponsor.portalTokenExpiresAt && new Date(sponsor.portalTokenExpiresAt) < new Date()) {
+        return res.status(401).json({ message: "Token has expired" });
+      }
+      
+      const attendeeId = req.params.attendeeId;
+      const attendee = await storage.getAttendee(sponsor.organizationId, attendeeId);
+      
+      if (!attendee) {
+        return res.status(404).json({ message: "Team member not found" });
+      }
+      
+      // Verify this attendee belongs to this sponsor's invite code
+      if (attendee.inviteCodeId !== sponsor.baseInviteCodeId) {
+        return res.status(403).json({ message: "This team member is not associated with your sponsor account" });
+      }
+      
+      // Get event for merge tags
+      const event = await storage.getEvent(sponsor.organizationId, sponsor.eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      // Check if email service is configured
+      if (!process.env.RESEND_API_KEY) {
+        return res.status(400).json({ message: "Email service not configured. Please contact the event organizer." });
+      }
+      
+      // Get organization for merge tags
+      const org = await storage.getOrganization(sponsor.organizationId);
+      
+      // Format event date
+      const eventDate = event.startDate ? new Date(event.startDate).toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      }) : '';
+      
+      // Compose invitation email content
+      const subject = `You're Invited: ${event.name}`;
+      const content = `
+        <p>Hello ${attendee.firstName},</p>
+        <p>You have been registered to attend <strong>${event.name}</strong> as a guest of <strong>${sponsor.name}</strong>.</p>
+        ${eventDate ? `<p><strong>Date:</strong> ${eventDate}</p>` : ''}
+        ${event.location ? `<p><strong>Location:</strong> ${event.location}</p>` : ''}
+        <p><strong>Your Check-in Code:</strong> ${attendee.checkInCode || 'Will be provided at the event'}</p>
+        <p>If you have any questions, please contact your sponsor representative.</p>
+        <p>We look forward to seeing you there!</p>
+      `;
+      
+      // Send the email
+      const result = await sendCampaignEmails({
+        subject,
+        content,
+        recipients: [{
+          email: attendee.email,
+          firstName: attendee.firstName || undefined,
+          lastName: attendee.lastName || undefined,
+          company: attendee.company || sponsor.name,
+          checkInCode: attendee.checkInCode || undefined,
+          attendeeId: attendee.id,
+        }],
+        eventContext: {
+          name: event.name,
+          date: eventDate,
+          location: event.location || undefined,
+          description: event.description || undefined,
+        },
+        organizationContext: {
+          name: org?.name,
+        },
+        organizationId: sponsor.organizationId,
+        enableTracking: false,
+      });
+      
+      if (result.totalSent > 0) {
+        res.json({ success: true, message: "Invitation email sent successfully" });
+      } else {
+        res.status(500).json({ success: false, message: "Failed to send invitation email" });
+      }
+    } catch (error) {
+      logError("Error sending team member invite:", error);
+      res.status(500).json({ message: "Failed to send invitation email" });
+    }
+  });
+
   // Session routes
   app.get("/api/sessions", isAuthenticated, async (req: any, res) => {
     try {
