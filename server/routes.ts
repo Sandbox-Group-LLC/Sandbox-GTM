@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { sendNewOrganizationAlert, sendCampaignEmails, sendTestEmail, validateTrackingToken, verifyResendWebhookSignature, isValidRedirectUrl } from "./email";
+import { sendNewOrganizationAlert, sendCampaignEmails, sendTestEmail, validateTrackingToken, verifyResendWebhookSignature, isValidRedirectUrl, sendReviewerNotificationEmail } from "./email";
 import { createPaymentIntent, getPaymentIntent, calculateFinalPrice } from "./stripe";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
@@ -5349,6 +5349,7 @@ ${urls.map(u => `  <url>
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
+      const eventId = req.params.eventId;
       const submissionId = parseInt(req.params.submissionId, 10);
       const { reviewerId } = req.body;
       
@@ -5373,6 +5374,25 @@ ${urls.map(u => `  <url>
       }
       
       const review = await storage.assignReviewerToSubmission(submissionId, parseInt(reviewerId, 10), organizationId);
+      
+      // Send email notification to reviewer
+      try {
+        const event = await storage.getEvent(organizationId, eventId);
+        if (event && reviewer.email) {
+          await sendReviewerNotificationEmail({
+            reviewerEmail: reviewer.email,
+            reviewerName: reviewer.name || 'Reviewer',
+            submissionTitle: submission.title,
+            submissionId: submissionId,
+            eventName: event.name,
+            eventSlug: event.publicSlug || event.id,
+          });
+        }
+      } catch (emailError) {
+        // Log but don't fail the assignment if email fails
+        logError("Failed to send reviewer notification email:", emailError);
+      }
+      
       res.status(201).json(review);
     } catch (error) {
       logError("Error assigning reviewer:", error);

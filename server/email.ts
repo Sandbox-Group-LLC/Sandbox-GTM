@@ -619,3 +619,67 @@ export async function sendNewOrganizationAlert(organizationName: string, organiz
     logError(`Error sending organization alert: ${err}`, 'Email');
   }
 }
+
+// Send notification to reviewer when assigned to a submission
+export async function sendReviewerNotificationEmail(params: {
+  reviewerEmail: string;
+  reviewerName: string;
+  submissionTitle: string;
+  submissionId: number;
+  eventName: string;
+  eventSlug: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const { reviewerEmail, reviewerName, submissionTitle, submissionId, eventName, eventSlug } = params;
+  
+  if (!resend) {
+    logWarn('Resend not configured - skipping reviewer notification email', 'Email');
+    return { success: false, error: 'Email service not configured' };
+  }
+
+  const baseUrl = getBaseUrl();
+  const reviewUrl = `${baseUrl}/reviewer`;
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: reviewerEmail,
+      subject: `New Submission Ready for Review: ${submissionTitle}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #333; margin-bottom: 20px;">New Submission Assigned for Review</h2>
+          
+          <p style="color: #555; font-size: 16px;">Hello ${reviewerName},</p>
+          
+          <p style="color: #555; font-size: 16px;">You have been assigned to review a new submission for <strong>${eventName}</strong>.</p>
+          
+          <div style="background-color: #f5f5f5; border-radius: 8px; padding: 20px; margin: 20px 0;">
+            <h3 style="color: #333; margin: 0 0 10px 0;">Submission Details</h3>
+            <p style="color: #555; margin: 5px 0;"><strong>Title:</strong> ${submissionTitle}</p>
+            <p style="color: #555; margin: 5px 0;"><strong>Event:</strong> ${eventName}</p>
+          </div>
+          
+          <p style="color: #555; font-size: 16px;">Please review this submission and provide your feedback.</p>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${reviewUrl}" style="display: inline-block; background-color: #0066cc; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Review Submission</a>
+          </div>
+          
+          <p style="color: #999; font-size: 12px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+            This is an automated notification from the Event Management CMS. If you have any questions, please contact the event organizer.
+          </p>
+        </div>
+      `,
+    });
+
+    if (error) {
+      logError(`Failed to send reviewer notification: ${error.message || 'Unknown error'}`, 'Email');
+      return { success: false, error: error.message || 'Unknown error' };
+    }
+
+    logInfo(`Reviewer notification sent to ${reviewerEmail}: ${data?.id}`, 'Email');
+    return { success: true };
+  } catch (err) {
+    logError(`Error sending reviewer notification: ${err}`, 'Email');
+    return { success: false, error: String(err) };
+  }
+}
