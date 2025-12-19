@@ -122,6 +122,7 @@ const validationFields = [
   { value: "referrer", label: "Referrer URL" },
   { value: "country", label: "Country" },
   { value: "invite_code", label: "Invite Code" },
+  { value: "attendee_type", label: "Attendee Type" },
 ];
 
 const validationOperators = [
