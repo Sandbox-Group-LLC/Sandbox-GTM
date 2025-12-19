@@ -32,6 +32,7 @@ import AttendeeTypes from "@/pages/attendee-types";
 import RegistrationFlow from "@/pages/registration-flow";
 import Packages from "@/pages/packages";
 import InviteCodes from "@/pages/invite-codes";
+import ActivationLinks from "@/pages/activation-links";
 import SiteBuilder from "@/pages/site-builder";
 import AdminOrganizations from "@/pages/admin-organizations";
 import MyOrganization from "@/pages/my-organization";
@@ -133,6 +134,7 @@ function Router() {
         <Route path="/packages" component={Packages} />
         <Route path="/custom-fields" component={CustomFields} />
         <Route path="/invite-codes" component={InviteCodes} />
+        <Route path="/activation-links" component={ActivationLinks} />
         <Route path="/site-builder" component={SiteBuilder} />
         <Route path="/check-in" component={CheckIn} />
         <Route path="/sessions" component={Sessions} />

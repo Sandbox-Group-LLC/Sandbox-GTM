@@ -75,6 +75,7 @@ const audienceSubItems = [
   { title: "Import Audience", path: "/import-attendees" },
   { title: "Audience Types", path: "/attendee-types" },
   { title: "Activation Keys", path: "/invite-codes" },
+  { title: "Activation Links", path: "/activation-links" },
   { title: "Access Packages", path: "/packages" },
 ];
 
@@ -125,7 +126,7 @@ export function AppSidebar() {
   const [wizardOpen, setWizardOpen] = useState(false);
 
   const isPerformanceActive = location === "/" || location === "/acquisition" || location === "/engagement-signals" || location === "/revenue-snapshot";
-  const isGtmActive = location === "/attendees" || location === "/import-attendees" || location === "/attendee-types" || location === "/invite-codes" || location === "/packages" || location === "/emails" || location === "/email-analytics" || location === "/social";
+  const isGtmActive = location === "/attendees" || location === "/import-attendees" || location === "/attendee-types" || location === "/invite-codes" || location === "/activation-links" || location === "/packages" || location === "/emails" || location === "/email-analytics" || location === "/social";
   const isEngagementActive = location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/rooms";
   const isRevenueActive = location === "/pipeline" || location === "/sales-handoff" || location === "/follow-up" || location === "/roi";
   const isExecutionActive = location === "/run-of-show" || location === "/deliverables" || location === "/vendors" || location === "/budget";
