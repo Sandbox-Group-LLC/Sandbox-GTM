@@ -27,6 +27,11 @@ app.get("/api/ping", (_req, res) => {
   res.status(200).json({ message: "pong", env: process.env.NODE_ENV, timestamp: new Date().toISOString() });
 });
 
+// Test route for debugging production routing
+app.get("/api/public/test", (_req, res) => {
+  res.status(200).json({ message: "public test works", env: process.env.NODE_ENV });
+});
+
 // Register public tracking route early (before async initialization)
 // This ensures activation links work even if auth/session initialization has issues
 registerPublicTrackingRoute(app);
