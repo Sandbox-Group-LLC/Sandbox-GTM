@@ -1309,6 +1309,79 @@ export const passkeyReservationsRelations = relations(passkeyReservations, ({ on
   attendee: one(attendees, { fields: [passkeyReservations.attendeeId], references: [attendees.id] }),
 }));
 
+// Document Collaboration - Comments and Approvals (extends existing document tables)
+export const documentComments = pgTable("document_comments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  documentId: varchar("document_id").references(() => documents.id).notNull(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  parentId: varchar("parent_id"),
+  content: text("content").notNull(),
+  authorType: varchar("author_type", { length: 50 }).notNull(),
+  authorId: varchar("author_id").notNull(),
+  authorName: varchar("author_name", { length: 255 }),
+  isResolved: boolean("is_resolved").default(false),
+  resolvedBy: varchar("resolved_by").references(() => users.id),
+  resolvedAt: timestamp("resolved_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const documentApprovals = pgTable("document_approvals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  documentId: varchar("document_id").references(() => documents.id).notNull(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  requestedBy: varchar("requested_by").references(() => users.id),
+  approverType: varchar("approver_type", { length: 50 }).notNull(),
+  approverId: varchar("approver_id").notNull(),
+  approverName: varchar("approver_name", { length: 255 }),
+  status: varchar("status", { length: 50 }).default("pending"),
+  comments: text("comments"),
+  respondedAt: timestamp("responded_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Document collaboration relations
+export const documentsRelations = relations(documents, ({ one, many }) => ({
+  organization: one(organizations, { fields: [documents.organizationId], references: [organizations.id] }),
+  event: one(events, { fields: [documents.eventId], references: [events.id] }),
+  folder: one(documentFolders, { fields: [documents.folderId], references: [documentFolders.id] }),
+  uploadedByUser: one(users, { fields: [documents.uploadedBy], references: [users.id] }),
+  shares: many(documentShares),
+  activity: many(documentActivity),
+  comments: many(documentComments),
+  approvals: many(documentApprovals),
+}));
+
+export const documentFoldersRelations = relations(documentFolders, ({ one, many }) => ({
+  organization: one(organizations, { fields: [documentFolders.organizationId], references: [organizations.id] }),
+  event: one(events, { fields: [documentFolders.eventId], references: [events.id] }),
+  createdByUser: one(users, { fields: [documentFolders.createdBy], references: [users.id] }),
+  documents: many(documents),
+}));
+
+export const documentSharesRelations = relations(documentShares, ({ one }) => ({
+  document: one(documents, { fields: [documentShares.documentId], references: [documents.id] }),
+  organization: one(organizations, { fields: [documentShares.organizationId], references: [organizations.id] }),
+  createdByUser: one(users, { fields: [documentShares.createdBy], references: [users.id] }),
+}));
+
+export const documentActivityRelations = relations(documentActivity, ({ one }) => ({
+  document: one(documents, { fields: [documentActivity.documentId], references: [documents.id] }),
+  organization: one(organizations, { fields: [documentActivity.organizationId], references: [organizations.id] }),
+}));
+
+export const documentCommentsRelations = relations(documentComments, ({ one }) => ({
+  document: one(documents, { fields: [documentComments.documentId], references: [documents.id] }),
+  organization: one(organizations, { fields: [documentComments.organizationId], references: [organizations.id] }),
+  resolvedByUser: one(users, { fields: [documentComments.resolvedBy], references: [users.id] }),
+}));
+
+export const documentApprovalsRelations = relations(documentApprovals, ({ one }) => ({
+  document: one(documents, { fields: [documentApprovals.documentId], references: [documents.id] }),
+  organization: one(organizations, { fields: [documentApprovals.organizationId], references: [organizations.id] }),
+  requestedByUser: one(users, { fields: [documentApprovals.requestedBy], references: [users.id] }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true, updatedAt: true });
 export const insertOrganizationSchema = createInsertSchema(organizations).omit({ id: true, createdAt: true, updatedAt: true });
@@ -1368,6 +1441,12 @@ export const insertSignupInviteCodeRedemptionSchema = createInsertSchema(signupI
 export const insertPasskeyConnectionSchema = createInsertSchema(passkeyConnections).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertPasskeyEventMappingSchema = createInsertSchema(passkeyEventMappings).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertPasskeyReservationSchema = createInsertSchema(passkeyReservations).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertDocumentFolderSchema = createInsertSchema(documentFolders).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertDocumentSchema = createInsertSchema(documents).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertDocumentShareSchema = createInsertSchema(documentShares).omit({ id: true, createdAt: true });
+export const insertDocumentActivitySchema = createInsertSchema(documentActivity).omit({ id: true, createdAt: true });
+export const insertDocumentCommentSchema = createInsertSchema(documentComments).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertDocumentApprovalSchema = createInsertSchema(documentApprovals).omit({ id: true, createdAt: true });
 
 // Types
 export type UpsertUser = typeof users.$inferInsert;
@@ -1475,3 +1554,15 @@ export type InsertPasskeyEventMapping = z.infer<typeof insertPasskeyEventMapping
 export type PasskeyEventMapping = typeof passkeyEventMappings.$inferSelect;
 export type InsertPasskeyReservation = z.infer<typeof insertPasskeyReservationSchema>;
 export type PasskeyReservation = typeof passkeyReservations.$inferSelect;
+export type InsertDocumentFolder = z.infer<typeof insertDocumentFolderSchema>;
+export type DocumentFolder = typeof documentFolders.$inferSelect;
+export type InsertDocument = z.infer<typeof insertDocumentSchema>;
+export type Document = typeof documents.$inferSelect;
+export type InsertDocumentShare = z.infer<typeof insertDocumentShareSchema>;
+export type DocumentShare = typeof documentShares.$inferSelect;
+export type InsertDocumentActivity = z.infer<typeof insertDocumentActivitySchema>;
+export type DocumentActivity = typeof documentActivity.$inferSelect;
+export type InsertDocumentComment = z.infer<typeof insertDocumentCommentSchema>;
+export type DocumentComment = typeof documentComments.$inferSelect;
+export type InsertDocumentApproval = z.infer<typeof insertDocumentApprovalSchema>;
+export type DocumentApproval = typeof documentApprovals.$inferSelect;
