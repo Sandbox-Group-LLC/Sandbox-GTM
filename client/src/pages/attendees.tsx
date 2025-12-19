@@ -812,6 +812,141 @@ export default function Attendees() {
                     )}
                   />
 
+                  {customFields.filter(cf => cf.isActive).length > 0 && (
+                    <div className="space-y-4 pt-4 border-t">
+                      <h4 className="font-medium text-sm">Custom Fields</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        {customFields
+                          .filter(cf => cf.isActive)
+                          .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
+                          .map((cf) => {
+                            const currentValue = form.watch(`customData.${cf.name}`);
+                            
+                            if (cf.fieldType === "checkbox") {
+                              return (
+                                <FormItem key={cf.id} className="flex items-center gap-2 col-span-2">
+                                  <Checkbox
+                                    checked={currentValue === true || currentValue === "true"}
+                                    onCheckedChange={(checked) => {
+                                      const customData = form.getValues("customData") || {};
+                                      form.setValue("customData", { ...customData, [cf.name]: checked });
+                                    }}
+                                    data-testid={`input-custom-${cf.name}`}
+                                  />
+                                  <FormLabel className="!mt-0 cursor-pointer">
+                                    {cf.label}
+                                    {cf.required && <span className="text-destructive ml-1">*</span>}
+                                  </FormLabel>
+                                </FormItem>
+                              );
+                            }
+                            
+                            if (cf.fieldType === "select" && cf.options) {
+                              return (
+                                <FormItem key={cf.id}>
+                                  <FormLabel>
+                                    {cf.label}
+                                    {cf.required && <span className="text-destructive ml-1">*</span>}
+                                  </FormLabel>
+                                  <Select
+                                    value={(currentValue as string) || ""}
+                                    onValueChange={(value) => {
+                                      const customData = form.getValues("customData") || {};
+                                      form.setValue("customData", { ...customData, [cf.name]: value });
+                                    }}
+                                  >
+                                    <FormControl>
+                                      <SelectTrigger data-testid={`select-custom-${cf.name}`}>
+                                        <SelectValue placeholder={`Select ${cf.label}`} />
+                                      </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                      {cf.options.map((option) => (
+                                        <SelectItem key={option} value={option}>
+                                          {option}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </FormItem>
+                              );
+                            }
+                            
+                            if (cf.fieldType === "multiselect" && cf.options) {
+                              const selectedValues = Array.isArray(currentValue) ? currentValue : [];
+                              return (
+                                <FormItem key={cf.id} className="col-span-2">
+                                  <FormLabel>
+                                    {cf.label}
+                                    {cf.required && <span className="text-destructive ml-1">*</span>}
+                                  </FormLabel>
+                                  <div className="flex flex-wrap gap-2 p-2 border rounded-md">
+                                    {cf.options.map((option) => (
+                                      <label key={option} className="flex items-center gap-1 text-sm cursor-pointer">
+                                        <Checkbox
+                                          checked={selectedValues.includes(option)}
+                                          onCheckedChange={(checked) => {
+                                            const customData = form.getValues("customData") || {};
+                                            const newValues = checked
+                                              ? [...selectedValues, option]
+                                              : selectedValues.filter(v => v !== option);
+                                            form.setValue("customData", { ...customData, [cf.name]: newValues });
+                                          }}
+                                          data-testid={`checkbox-custom-${cf.name}-${option}`}
+                                        />
+                                        {option}
+                                      </label>
+                                    ))}
+                                  </div>
+                                </FormItem>
+                              );
+                            }
+                            
+                            if (cf.fieldType === "textarea") {
+                              return (
+                                <FormItem key={cf.id} className="col-span-2">
+                                  <FormLabel>
+                                    {cf.label}
+                                    {cf.required && <span className="text-destructive ml-1">*</span>}
+                                  </FormLabel>
+                                  <FormControl>
+                                    <Textarea
+                                      value={(currentValue as string) || ""}
+                                      onChange={(e) => {
+                                        const customData = form.getValues("customData") || {};
+                                        form.setValue("customData", { ...customData, [cf.name]: e.target.value });
+                                      }}
+                                      data-testid={`input-custom-${cf.name}`}
+                                    />
+                                  </FormControl>
+                                </FormItem>
+                              );
+                            }
+                            
+                            return (
+                              <FormItem key={cf.id}>
+                                <FormLabel>
+                                  {cf.label}
+                                  {cf.required && <span className="text-destructive ml-1">*</span>}
+                                </FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type={cf.fieldType === "number" ? "number" : cf.fieldType === "email" ? "email" : "text"}
+                                    value={(currentValue as string) || ""}
+                                    onChange={(e) => {
+                                      const customData = form.getValues("customData") || {};
+                                      form.setValue("customData", { ...customData, [cf.name]: e.target.value });
+                                    }}
+                                    data-testid={`input-custom-${cf.name}`}
+                                  />
+                                </FormControl>
+                              </FormItem>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex justify-end gap-2 pt-4">
                     <Button type="button" variant="outline" onClick={handleDialogClose}>
                       Cancel
