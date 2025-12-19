@@ -339,17 +339,32 @@ export default function SiteBuilder() {
   });
 
   const { data: sessions = [] } = useQuery<EventSession[]>({
-    queryKey: ["/api/events", selectedEventId, "sessions"],
+    queryKey: ["/api/sessions", selectedEventId],
+    queryFn: async () => {
+      const res = await fetch(`/api/sessions?eventId=${selectedEventId}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch sessions");
+      return res.json();
+    },
     enabled: !!selectedEventId,
   });
 
   const { data: speakers = [] } = useQuery<Speaker[]>({
-    queryKey: ["/api/events", selectedEventId, "speakers"],
+    queryKey: ["/api/speakers", selectedEventId],
+    queryFn: async () => {
+      const res = await fetch(`/api/speakers?eventId=${selectedEventId}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch speakers");
+      return res.json();
+    },
     enabled: !!selectedEventId,
   });
 
   const { data: sponsors = [] } = useQuery<EventSponsor[]>({
     queryKey: ["/api/events", selectedEventId, "sponsors"],
+    queryFn: async () => {
+      const res = await fetch(`/api/events/${selectedEventId}/sponsors`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch sponsors");
+      return res.json();
+    },
     enabled: !!selectedEventId,
   });
 
