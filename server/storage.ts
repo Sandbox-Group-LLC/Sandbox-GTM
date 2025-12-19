@@ -52,6 +52,8 @@ import {
   documentActivity,
   documentComments,
   documentApprovals,
+  activationLinks,
+  activationLinkClicks,
   type User,
   type UpsertUser,
   type Event,
@@ -66,6 +68,10 @@ import {
   type InsertEventPackage,
   type InviteCode,
   type InsertInviteCode,
+  type ActivationLink,
+  type InsertActivationLink,
+  type ActivationLinkClick,
+  type InsertActivationLinkClick,
   type Speaker,
   type InsertSpeaker,
   type EventSession,
@@ -238,6 +244,21 @@ export interface IStorage {
   createInviteCode(inviteCode: InsertInviteCode): Promise<InviteCode>;
   updateInviteCode(organizationId: string, id: string, inviteCode: Partial<InsertInviteCode>): Promise<InviteCode | undefined>;
   deleteInviteCode(organizationId: string, id: string): Promise<void>;
+
+  // Activation Link operations
+  getActivationLinks(organizationId: string, eventId?: string): Promise<ActivationLink[]>;
+  getActivationLink(organizationId: string, id: string): Promise<ActivationLink | undefined>;
+  getActivationLinkByShortCode(shortCode: string): Promise<ActivationLink | undefined>;
+  createActivationLink(link: InsertActivationLink): Promise<ActivationLink>;
+  updateActivationLink(organizationId: string, id: string, link: Partial<InsertActivationLink>): Promise<ActivationLink | undefined>;
+  deleteActivationLink(organizationId: string, id: string): Promise<void>;
+  incrementActivationLinkClicks(id: string): Promise<void>;
+  incrementActivationLinkConversions(id: string): Promise<void>;
+
+  // Activation Link Click operations
+  getActivationLinkClicks(activationLinkId: string): Promise<ActivationLinkClick[]>;
+  createActivationLinkClick(click: InsertActivationLinkClick): Promise<ActivationLinkClick>;
+  updateActivationLinkClickConversion(clickId: string, attendeeId: string): Promise<void>;
 
   // Speaker operations
   getSpeakers(organizationId: string, eventId?: string): Promise<Speaker[]>;
@@ -1010,6 +1031,75 @@ export class DatabaseStorage implements IStorage {
 
   async deleteInviteCode(organizationId: string, id: string): Promise<void> {
     await db.delete(inviteCodes).where(and(eq(inviteCodes.organizationId, organizationId), eq(inviteCodes.id, id)));
+  }
+
+  // Activation Link operations
+  async getActivationLinks(organizationId: string, eventId?: string): Promise<ActivationLink[]> {
+    if (eventId) {
+      return db.select().from(activationLinks).where(and(eq(activationLinks.organizationId, organizationId), eq(activationLinks.eventId, eventId))).orderBy(desc(activationLinks.createdAt));
+    }
+    return db.select().from(activationLinks).where(eq(activationLinks.organizationId, organizationId)).orderBy(desc(activationLinks.createdAt));
+  }
+
+  async getActivationLink(organizationId: string, id: string): Promise<ActivationLink | undefined> {
+    const [link] = await db.select().from(activationLinks)
+      .where(and(eq(activationLinks.organizationId, organizationId), eq(activationLinks.id, id)));
+    return link;
+  }
+
+  async getActivationLinkByShortCode(shortCode: string): Promise<ActivationLink | undefined> {
+    const [link] = await db.select().from(activationLinks)
+      .where(eq(activationLinks.shortCode, shortCode));
+    return link;
+  }
+
+  async createActivationLink(link: InsertActivationLink): Promise<ActivationLink> {
+    const [newLink] = await db.insert(activationLinks).values(link).returning();
+    return newLink;
+  }
+
+  async updateActivationLink(organizationId: string, id: string, link: Partial<InsertActivationLink>): Promise<ActivationLink | undefined> {
+    const [updated] = await db
+      .update(activationLinks)
+      .set({ ...link, updatedAt: new Date() })
+      .where(and(eq(activationLinks.organizationId, organizationId), eq(activationLinks.id, id)))
+      .returning();
+    return updated;
+  }
+
+  async deleteActivationLink(organizationId: string, id: string): Promise<void> {
+    await db.delete(activationLinkClicks).where(eq(activationLinkClicks.activationLinkId, id));
+    await db.delete(activationLinks).where(and(eq(activationLinks.organizationId, organizationId), eq(activationLinks.id, id)));
+  }
+
+  async incrementActivationLinkClicks(id: string): Promise<void> {
+    await db.update(activationLinks)
+      .set({ clickCount: sql`${activationLinks.clickCount} + 1` })
+      .where(eq(activationLinks.id, id));
+  }
+
+  async incrementActivationLinkConversions(id: string): Promise<void> {
+    await db.update(activationLinks)
+      .set({ conversionCount: sql`${activationLinks.conversionCount} + 1` })
+      .where(eq(activationLinks.id, id));
+  }
+
+  // Activation Link Click operations
+  async getActivationLinkClicks(activationLinkId: string): Promise<ActivationLinkClick[]> {
+    return db.select().from(activationLinkClicks)
+      .where(eq(activationLinkClicks.activationLinkId, activationLinkId))
+      .orderBy(desc(activationLinkClicks.clickedAt));
+  }
+
+  async createActivationLinkClick(click: InsertActivationLinkClick): Promise<ActivationLinkClick> {
+    const [newClick] = await db.insert(activationLinkClicks).values(click).returning();
+    return newClick;
+  }
+
+  async updateActivationLinkClickConversion(clickId: string, attendeeId: string): Promise<void> {
+    await db.update(activationLinkClicks)
+      .set({ convertedToAttendeeId: attendeeId, convertedAt: new Date() })
+      .where(eq(activationLinkClicks.id, clickId));
   }
 
   // Speaker operations
