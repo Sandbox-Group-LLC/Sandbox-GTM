@@ -22,6 +22,11 @@ app.get("/health", (_req, res) => {
   res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
+// Diagnostic endpoint to check if API routes are reachable
+app.get("/api/ping", (_req, res) => {
+  res.status(200).json({ message: "pong", env: process.env.NODE_ENV, timestamp: new Date().toISOString() });
+});
+
 app.use(
   express.json({
     verify: (req, _res, buf) => {
