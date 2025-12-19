@@ -1271,10 +1271,24 @@ export const eventPackagesRelations = relations(eventPackages, ({ one }) => ({
   package: one(packages, { fields: [eventPackages.packageId], references: [packages.id] }),
 }));
 
-export const inviteCodesRelations = relations(inviteCodes, ({ one }) => ({
+export const inviteCodesRelations = relations(inviteCodes, ({ one, many }) => ({
   organization: one(organizations, { fields: [inviteCodes.organizationId], references: [organizations.id] }),
   event: one(events, { fields: [inviteCodes.eventId], references: [events.id] }),
   attendeeType: one(attendeeTypes, { fields: [inviteCodes.attendeeTypeId], references: [attendeeTypes.id] }),
+  activationLinks: many(activationLinks),
+}));
+
+export const activationLinksRelations = relations(activationLinks, ({ one, many }) => ({
+  organization: one(organizations, { fields: [activationLinks.organizationId], references: [organizations.id] }),
+  event: one(events, { fields: [activationLinks.eventId], references: [events.id] }),
+  inviteCode: one(inviteCodes, { fields: [activationLinks.inviteCodeId], references: [inviteCodes.id] }),
+  createdByUser: one(users, { fields: [activationLinks.createdBy], references: [users.id] }),
+  clicks: many(activationLinkClicks),
+}));
+
+export const activationLinkClicksRelations = relations(activationLinkClicks, ({ one }) => ({
+  activationLink: one(activationLinks, { fields: [activationLinkClicks.activationLinkId], references: [activationLinks.id] }),
+  convertedAttendee: one(attendees, { fields: [activationLinkClicks.convertedToAttendeeId], references: [attendees.id] }),
 }));
 
 export const eventPagesRelations = relations(eventPages, ({ one, many }) => ({
@@ -1472,6 +1486,8 @@ export const insertAttendeeTypeSchema = createInsertSchema(attendeeTypes).omit({
 export const insertPackageSchema = createInsertSchema(packages).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertEventPackageSchema = createInsertSchema(eventPackages).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertInviteCodeSchema = createInsertSchema(inviteCodes).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertActivationLinkSchema = createInsertSchema(activationLinks).omit({ id: true, createdAt: true, updatedAt: true, clickCount: true, conversionCount: true });
+export const insertActivationLinkClickSchema = createInsertSchema(activationLinkClicks).omit({ id: true, clickedAt: true });
 export const insertEventPageSchema = createInsertSchema(eventPages).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertPageVersionSchema = createInsertSchema(pageVersions).omit({ id: true, createdAt: true });
 export const insertRegistrationConfigSchema = createInsertSchema(registrationConfigs).omit({ id: true, createdAt: true, updatedAt: true });
@@ -1558,6 +1574,10 @@ export type InsertEventPackage = z.infer<typeof insertEventPackageSchema>;
 export type EventPackage = typeof eventPackages.$inferSelect;
 export type InsertInviteCode = z.infer<typeof insertInviteCodeSchema>;
 export type InviteCode = typeof inviteCodes.$inferSelect;
+export type InsertActivationLink = z.infer<typeof insertActivationLinkSchema>;
+export type ActivationLink = typeof activationLinks.$inferSelect;
+export type InsertActivationLinkClick = z.infer<typeof insertActivationLinkClickSchema>;
+export type ActivationLinkClick = typeof activationLinkClicks.$inferSelect;
 export type InsertEventPage = z.infer<typeof insertEventPageSchema>;
 export type EventPage = typeof eventPages.$inferSelect;
 export type EventPageTheme = NonNullable<EventPage['theme']>;
