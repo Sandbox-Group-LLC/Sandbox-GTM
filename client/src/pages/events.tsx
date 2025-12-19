@@ -29,6 +29,27 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { EventFormFields, eventFormSchema, type EventFormValues } from "@/components/event-form-fields";
 import type { Event, Attendee, EventSession } from "@shared/schema";
 
+function normalizeDate(dateValue: string | Date | null | undefined): string {
+  if (!dateValue) return "";
+  if (typeof dateValue === "string") {
+    if (dateValue.includes("T")) {
+      const d = new Date(dateValue);
+      const year = d.getUTCFullYear();
+      const month = String(d.getUTCMonth() + 1).padStart(2, "0");
+      const day = String(d.getUTCDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    }
+    return dateValue.split("T")[0];
+  }
+  if (dateValue instanceof Date) {
+    const year = dateValue.getUTCFullYear();
+    const month = String(dateValue.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(dateValue.getUTCDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+  return "";
+}
+
 export default function Events() {
   const { toast } = useToast();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -200,8 +221,8 @@ export default function Events() {
       form.reset({
         name: selectedEvent.name,
         description: selectedEvent.description || "",
-        startDate: selectedEvent.startDate || "",
-        endDate: selectedEvent.endDate || "",
+        startDate: normalizeDate(selectedEvent.startDate),
+        endDate: normalizeDate(selectedEvent.endDate),
         location: selectedEvent.location || "",
         address: selectedEvent.address || "",
         city: selectedEvent.city || "",
