@@ -64,7 +64,6 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { EventSelectField } from "@/components/event-select-field";
 import {
   FileText,
   Upload,
@@ -552,45 +551,52 @@ export default function Documents() {
     <div className="flex flex-col h-full">
       <PageHeader
         title="Documents"
-        description="Manage and share your event documents"
-      >
-        <div className="flex items-center gap-2 flex-wrap">
-          <EventSelectField
-            value={selectedEventId}
-            onChange={setSelectedEventId}
-            allowEmpty
-            emptyLabel="All Events"
-            data-testid="select-event-filter"
-          />
-          <Button
-            variant="outline"
-            onClick={() => setIsFolderDialogOpen(true)}
-            data-testid="button-new-folder"
-          >
-            <FolderPlus className="h-4 w-4 mr-2" />
-            New Folder
-          </Button>
-          <Button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isUploading}
-            data-testid="button-upload-document"
-          >
-            {isUploading ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Upload className="h-4 w-4 mr-2" />
-            )}
-            {isUploading ? `Uploading ${uploadProgress}%` : "Upload Document"}
-          </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            className="hidden"
-            onChange={handleFileUpload}
-            data-testid="input-file-upload"
-          />
-        </div>
-      </PageHeader>
+        breadcrumbs={[{ label: "Content" }, { label: "Documents" }]}
+        actions={
+          <div className="flex items-center gap-2 flex-wrap">
+            <Select value={selectedEventId || "all"} onValueChange={(val) => setSelectedEventId(val === "all" ? "" : val)}>
+              <SelectTrigger className="w-[180px]" data-testid="select-event-filter">
+                <SelectValue placeholder="All Events" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Events</SelectItem>
+                {events.map((event) => (
+                  <SelectItem key={event.id} value={event.id}>
+                    {event.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              variant="outline"
+              onClick={() => setIsFolderDialogOpen(true)}
+              data-testid="button-new-folder"
+            >
+              <FolderPlus className="h-4 w-4 mr-2" />
+              New Folder
+            </Button>
+            <Button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+              data-testid="button-upload-document"
+            >
+              {isUploading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Upload className="h-4 w-4 mr-2" />
+              )}
+              {isUploading ? `Uploading ${uploadProgress}%` : "Upload Document"}
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              onChange={handleFileUpload}
+              data-testid="input-file-upload"
+            />
+          </div>
+        }
+      />
 
       <div className="flex-1 overflow-auto p-6">
         {(currentFolderId || folderPath.length > 0) && (
@@ -634,18 +640,11 @@ export default function Documents() {
             icon={FileText}
             title="No documents yet"
             description="Upload your first document or create a folder to organize your files."
-          >
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setIsFolderDialogOpen(true)} data-testid="button-create-first-folder">
-                <FolderPlus className="h-4 w-4 mr-2" />
-                Create Folder
-              </Button>
-              <Button onClick={() => fileInputRef.current?.click()} data-testid="button-upload-first-document">
-                <Upload className="h-4 w-4 mr-2" />
-                Upload Document
-              </Button>
-            </div>
-          </EmptyState>
+            action={{
+              label: "Upload Document",
+              onClick: () => fileInputRef.current?.click(),
+            }}
+          />
         ) : (
           <div className="space-y-4">
             {currentFolders.length > 0 && (
