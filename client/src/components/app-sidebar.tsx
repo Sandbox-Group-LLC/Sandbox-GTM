@@ -87,7 +87,7 @@ const campaignsSubItems = [
 const contentSubItems = [
   { title: "All Experiences", path: "/sessions" },
   { title: "Contributors", path: "/speakers" },
-  { title: "Tracks", path: "/tracks" },
+  { title: "Content Pillars", path: "/tracks" },
   { title: "Rooms", path: "/rooms" },
 ];
 

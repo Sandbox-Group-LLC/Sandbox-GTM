@@ -75,7 +75,7 @@ export default function Tracks() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/session-tracks"] });
-      toast({ title: "Track created successfully" });
+      toast({ title: "Content pillar created successfully" });
       setIsDialogOpen(false);
       form.reset();
     },
@@ -95,7 +95,7 @@ export default function Tracks() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/session-tracks"] });
-      toast({ title: "Track updated successfully" });
+      toast({ title: "Content pillar updated successfully" });
       setIsDialogOpen(false);
       setEditingTrack(null);
       form.reset();
@@ -116,7 +116,7 @@ export default function Tracks() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/session-tracks"] });
-      toast({ title: "Track deleted successfully" });
+      toast({ title: "Content pillar deleted successfully" });
     },
     onError: (error: Error) => {
       if (isUnauthorizedError(error)) {
@@ -148,7 +148,7 @@ export default function Tracks() {
   };
 
   const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to delete this track?")) {
+    if (confirm("Are you sure you want to delete this content pillar?")) {
       deleteMutation.mutate(id);
     }
   };
@@ -181,7 +181,7 @@ export default function Tracks() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-pulse text-muted-foreground">Loading tracks...</div>
+        <div className="animate-pulse text-muted-foreground">Loading content pillars...</div>
       </div>
     );
   }
@@ -189,12 +189,12 @@ export default function Tracks() {
   return (
     <div className="flex flex-col h-full">
       <PageHeader
-        title="Tracks"
-        breadcrumbs={[{ label: "Sessions", href: "/sessions" }, { label: "Tracks" }]}
+        title="Content Pillars"
+        breadcrumbs={[{ label: "Content Experiences", href: "/sessions" }, { label: "Content Pillars" }]}
         actions={
           <Button size="sm" onClick={openAddDialog} data-testid="button-add-track">
             <Plus className="h-4 w-4 mr-2" />
-            Track
+            Content Pillar
           </Button>
         }
       />
@@ -204,7 +204,7 @@ export default function Tracks() {
           <div className="relative max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search tracks..."
+              placeholder="Search content pillars..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"
@@ -215,19 +215,19 @@ export default function Tracks() {
           {tracks.length === 0 ? (
             <EmptyState
               icon={Tag}
-              title="No tracks yet"
-              description="Create your first session track to organize your sessions by topic or theme"
+              title="No content pillars yet"
+              description="Create your first content pillar to organize your experiences by topic or theme"
               action={{
-                label: "Create Track",
+                label: "Create Content Pillar",
                 onClick: openAddDialog
               }}
             />
           ) : filteredTracks.length === 0 ? (
-            <p className="text-center text-muted-foreground py-12">No tracks match your search</p>
+            <p className="text-center text-muted-foreground py-12">No content pillars match your search</p>
           ) : (
             <Card>
               <CardHeader>
-                <CardTitle>All Tracks</CardTitle>
+                <CardTitle>All Content Pillars</CardTitle>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -285,9 +285,9 @@ export default function Tracks() {
       <Dialog open={isDialogOpen} onOpenChange={(open) => open ? setIsDialogOpen(true) : handleDialogClose()}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingTrack ? "Edit Track" : "Add Track"}</DialogTitle>
+            <DialogTitle>{editingTrack ? "Edit Content Pillar" : "Add Content Pillar"}</DialogTitle>
             <DialogDescription>
-              {editingTrack ? "Update the track details below" : "Create a new session track for organizing your sessions"}
+              {editingTrack ? "Update the content pillar details below" : "Create a new content pillar for organizing your experiences"}
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
