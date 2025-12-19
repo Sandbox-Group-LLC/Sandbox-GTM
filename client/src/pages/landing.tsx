@@ -1,70 +1,66 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, Users, Mic2, ClipboardList, DollarSign, Mail, CheckSquare, FileSpreadsheet, CreditCard, LayoutGrid, Send, Hotel, Zap } from "lucide-react";
-import { SiX, SiLinkedin, SiInstagram, SiFacebook, SiMailchimp, SiStripe, SiGooglesheets } from "react-icons/si";
+import { Target, BarChart3, Users, Zap, Link2, ArrowRight, TrendingUp, Layers, DollarSign, Send, Hotel, CheckCircle2, XCircle } from "lucide-react";
+import { SiLinkedin, SiMailchimp, SiStripe, SiSalesforce, SiHubspot } from "react-icons/si";
 import logoImage from "@assets/Orange_bug_-_no_background_1765765097769.png";
 
-const integrations = [
-  { icon: SiStripe, name: "Stripe", color: "#635BFF", description: "Payment processing" },
-  { icon: SiMailchimp, name: "Mailchimp", color: "#241C15", description: "Email marketing" },
-  { icon: SiGooglesheets, name: "Google Sheets", color: "#34A853", description: "Data import" },
-  { icon: SiLinkedin, name: "LinkedIn", color: "#0A66C2", description: "Social posting" },
-  { icon: SiX, name: "X (Twitter)", color: "#000000", description: "Social posting" },
-  { icon: SiFacebook, name: "Facebook", color: "#1877F2", description: "Social posting" },
-  { icon: SiInstagram, name: "Instagram", color: "#E4405F", description: "Social posting" },
-  { icon: Send, name: "Resend", color: null, description: "Transactional email" },
-  { icon: Hotel, name: "Passkey", color: "#4A90D9", description: "Hotel housing" },
-  { icon: Zap, name: "Instantly", color: "#FF6B35", description: "Email outreach" },
+const gtmIntegrations = [
+  { icon: SiStripe, name: "Stripe", color: "#635BFF" },
+  { icon: SiSalesforce, name: "Salesforce", color: "#00A1E0" },
+  { icon: SiHubspot, name: "HubSpot", color: "#FF7A59" },
+  { icon: SiMailchimp, name: "Mailchimp", color: "#241C15" },
+  { icon: SiLinkedin, name: "LinkedIn", color: "#0A66C2" },
+  { icon: Send, name: "Resend", color: null },
+  { icon: Zap, name: "Instantly", color: "#FF6B35" },
+  { icon: Hotel, name: "Passkey", color: "#4A90D9" },
 ];
 
-const corePillars = [
+const gtmCapabilities = [
   {
-    icon: LayoutGrid,
-    title: "Complete Event Lifecycle",
-    description: "Create, configure, and manage events from planning to post-event analysis. Handle multiple events simultaneously with organization-level oversight.",
+    category: "Go-To-Market & Acquisition",
+    icon: Target,
+    items: [
+      { title: "Attribution Links", description: "Track campaigns from paid, social, email, and partner channels with full UTM support" },
+      { title: "Audience Targeting", description: "Segment and reach high-intent prospects with precision targeting" },
+      { title: "Conversion-Focused Experiences", description: "Program pages built to convert, not just inform" },
+    ],
   },
   {
-    icon: CreditCard,
-    title: "Seamless Registration",
-    description: "Custom registration forms, flexible packages, and integrated Stripe payments. Track registrations in real-time with automated confirmations.",
+    category: "Engagement & Intent",
+    icon: Users,
+    items: [
+      { title: "Content Pillars", description: "Organize experiences around themes that resonate with your audience" },
+      { title: "Engagement Capture", description: "Track every interaction to understand intent signals" },
+      { title: "Experience Packages", description: "Define value, access, and pricing tiers that align with buyer journey" },
+    ],
   },
   {
-    icon: Calendar,
-    title: "Build Dynamic Agendas",
-    description: "Create sessions, assign speakers, manage rooms and time slots. Give attendees a polished schedule they can explore and personalize.",
-  },
-];
-
-const features = [
-  {
-    icon: ClipboardList,
-    title: "Call for Papers",
-    description: "Collect abstracts, assign reviewers, and convert accepted papers into sessions",
-  },
-  {
-    icon: Mic2,
-    title: "Speaker Management",
-    description: "Manage bios, headshots, session assignments, and communications",
-  },
-  {
+    category: "Revenue & ROI",
     icon: DollarSign,
-    title: "Budget Tracking",
-    description: "Monitor planned vs actual spend with category breakdowns",
+    items: [
+      { title: "Full Attribution", description: "Connect campaign spend to attendance to pipeline and revenue" },
+      { title: "Sales-Ready Signals", description: "Surface high-intent attendees for immediate follow-up" },
+      { title: "Pipeline Visibility", description: "See event-driven pipeline in real-time across programs" },
+    ],
+  },
+];
+
+const useCases = [
+  {
+    role: "Demand Generation Teams",
+    description: "Run field events that feed your pipeline with qualified, engaged prospects.",
   },
   {
-    icon: Mail,
-    title: "Marketing Campaigns",
-    description: "Create templates, segment audiences, and track engagement",
+    role: "Field Marketing Leaders",
+    description: "Prove program impact with attribution from campaign to closed-won.",
   },
   {
-    icon: CheckSquare,
-    title: "Deliverables",
-    description: "Assign tasks, set deadlines, and monitor completion status",
+    role: "Marketing Leaders",
+    description: "Defend event spend with clear ROI metrics your CFO will understand.",
   },
   {
-    icon: FileSpreadsheet,
-    title: "Data Import",
-    description: "Import attendees, sessions, and speakers via Excel or CSV",
+    role: "Revenue Teams",
+    description: "Get sales-ready handoffs with engagement context and intent signals.",
   },
 ];
 
@@ -82,112 +78,287 @@ export default function Landing() {
           </Button>
         </div>
       </header>
+
       <main>
-        <section className="py-20 px-6">
+        <section className="py-24 px-6">
           <div className="container mx-auto max-w-4xl text-center">
-            <h1 className="text-4xl md:text-5xl font-semibold tracking-tight mb-6 text-[#ffffff]">
-              Streamline Your Event Management
+            <p className="text-primary font-medium mb-4 tracking-wide uppercase text-sm">Event GTM Platform</p>
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight mb-6 text-[#ffffff] leading-tight">
+              Turn Events Into a Measurable<br />Go-To-Market Channel
             </h1>
-            <p className="text-lg mb-8 max-w-2xl mx-auto text-[#b8b8b8]">A unified platform for managing events, registrations, speakers, sponsors, content, and marketing—seamlessly integrating with leading tools to complete your GTM tech stack. Everything you need, in one place.</p>
-            <Button size="lg" asChild data-testid="button-get-started">
-              <a href="/signup">Get Started</a>
-            </Button>
-          </div>
-        </section>
-
-        <section className="py-16 px-6 bg-card">
-          <div className="container mx-auto max-w-6xl">
-            <h2 className="text-2xl font-semibold text-center mb-4 text-[#ffffff]">
-              Everything You Need to Run Successful Events
-            </h2>
-            <p className="text-center mb-12 max-w-2xl mx-auto text-[#b8b8b8]">
-              A complete platform that handles every aspect of event management, from initial planning to day-of execution.
+            <p className="text-lg md:text-xl mb-10 max-w-2xl mx-auto text-[#b8b8b8] leading-relaxed">
+              From acquisition to engagement to revenue — Sandbox connects your events directly to pipeline. 
+              Finally, a platform that treats events like the revenue channel they are.
             </p>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
-              {corePillars.map((pillar) => (
-                <Card key={pillar.title} className="border-card-border" data-testid={`card-pillar-${pillar.title.toLowerCase().replace(/\s+/g, '-')}`}>
-                  <CardHeader>
-                    <div className="h-12 w-12 rounded-md bg-primary/10 flex items-center justify-center mb-4">
-                      <pillar.icon className="h-6 w-6 text-primary" />
-                    </div>
-                    <CardTitle className="text-lg">{pillar.title}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <CardDescription className="text-sm leading-relaxed text-[#b8b8b8]">{pillar.description}</CardDescription>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            <h3 className="text-xl font-semibold text-center mb-8">
-              Plus Powerful Tools for Every Need
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {features.map((feature) => (
-                <Card key={feature.title} className="border-card-border" data-testid={`card-feature-${feature.title.toLowerCase().replace(/\s+/g, '-')}`}>
-                  <CardHeader className="pb-2 flex flex-row items-start gap-4">
-                    <div className="h-10 w-10 rounded-md flex items-center justify-center flex-shrink-0 bg-[#3d3d3d] text-[#fcfdff]">
-                      <feature.icon className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-base">{feature.title}</CardTitle>
-                      <CardDescription className="text-sm mt-1 text-[#b8b8b8]">{feature.description}</CardDescription>
-                    </div>
-                  </CardHeader>
-                </Card>
-              ))}
+            <div className="flex flex-wrap items-center justify-center gap-4">
+              <Button size="lg" asChild data-testid="button-request-access">
+                <a href="/signup">
+                  Request Access
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </a>
+              </Button>
+              <Button size="lg" variant="outline" asChild data-testid="button-see-how">
+                <a href="#capabilities">See How It Works</a>
+              </Button>
             </div>
           </div>
         </section>
 
-        <section className="py-16 px-6" data-testid="section-integrations">
-          <div className="container mx-auto max-w-6xl">
-            <h2 className="text-2xl font-semibold text-center mb-4 text-[#ffffff]">
-              Powerful Integrations
+        <section className="py-16 px-6 border-t border-border">
+          <div className="container mx-auto max-w-5xl">
+            <div className="grid md:grid-cols-3 gap-8 text-center">
+              <div className="space-y-2">
+                <div className="text-3xl font-bold text-primary">100%</div>
+                <p className="text-[#b8b8b8]">Campaign attribution</p>
+              </div>
+              <div className="space-y-2">
+                <div className="text-3xl font-bold text-primary">Real-time</div>
+                <p className="text-[#b8b8b8]">Pipeline visibility</p>
+              </div>
+              <div className="space-y-2">
+                <div className="text-3xl font-bold text-primary">One</div>
+                <p className="text-[#b8b8b8]">System of record</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="py-20 px-6 bg-card">
+          <div className="container mx-auto max-w-4xl">
+            <h2 className="text-2xl md:text-3xl font-semibold text-center mb-6 text-[#ffffff]">
+              Events Are a GTM Black Box. Until Now.
             </h2>
-            <p className="text-center mb-12 max-w-2xl mx-auto text-[#b8b8b8]">
-              Connect with the tools you already use. Our platform integrates seamlessly with leading services for payments, marketing, and social media.
+            <div className="grid md:grid-cols-3 gap-6 mb-10">
+              <Card className="border-destructive/30 bg-destructive/5">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2 text-[#ffffff]">
+                    <XCircle className="h-5 w-5 text-destructive" />
+                    Event Platforms
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription className="text-[#b8b8b8]">
+                    Optimize for logistics and operations. No pipeline connection.
+                  </CardDescription>
+                </CardContent>
+              </Card>
+              <Card className="border-destructive/30 bg-destructive/5">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2 text-[#ffffff]">
+                    <XCircle className="h-5 w-5 text-destructive" />
+                    Marketing Platforms
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription className="text-[#b8b8b8]">
+                    Stop at clicks and opens. No live experience data.
+                  </CardDescription>
+                </CardContent>
+              </Card>
+              <Card className="border-primary/30 bg-primary/5">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2 text-[#ffffff]">
+                    <CheckCircle2 className="h-5 w-5 text-primary" />
+                    Sandbox
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription className="text-[#b8b8b8]">
+                    The missing layer connecting marketing, events, and revenue.
+                  </CardDescription>
+                </CardContent>
+              </Card>
+            </div>
+            <p className="text-center text-[#b8b8b8] max-w-2xl mx-auto">
+              Most tools leave event ROI stranded in spreadsheets. Sandbox captures the full journey — 
+              from first click to closed deal — so you can prove what your programs are worth.
             </p>
+          </div>
+        </section>
+
+        <section id="capabilities" className="py-20 px-6">
+          <div className="container mx-auto max-w-6xl">
+            <div className="text-center mb-16">
+              <h2 className="text-2xl md:text-3xl font-semibold mb-4 text-[#ffffff]">
+                Design. Attract. Deliver. Prove.
+              </h2>
+              <p className="text-[#b8b8b8] max-w-2xl mx-auto">
+                Sandbox structures your event strategy around outcomes, not logistics. 
+                Every feature maps to your GTM motion.
+              </p>
+            </div>
             
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-              {integrations.map((integration) => (
-                <div 
-                  key={integration.name} 
-                  className="flex flex-col items-center text-center p-6 rounded-lg bg-card border border-border"
-                  data-testid={`integration-${integration.name.toLowerCase().replace(/[^a-z]/g, '-')}`}
-                >
-                  <div className="h-12 w-12 rounded-md flex items-center justify-center mb-3 bg-[#ffffff]">
-                    <integration.icon 
-                      className="h-6 w-6" 
-                      style={integration.color ? { color: integration.color } : undefined}
-                    />
+            <div className="space-y-16">
+              {gtmCapabilities.map((category) => (
+                <div key={category.category}>
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center">
+                      <category.icon className="h-5 w-5 text-primary" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-[#ffffff]">{category.category}</h3>
                   </div>
-                  <span className="font-medium text-sm">{integration.name}</span>
-                  <span className="text-xs mt-1 text-[#b8b8b8]">{integration.description}</span>
+                  <div className="grid md:grid-cols-3 gap-6">
+                    {category.items.map((item) => (
+                      <Card key={item.title} className="border-card-border" data-testid={`card-capability-${item.title.toLowerCase().replace(/\s+/g, '-')}`}>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-base">{item.title}</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <CardDescription className="text-[#b8b8b8]">{item.description}</CardDescription>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
           </div>
         </section>
 
+        <section className="py-20 px-6 bg-card">
+          <div className="container mx-auto max-w-5xl">
+            <div className="text-center mb-12">
+              <h2 className="text-2xl md:text-3xl font-semibold mb-4 text-[#ffffff]">
+                What Sandbox Is — And Isn't
+              </h2>
+            </div>
+            
+            <div className="grid md:grid-cols-2 gap-8">
+              <div className="space-y-4">
+                <h3 className="font-semibold text-[#ffffff] flex items-center gap-2">
+                  <XCircle className="h-5 w-5 text-muted-foreground" />
+                  Not This
+                </h3>
+                <ul className="space-y-3 text-[#b8b8b8]">
+                  <li className="flex items-start gap-2">
+                    <span className="text-muted-foreground mt-1">-</span>
+                    Not a meeting planner or venue booking tool
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-muted-foreground mt-1">-</span>
+                    Not just registration software
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-muted-foreground mt-1">-</span>
+                    Not another disconnected point solution
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-muted-foreground mt-1">-</span>
+                    Not built for event ops teams
+                  </li>
+                </ul>
+              </div>
+              <div className="space-y-4">
+                <h3 className="font-semibold text-[#ffffff] flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-primary" />
+                  This
+                </h3>
+                <ul className="space-y-3 text-[#b8b8b8]">
+                  <li className="flex items-start gap-2">
+                    <span className="text-primary mt-1">+</span>
+                    A GTM platform where events behave like a revenue channel
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-primary mt-1">+</span>
+                    A system of record for event-driven performance
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-primary mt-1">+</span>
+                    Built for accountability, not guesswork
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-primary mt-1">+</span>
+                    Designed for marketers who need to prove ROI
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section className="py-20 px-6">
+          <div className="container mx-auto max-w-5xl">
+            <div className="text-center mb-12">
+              <h2 className="text-2xl md:text-3xl font-semibold mb-4 text-[#ffffff]">
+                Built for Marketing Teams Who Own Revenue
+              </h2>
+              <p className="text-[#b8b8b8] max-w-2xl mx-auto">
+                Not event organizers. Not meeting planners. Marketers who treat events as a strategic GTM lever.
+              </p>
+            </div>
+            
+            <div className="grid md:grid-cols-2 gap-6">
+              {useCases.map((useCase) => (
+                <Card key={useCase.role} className="border-card-border" data-testid={`card-usecase-${useCase.role.toLowerCase().replace(/\s+/g, '-')}`}>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 text-primary" />
+                      {useCase.role}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <CardDescription className="text-[#b8b8b8]">{useCase.description}</CardDescription>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="py-16 px-6 bg-card" data-testid="section-integrations">
+          <div className="container mx-auto max-w-5xl">
+            <div className="text-center mb-10">
+              <h2 className="text-2xl font-semibold mb-3 text-[#ffffff]">
+                Fits Your GTM Stack
+              </h2>
+              <p className="text-[#b8b8b8]">
+                Connects with the tools your marketing and revenue teams already use.
+              </p>
+            </div>
+            
+            <div className="flex flex-wrap items-center justify-center gap-8">
+              {gtmIntegrations.map((integration) => (
+                <div 
+                  key={integration.name} 
+                  className="flex flex-col items-center"
+                  data-testid={`integration-${integration.name.toLowerCase().replace(/[^a-z]/g, '-')}`}
+                >
+                  <div className="h-12 w-12 rounded-md flex items-center justify-center bg-[#ffffff]">
+                    <integration.icon 
+                      className="h-6 w-6" 
+                      style={integration.color ? { color: integration.color } : undefined}
+                    />
+                  </div>
+                  <span className="text-xs mt-2 text-[#b8b8b8]">{integration.name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="py-24 px-6">
           <div className="container mx-auto max-w-3xl text-center">
-            <h2 className="text-2xl font-semibold mb-4 text-[#ffffff]">
-              Ready to Transform Your Event Planning?
+            <h2 className="text-2xl md:text-3xl font-semibold mb-4 text-[#ffffff]">
+              Stop Running Events. Start Running a Revenue Channel.
             </h2>
-            <p className="mb-8 text-[#b8b8b8]">
-              Join event organizers who have simplified their workflow with our platform.
+            <p className="mb-8 text-[#b8b8b8] text-lg">
+              See how Sandbox turns your event investment into measurable pipeline.
             </p>
-            <Button size="lg" asChild data-testid="button-start-now">
-              <a href="/signup">Start Now</a>
-            </Button>
+            <div className="flex flex-wrap items-center justify-center gap-4">
+              <Button size="lg" asChild data-testid="button-request-access-footer">
+                <a href="/signup">
+                  Request Access
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </a>
+              </Button>
+            </div>
           </div>
         </section>
       </main>
+
       <footer className="border-t border-border py-8 px-6">
         <div className="container mx-auto text-center text-sm text-[#b8b8b8]">
-          Sandbox - Event Management Made Simple
+          Sandbox — Event GTM Platform
           <span className="mx-2">|</span>
           <a href="/privacy-policy" className="hover:underline">Privacy Policy</a>
           <span className="mx-2">|</span>
