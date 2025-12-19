@@ -40,6 +40,8 @@ import {
   insertAttendeeTypeSchema,
   insertPackageSchema,
   insertInviteCodeSchema,
+  insertActivationLinkSchema,
+  insertActivationLinkClickSchema,
   insertSpeakerSchema,
   insertSessionSchema,
   insertSessionTrackSchema,
@@ -2216,6 +2218,167 @@ export async function registerRoutes(
     } catch (error) {
       logError("Error deleting invite code:", error);
       res.status(500).json({ message: "Failed to delete invite code" });
+    }
+  });
+
+  // Activation Links routes
+  app.get("/api/activation-links", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const eventId = req.query.eventId as string | undefined;
+      const links = await storage.getActivationLinks(organizationId, eventId);
+      res.json(links);
+    } catch (error) {
+      logError("Error fetching activation links:", error);
+      res.status(500).json({ message: "Failed to fetch activation links" });
+    }
+  });
+
+  app.get("/api/activation-links/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const link = await storage.getActivationLink(organizationId, req.params.id);
+      if (!link) {
+        return res.status(404).json({ message: "Activation link not found" });
+      }
+      res.json(link);
+    } catch (error) {
+      logError("Error fetching activation link:", error);
+      res.status(500).json({ message: "Failed to fetch activation link" });
+    }
+  });
+
+  app.get("/api/activation-links/:id/clicks", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const link = await storage.getActivationLink(organizationId, req.params.id);
+      if (!link) {
+        return res.status(404).json({ message: "Activation link not found" });
+      }
+      const clicks = await storage.getActivationLinkClicks(req.params.id);
+      res.json(clicks);
+    } catch (error) {
+      logError("Error fetching activation link clicks:", error);
+      res.status(500).json({ message: "Failed to fetch clicks" });
+    }
+  });
+
+  app.post("/api/activation-links", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      // Generate a random short code
+      const shortCode = randomBytes(4).toString("hex");
+      const data = insertActivationLinkSchema.parse({ 
+        ...req.body, 
+        organizationId,
+        shortCode,
+        createdBy: userId,
+      });
+      const link = await storage.createActivationLink(data);
+      res.status(201).json(link);
+    } catch (error) {
+      logError("Error creating activation link:", error);
+      res.status(400).json({ message: "Invalid activation link data" });
+    }
+  });
+
+  app.patch("/api/activation-links/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const link = await storage.updateActivationLink(organizationId, req.params.id, req.body);
+      if (!link) {
+        return res.status(404).json({ message: "Activation link not found" });
+      }
+      res.json(link);
+    } catch (error) {
+      logError("Error updating activation link:", error);
+      res.status(400).json({ message: "Failed to update activation link" });
+    }
+  });
+
+  app.delete("/api/activation-links/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      await storage.deleteActivationLink(organizationId, req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting activation link:", error);
+      res.status(500).json({ message: "Failed to delete activation link" });
+    }
+  });
+
+  // Public activation link tracking (no auth required)
+  app.get("/api/public/track/:shortCode", async (req: any, res) => {
+    try {
+      const { shortCode } = req.params;
+      const link = await storage.getActivationLinkByShortCode(shortCode);
+      
+      if (!link || link.status !== "active") {
+        return res.status(404).json({ message: "Link not found" });
+      }
+
+      // Create visitor hash from IP + User-Agent
+      const ip = req.headers["x-forwarded-for"] || req.connection?.remoteAddress || "";
+      const userAgent = req.headers["user-agent"] || "";
+      const visitorHash = createHash("sha256").update(`${ip}:${userAgent}`).digest("hex").substring(0, 32);
+      const ipHash = createHash("sha256").update(String(ip)).digest("hex").substring(0, 32);
+
+      // Record the click
+      await storage.createActivationLinkClick({
+        activationLinkId: link.id,
+        visitorHash,
+        ipHash,
+        userAgent: userAgent.substring(0, 500),
+        referrer: (req.headers.referer || req.headers.referrer || "").substring(0, 1000),
+        queryParams: req.query as Record<string, string>,
+      });
+
+      // Increment click count
+      await storage.incrementActivationLinkClicks(link.id);
+
+      // Build destination URL with UTM params
+      const event = await storage.getEvent(link.organizationId, link.eventId);
+      let baseUrl = link.baseUrl;
+      
+      if (!baseUrl && event) {
+        // Default to public registration page
+        const protocol = req.headers["x-forwarded-proto"] || "https";
+        const host = req.headers.host;
+        baseUrl = `${protocol}://${host}/register/${event.slug}`;
+      }
+
+      if (!baseUrl) {
+        return res.status(404).json({ message: "No destination configured" });
+      }
+
+      // Append UTM parameters
+      const url = new URL(baseUrl);
+      url.searchParams.set("utm_source", link.utmSource);
+      url.searchParams.set("utm_medium", link.utmMedium);
+      url.searchParams.set("utm_campaign", link.utmCampaign);
+      if (link.utmContent) url.searchParams.set("utm_content", link.utmContent);
+      if (link.utmTerm) url.searchParams.set("utm_term", link.utmTerm);
+      
+      // Add activation link ID for attribution tracking
+      url.searchParams.set("al_id", link.id);
+      
+      // Add custom params
+      if (link.customParams) {
+        for (const [key, value] of Object.entries(link.customParams)) {
+          url.searchParams.set(key, value);
+        }
+      }
+
+      res.redirect(302, url.toString());
+    } catch (error) {
+      logError("Error tracking activation link:", error);
+      res.status(500).json({ message: "Failed to process link" });
     }
   });
 
