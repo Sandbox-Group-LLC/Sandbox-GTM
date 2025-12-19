@@ -465,6 +465,19 @@ export default function PublicRegistration() {
     return params.get("code");
   }, [search]);
 
+  // Capture activation link ID and UTM parameters for attribution tracking
+  const attributionParams = useMemo(() => {
+    const params = new URLSearchParams(search);
+    return {
+      activationLinkId: params.get("al_id") || undefined,
+      utmSource: params.get("utm_source") || undefined,
+      utmMedium: params.get("utm_medium") || undefined,
+      utmCampaign: params.get("utm_campaign") || undefined,
+      utmContent: params.get("utm_content") || undefined,
+      utmTerm: params.get("utm_term") || undefined,
+    };
+  }, [search]);
+
   const { data, isLoading, error } = useQuery<PublicRegistrationData>({
     queryKey: ["/api/public/event", slug, "registration"],
     queryFn: async () => {
@@ -658,6 +671,7 @@ export default function PublicRegistration() {
         inviteCodeId: validatedCode?.id || undefined,
         paymentIntentId: paymentIntentId || undefined,
         attendeeType: attendeeTypeFromUrl || undefined,
+        ...attributionParams,
       });
       return res.json();
     },

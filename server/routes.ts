@@ -4961,6 +4961,14 @@ ${urls.map(u => `  <url>
         passwordHash = await hashPassword(registrationData.password);
       }
       
+      // Extract activation link attribution data
+      const activationLinkId = registrationData.activationLinkId || undefined;
+      const utmSource = registrationData.utmSource || undefined;
+      const utmMedium = registrationData.utmMedium || undefined;
+      const utmCampaign = registrationData.utmCampaign || undefined;
+      const utmContent = registrationData.utmContent || undefined;
+      const utmTerm = registrationData.utmTerm || undefined;
+
       const data = insertAttendeeSchema.parse({
         ...registrationData,
         organizationId: event.organizationId,
@@ -4971,11 +4979,27 @@ ${urls.map(u => `  <url>
         ticketType,
         inviteCodeId,
         packageId,
+        activationLinkId,
+        utmSource,
+        utmMedium,
+        utmCampaign,
+        utmContent,
+        utmTerm,
         customData: registrationData.customData || null,
         passwordHash
       });
       
       const attendee = await storage.createAttendee(data);
+      
+      // Track activation link conversion
+      if (activationLinkId) {
+        try {
+          await storage.incrementActivationLinkConversions(activationLinkId);
+          logInfo(`Activation link ${activationLinkId} conversion recorded for attendee ${attendee.id}`);
+        } catch (e) {
+          logError("Failed to track activation link conversion:", e);
+        }
+      }
       
       // Increment the used count AFTER successful attendee creation
       if (foundInviteCode) {
