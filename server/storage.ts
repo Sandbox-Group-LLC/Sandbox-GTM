@@ -570,6 +570,7 @@ export interface IStorage {
 
   // Document Share operations
   getDocumentShares(organizationId: string, documentId: string): Promise<DocumentShare[]>;
+  getDocumentShareByToken(token: string): Promise<{ share: DocumentShare; document: Document } | undefined>;
   createDocumentShare(share: InsertDocumentShare): Promise<DocumentShare>;
   deleteDocumentShare(id: string, organizationId: string): Promise<void>;
 
@@ -2881,6 +2882,28 @@ export class DatabaseStorage implements IStorage {
         eq(documentShares.documentId, documentId)
       ))
       .orderBy(desc(documentShares.createdAt));
+  }
+
+  async getDocumentShareByToken(token: string): Promise<{ share: DocumentShare; document: Document } | undefined> {
+    const [share] = await db.select().from(documentShares)
+      .where(and(
+        eq(documentShares.shareType, "link"),
+        eq(documentShares.shareValue, token)
+      ));
+    
+    if (!share) return undefined;
+    
+    // Check expiration
+    if (share.expiresAt && new Date() > share.expiresAt) {
+      return undefined;
+    }
+    
+    const [document] = await db.select().from(documents)
+      .where(eq(documents.id, share.documentId));
+    
+    if (!document) return undefined;
+    
+    return { share, document };
   }
 
   async createDocumentShare(share: InsertDocumentShare): Promise<DocumentShare> {
