@@ -185,6 +185,7 @@ export function getThemeStyles(theme: EventPageTheme | null | undefined): React.
 export interface SectionStyles {
   backgroundColor?: string;
   textColor?: string;
+  textAlign?: 'left' | 'center' | 'right';
   paddingTop?: 'none' | 'small' | 'medium' | 'large';
   paddingBottom?: 'none' | 'small' | 'medium' | 'large';
   customClass?: string;
@@ -563,6 +564,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
   const sectionWrapperStyles: React.CSSProperties = {
     backgroundColor: styles?.backgroundColor || undefined,
     color: styles?.textColor || undefined,
+    textAlign: styles?.textAlign || undefined,
     paddingTop: SECTION_PADDING_MAP[styles?.paddingTop || "none"] || undefined,
     paddingBottom: SECTION_PADDING_MAP[styles?.paddingBottom || "none"] || undefined,
   };

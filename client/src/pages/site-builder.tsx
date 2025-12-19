@@ -74,6 +74,9 @@ import {
   Hotel,
   User,
   QrCode,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Event, EventPage, EventPageTheme, EventSession, Speaker, EventSponsor } from "@shared/schema";
@@ -98,6 +101,7 @@ type SectionType = "hero" | "text" | "cta" | "features" | "countdown" | "speaker
 interface SectionStyles {
   backgroundColor?: string;
   textColor?: string;
+  textAlign?: 'left' | 'center' | 'right';
   paddingTop?: 'none' | 'small' | 'medium' | 'large';
   paddingBottom?: 'none' | 'small' | 'medium' | 'large';
   customClass?: string;
@@ -3243,6 +3247,41 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId }: S
                     />
                   </div>
                 </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Text Alignment</Label>
+                <div className="flex gap-1">
+                  <Button
+                    type="button"
+                    variant={styles.textAlign === 'left' || !styles.textAlign ? 'secondary' : 'ghost'}
+                    size="icon"
+                    onClick={() => updateStyles("textAlign", styles.textAlign === 'left' ? undefined : 'left')}
+                    data-testid="button-align-left"
+                  >
+                    <AlignLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={styles.textAlign === 'center' ? 'secondary' : 'ghost'}
+                    size="icon"
+                    onClick={() => updateStyles("textAlign", styles.textAlign === 'center' ? undefined : 'center')}
+                    data-testid="button-align-center"
+                  >
+                    <AlignCenter className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={styles.textAlign === 'right' ? 'secondary' : 'ghost'}
+                    size="icon"
+                    onClick={() => updateStyles("textAlign", styles.textAlign === 'right' ? undefined : 'right')}
+                    data-testid="button-align-right"
+                  >
+                    <AlignRight className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Default alignment is left. Click same option again to reset.
+                </p>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
