@@ -203,7 +203,8 @@ function Sidebar({
             <Button
               variant="ghost"
               size="icon"
-              className="absolute top-2 right-2 h-7 w-7 z-10"
+              className="absolute top-2 h-7 w-7 z-50"
+              style={{ right: '0.5rem' }}
               onClick={() => setOpenMobile(false)}
               data-testid="button-close-mobile-sidebar"
             >
