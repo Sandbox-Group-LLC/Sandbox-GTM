@@ -111,7 +111,7 @@ export default function Packages() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/packages"] });
-      toast({ title: "Package created successfully" });
+      toast({ title: "Access package created successfully" });
       setIsDialogOpen(false);
       form.reset();
     },
@@ -143,7 +143,7 @@ export default function Packages() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/packages"] });
-      toast({ title: "Package updated successfully" });
+      toast({ title: "Access package updated successfully" });
       setIsDialogOpen(false);
       setEditingPackage(null);
       setOriginalEventIds([]);
@@ -165,7 +165,7 @@ export default function Packages() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/packages"] });
-      toast({ title: "Package deleted successfully" });
+      toast({ title: "Access package deleted successfully" });
     },
     onError: (error: Error) => {
       if (isUnauthorizedError(error)) {
@@ -201,7 +201,7 @@ export default function Packages() {
   };
 
   const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to delete this package?")) {
+    if (confirm("Are you sure you want to delete this access package?")) {
       deleteMutation.mutate(id);
     }
   };
@@ -343,21 +343,21 @@ export default function Packages() {
   return (
     <div className="flex flex-col h-full">
       <PageHeader
-        title="Packages"
-        breadcrumbs={[{ label: "Attendees" }, { label: "Packages" }]}
+        title="Access Packages"
+        breadcrumbs={[{ label: "Audience" }, { label: "Access Packages" }]}
         actions={
           <Dialog open={isDialogOpen} onOpenChange={(open) => open ? setIsDialogOpen(true) : handleDialogClose()}>
             <DialogTrigger asChild>
               <Button size="sm" data-testid="button-add-package">
                 <Plus className="h-4 w-4 mr-2" />
-                Add Package
+                Add Access Package
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-md max-h-[85vh] flex flex-col overflow-hidden">
               <DialogHeader className="flex-shrink-0">
-                <DialogTitle>{editingPackage ? "Edit Package" : "Add New Package"}</DialogTitle>
+                <DialogTitle>{editingPackage ? "Edit Access Package" : "Add New Access Package"}</DialogTitle>
                 <DialogDescription>
-                  {editingPackage ? "Update package information" : "Create a new registration package"}
+                  {editingPackage ? "Update access package information" : "Create a new registration access package"}
                 </DialogDescription>
               </DialogHeader>
               <div className="flex-1 overflow-y-auto -mx-6 px-6 min-h-0">
@@ -371,7 +371,7 @@ export default function Packages() {
                         <FormLabel>Name *</FormLabel>
                         <FormControl>
                           <Input
-                            placeholder="Package name"
+                            placeholder="Access package name"
                             {...field}
                             data-testid="input-name"
                           />
@@ -388,7 +388,7 @@ export default function Packages() {
                         <FormLabel>Description</FormLabel>
                         <FormControl>
                           <Textarea
-                            placeholder="Package description"
+                            placeholder="Access package description"
                             {...field}
                             data-testid="input-description"
                           />

@@ -469,11 +469,11 @@ export default function InviteCodes() {
                       name="packageId"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Unlock Package (Optional)</FormLabel>
+                          <FormLabel>Unlock Access Package (Optional)</FormLabel>
                           <Select onValueChange={(value) => field.onChange(value === "none" ? null : value)} value={field.value || "none"}>
                             <FormControl>
                               <SelectTrigger data-testid="select-package">
-                                <SelectValue placeholder="Select package" />
+                                <SelectValue placeholder="Select access package" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
@@ -486,7 +486,7 @@ export default function InviteCodes() {
                             </SelectContent>
                           </Select>
                           <FormDescription>
-                            Unlock a hidden package when this code is used
+                            Unlock a hidden access package when this key is used
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
@@ -500,9 +500,9 @@ export default function InviteCodes() {
                         render={({ field }) => (
                           <FormItem className="flex items-center justify-between">
                             <div className="space-y-0.5">
-                              <FormLabel>Force Package</FormLabel>
+                              <FormLabel>Force Access Package</FormLabel>
                               <FormDescription>
-                                Only show this package during registration (hide all other packages)
+                                Only show this access package during registration (hide all others)
                               </FormDescription>
                             </div>
                             <FormControl>
@@ -536,7 +536,7 @@ export default function InviteCodes() {
                             </SelectContent>
                           </Select>
                           <FormDescription>
-                            Apply a discount to any package purchase
+                            Apply a discount to any access package purchase
                           </FormDescription>
                           <FormMessage />
                         </FormItem>

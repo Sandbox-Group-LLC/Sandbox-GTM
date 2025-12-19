@@ -474,7 +474,7 @@ export default function Events() {
                       className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
                       data-testid="tab-packages"
                     >
-                      Packages
+                      Access Packages
                     </TabsTrigger>
                     <TabsTrigger 
                       value="housing" 
@@ -692,11 +692,11 @@ export default function Events() {
                   <TabsContent value="packages" className="flex-1 overflow-auto p-4 mt-0" data-testid="content-packages">
                     {packagesLoading ? (
                       <div className="flex items-center justify-center py-12">
-                        <p className="text-muted-foreground">Loading packages...</p>
+                        <p className="text-muted-foreground">Loading access packages...</p>
                       </div>
                     ) : eventPackages && eventPackages.length > 0 ? (
                       <div className="space-y-2">
-                        <p className="text-sm text-muted-foreground mb-4">{eventPackages.length} package{eventPackages.length !== 1 ? 's' : ''}</p>
+                        <p className="text-sm text-muted-foreground mb-4">{eventPackages.length} access package{eventPackages.length !== 1 ? 's' : ''}</p>
                         {eventPackages.map((pkg: any) => (
                           <div key={pkg.id} className="p-3 border rounded-md" data-testid={`package-row-${pkg.id}`}>
                             <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -714,9 +714,9 @@ export default function Events() {
                     ) : (
                       <div className="flex flex-col items-center justify-center py-12 text-center">
                         <Package className="h-12 w-12 text-muted-foreground mb-4" />
-                        <h3 className="text-lg font-medium mb-2">No packages yet</h3>
+                        <h3 className="text-lg font-medium mb-2">No access packages yet</h3>
                         <p className="text-sm text-muted-foreground max-w-xs">
-                          Registration packages for this event will be shown here.
+                          Access packages for this program will be shown here.
                         </p>
                       </div>
                     )}

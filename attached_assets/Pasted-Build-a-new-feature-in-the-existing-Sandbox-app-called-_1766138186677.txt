@@ -1,0 +1,163 @@
+Build a new feature in the existing Sandbox app called Activation Links that generates production-ready tracking URLs for paid/social/partners and supports measurement in Sandbox as well as Google Analytics (GA4) and other analytics tools.
+
+Core Goal
+
+Marketing teams need to create shareable links that:
+
+include standard tracking parameters (UTMs, etc.) for GA and ad platforms
+
+include a Sandbox-specific Activation Key (a code) used by the backend to personalize the Program Experience and apply rules like audience type, experience package, and discounts
+
+are safe to use in production campaigns and can be exported and audited
+
+Concepts and Terminology
+
+Activation Link = the final URL used in campaigns (paid/social/email/partner)
+
+Activation Key = a unique code associated with the link that tells Sandbox how to personalize the user experience (audience type, experience package, discount eligibility, etc.)
+
+Program Experience URL = the base URL where the visitor lands (public program site/registration/portal)
+
+UX Requirements
+
+Create an Activation Links section in the app with:
+
+List View
+
+searchable/filterable table of links (Program, Campaign, Source, Medium, Status, Created By, Created Date)
+
+quick actions: Copy URL, Duplicate, Deactivate, Export
+
+Create Activation Link flow (wizard or form)
+
+Step 1: Select Program + destination page (registration page, info page, portal, etc.)
+
+Step 2: Define tracking (UTM builder + optional additional params)
+
+Step 3: Define Activation Key settings (personalization + rules)
+
+Step 4: Preview + generate + copy
+
+Detail View
+
+shows full URL, short URL (if enabled), QR code (optional), and a parameter breakdown
+
+shows Sandbox mapping: which Activation Key attributes are applied
+
+shows basic performance metrics if available (clicks, conversions, attendance, engagement) with placeholders if analytics not yet wired
+
+Tracking + URL Construction Requirements
+
+Support GA-compatible UTM parameters at minimum:
+
+utm_source (required)
+
+utm_medium (required)
+
+utm_campaign (required)
+
+utm_content (optional)
+
+utm_term (optional)
+
+Also support optional “common paid social” parameters (do not force them, but allow):
+
+utm_id
+
+gclid, fbclid, msclkid (optional passthrough fields)
+
+Allow custom query parameters (key/value) for advanced users.
+
+The feature must:
+
+validate required fields
+
+URL-encode values correctly
+
+prevent malformed URLs
+
+show a human-readable preview of the final URL before saving
+
+Activation Key Requirements (Sandbox Personalization)
+
+Each Activation Link must generate or assign an Activation Key that is:
+
+unique (globally or at least unique per Program)
+
+can be auto-generated or user-defined (with validation rules)
+
+stored in the database with its configuration
+
+Activation Key config should include (at minimum):
+
+Audience Type (e.g., Prospect, Customer, Partner, Press, Internal)
+
+Experience Package (the “ticket” equivalent; defines entitlements)
+
+Discount / Offer (optional; can be a percent or fixed amount, or a named offer)
+
+Eligibility rules (optional: limited uses, expiration date, allowed domains, etc.)
+
+notes/description for internal use
+
+Activation Key should be embedded in the link as a query param, e.g.:
+
+ak=XXXX (or similar short param name), alongside UTMs
+
+Landing + Attribution Capture Behavior
+
+When a user lands on a Program Experience URL with an Activation Link:
+
+store UTM parameters and Activation Key info in Sandbox (server-side preferred)
+
+persist attribution for the user session and through registration/login where applicable
+
+ensure values can be read later for reporting and segmentation
+
+if a visitor converts (registers), attach the attribution + Activation Key to that attendee record
+
+Optional but Strong “Production” Capabilities
+
+If feasible in this build, include:
+
+Link Templates (save defaults for common channels)
+
+Bulk Generation (CSV upload or multi-create for partner lists)
+
+Export CSV of links with columns: destination, full URL, utms, activation key, created date
+
+Short Links (first-party short URL under a Sandbox domain or configurable) that redirects to the long URL while preserving query params
+
+QR code generation for each Activation Link (useful onsite and for printed materials)
+
+Data Model (High Level, No Breaking Changes)
+
+Create/extend database tables/entities for:
+
+Programs
+
+ActivationLinks
+
+ActivationKeys (or embed as part of ActivationLinks if simpler)
+
+LinkEvents (optional analytics: click events, created/updated logs)
+
+Security / Governance
+
+Role-based permissions: who can create/edit/deactivate links
+
+Deactivated links should either stop resolving (if short links) or be flagged in the UI
+
+Audit fields: createdBy, createdAt, updatedAt, status
+
+Acceptance Criteria
+
+I can create an Activation Link for a Program, with UTMs + Activation Key settings
+
+The generated URL is valid, properly encoded, and copyable
+
+Landing with the URL results in Sandbox capturing UTMs + activation key for the session/attendee
+
+Links are manageable in a list view and exportable
+
+The system is production-safe for paid/social usage and supports GA4 attribution conventions

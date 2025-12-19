@@ -90,8 +90,8 @@ const defaultSteps: FlowStep[] = [
   },
   {
     id: 3,
-    title: "Packages",
-    description: "Select available packages for attendees",
+    title: "Access Packages",
+    description: "Select available access packages for audience",
     icon: Package,
     status: "pending",
     enabled: true,
@@ -211,12 +211,12 @@ export default function RegistrationFlow() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/events", selectedEventId, "packages"] });
-      toast({ title: "Package updated", description: "Event package customization saved." });
+      toast({ title: "Access package updated", description: "Program access package customization saved." });
       setCustomizeDialogOpen(false);
       setEditingPackage(null);
     },
     onError: () => {
-      toast({ title: "Error", description: "Failed to update package.", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to update access package.", variant: "destructive" });
     },
   });
 
@@ -226,10 +226,10 @@ export default function RegistrationFlow() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/events", selectedEventId, "packages"] });
-      toast({ title: "Override removed", description: "Package reset to base values." });
+      toast({ title: "Override removed", description: "Access package reset to base values." });
     },
     onError: () => {
-      toast({ title: "Error", description: "Failed to reset package.", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to reset access package.", variant: "destructive" });
     },
   });
 
@@ -595,8 +595,8 @@ export default function RegistrationFlow() {
           <div className="space-y-6">
             <div className="flex items-center justify-between p-3 border rounded-md">
               <div>
-                <Label htmlFor="multipleSelection" className="cursor-pointer">Allow Multiple Package Selection</Label>
-                <p className="text-sm text-muted-foreground">Let attendees select more than one package</p>
+                <Label htmlFor="multipleSelection" className="cursor-pointer">Allow Multiple Access Package Selection</Label>
+                <p className="text-sm text-muted-foreground">Let audience select more than one access package</p>
               </div>
               <Switch
                 id="multipleSelection"
@@ -607,8 +607,8 @@ export default function RegistrationFlow() {
             </div>
 
             <div>
-              <h3 className="text-lg font-medium mb-4">Event Packages</h3>
-              <p className="text-sm text-muted-foreground mb-4">Configure which packages are available for this event and customize pricing</p>
+              <h3 className="text-lg font-medium mb-4">Program Access Packages</h3>
+              <p className="text-sm text-muted-foreground mb-4">Configure which access packages are available for this program and customize pricing</p>
               
               {eventPackagesLoading ? (
                 <div className="space-y-3">
@@ -619,8 +619,8 @@ export default function RegistrationFlow() {
               ) : eventPackages.length === 0 ? (
                 <EmptyState
                   icon={Package}
-                  title="No packages found"
-                  description="Create packages in the Packages section first"
+                  title="No access packages found"
+                  description="Create access packages in the Access Packages section first"
                 />
               ) : (
                 <div className="space-y-3">

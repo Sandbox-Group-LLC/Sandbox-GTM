@@ -579,7 +579,7 @@ export default function PublicRegistration() {
         }
         
         if (!silent) {
-          toast({ title: "Activation key applied!", description: result.unlockedPackage ? "Package unlocked" : "Key validated" });
+          toast({ title: "Activation key applied!", description: result.unlockedPackage ? "Access package unlocked" : "Key validated" });
         }
         if (result.unlockedPackage && !selectedPackageId) {
           setSelectedPackageId(result.unlockedPackage.id);
@@ -780,7 +780,7 @@ export default function PublicRegistration() {
   const themeStyles = getThemeStyles(theme);
   const fontsToLoad = [theme?.headingFont, theme?.bodyFont].filter(Boolean) as string[];
 
-  const stepTitles = ["Personal Info", "Select Package", "Payment", "Confirmation"];
+  const stepTitles = ["Personal Info", "Select Access Package", "Payment", "Confirmation"];
   const totalSteps = requiresPayment ? 4 : 3;
 
   if (registrationComplete && registeredAttendee) {
@@ -928,7 +928,7 @@ export default function PublicRegistration() {
           <CardHeader>
             <CardTitle style={{ fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined }}>
               {currentStep === 1 && "Personal Information"}
-              {currentStep === 2 && "Select Your Package"}
+              {currentStep === 2 && "Select Your Access Package"}
               {currentStep === 3 && "Complete Payment"}
             </CardTitle>
             <CardDescription>
@@ -936,7 +936,7 @@ export default function PublicRegistration() {
                 ? currentStep === 1 
                   ? "Tell us about yourself" 
                   : currentStep === 2 
-                    ? "Choose a registration package"
+                    ? "Choose an access package"
                     : "Enter your payment details"
                 : "Registration is currently closed"}
             </CardDescription>
@@ -1144,7 +1144,7 @@ export default function PublicRegistration() {
 
                       {availablePackages.length > 0 && (
                         <div className="space-y-2">
-                          <FormLabel>Select Package</FormLabel>
+                          <FormLabel>Select Access Package</FormLabel>
                           <div className="grid gap-3">
                             {availablePackages.map((pkg) => {
                               const originalPrice = Number(pkg.effectivePrice) || 0;
