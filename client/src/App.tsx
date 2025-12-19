@@ -49,6 +49,7 @@ import Signup from "@/pages/signup";
 import Sponsors from "@/pages/sponsors";
 import SponsorTasks from "@/pages/sponsor-tasks";
 import SponsorPortal from "@/pages/sponsor-portal";
+import Documents from "@/pages/documents";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const sidebarStyle = {
@@ -133,6 +134,7 @@ function Router() {
         <Route path="/sponsors" component={Sponsors} />
         <Route path="/sponsor-tasks" component={SponsorTasks} />
         <Route path="/content" component={Content} />
+        <Route path="/documents" component={Documents} />
         <Route path="/budget" component={Budget} />
         <Route path="/deliverables" component={Deliverables} />
         <Route path="/emails" component={Emails} />

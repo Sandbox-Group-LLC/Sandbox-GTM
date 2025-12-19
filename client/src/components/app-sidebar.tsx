@@ -21,6 +21,7 @@ import {
   Shield,
   ClipboardList,
   Plug,
+  FileText,
 } from "lucide-react";
 import logoImage from "@assets/Orange_bug_-_no_background_1765765097769.png";
 import { OnboardingChecklist } from "./onboarding-checklist";
@@ -61,6 +62,7 @@ const sessionsSubItems = [
 
 const contentSubItems = [
   { title: "Media Library", path: "/content" },
+  { title: "Documents", path: "/documents" },
   { title: "Call for Papers", path: "/call-for-papers" },
 ];
 
@@ -105,7 +107,7 @@ export function AppSidebar() {
   const isEventsActive = location === "/events" || location === "/check-in" || location === "/registration" || location === "/site-builder" || location === "/custom-fields" || location === "/sponsors" || location === "/sponsor-tasks";
   const isSessionsActive = location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/rooms";
   const isAttendeesActive = location === "/attendees" || location === "/import-attendees" || location === "/attendee-types" || location === "/invite-codes" || location === "/packages";
-  const isContentActive = location === "/content" || location === "/call-for-papers";
+  const isContentActive = location === "/content" || location === "/documents" || location === "/call-for-papers";
   
   const isSuperAdmin = user?.email?.toLowerCase().endsWith("@makemysandbox.com") ?? false;
 
