@@ -1,15 +1,19 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Target, BarChart3, Users, Zap, Link2, ArrowRight, TrendingUp, Layers, DollarSign, Send, Hotel, CheckCircle2, XCircle } from "lucide-react";
-import { SiLinkedin, SiMailchimp, SiStripe, SiSalesforce, SiHubspot } from "react-icons/si";
+import { SiLinkedin, SiMailchimp, SiStripe, SiSalesforce, SiHubspot, SiOpenai, SiX, SiInstagram, SiFacebook } from "react-icons/si";
 import logoImage from "@assets/Orange_bug_-_no_background_1765765097769.png";
 
 const gtmIntegrations = [
   { icon: SiStripe, name: "Stripe", color: "#635BFF" },
   { icon: SiSalesforce, name: "Salesforce", color: "#00A1E0" },
   { icon: SiHubspot, name: "HubSpot", color: "#FF7A59" },
+  { icon: SiOpenai, name: "ChatGPT", color: "#000000" },
   { icon: SiMailchimp, name: "Mailchimp", color: "#241C15" },
   { icon: SiLinkedin, name: "LinkedIn", color: "#0A66C2" },
+  { icon: SiX, name: "X (Twitter)", color: "#000000" },
+  { icon: SiInstagram, name: "Instagram", color: "#E4405F" },
+  { icon: SiFacebook, name: "Facebook", color: "#1877F2" },
   { icon: Send, name: "Resend", color: null },
   { icon: Zap, name: "Instantly", color: "#FF6B35" },
   { icon: Hotel, name: "Passkey", color: "#4A90D9" },
