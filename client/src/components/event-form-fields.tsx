@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 
 export const eventFormSchema = z.object({
   name: z.string().min(1, "Event name is required"),
@@ -124,11 +125,18 @@ export function EventFormFields({ form, testIdPrefix = "" }: EventFormFieldsProp
           <FormItem>
             <FormLabel>Address</FormLabel>
             <FormControl>
-              <Input
-                placeholder="123 Main Street"
-                {...field}
+              <AddressAutocomplete
                 value={field.value || ""}
-                data-testid={`input-${prefix}event-address`}
+                onChange={field.onChange}
+                onAddressSelect={(address) => {
+                  form.setValue("address", address.address, { shouldValidate: true });
+                  form.setValue("city", address.city, { shouldValidate: true });
+                  form.setValue("state", address.state, { shouldValidate: true });
+                  form.setValue("country", address.country, { shouldValidate: true });
+                  form.setValue("postalCode", address.postalCode, { shouldValidate: true });
+                }}
+                placeholder="Start typing an address..."
+                testId={`input-${prefix}event-address`}
               />
             </FormControl>
             <FormMessage />

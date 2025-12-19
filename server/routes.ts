@@ -1262,6 +1262,49 @@ export async function registerRoutes(
     }
   });
 
+  // Geocode autocomplete (for address suggestions)
+  app.get("/api/geocode/autocomplete", isAuthenticated, async (req: any, res) => {
+    try {
+      const text = req.query.text;
+      if (!text || text.length < 3) {
+        return res.json({ suggestions: [] });
+      }
+
+      const apiKey = process.env.GEOAPIFY_API_KEY;
+      if (!apiKey) {
+        logWarn("GEOAPIFY_API_KEY not configured");
+        return res.json({ suggestions: [] });
+      }
+
+      const response = await fetch(
+        `https://api.geoapify.com/v1/geocode/autocomplete?text=${encodeURIComponent(text)}&type=street&format=json&apiKey=${apiKey}`
+      );
+
+      if (!response.ok) {
+        logError("Geoapify API error:", response.status);
+        return res.json({ suggestions: [] });
+      }
+
+      const data = await response.json();
+      const suggestions = (data.results || []).map((result: any) => ({
+        formatted: result.formatted,
+        housenumber: result.housenumber,
+        street: result.street,
+        city: result.city,
+        state: result.state,
+        country: result.country,
+        postcode: result.postcode,
+        lat: result.lat,
+        lon: result.lon,
+      }));
+
+      res.json({ suggestions });
+    } catch (error) {
+      logError("Error fetching address suggestions:", error);
+      res.json({ suggestions: [] });
+    }
+  });
+
   // Super Admin routes
   app.get("/api/admin/organizations", isAuthenticated, async (req: any, res) => {
     try {
