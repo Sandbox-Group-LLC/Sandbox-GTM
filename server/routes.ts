@@ -93,6 +93,28 @@ import { generateCalendarLinksHtml } from "@shared/calendarLinks";
 // Register public tracking route early (before auth middleware)
 // This ensures it works even if async initialization fails
 export function registerPublicTrackingRoute(app: Express) {
+  // Get invite code from activation link ID (for auto-applying in registration form)
+  app.get("/api/public/activation-link/:id/invite-code", async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const link = await storage.getActivationLinkById(id);
+      
+      if (!link || !link.inviteCodeId) {
+        return res.json({ inviteCode: null });
+      }
+      
+      const inviteCode = await storage.getInviteCode(link.organizationId, link.inviteCodeId);
+      if (!inviteCode || !inviteCode.isActive) {
+        return res.json({ inviteCode: null });
+      }
+      
+      return res.json({ inviteCode: inviteCode.code });
+    } catch (error) {
+      logError("Error fetching invite code for activation link:", error);
+      return res.json({ inviteCode: null });
+    }
+  });
+
   app.get("/api/public/track/:shortCode", async (req: any, res) => {
     try {
       const { shortCode } = req.params;

@@ -249,6 +249,7 @@ export interface IStorage {
   getActivationLinks(organizationId: string, eventId?: string): Promise<ActivationLink[]>;
   getActivationLink(organizationId: string, id: string): Promise<ActivationLink | undefined>;
   getActivationLinkByShortCode(shortCode: string): Promise<ActivationLink | undefined>;
+  getActivationLinkById(id: string): Promise<ActivationLink | undefined>;
   createActivationLink(link: InsertActivationLink): Promise<ActivationLink>;
   updateActivationLink(organizationId: string, id: string, link: Partial<InsertActivationLink>): Promise<ActivationLink | undefined>;
   deleteActivationLink(organizationId: string, id: string): Promise<void>;
@@ -1050,6 +1051,12 @@ export class DatabaseStorage implements IStorage {
   async getActivationLinkByShortCode(shortCode: string): Promise<ActivationLink | undefined> {
     const [link] = await db.select().from(activationLinks)
       .where(eq(activationLinks.shortCode, shortCode));
+    return link;
+  }
+
+  async getActivationLinkById(id: string): Promise<ActivationLink | undefined> {
+    const [link] = await db.select().from(activationLinks)
+      .where(eq(activationLinks.id, id));
     return link;
   }
 

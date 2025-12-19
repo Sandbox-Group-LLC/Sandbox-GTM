@@ -663,6 +663,26 @@ export default function PublicRegistration() {
     }
   }, [inviteCodeFromUrl, slug, urlCodeAttempted, validatedCode, isValidatingCode]);
 
+  // Auto-apply invite code from activation link (when al_id is present in URL)
+  const [alCodeAttempted, setAlCodeAttempted] = useState<string | null>(null);
+  useEffect(() => {
+    const activationLinkId = attributionParams.activationLinkId;
+    if (activationLinkId && !validatedCode && !isValidatingCode && slug && alCodeAttempted !== activationLinkId && !inviteCodeFromUrl) {
+      setAlCodeAttempted(activationLinkId);
+      // Fetch the invite code associated with this activation link
+      fetch(`/api/public/activation-link/${activationLinkId}/invite-code`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.inviteCode) {
+            validateInviteCode(data.inviteCode, true);
+          }
+        })
+        .catch(() => {
+          // Silently fail - activation link might not have an invite code
+        });
+    }
+  }, [attributionParams.activationLinkId, slug, alCodeAttempted, validatedCode, isValidatingCode, inviteCodeFromUrl]);
+
   const registerMutation = useMutation({
     mutationFn: async (formData: RegistrationFormData) => {
       const res = await apiRequest("POST", `/api/public/register/${slug}`, {
