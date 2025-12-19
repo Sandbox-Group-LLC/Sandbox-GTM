@@ -641,11 +641,11 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
 
   const headingStyles: React.CSSProperties = {
     fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined,
-    color: theme?.textColor || undefined,
+    color: styles?.textColor || theme?.textColor || undefined,
   };
 
   const secondaryTextStyles: React.CSSProperties = {
-    color: theme?.textSecondaryColor || undefined,
+    color: styles?.textColor || theme?.textSecondaryColor || undefined,
   };
 
   const renderButton = (text: string, link: string, testId: string) => {
@@ -827,7 +827,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
       );
 
     case "countdown":
-      return wrapWithMargins(<CountdownSection config={config} event={event} sectionId={section.id} theme={theme} />);
+      return wrapWithMargins(<CountdownSection config={config} event={event} sectionId={section.id} theme={theme} styles={styles} />);
 
     case "speakers":
       const showBio = config.showBio !== false;
@@ -1378,7 +1378,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
         backgroundColor: theme?.backgroundColor || "#ffffff",
         borderColor: theme?.borderColor || "#e5e7eb",
         borderRadius: themeRadius,
-        color: theme?.textColor || "#1f2937",
+        color: styles?.textColor || theme?.textColor || "#1f2937",
       };
       
       return wrapWithMargins(
@@ -1394,7 +1394,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium" style={{ color: theme?.textColor || "#1f2937" }}>
+                    <label className="text-sm font-medium" style={{ color: styles?.textColor || theme?.textColor || "#1f2937" }}>
                       First Name<span className="text-destructive ml-1">*</span>
                     </label>
                     <input 
@@ -1406,7 +1406,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium" style={{ color: theme?.textColor || "#1f2937" }}>
+                    <label className="text-sm font-medium" style={{ color: styles?.textColor || theme?.textColor || "#1f2937" }}>
                       Last Name<span className="text-destructive ml-1">*</span>
                     </label>
                     <input 
@@ -1419,7 +1419,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium" style={{ color: theme?.textColor || "#1f2937" }}>
+                  <label className="text-sm font-medium" style={{ color: styles?.textColor || theme?.textColor || "#1f2937" }}>
                     Email<span className="text-destructive ml-1">*</span>
                   </label>
                   <input 
@@ -1431,7 +1431,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium" style={{ color: theme?.textColor || "#1f2937" }}>
+                  <label className="text-sm font-medium" style={{ color: styles?.textColor || theme?.textColor || "#1f2937" }}>
                     Company
                   </label>
                   <input 
@@ -1460,17 +1460,17 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
       return <HousingSection config={config} section={section} event={event} theme={theme} styles={styles} wrapWithMargins={wrapWithMargins} attendeeContext={attendeeContext} />;
 
     case "attendee-profile":
-      return <AttendeeProfileSection config={config} section={section} theme={theme} wrapWithMargins={wrapWithMargins} attendeeContext={attendeeContext} />;
+      return <AttendeeProfileSection config={config} section={section} theme={theme} styles={styles} wrapWithMargins={wrapWithMargins} attendeeContext={attendeeContext} />;
 
     case "attendee-qrcode":
-      return <AttendeeQRCodeSection config={config} section={section} theme={theme} wrapWithMargins={wrapWithMargins} attendeeContext={attendeeContext} />;
+      return <AttendeeQRCodeSection config={config} section={section} theme={theme} styles={styles} wrapWithMargins={wrapWithMargins} attendeeContext={attendeeContext} />;
 
     default:
       return null;
   }
 }
 
-function CountdownSection({ config, event, sectionId, theme }: { config: Record<string, unknown>; event: Event; sectionId: string; theme?: EventPageTheme | null }) {
+function CountdownSection({ config, event, sectionId, theme, styles }: { config: Record<string, unknown>; event: Event; sectionId: string; theme?: EventPageTheme | null; styles?: SectionStyles }) {
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const heading = String(config.heading || "Event Starts In");
   const useEventDate = config.useEventDate !== false;
@@ -1485,11 +1485,11 @@ function CountdownSection({ config, event, sectionId, theme }: { config: Record<
 
   const headingStyles: React.CSSProperties = {
     fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined,
-    color: theme?.textColor || undefined,
+    color: styles?.textColor || theme?.textColor || undefined,
   };
 
   const secondaryTextStyles: React.CSSProperties = {
-    color: theme?.textSecondaryColor || undefined,
+    color: styles?.textColor || theme?.textSecondaryColor || undefined,
   };
 
   const cardStyles: React.CSSProperties = {
@@ -1649,11 +1649,12 @@ interface AttendeeSectionProps {
   config: Record<string, unknown>;
   section: Section;
   theme?: EventPageTheme | null;
+  styles?: SectionStyles;
   wrapWithMargins: (content: React.ReactNode) => React.ReactNode;
   attendeeContext?: AttendeeContext;
 }
 
-function AttendeeProfileSection({ config, section, theme, wrapWithMargins, attendeeContext }: AttendeeSectionProps) {
+function AttendeeProfileSection({ config, section, theme, styles, wrapWithMargins, attendeeContext }: AttendeeSectionProps) {
   const heading = (config.heading as string) || "Your Profile";
   const description = (config.description as string) || "Your registration information";
 
@@ -1669,12 +1670,12 @@ function AttendeeProfileSection({ config, section, theme, wrapWithMargins, atten
 
   const headingStyles: React.CSSProperties = {
     fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined,
-    color: theme?.textColor || undefined,
+    color: styles?.textColor || theme?.textColor || undefined,
   };
 
   const secondaryTextStyles: React.CSSProperties = {
     fontFamily: theme?.bodyFont ? `"${theme.bodyFont}", sans-serif` : undefined,
-    color: theme?.textSecondaryColor || undefined,
+    color: styles?.textColor || theme?.textSecondaryColor || undefined,
   };
 
   const isOutlineButton = theme?.buttonStyle === "outline";
@@ -1862,7 +1863,7 @@ function AttendeeProfileSection({ config, section, theme, wrapWithMargins, atten
   );
 }
 
-function AttendeeQRCodeSection({ config, section, theme, wrapWithMargins, attendeeContext }: AttendeeSectionProps) {
+function AttendeeQRCodeSection({ config, section, theme, styles, wrapWithMargins, attendeeContext }: AttendeeSectionProps) {
   const heading = (config.heading as string) || "Check-In Code";
   const description = (config.description as string) || "Show this code at the event check-in";
 
@@ -1878,12 +1879,12 @@ function AttendeeQRCodeSection({ config, section, theme, wrapWithMargins, attend
 
   const headingStyles: React.CSSProperties = {
     fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined,
-    color: theme?.textColor || undefined,
+    color: styles?.textColor || theme?.textColor || undefined,
   };
 
   const secondaryTextStyles: React.CSSProperties = {
     fontFamily: theme?.bodyFont ? `"${theme.bodyFont}", sans-serif` : undefined,
-    color: theme?.textSecondaryColor || undefined,
+    color: styles?.textColor || theme?.textSecondaryColor || undefined,
   };
 
   if (!attendeeContext?.attendee) {
