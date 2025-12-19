@@ -1,0 +1,169 @@
+Update the public-facing marketing site for Sandbox (makemysandbox.com) to clearly position Sandbox as an Event GTM Platform, not an event planning or registration tool.
+
+The primary audience is:
+
+Event marketers
+
+Demand generation leaders
+
+Field marketing and experiential teams
+
+Marketing and revenue leaders who care about ROI
+
+The site should communicate that Sandbox helps teams treat events as a measurable, optimizable go-to-market channel, not a one-off production exercise.
+
+Core Mental Model (Must Be Explicit)
+
+Structure the messaging around this flow:
+
+Design GTM motion → Attract the right audience → Deliver high-intent experiences → Prove revenue impact
+
+This flow should be reflected in:
+
+Hero messaging
+
+Section headers
+
+Feature explanations
+
+Use-case framing
+
+Hero Section (Above the Fold)
+
+Replace planner- or ops-oriented language with GTM-forward messaging that emphasizes ROI.
+
+Hero should clearly state:
+
+Sandbox connects events directly to acquisition, engagement, and revenue
+
+Events are no longer a black box
+
+Sandbox fits into a modern GTM tech stack
+
+Example positioning (directional, not prescriptive):
+
+“Turn events into a measurable go-to-market channel”
+
+“From acquisition to engagement to revenue — all in one platform”
+
+CTA should speak to marketers (e.g., “See how it works” or “Request access”), not planners.
+
+Problem Framing Section
+
+Explicitly call out the market gap:
+
+Most event platforms optimize for logistics
+
+Most marketing platforms stop at clicks
+
+Events sit in the middle — and ROI gets lost
+
+Position Sandbox as the missing layer between marketing, sales, and live experiences.
+
+Platform Capabilities (Reframed, Not Feature Dumps)
+
+Describe Sandbox in terms of business outcomes, not tools.
+
+Group capabilities into GTM-aligned sections such as:
+
+Go-To-Market & Acquisition
+
+Attribution Links for paid, social, email, and partner campaigns
+
+Audience targeting and segmentation
+
+Conversion-focused Program Experiences (not “event websites”)
+
+Engagement & Intent
+
+Content Pillars (not tracks)
+
+Engagement Capture (not check-in)
+
+Experience Packages that define value, access, and pricing
+
+Revenue & ROI
+
+Attribution from campaign → attendance → engagement
+
+Sales-ready audience signals
+
+Event-driven pipeline and follow-up visibility
+
+Make it clear that execution and logistics exist to serve outcomes, not the other way around.
+
+Differentiation Section
+
+Clearly state what Sandbox is not:
+
+Not a meeting planner
+
+Not just registration software
+
+Not another disconnected event tool
+
+Then clearly state what it is:
+
+A GTM platform where events behave like a revenue channel
+
+A system of record for event-driven performance
+
+A platform built for accountability, not guesswork
+
+Use Cases / Who It’s For
+
+Frame use cases around marketing roles, not event roles:
+
+Demand Gen teams running field events
+
+Field marketing teams proving pipeline impact
+
+Marketing leaders defending event spend
+
+Revenue teams needing clearer handoff from events
+
+Avoid language like “event organizers” or “meeting planners.”
+
+Tone & Style
+
+Confident, modern, and marketer-native
+
+Strategic, not tactical
+
+Outcome-oriented, not operational
+
+Avoid jargon that signals “event ops software”
+
+This page should feel like it belongs next to:
+
+HubSpot
+
+Salesforce
+
+Modern GTM platforms
+
+Not legacy event software.
+
+Guardrails
+
+Do not describe implementation details or backend mechanics
+
+Do not focus on checklists, timelines, or logistics
+
+Do not lead with feature lists without context
+
+This is a positioning and narrative update, not a design overhaul unless necessary to support the message
+
+Success Criteria
+
+After this update, a first-time visitor should immediately understand:
+
+Sandbox is built for marketers, not planners
+
+Events are treated as a GTM channel
+
+Measurement and ROI are core to the platform
+
+Sandbox fills a gap in the modern marketing and revenue stack
+
+If you paste this into Replit, you’ll get a landing page that finally matches the product you’re building — and makes Sandbox legible, compelling, and credible to the right buyers.
