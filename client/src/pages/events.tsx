@@ -31,23 +31,20 @@ import type { Event, Attendee, EventSession } from "@shared/schema";
 
 function normalizeDate(dateValue: string | Date | null | undefined): string {
   if (!dateValue) return "";
-  if (typeof dateValue === "string") {
-    if (dateValue.includes("T")) {
-      const d = new Date(dateValue);
-      const year = d.getUTCFullYear();
-      const month = String(d.getUTCMonth() + 1).padStart(2, "0");
-      const day = String(d.getUTCDate()).padStart(2, "0");
-      return `${year}-${month}-${day}`;
-    }
-    return dateValue.split("T")[0];
-  }
+  
+  let dateStr: string;
+  
   if (dateValue instanceof Date) {
-    const year = dateValue.getUTCFullYear();
-    const month = String(dateValue.getUTCMonth() + 1).padStart(2, "0");
-    const day = String(dateValue.getUTCDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
+    dateStr = dateValue.toISOString();
+  } else if (typeof dateValue === "string") {
+    dateStr = dateValue;
+  } else {
+    return "";
   }
-  return "";
+  
+  // Extract just the date portion (first 10 chars: YYYY-MM-DD)
+  // This handles both "2025-03-14" and "2025-03-14T00:00:00.000Z" formats
+  return dateStr.substring(0, 10);
 }
 
 export default function Events() {

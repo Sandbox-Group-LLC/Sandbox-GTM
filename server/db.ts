@@ -2,7 +2,11 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import * as schema from "@shared/schema";
 
-const { Pool } = pg;
+const { Pool, types } = pg;
+
+// Configure pg to return DATE values as strings to avoid timezone issues
+// PostgreSQL DATE type OID is 1082
+types.setTypeParser(1082, (val: string) => val);
 
 if (!process.env.DATABASE_URL) {
   throw new Error(
