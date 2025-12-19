@@ -1123,12 +1123,17 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
             <div className={styles?.gridJustify === 'center' ? "flex flex-wrap justify-center gap-4" : "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"}>
               {sortedSponsors.map((sponsor, idx) => {
                 const useThemeColors = sponsorCardColorMode === 'theme';
-                const cardClassName = useThemeColors 
+                const useCustomColors = sponsorCardColorMode === 'custom';
+                const customCardBg = config.cardBackgroundColor as string;
+                const customCardText = config.cardTextColor as string;
+                const cardClassName = (useThemeColors || useCustomColors)
                   ? `p-4 border rounded-md flex flex-col items-center gap-2 ${styles?.gridJustify === 'center' ? "w-[calc(50%-0.5rem)] md:w-[calc(33.333%-0.75rem)] lg:w-[calc(25%-0.75rem)]" : ""}`
                   : `p-4 border rounded-md flex flex-col items-center gap-2 ${tierColors[sponsor.tier] || "bg-muted"} ${styles?.gridJustify === 'center' ? "w-[calc(50%-0.5rem)] md:w-[calc(33.333%-0.75rem)] lg:w-[calc(25%-0.75rem)]" : ""}`;
-                const cardStyle: React.CSSProperties = useThemeColors 
-                  ? { borderRadius: themeRadius, backgroundColor: theme?.cardBackground || '#f9fafb', color: theme?.textColor || undefined }
-                  : { borderRadius: themeRadius };
+                const cardStyle: React.CSSProperties = useCustomColors
+                  ? { borderRadius: themeRadius, backgroundColor: customCardBg || '#f9fafb', color: customCardText || undefined }
+                  : useThemeColors 
+                    ? { borderRadius: themeRadius, backgroundColor: theme?.cardBackground || '#f9fafb', color: theme?.textColor || undefined }
+                    : { borderRadius: themeRadius };
                 return (
                 <div 
                   key={idx} 

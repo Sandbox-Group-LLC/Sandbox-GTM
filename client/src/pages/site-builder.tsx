@@ -2502,12 +2502,56 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId }: S
                 <SelectContent>
                   <SelectItem value="tier">Tier Colors (Gold/Silver/Bronze)</SelectItem>
                   <SelectItem value="theme">Theme Colors (Use card background)</SelectItem>
+                  <SelectItem value="custom">Custom Colors</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Choose whether sponsor cards use tier-based colors or inherit from your theme settings.
+                Choose whether sponsor cards use tier-based colors, theme settings, or custom colors.
               </p>
             </div>
+            {(config.cardColorMode as string) === "custom" && (
+              <div className="space-y-3 p-3 border rounded-md">
+                <Label className="text-sm font-medium">Custom Card Colors</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="cardBackgroundColor">Card Background</Label>
+                  <div className="flex gap-2">
+                    <input
+                      type="color"
+                      value={(config.cardBackgroundColor as string) || "#f9fafb"}
+                      onChange={(e) => updateConfig("cardBackgroundColor", e.target.value)}
+                      className="w-10 h-10 rounded border cursor-pointer"
+                      data-testid="input-sponsors-card-bg-color"
+                    />
+                    <Input
+                      value={(config.cardBackgroundColor as string) || ""}
+                      onChange={(e) => updateConfig("cardBackgroundColor", e.target.value || undefined)}
+                      placeholder="#f9fafb"
+                      className="flex-1 font-mono text-sm"
+                      data-testid="input-sponsors-card-bg-text"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cardTextColor">Card Text Color</Label>
+                  <div className="flex gap-2">
+                    <input
+                      type="color"
+                      value={(config.cardTextColor as string) || "#1f2937"}
+                      onChange={(e) => updateConfig("cardTextColor", e.target.value)}
+                      className="w-10 h-10 rounded border cursor-pointer"
+                      data-testid="input-sponsors-card-text-color"
+                    />
+                    <Input
+                      value={(config.cardTextColor as string) || ""}
+                      onChange={(e) => updateConfig("cardTextColor", e.target.value || undefined)}
+                      placeholder="#1f2937"
+                      className="flex-1 font-mono text-sm"
+                      data-testid="input-sponsors-card-text-text"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
             {sponsorsDataSource === "manual" && (
               <div className="space-y-3">
                 <Label>Sponsors</Label>
