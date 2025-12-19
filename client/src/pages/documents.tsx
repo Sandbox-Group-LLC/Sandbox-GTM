@@ -552,21 +552,26 @@ export default function Documents() {
       <PageHeader
         title="Documents"
         breadcrumbs={[{ label: "Content" }, { label: "Documents" }]}
-        actions={
-          <div className="flex items-center gap-2 flex-wrap">
-            <Select value={selectedEventId || "all"} onValueChange={(val) => setSelectedEventId(val === "all" ? "" : val)}>
-              <SelectTrigger className="w-[180px]" data-testid="select-event-filter">
-                <SelectValue placeholder="All Events" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Events</SelectItem>
-                {events.map((event) => (
-                  <SelectItem key={event.id} value={event.id}>
-                    {event.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      />
+
+      <div className="flex-1 overflow-auto p-6">
+        {/* Toolbar */}
+        <div className="flex items-center justify-between gap-4 mb-6">
+          <Select value={selectedEventId || "all"} onValueChange={(val) => setSelectedEventId(val === "all" ? "" : val)}>
+            <SelectTrigger className="w-[200px]" data-testid="select-event-filter">
+              <SelectValue placeholder="All Events" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Events</SelectItem>
+              {events.map((event) => (
+                <SelectItem key={event.id} value={event.id}>
+                  {event.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          
+          <div className="flex items-center gap-2">
             <Button
               variant="outline"
               onClick={() => setIsFolderDialogOpen(true)}
@@ -595,10 +600,7 @@ export default function Documents() {
               data-testid="input-file-upload"
             />
           </div>
-        }
-      />
-
-      <div className="flex-1 overflow-auto p-6">
+        </div>
         {(currentFolderId || folderPath.length > 0) && (
           <Breadcrumb className="mb-4">
             <BreadcrumbList>
