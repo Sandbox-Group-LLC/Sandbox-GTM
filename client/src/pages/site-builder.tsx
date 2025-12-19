@@ -668,8 +668,8 @@ export default function SiteBuilder() {
   return (
     <div className="flex flex-col h-full">
       <PageHeader
-        title="Site Builder"
-        breadcrumbs={[{ label: "Events", href: "/events" }, { label: "Site Builder" }]}
+        title="Program Hub"
+        breadcrumbs={[{ label: "Programs", href: "/events" }, { label: "Program Hub" }]}
         actions={
           selectedEventId && (
             <div className="flex items-center gap-1">

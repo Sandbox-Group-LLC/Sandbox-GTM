@@ -416,7 +416,7 @@ export default function Speakers() {
                         <div className="space-y-1 leading-none">
                           <FormLabel>Featured Speaker</FormLabel>
                           <FormDescription>
-                            Featured speakers appear when "Show featured speakers only" is enabled in Site Builder
+                            Featured contributors appear when "Show featured contributors only" is enabled in Program Hub
                           </FormDescription>
                         </div>
                       </FormItem>

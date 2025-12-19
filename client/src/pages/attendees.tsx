@@ -814,7 +814,7 @@ export default function Attendees() {
 
                   {customFields.filter(cf => cf.isActive).length > 0 && (
                     <div className="space-y-4 pt-4 border-t">
-                      <h4 className="font-medium text-sm">Custom Fields</h4>
+                      <h4 className="font-medium text-sm">Properties</h4>
                       <div className="grid grid-cols-2 gap-4">
                         {customFields
                           .filter(cf => cf.isActive)
@@ -1074,7 +1074,7 @@ export default function Attendees() {
                   {activeCustomFields.length > 0 && (
                     <>
                       <div className="border-t my-2 pt-2">
-                        <h4 className="font-medium text-sm text-muted-foreground mb-2">Custom Fields</h4>
+                        <h4 className="font-medium text-sm text-muted-foreground mb-2">Properties</h4>
                       </div>
                       {activeCustomFields.map((field) => {
                         const fieldKey = `custom_${field.name}`;

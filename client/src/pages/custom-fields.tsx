@@ -270,8 +270,8 @@ export default function CustomFields() {
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <PageHeader
-        title="Custom Fields"
-        breadcrumbs={[{ label: "Events", href: "/events" }, { label: "Custom Fields" }]}
+        title="Properties"
+        breadcrumbs={[{ label: "Programs", href: "/events" }, { label: "Properties" }]}
         actions={
           <Button onClick={() => setIsDialogOpen(true)} data-testid="button-add-custom-field">
             <Plus className="h-4 w-4 mr-2" />
@@ -283,7 +283,7 @@ export default function CustomFields() {
       <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
         <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>{editingField ? "Edit Custom Field" : "Add Custom Field"}</DialogTitle>
+              <DialogTitle>{editingField ? "Edit Property" : "Add Property"}</DialogTitle>
               <DialogDescription>
                 {editingField ? "Update the custom field details" : "Create a new custom field for attendee registration"}
               </DialogDescription>

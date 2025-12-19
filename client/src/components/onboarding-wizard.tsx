@@ -574,8 +574,8 @@ export function OnboardingWizard({ open, onOpenChange }: OnboardingWizardProps) 
               <Palette className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium mb-2">Customize Branding</h3>
               <p className="text-sm text-muted-foreground">
-                Add your logo, colors, and customize your event pages. You can set this up later
-                from the Site Builder.
+                Add your logo, colors, and customize your program pages. You can set this up later
+                from the Program Hub.
               </p>
             </div>
             <div className="flex justify-between gap-2 pt-4">
