@@ -159,13 +159,15 @@ export default function Emails() {
   const templateSubjectRef = useRef<HTMLInputElement>(null);
   const templateContentRef = useRef<HTMLTextAreaElement>(null);
 
-  const { data: emails = [], isLoading: emailsLoading } = useQuery<EmailCampaign[]>({
+  const { data: emailsData, isLoading: emailsLoading } = useQuery<EmailCampaign[] | null>({
     queryKey: ["/api/emails"],
   });
+  const emails = emailsData ?? [];
 
-  const { data: templates = [], isLoading: templatesLoading } = useQuery<EmailTemplate[]>({
+  const { data: templatesData, isLoading: templatesLoading } = useQuery<EmailTemplate[] | null>({
     queryKey: ["/api/email-templates"],
   });
+  const templates = templatesData ?? [];
 
   const campaignForm = useForm<EmailFormData>({
     resolver: zodResolver(emailFormSchema),
