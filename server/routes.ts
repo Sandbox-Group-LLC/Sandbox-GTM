@@ -7027,6 +7027,22 @@ ${urls.map(u => `  <url>
       });
       
       const submission = await storage.createCfpSubmission(data);
+      
+      // Create a deliverable task for reviewing the CFP submission
+      try {
+        await storage.createDeliverable({
+          organizationId: event.organizationId,
+          eventId: event.id,
+          title: `Review CFP: ${submission.title}`,
+          description: `New CFP submission received from ${submission.authorName} (${submission.authorEmail}). Please review and assign reviewers.`,
+          status: "todo",
+          priority: "medium",
+        });
+      } catch (deliverableError) {
+        logError("Error creating deliverable for CFP submission:", deliverableError);
+        // Don't fail the submission if deliverable creation fails
+      }
+      
       res.status(201).json({
         id: submission.id,
         message: "Submission received successfully",
@@ -7198,6 +7214,29 @@ ${urls.map(u => `  <url>
           const data = insertCfpReviewSchema.partial().parse(req.body);
           const updated = await storage.updateCfpReview(reviewId, reviewer.organizationId, data);
           if (updated) {
+            // Check if the review status transitioned to "submitted" (only trigger on this explicit transition)
+            const statusChangedToSubmitted = existingReview.status !== "submitted" && updated.status === "submitted";
+            
+            if (statusChangedToSubmitted) {
+              // Create a deliverable for the submitted review
+              try {
+                const submission = await storage.getCfpSubmission(updated.submissionId, reviewer.organizationId);
+                if (submission) {
+                  await storage.createDeliverable({
+                    organizationId: reviewer.organizationId,
+                    eventId: submission.eventId,
+                    title: `Review submitted: ${submission.title}`,
+                    description: `${reviewer.name} submitted their review for "${submission.title}" by ${submission.authorName}. Score: ${updated.score ?? 'N/A'}, Recommendation: ${updated.recommendation ?? 'N/A'}.`,
+                    status: "todo",
+                    priority: "low",
+                  });
+                }
+              } catch (deliverableError) {
+                logError("Error creating deliverable for review submission:", deliverableError);
+                // Don't fail the review update if deliverable creation fails
+              }
+            }
+            
             return res.json(updated);
           }
         }
