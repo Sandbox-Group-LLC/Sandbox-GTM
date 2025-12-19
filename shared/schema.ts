@@ -244,6 +244,63 @@ export const inviteCodes = pgTable("invite_codes", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Activation Links table - trackable campaign URLs with UTM parameters
+export const activationLinks = pgTable("activation_links", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  // Destination settings
+  destinationType: varchar("destination_type", { length: 50 }).notNull().default("registration"), // 'registration', 'landing', 'portal'
+  baseUrl: text("base_url"),
+  // UTM parameters
+  utmSource: varchar("utm_source", { length: 255 }).notNull(),
+  utmMedium: varchar("utm_medium", { length: 255 }).notNull(),
+  utmCampaign: varchar("utm_campaign", { length: 255 }).notNull(),
+  utmContent: varchar("utm_content", { length: 255 }),
+  utmTerm: varchar("utm_term", { length: 255 }),
+  // Additional tracking params
+  customParams: jsonb("custom_params").$type<Record<string, string>>(),
+  // Activation Key integration
+  inviteCodeId: varchar("invite_code_id").references(() => inviteCodes.id),
+  // Status and metadata
+  status: varchar("status", { length: 20 }).default("active"), // 'active', 'paused', 'archived'
+  shortCode: varchar("short_code", { length: 50 }).unique(),
+  // Analytics tracking
+  clickCount: integer("click_count").default(0),
+  conversionCount: integer("conversion_count").default(0),
+  // Audit fields
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_activation_link_org").on(table.organizationId),
+  index("IDX_activation_link_event").on(table.eventId),
+  index("IDX_activation_link_short_code").on(table.shortCode),
+]);
+
+// Activation Link Clicks table - track individual click events
+export const activationLinkClicks = pgTable("activation_link_clicks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  activationLinkId: varchar("activation_link_id").references(() => activationLinks.id).notNull(),
+  // Visitor identification (hashed for privacy)
+  visitorHash: varchar("visitor_hash", { length: 64 }),
+  ipHash: varchar("ip_hash", { length: 64 }),
+  userAgent: text("user_agent"),
+  referrer: text("referrer"),
+  // Query params snapshot
+  queryParams: jsonb("query_params").$type<Record<string, string>>(),
+  // Conversion tracking
+  convertedToAttendeeId: varchar("converted_to_attendee_id").references(() => attendees.id),
+  convertedAt: timestamp("converted_at"),
+  // Timing
+  clickedAt: timestamp("clicked_at").defaultNow(),
+}, (table) => [
+  index("IDX_activation_link_click_link").on(table.activationLinkId),
+  index("IDX_activation_link_click_time").on(table.clickedAt),
+]);
+
 // Event Pages table - stores customizable page configurations for site builder
 export const eventPages = pgTable("event_pages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
