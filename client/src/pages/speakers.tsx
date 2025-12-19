@@ -254,9 +254,9 @@ export default function Speakers() {
         actions={
           <Dialog open={isDialogOpen} onOpenChange={(open) => open ? setIsDialogOpen(true) : handleDialogClose()}>
             <DialogTrigger asChild>
-              <Button size="sm" data-testid="button-add-speaker">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Contributor
+              <Button size="icon" className="sm:w-auto sm:px-4" data-testid="button-add-speaker">
+                <Plus className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Add Contributor</span>
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">

@@ -172,9 +172,9 @@ export default function Deliverables() {
         actions={
           <Dialog open={isDialogOpen} onOpenChange={(open) => open ? setIsDialogOpen(true) : handleDialogClose()}>
             <DialogTrigger asChild>
-              <Button size="sm" data-testid="button-add-deliverable">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Deliverable
+              <Button size="icon" className="sm:w-auto sm:px-4" data-testid="button-add-deliverable">
+                <Plus className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Add Deliverable</span>
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-lg">

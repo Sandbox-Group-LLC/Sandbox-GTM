@@ -320,9 +320,9 @@ export default function InviteCodes() {
         title="Activation Keys"
         breadcrumbs={[{ label: "Audience", href: "/attendees" }, { label: "Activation Keys" }]}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             <Select value={selectedEventId || "all"} onValueChange={(value) => setSelectedEventId(value === "all" ? "" : value)}>
-              <SelectTrigger className="w-[200px]" data-testid="select-event-filter">
+              <SelectTrigger className="w-[120px] sm:w-[180px]" data-testid="select-event-filter">
                 <SelectValue placeholder="All Events" />
               </SelectTrigger>
               <SelectContent>
@@ -335,20 +335,20 @@ export default function InviteCodes() {
               </SelectContent>
             </Select>
             {groupedData.length > 1 && (
-              <>
+              <div className="hidden md:flex items-center gap-2">
                 <Button variant="outline" size="sm" onClick={expandAll} data-testid="button-expand-all">
                   Expand All
                 </Button>
                 <Button variant="outline" size="sm" onClick={collapseAll} data-testid="button-collapse-all">
                   Collapse All
                 </Button>
-              </>
+              </div>
             )}
             <Dialog open={isDialogOpen} onOpenChange={(open) => !open && handleDialogClose()}>
               <DialogTrigger asChild>
-                <Button onClick={() => setIsDialogOpen(true)} data-testid="button-add-invite-code">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Activation Key
+                <Button onClick={() => setIsDialogOpen(true)} data-testid="button-add-invite-code" size="icon" className="sm:w-auto sm:px-4">
+                  <Plus className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Add Key</span>
                 </Button>
               </DialogTrigger>
               <DialogContent>

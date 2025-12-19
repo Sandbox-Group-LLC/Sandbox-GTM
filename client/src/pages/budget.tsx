@@ -643,15 +643,16 @@ export default function Budget() {
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
-                size="sm"
+                size="icon"
+                className="sm:w-auto sm:px-4"
                 onClick={() => {
                   settingsForm.reset({ budgetCap: budgetSettings?.budgetCap || "" });
                   setIsSettingsDialogOpen(true);
                 }}
                 data-testid="button-budget-settings"
               >
-                <Settings className="h-4 w-4 mr-2" />
-                Settings
+                <Settings className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Settings</span>
               </Button>
             </div>
           )

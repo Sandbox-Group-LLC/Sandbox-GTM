@@ -630,9 +630,9 @@ export default function Attendees() {
         actions={
           <Dialog open={isDialogOpen} onOpenChange={(open) => open ? setIsDialogOpen(true) : handleDialogClose()}>
             <DialogTrigger asChild>
-              <Button size="sm" data-testid="button-add-attendee">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Audience Member
+              <Button size="icon" className="sm:w-auto sm:px-4" data-testid="button-add-attendee">
+                <Plus className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Add Member</span>
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
