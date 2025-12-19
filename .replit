@@ -46,6 +46,7 @@ integrations = ["javascript_log_in_with_replit:1.0.0", "javascript_database:1.0.
 [userenv.shared]
 ENCRYPTION_KEY = "3849c6b492952785af1a4d79cd01d787da3be83a3485ad670db91852f989701e"
 GEOAPIFY_API_KEY = "34119b1474bd4745aba41d8a320b2b14"
+VITE_APP_URL = "https://www.makemysandbox.com"
 
 [objectStorage]
 defaultBucketID = "replit-objstore-7f62bff1-c960-469f-ab04-59774079d1aa"
