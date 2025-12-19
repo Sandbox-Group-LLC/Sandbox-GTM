@@ -121,7 +121,7 @@ const validationFields = [
   { value: "email_domain", label: "Email Domain" },
   { value: "referrer", label: "Referrer URL" },
   { value: "country", label: "Country" },
-  { value: "invite_code", label: "Invite Code" },
+  { value: "invite_code", label: "Activation Key" },
   { value: "attendee_type", label: "Attendee Type" },
 ];
 

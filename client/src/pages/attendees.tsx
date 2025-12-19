@@ -107,7 +107,7 @@ const ALL_COLUMNS: ColumnConfig[] = [
   { key: "attendeeType", header: "Type", sortable: true, getValue: (a) => a.attendeeType || "" },
   { key: "ticketType", header: "Ticket", sortable: true, getValue: (a) => a.ticketType || "" },
   { key: "package", header: "Package", sortable: true, getValue: (a) => a.packageId || "" },
-  { key: "inviteCode", header: "Invite Code", sortable: true, getValue: (a) => a.inviteCodeId || "" },
+  { key: "inviteCode", header: "Activation Key", sortable: true, getValue: (a) => a.inviteCodeId || "" },
   { key: "status", header: "Status", sortable: true, getValue: (a) => a.registrationStatus || "pending" },
   { key: "checkedIn", header: "Checked In", sortable: true, getValue: (a) => a.checkedIn ? "Yes" : "No" },
   { key: "notes", header: "Notes", sortable: false, getValue: (a) => a.notes || "" },
@@ -638,11 +638,11 @@ export default function Attendees() {
                     name="inviteCode"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Invite Code (Optional)</FormLabel>
+                        <FormLabel>Activation Key (Optional)</FormLabel>
                         <FormControl>
                           <Input 
                             {...field} 
-                            placeholder="Enter invite code to auto-apply type and package"
+                            placeholder="Enter activation key to auto-apply type and package"
                             data-testid="input-invite-code" 
                           />
                         </FormControl>
@@ -1224,7 +1224,7 @@ export default function Attendees() {
                   )}
                   {viewingAttendee.inviteCodeId && (
                     <div>
-                      <div className="text-xs text-muted-foreground">Invite Code</div>
+                      <div className="text-xs text-muted-foreground">Activation Key</div>
                       <div className="font-medium">
                         {inviteCodeLookup[viewingAttendee.inviteCodeId] || "-"}
                       </div>

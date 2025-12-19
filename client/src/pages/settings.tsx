@@ -61,10 +61,10 @@ export default function Settings() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/signup-invite-codes"] });
       setIsDialogOpen(false);
       resetForm();
-      toast({ title: "Invite code created successfully" });
+      toast({ title: "Activation key created successfully" });
     },
     onError: (error: Error) => {
-      toast({ title: "Failed to create invite code", description: error.message, variant: "destructive" });
+      toast({ title: "Failed to create activation key", description: error.message, variant: "destructive" });
     },
   });
 
@@ -84,10 +84,10 @@ export default function Settings() {
       setIsDialogOpen(false);
       setEditingCode(null);
       resetForm();
-      toast({ title: "Invite code updated successfully" });
+      toast({ title: "Activation key updated successfully" });
     },
     onError: (error: Error) => {
-      toast({ title: "Failed to update invite code", description: error.message, variant: "destructive" });
+      toast({ title: "Failed to update activation key", description: error.message, variant: "destructive" });
     },
   });
 
@@ -97,10 +97,10 @@ export default function Settings() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/signup-invite-codes"] });
-      toast({ title: "Invite code deleted successfully" });
+      toast({ title: "Activation key deleted successfully" });
     },
     onError: (error: Error) => {
-      toast({ title: "Failed to delete invite code", description: error.message, variant: "destructive" });
+      toast({ title: "Failed to delete activation key", description: error.message, variant: "destructive" });
     },
   });
 
@@ -142,7 +142,7 @@ export default function Settings() {
   };
 
   const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to delete this invite code?")) {
+    if (confirm("Are you sure you want to delete this activation key?")) {
       deleteMutation.mutate(id);
     }
   };
@@ -324,9 +324,9 @@ export default function Settings() {
                 <div className="space-y-1">
                   <CardTitle className="flex items-center gap-2">
                     <Key className="h-5 w-5" />
-                    Signup Invite Codes
+                    Signup Activation Keys
                   </CardTitle>
-                  <CardDescription>Manage invite codes for new user signups</CardDescription>
+                  <CardDescription>Manage activation keys for new user signups</CardDescription>
                 </div>
                 <Button onClick={openCreateDialog} data-testid="button-create-invite-code">
                   <Plus className="h-4 w-4 mr-2" />
@@ -398,8 +398,8 @@ export default function Settings() {
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
                     <Key className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p>No invite codes yet</p>
-                    <p className="text-sm">Create your first invite code to get started</p>
+                    <p>No activation keys yet</p>
+                    <p className="text-sm">Create your first activation key to get started</p>
                   </div>
                 )}
               </CardContent>
@@ -411,11 +411,11 @@ export default function Settings() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent data-testid="dialog-invite-code-form">
           <DialogHeader>
-            <DialogTitle>{editingCode ? "Edit Invite Code" : "Create Invite Code"}</DialogTitle>
+            <DialogTitle>{editingCode ? "Edit Activation Key" : "Create Activation Key"}</DialogTitle>
             <DialogDescription>
               {editingCode
-                ? "Update the invite code details below."
-                : "Create a new invite code for user signups."}
+                ? "Update the activation key details below."
+                : "Create a new activation key for user signups."}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit}>

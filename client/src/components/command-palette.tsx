@@ -42,7 +42,7 @@ const navigationItems = [
   { title: "Attendee Types", icon: Users, path: "/attendee-types", keywords: ["types", "categories"] },
   { title: "Properties", icon: Settings, path: "/custom-fields", keywords: ["fields", "form", "custom"] },
   { title: "Packages", icon: CheckSquare, path: "/packages", keywords: ["tickets", "pricing"] },
-  { title: "Invite Codes", icon: UserPlus, path: "/invite-codes", keywords: ["codes", "invitations"] },
+  { title: "Activation Keys", icon: UserPlus, path: "/invite-codes", keywords: ["codes", "invitations", "activation"] },
   { title: "Check-In", icon: QrCode, path: "/check-in", keywords: ["scan", "qr"] },
   { title: "Sessions", icon: Calendar, path: "/sessions", keywords: ["agenda", "schedule"] },
   { title: "Speakers", icon: Mic2, path: "/speakers", keywords: ["presenters"] },

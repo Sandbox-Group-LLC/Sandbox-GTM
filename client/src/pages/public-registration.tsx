@@ -579,7 +579,7 @@ export default function PublicRegistration() {
         }
         
         if (!silent) {
-          toast({ title: "Invite code applied!", description: result.unlockedPackage ? "Package unlocked" : "Code validated" });
+          toast({ title: "Activation key applied!", description: result.unlockedPackage ? "Package unlocked" : "Key validated" });
         }
         if (result.unlockedPackage && !selectedPackageId) {
           setSelectedPackageId(result.unlockedPackage.id);
@@ -1082,10 +1082,10 @@ export default function PublicRegistration() {
                       />
 
                       <div className="space-y-2">
-                        <FormLabel>Invite Code (optional)</FormLabel>
+                        <FormLabel>Activation Key (optional)</FormLabel>
                         <div className="flex gap-2">
                           <Input
-                            placeholder="Enter invite code"
+                            placeholder="Enter activation key"
                             value={inviteCodeInput}
                             onChange={(e) => setInviteCodeInput(e.target.value)}
                             disabled={!!validatedCode}
@@ -1138,7 +1138,7 @@ export default function PublicRegistration() {
                       {validatedCode && (
                         <div className="flex items-center gap-2 text-sm text-green-600 p-3 bg-green-50 dark:bg-green-900/20 rounded-md">
                           <Check className="h-4 w-4" />
-                          <span>Invite code applied{validatedCode.discountType && ` - ${validatedCode.discountType === "percentage" ? `${validatedCode.discountValue}% off` : `${formatPrice(validatedCode.discountValue)} off`}`}</span>
+                          <span>Activation key applied{validatedCode.discountType && ` - ${validatedCode.discountType === "percentage" ? `${validatedCode.discountValue}% off` : `${formatPrice(validatedCode.discountValue)} off`}`}</span>
                         </div>
                       )}
 

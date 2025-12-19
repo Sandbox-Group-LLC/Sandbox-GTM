@@ -74,7 +74,7 @@ const audienceSubItems = [
   { title: "All Audience", path: "/attendees" },
   { title: "Import Audience", path: "/import-attendees" },
   { title: "Audience Types", path: "/attendee-types" },
-  { title: "Invite Codes", path: "/invite-codes" },
+  { title: "Activation Keys", path: "/invite-codes" },
   { title: "Packages", path: "/packages" },
 ];
 

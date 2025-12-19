@@ -43,7 +43,7 @@ export default function Signup() {
         const data = await response.json();
         setValidationResult(data);
       } else {
-        setValidationResult({ valid: false, error: "Invalid invite code" });
+        setValidationResult({ valid: false, error: "Invalid activation key" });
       }
     } catch {
       setValidationResult({ valid: false, error: "Failed to validate code" });
@@ -96,14 +96,14 @@ export default function Signup() {
             <div className="space-y-2">
               <Label htmlFor="invite-code" className="flex items-center gap-2">
                 <Tag className="h-4 w-4" />
-                Invite Code (optional)
+                Activation Key (optional)
               </Label>
               <div className="flex gap-2">
                 <div className="relative flex-1">
                   <Input
                     id="invite-code"
                     type="text"
-                    placeholder="Enter invite code"
+                    placeholder="Enter activation key"
                     value={inviteCode}
                     onChange={(e) => {
                       setInviteCode(e.target.value);
@@ -144,7 +144,7 @@ export default function Signup() {
                   {validationResult.valid ? (
                     <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
                       <Check className="h-4 w-4" />
-                      <span>Invite code applied</span>
+                      <span>Activation key applied</span>
                       {validationResult.discountPercent && validationResult.discountPercent > 0 && (
                         <Badge variant="secondary" className="ml-1">
                           {validationResult.discountPercent}% discount
@@ -153,7 +153,7 @@ export default function Signup() {
                     </div>
                   ) : (
                     <p className="text-sm text-destructive" data-testid="text-invite-code-error">
-                      {validationResult.error || "Invalid invite code"}
+                      {validationResult.error || "Invalid activation key"}
                     </p>
                   )}
                 </div>

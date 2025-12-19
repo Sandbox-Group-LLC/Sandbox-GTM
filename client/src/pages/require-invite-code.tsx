@@ -39,7 +39,7 @@ export default function RequireInviteCode() {
         const data = await response.json();
         setValidationResult(data);
       } else {
-        setValidationResult({ valid: false, error: "Invalid invite code" });
+        setValidationResult({ valid: false, error: "Invalid activation key" });
       }
     } catch {
       setValidationResult({ valid: false, error: "Failed to validate code" });
@@ -68,10 +68,10 @@ export default function RequireInviteCode() {
         await queryClient.invalidateQueries({ queryKey: ["/api/auth/signup-status"] });
       } else {
         const data = await response.json().catch(() => ({}));
-        setSubmitError(data.message || "Failed to redeem invite code");
+        setSubmitError(data.message || "Failed to redeem activation key");
       }
     } catch {
-      setSubmitError("Failed to redeem invite code. Please try again.");
+      setSubmitError("Failed to redeem activation key. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -110,23 +110,23 @@ export default function RequireInviteCode() {
       <main className="flex-1 flex items-center justify-center px-6 py-12">
         <Card className="w-full max-w-md" data-testid="card-require-invite">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Invite Code Required</CardTitle>
+            <CardTitle className="text-2xl">Activation Key Required</CardTitle>
             <CardDescription>
-              Please enter a valid invite code to access Sandbox
+              Please enter a valid activation key to access Sandbox
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="invite-code" className="flex items-center gap-2">
                 <Tag className="h-4 w-4" />
-                Invite Code
+                Activation Key
               </Label>
               <div className="flex gap-2">
                 <div className="relative flex-1">
                   <Input
                     id="invite-code"
                     type="text"
-                    placeholder="Enter your invite code"
+                    placeholder="Enter your activation key"
                     value={inviteCode}
                     onChange={(e) => {
                       setInviteCode(e.target.value);
@@ -169,7 +169,7 @@ export default function RequireInviteCode() {
                   {validationResult.valid ? (
                     <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
                       <Check className="h-4 w-4" />
-                      <span data-testid="text-validation-success">Valid invite code</span>
+                      <span data-testid="text-validation-success">Valid activation key</span>
                       {validationResult.discountPercent && validationResult.discountPercent > 0 && (
                         <Badge variant="secondary" className="ml-1">
                           {validationResult.discountPercent}% discount
@@ -178,7 +178,7 @@ export default function RequireInviteCode() {
                     </div>
                   ) : (
                     <p className="text-sm text-destructive" data-testid="text-validation-error">
-                      {validationResult.error || "Invalid invite code"}
+                      {validationResult.error || "Invalid activation key"}
                     </p>
                   )}
                 </div>
@@ -209,7 +209,7 @@ export default function RequireInviteCode() {
             </Button>
 
             <p className="text-center text-sm text-muted-foreground">
-              Don't have an invite code? Contact your administrator for access.
+              Don't have an activation key? Contact your administrator for access.
             </p>
           </CardContent>
         </Card>

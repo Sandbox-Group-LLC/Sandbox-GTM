@@ -496,7 +496,7 @@ export default function Packages() {
                         <div>
                           <FormLabel>Visibility</FormLabel>
                           <FormDescription>
-                            {field.value ? "Public - visible to all registrants" : "Code-Only - hidden until invite code entered"}
+                            {field.value ? "Public - visible to all registrants" : "Code-Only - hidden until activation key entered"}
                           </FormDescription>
                         </div>
                         <FormControl>

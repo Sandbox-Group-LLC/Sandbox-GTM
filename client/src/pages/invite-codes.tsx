@@ -114,7 +114,7 @@ export default function InviteCodes() {
         ? `/api/invite-codes?eventId=${selectedEventId}`
         : "/api/invite-codes";
       const res = await fetch(url, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to fetch invite codes");
+      if (!res.ok) throw new Error("Failed to fetch activation keys");
       return res.json();
     },
   });
@@ -207,7 +207,7 @@ export default function InviteCodes() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/invite-codes"] });
-      toast({ title: "Invite code created successfully" });
+      toast({ title: "Activation key created successfully" });
       setIsDialogOpen(false);
       form.reset();
       setIsUnlimited(true);
@@ -233,7 +233,7 @@ export default function InviteCodes() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/invite-codes"] });
-      toast({ title: "Invite code updated successfully" });
+      toast({ title: "Activation key updated successfully" });
       setIsDialogOpen(false);
       setEditingCode(null);
       form.reset();
@@ -255,7 +255,7 @@ export default function InviteCodes() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/invite-codes"] });
-      toast({ title: "Invite code deleted successfully" });
+      toast({ title: "Activation key deleted successfully" });
     },
     onError: (error: Error) => {
       if (isUnauthorizedError(error)) {
@@ -302,7 +302,7 @@ export default function InviteCodes() {
   };
 
   const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to delete this invite code?")) {
+    if (confirm("Are you sure you want to delete this activation key?")) {
       deleteMutation.mutate(id);
     }
   };
@@ -317,8 +317,8 @@ export default function InviteCodes() {
   return (
     <div className="flex flex-col h-full">
       <PageHeader
-        title="Invite Codes"
-        breadcrumbs={[{ label: "Attendees", href: "/attendees" }, { label: "Invite Codes" }]}
+        title="Activation Keys"
+        breadcrumbs={[{ label: "Audience", href: "/attendees" }, { label: "Activation Keys" }]}
         actions={
           <div className="flex items-center gap-2">
             <Select value={selectedEventId || "all"} onValueChange={(value) => setSelectedEventId(value === "all" ? "" : value)}>
@@ -348,14 +348,14 @@ export default function InviteCodes() {
               <DialogTrigger asChild>
                 <Button onClick={() => setIsDialogOpen(true)} data-testid="button-add-invite-code">
                   <Plus className="h-4 w-4 mr-2" />
-                  Add Invite Code
+                  Add Activation Key
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>{editingCode ? "Edit Invite Code" : "Add Invite Code"}</DialogTitle>
+                  <DialogTitle>{editingCode ? "Edit Activation Key" : "Add Activation Key"}</DialogTitle>
                   <DialogDescription>
-                    {editingCode ? "Update the invite code details." : "Create a new invite code for event registration."}
+                    {editingCode ? "Update the activation key details." : "Create a new activation key for program registration."}
                   </DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
@@ -392,7 +392,7 @@ export default function InviteCodes() {
                         <FormItem>
                           <FormLabel>Code</FormLabel>
                           <FormControl>
-                            <Input placeholder="Enter invite code" {...field} data-testid="input-code" />
+                            <Input placeholder="Enter activation key" {...field} data-testid="input-code" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -626,10 +626,10 @@ export default function InviteCodes() {
           ) : inviteCodes.length === 0 ? (
             <EmptyState
               icon={Ticket}
-              title="No invite codes yet"
-              description="Create your first invite code to manage event registration access."
+              title="No activation keys yet"
+              description="Create your first activation key to manage program registration access."
               action={{
-                label: "Add Invite Code",
+                label: "Add Activation Key",
                 onClick: () => setIsDialogOpen(true),
               }}
             />

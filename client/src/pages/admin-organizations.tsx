@@ -114,7 +114,7 @@ export default function AdminOrganizations() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/signup-invite-codes"] });
-      toast({ title: "Invite code created successfully" });
+      toast({ title: "Activation key created successfully" });
       setDialogOpen(false);
       form.reset({
         code: generateRandomCode(),
@@ -126,7 +126,7 @@ export default function AdminOrganizations() {
       });
     },
     onError: (error: Error) => {
-      toast({ title: "Failed to create invite code", description: error.message, variant: "destructive" });
+      toast({ title: "Failed to create activation key", description: error.message, variant: "destructive" });
     },
   });
 
@@ -136,10 +136,10 @@ export default function AdminOrganizations() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/signup-invite-codes"] });
-      toast({ title: "Invite code deleted successfully" });
+      toast({ title: "Activation key deleted successfully" });
     },
     onError: (error: Error) => {
-      toast({ title: "Failed to delete invite code", description: error.message, variant: "destructive" });
+      toast({ title: "Failed to delete activation key", description: error.message, variant: "destructive" });
     },
   });
 
@@ -375,19 +375,19 @@ export default function AdminOrganizations() {
 
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-4 flex-wrap">
-            <h2 className="text-xl font-semibold">Invite Codes</h2>
+            <h2 className="text-xl font-semibold">Activation Keys</h2>
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
                 <Button data-testid="button-create-invite-code">
                   <Plus className="h-4 w-4 mr-2" />
-                  Create Invite Code
+                  Create Activation Key
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Create Invite Code</DialogTitle>
+                  <DialogTitle>Create Activation Key</DialogTitle>
                   <DialogDescription>
-                    Create a new signup invite code for users to redeem.
+                    Create a new signup activation key for users to redeem.
                   </DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
@@ -588,8 +588,8 @@ export default function AdminOrganizations() {
           ) : !inviteCodes?.length ? (
             <EmptyState
               icon={Ticket}
-              title="No Invite Codes Yet"
-              description="Create invite codes to allow users to sign up with special discounts."
+              title="No Activation Keys Yet"
+              description="Create activation keys to allow users to sign up with special discounts."
             />
           ) : (
             <DataTable

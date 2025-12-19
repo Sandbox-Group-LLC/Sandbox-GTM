@@ -1013,7 +1013,7 @@ function TeamTab({ sponsor, token }: { sponsor: SponsorWithEvent; token: string 
         <CardHeader>
           <CardTitle>Team Members</CardTitle>
           <CardDescription>
-            Team members registered using your sponsor invite code
+            Team members registered using your sponsor activation key
           </CardDescription>
         </CardHeader>
         <CardContent>
