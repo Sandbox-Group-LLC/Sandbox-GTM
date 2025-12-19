@@ -55,8 +55,8 @@ import { format } from "date-fns";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EventSelectField } from "@/components/event-select-field";
-import type { Attendee, Event, CustomField, InviteCode, Package, Organization, EmailTemplate } from "@shared/schema";
-import { Send, Loader2 } from "lucide-react";
+import type { Attendee, Event, CustomField, InviteCode, Package, Organization, EmailTemplate, ActivationLink } from "@shared/schema";
+import { Send, Loader2, Link2 } from "lucide-react";
 
 interface AttendeeEmailMessage {
   id: string;
@@ -178,6 +178,10 @@ export default function Attendees() {
     queryKey: ["/api/packages"],
   });
 
+  const { data: activationLinks = [] } = useQuery<ActivationLink[]>({
+    queryKey: ["/api/activation-links"],
+  });
+
   const { data: organization } = useQuery<Organization>({
     queryKey: ["/api/auth/organization"],
   });
@@ -245,6 +249,14 @@ export default function Attendees() {
     });
     return lookup;
   }, [inviteCodes]);
+
+  const activationLinkLookup = useMemo(() => {
+    const lookup: Record<string, ActivationLink> = {};
+    activationLinks.forEach((link) => {
+      lookup[link.id] = link;
+    });
+    return lookup;
+  }, [activationLinks]);
 
   const packageLookup = useMemo(() => {
     const lookup: Record<string, string> = {};
@@ -1244,6 +1256,69 @@ export default function Attendees() {
                   </div>
                 )}
               </div>
+
+              {(viewingAttendee.activationLinkId || viewingAttendee.utmSource || viewingAttendee.utmMedium || viewingAttendee.utmCampaign) && (
+                <>
+                  <Separator />
+
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Link2 className="h-4 w-4 text-muted-foreground" />
+                      <h3 className="text-sm font-medium text-muted-foreground">Attribution</h3>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      {viewingAttendee.activationLinkId && activationLinkLookup[viewingAttendee.activationLinkId] && (
+                        <div className="col-span-2">
+                          <div className="text-xs text-muted-foreground">Activation Link</div>
+                          <div className="font-medium" data-testid="text-attribution-link">
+                            {activationLinkLookup[viewingAttendee.activationLinkId].name}
+                          </div>
+                        </div>
+                      )}
+                      {viewingAttendee.utmSource && (
+                        <div>
+                          <div className="text-xs text-muted-foreground">Source</div>
+                          <div className="font-medium" data-testid="text-utm-source">
+                            {viewingAttendee.utmSource}
+                          </div>
+                        </div>
+                      )}
+                      {viewingAttendee.utmMedium && (
+                        <div>
+                          <div className="text-xs text-muted-foreground">Medium</div>
+                          <div className="font-medium" data-testid="text-utm-medium">
+                            {viewingAttendee.utmMedium}
+                          </div>
+                        </div>
+                      )}
+                      {viewingAttendee.utmCampaign && (
+                        <div>
+                          <div className="text-xs text-muted-foreground">Campaign</div>
+                          <div className="font-medium" data-testid="text-utm-campaign">
+                            {viewingAttendee.utmCampaign}
+                          </div>
+                        </div>
+                      )}
+                      {viewingAttendee.utmContent && (
+                        <div>
+                          <div className="text-xs text-muted-foreground">Content</div>
+                          <div className="font-medium" data-testid="text-utm-content">
+                            {viewingAttendee.utmContent}
+                          </div>
+                        </div>
+                      )}
+                      {viewingAttendee.utmTerm && (
+                        <div>
+                          <div className="text-xs text-muted-foreground">Term</div>
+                          <div className="font-medium" data-testid="text-utm-term">
+                            {viewingAttendee.utmTerm}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
 
               <Separator />
 
