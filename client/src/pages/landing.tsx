@@ -97,7 +97,7 @@ export default function Landing() {
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </a>
               </Button>
-              <Button size="lg" variant="outline" asChild data-testid="button-see-how">
+              <Button size="lg" variant="secondary" asChild data-testid="button-see-how">
                 <a href="#capabilities">See How It Works</a>
               </Button>
             </div>
