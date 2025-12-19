@@ -47,6 +47,23 @@ function normalizeDate(dateValue: string | Date | null | undefined): string {
   return dateStr.substring(0, 10);
 }
 
+// Parse a date string as local date (no timezone shift)
+function parseLocalDate(dateStr: string | null | undefined): Date | null {
+  if (!dateStr) return null;
+  const normalized = dateStr.substring(0, 10); // YYYY-MM-DD
+  const [year, month, day] = normalized.split("-").map(Number);
+  return new Date(year, month - 1, day); // Local date, no timezone shift
+}
+
+// Format a date string for display without timezone issues
+function formatDisplayDate(dateValue: string | Date | null | undefined, formatStr: string = "MMMM d, yyyy"): string {
+  if (!dateValue) return "";
+  const dateStr = typeof dateValue === "string" ? dateValue : dateValue.toISOString();
+  const localDate = parseLocalDate(dateStr);
+  if (!localDate) return "";
+  return format(localDate, formatStr);
+}
+
 export default function Events() {
   const { toast } = useToast();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -498,9 +515,9 @@ export default function Events() {
                         <div>
                           <p className="text-sm font-medium mb-1">Dates</p>
                           <p className="text-sm text-muted-foreground">
-                            {selectedEvent.startDate && format(new Date(selectedEvent.startDate), "MMMM d, yyyy")}
+                            {selectedEvent.startDate && formatDisplayDate(selectedEvent.startDate)}
                             {selectedEvent.startDate && selectedEvent.endDate && " - "}
-                            {selectedEvent.endDate && format(new Date(selectedEvent.endDate), "MMMM d, yyyy")}
+                            {selectedEvent.endDate && formatDisplayDate(selectedEvent.endDate)}
                           </p>
                         </div>
                       )}
@@ -650,7 +667,7 @@ export default function Events() {
                             </div>
                             {session.sessionDate && (
                               <p className="text-sm text-muted-foreground mt-1">
-                                {format(new Date(session.sessionDate), "MMM d, yyyy")}
+                                {formatDisplayDate(session.sessionDate, "MMM d, yyyy")}
                                 {session.startTime && ` ${session.startTime}`}
                                 {session.endTime && ` - ${session.endTime}`}
                               </p>
