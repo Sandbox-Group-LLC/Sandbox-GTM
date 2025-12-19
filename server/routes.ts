@@ -2317,10 +2317,17 @@ export async function registerRoutes(
   app.get("/api/public/track/:shortCode", async (req: any, res) => {
     try {
       const { shortCode } = req.params;
+      logInfo(`Tracking link lookup for shortCode: ${shortCode}`, "activation-link");
       const link = await storage.getActivationLinkByShortCode(shortCode);
       
-      if (!link || link.status !== "active") {
-        return res.status(404).json({ message: "Link not found" });
+      if (!link) {
+        logInfo(`Link not found for shortCode: ${shortCode}`, "activation-link");
+        return res.status(404).json({ message: "Link not found", shortCode });
+      }
+      
+      if (link.status !== "active") {
+        logInfo(`Link found but status is: ${link.status} for shortCode: ${shortCode}`, "activation-link");
+        return res.status(404).json({ message: "Link is not active", status: link.status });
       }
 
       // Create visitor hash from IP + User-Agent
