@@ -67,6 +67,12 @@ import {
   insertCfpReviewerSchema,
   insertCfpReviewSchema,
   insertSignupInviteCodeSchema,
+  insertDocumentSchema,
+  insertDocumentFolderSchema,
+  insertDocumentShareSchema,
+  insertDocumentActivitySchema,
+  insertDocumentCommentSchema,
+  insertDocumentApprovalSchema,
   pageVersions,
   eventPages,
   emailPlatformConnections,
@@ -7724,6 +7730,596 @@ ${urls.map(u => `  <url>
     } catch (error) {
       logError("Error sending email to attendee:", error);
       res.status(500).json({ message: "Failed to send email" });
+    }
+  });
+
+  // ============================================
+  // Document Workspace Routes
+  // ============================================
+
+  // List documents
+  app.get("/api/documents", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const eventId = req.query.eventId as string | undefined;
+      const folderId = req.query.folderId as string | undefined;
+      
+      const docs = await storage.getDocuments(organizationId, eventId, folderId);
+      res.json(docs);
+    } catch (error) {
+      logError("Error fetching documents:", error);
+      res.status(500).json({ message: "Failed to fetch documents" });
+    }
+  });
+
+  // Get presigned upload URL for documents
+  app.post("/api/documents/upload", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const uploadUrl = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadUrl });
+    } catch (error) {
+      logError("Error getting document upload URL:", error);
+      res.status(500).json({ message: "Failed to get upload URL" });
+    }
+  });
+
+  // Create document record after upload
+  app.post("/api/documents", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      
+      const { name, description, fileName, mimeType, byteSize, uploadUrl, eventId, folderId, accessLevel } = req.body;
+      
+      if (!name || !fileName || !mimeType || !uploadUrl) {
+        return res.status(400).json({ message: "Missing required fields: name, fileName, mimeType, uploadUrl" });
+      }
+      
+      // Normalize the upload URL to an object path and set ACL
+      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(uploadUrl, {
+        owner: userId,
+        visibility: accessLevel === "organization" ? "public" : "private",
+      });
+      
+      const data = insertDocumentSchema.parse({
+        organizationId,
+        eventId: eventId || null,
+        folderId: folderId || null,
+        name,
+        description: description || null,
+        fileName,
+        mimeType,
+        byteSize: byteSize || 0,
+        objectPath,
+        accessLevel: accessLevel || "private",
+        uploadedBy: userId,
+      });
+      
+      const document = await storage.createDocument(data);
+      
+      // Log activity
+      await storage.createDocumentActivity({
+        documentId: document.id,
+        organizationId,
+        actorType: "user",
+        actorId: userId,
+        action: "upload",
+        details: { fileName, mimeType, byteSize },
+        ipAddress: req.ip,
+      });
+      
+      res.status(201).json(document);
+    } catch (error: any) {
+      logError("Error creating document:", error);
+      res.status(400).json({ message: error.message || "Failed to create document" });
+    }
+  });
+
+  // Get document folders
+  app.get("/api/documents/folders", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const eventId = req.query.eventId as string | undefined;
+      
+      const folders = await storage.getDocumentFolders(organizationId, eventId);
+      res.json(folders);
+    } catch (error) {
+      logError("Error fetching document folders:", error);
+      res.status(500).json({ message: "Failed to fetch folders" });
+    }
+  });
+
+  // Create document folder
+  app.post("/api/documents/folders", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      
+      const { name, description, eventId, parentId } = req.body;
+      
+      if (!name) {
+        return res.status(400).json({ message: "Folder name is required" });
+      }
+      
+      const data = insertDocumentFolderSchema.parse({
+        organizationId,
+        eventId: eventId || null,
+        name,
+        description: description || null,
+        parentId: parentId || null,
+        createdBy: userId,
+      });
+      
+      const folder = await storage.createDocumentFolder(data);
+      res.status(201).json(folder);
+    } catch (error: any) {
+      logError("Error creating folder:", error);
+      res.status(400).json({ message: error.message || "Failed to create folder" });
+    }
+  });
+
+  // Update document folder
+  app.patch("/api/documents/folders/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const folderId = req.params.id;
+      
+      const folder = await storage.getDocumentFolder(organizationId, folderId);
+      if (!folder) {
+        return res.status(404).json({ message: "Folder not found" });
+      }
+      
+      const updated = await storage.updateDocumentFolder(folderId, organizationId, req.body);
+      res.json(updated);
+    } catch (error: any) {
+      logError("Error updating folder:", error);
+      res.status(400).json({ message: error.message || "Failed to update folder" });
+    }
+  });
+
+  // Delete document folder
+  app.delete("/api/documents/folders/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const folderId = req.params.id;
+      
+      const folder = await storage.getDocumentFolder(organizationId, folderId);
+      if (!folder) {
+        return res.status(404).json({ message: "Folder not found" });
+      }
+      
+      await storage.deleteDocumentFolder(folderId, organizationId);
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting folder:", error);
+      res.status(500).json({ message: "Failed to delete folder" });
+    }
+  });
+
+  // Get single document
+  app.get("/api/documents/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      
+      const document = await storage.getDocument(organizationId, req.params.id);
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      // Log view activity
+      await storage.createDocumentActivity({
+        documentId: document.id,
+        organizationId,
+        actorType: "user",
+        actorId: userId,
+        action: "view",
+        ipAddress: req.ip,
+      });
+      
+      res.json(document);
+    } catch (error) {
+      logError("Error fetching document:", error);
+      res.status(500).json({ message: "Failed to fetch document" });
+    }
+  });
+
+  // Update document
+  app.patch("/api/documents/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      
+      const document = await storage.getDocument(organizationId, req.params.id);
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      const { name, description, folderId, accessLevel } = req.body;
+      const updated = await storage.updateDocument(req.params.id, organizationId, {
+        name,
+        description,
+        folderId,
+        accessLevel,
+      });
+      
+      // Log activity
+      await storage.createDocumentActivity({
+        documentId: document.id,
+        organizationId,
+        actorType: "user",
+        actorId: userId,
+        action: "edit",
+        details: { changes: req.body },
+        ipAddress: req.ip,
+      });
+      
+      res.json(updated);
+    } catch (error: any) {
+      logError("Error updating document:", error);
+      res.status(400).json({ message: error.message || "Failed to update document" });
+    }
+  });
+
+  // Delete document
+  app.delete("/api/documents/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      
+      const document = await storage.getDocument(organizationId, req.params.id);
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      await storage.deleteDocument(req.params.id, organizationId);
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting document:", error);
+      res.status(500).json({ message: "Failed to delete document" });
+    }
+  });
+
+  // Download document file
+  app.get("/api/documents/:id/download", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      
+      const document = await storage.getDocument(organizationId, req.params.id);
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      // Log download activity
+      await storage.createDocumentActivity({
+        documentId: document.id,
+        organizationId,
+        actorType: "user",
+        actorId: userId,
+        action: "download",
+        ipAddress: req.ip,
+      });
+      
+      // Get the file from object storage
+      const objectFile = await objectStorageService.getObjectEntityFile(document.objectPath);
+      res.setHeader("Content-Disposition", `attachment; filename="${document.fileName}"`);
+      await objectStorageService.downloadObject(objectFile, res);
+    } catch (error) {
+      if (error instanceof ObjectNotFoundError) {
+        return res.status(404).json({ message: "Document file not found" });
+      }
+      logError("Error downloading document:", error);
+      res.status(500).json({ message: "Failed to download document" });
+    }
+  });
+
+  // Get document activity
+  app.get("/api/documents/:id/activity", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      
+      const document = await storage.getDocument(organizationId, req.params.id);
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      const activity = await storage.getDocumentActivity(organizationId, req.params.id);
+      res.json(activity);
+    } catch (error) {
+      logError("Error fetching document activity:", error);
+      res.status(500).json({ message: "Failed to fetch activity" });
+    }
+  });
+
+  // Get document shares
+  app.get("/api/documents/:id/shares", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      
+      const document = await storage.getDocument(organizationId, req.params.id);
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      const shares = await storage.getDocumentShares(organizationId, req.params.id);
+      res.json(shares);
+    } catch (error) {
+      logError("Error fetching document shares:", error);
+      res.status(500).json({ message: "Failed to fetch shares" });
+    }
+  });
+
+  // Create document share
+  app.post("/api/documents/:id/shares", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const documentId = req.params.id;
+      
+      const document = await storage.getDocument(organizationId, documentId);
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      const { shareType, shareValue, permission, expiresAt } = req.body;
+      
+      if (!shareType || !shareValue) {
+        return res.status(400).json({ message: "shareType and shareValue are required" });
+      }
+      
+      const data = insertDocumentShareSchema.parse({
+        documentId,
+        organizationId,
+        shareType,
+        shareValue,
+        permission: permission || "view",
+        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        createdBy: userId,
+      });
+      
+      const share = await storage.createDocumentShare(data);
+      
+      // Log activity
+      await storage.createDocumentActivity({
+        documentId,
+        organizationId,
+        actorType: "user",
+        actorId: userId,
+        action: "share",
+        details: { shareType, shareValue, permission },
+        ipAddress: req.ip,
+      });
+      
+      res.status(201).json(share);
+    } catch (error: any) {
+      logError("Error creating document share:", error);
+      res.status(400).json({ message: error.message || "Failed to create share" });
+    }
+  });
+
+  // Delete document share
+  app.delete("/api/documents/:id/shares/:shareId", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const { id: documentId, shareId } = req.params;
+      
+      const document = await storage.getDocument(organizationId, documentId);
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      await storage.deleteDocumentShare(shareId, organizationId);
+      
+      // Log activity
+      await storage.createDocumentActivity({
+        documentId,
+        organizationId,
+        actorType: "user",
+        actorId: userId,
+        action: "unshare",
+        details: { shareId },
+        ipAddress: req.ip,
+      });
+      
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting document share:", error);
+      res.status(500).json({ message: "Failed to delete share" });
+    }
+  });
+
+  // Get document comments
+  app.get("/api/documents/:id/comments", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      
+      const document = await storage.getDocument(organizationId, req.params.id);
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      const comments = await storage.getDocumentComments(organizationId, req.params.id);
+      res.json(comments);
+    } catch (error) {
+      logError("Error fetching document comments:", error);
+      res.status(500).json({ message: "Failed to fetch comments" });
+    }
+  });
+
+  // Create document comment
+  app.post("/api/documents/:id/comments", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const documentId = req.params.id;
+      
+      const document = await storage.getDocument(organizationId, documentId);
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      const user = await storage.getUser(userId);
+      const { content, parentId } = req.body;
+      
+      if (!content) {
+        return res.status(400).json({ message: "Comment content is required" });
+      }
+      
+      const data = insertDocumentCommentSchema.parse({
+        documentId,
+        organizationId,
+        parentId: parentId || null,
+        content,
+        authorType: "user",
+        authorId: userId,
+        authorName: user?.firstName && user?.lastName 
+          ? `${user.firstName} ${user.lastName}` 
+          : user?.email || "Unknown",
+      });
+      
+      const comment = await storage.createDocumentComment(data);
+      res.status(201).json(comment);
+    } catch (error: any) {
+      logError("Error creating document comment:", error);
+      res.status(400).json({ message: error.message || "Failed to create comment" });
+    }
+  });
+
+  // Update/resolve document comment
+  app.patch("/api/documents/:id/comments/:commentId", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const { id: documentId, commentId } = req.params;
+      
+      const document = await storage.getDocument(organizationId, documentId);
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      const comment = await storage.getDocumentComment(organizationId, commentId);
+      if (!comment) {
+        return res.status(404).json({ message: "Comment not found" });
+      }
+      
+      const { content, isResolved } = req.body;
+      const updates: any = {};
+      if (content !== undefined) updates.content = content;
+      if (isResolved !== undefined) {
+        updates.isResolved = isResolved;
+        if (isResolved) {
+          updates.resolvedBy = userId;
+          updates.resolvedAt = new Date();
+        } else {
+          updates.resolvedBy = null;
+          updates.resolvedAt = null;
+        }
+      }
+      
+      const updated = await storage.updateDocumentComment(commentId, organizationId, updates);
+      res.json(updated);
+    } catch (error: any) {
+      logError("Error updating document comment:", error);
+      res.status(400).json({ message: error.message || "Failed to update comment" });
+    }
+  });
+
+  // Get document approvals
+  app.get("/api/documents/:id/approvals", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      
+      const document = await storage.getDocument(organizationId, req.params.id);
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      const approvals = await storage.getDocumentApprovals(organizationId, req.params.id);
+      res.json(approvals);
+    } catch (error) {
+      logError("Error fetching document approvals:", error);
+      res.status(500).json({ message: "Failed to fetch approvals" });
+    }
+  });
+
+  // Request document approval
+  app.post("/api/documents/:id/approvals", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const documentId = req.params.id;
+      
+      const document = await storage.getDocument(organizationId, documentId);
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      const { approverType, approverId, approverName } = req.body;
+      
+      if (!approverType || !approverId) {
+        return res.status(400).json({ message: "approverType and approverId are required" });
+      }
+      
+      const data = insertDocumentApprovalSchema.parse({
+        documentId,
+        organizationId,
+        requestedBy: userId,
+        approverType,
+        approverId,
+        approverName: approverName || null,
+        status: "pending",
+      });
+      
+      const approval = await storage.createDocumentApproval(data);
+      res.status(201).json(approval);
+    } catch (error: any) {
+      logError("Error creating document approval:", error);
+      res.status(400).json({ message: error.message || "Failed to create approval request" });
+    }
+  });
+
+  // Respond to document approval
+  app.patch("/api/documents/:id/approvals/:approvalId", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const { id: documentId, approvalId } = req.params;
+      
+      const document = await storage.getDocument(organizationId, documentId);
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      const approval = await storage.getDocumentApproval(organizationId, approvalId);
+      if (!approval) {
+        return res.status(404).json({ message: "Approval not found" });
+      }
+      
+      const { status, comments } = req.body;
+      
+      if (!status || !["approved", "rejected", "pending"].includes(status)) {
+        return res.status(400).json({ message: "Valid status is required (approved, rejected, pending)" });
+      }
+      
+      const updated = await storage.updateDocumentApproval(approvalId, organizationId, {
+        status,
+        comments: comments || null,
+      });
+      
+      res.json(updated);
+    } catch (error: any) {
+      logError("Error updating document approval:", error);
+      res.status(400).json({ message: error.message || "Failed to update approval" });
     }
   });
 

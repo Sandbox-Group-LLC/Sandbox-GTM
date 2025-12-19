@@ -46,6 +46,12 @@ import {
   passkeyConnections,
   passkeyEventMappings,
   passkeyReservations,
+  documents,
+  documentFolders,
+  documentShares,
+  documentActivity,
+  documentComments,
+  documentApprovals,
   type User,
   type UpsertUser,
   type Event,
@@ -155,6 +161,18 @@ import {
   type InsertPasskeyEventMapping,
   type PasskeyReservation,
   type InsertPasskeyReservation,
+  type Document,
+  type InsertDocument,
+  type DocumentFolder,
+  type InsertDocumentFolder,
+  type DocumentShare,
+  type InsertDocumentShare,
+  type DocumentActivity,
+  type InsertDocumentActivity,
+  type DocumentComment,
+  type InsertDocumentComment,
+  type DocumentApproval,
+  type InsertDocumentApproval,
 } from "@shared/schema";
 import { encrypt, decrypt } from "./encryption";
 import { db } from "./db";
@@ -535,6 +553,41 @@ export interface IStorage {
   getPasskeyReservationByAttendee(organizationId: string, attendeeId: string): Promise<PasskeyReservation | undefined>;
   createPasskeyReservation(data: InsertPasskeyReservation): Promise<PasskeyReservation>;
   updatePasskeyReservation(organizationId: string, id: string, data: Partial<InsertPasskeyReservation>): Promise<PasskeyReservation | undefined>;
+
+  // Document operations
+  getDocuments(organizationId: string, eventId?: string, folderId?: string): Promise<Document[]>;
+  getDocument(organizationId: string, id: string): Promise<Document | undefined>;
+  createDocument(doc: InsertDocument): Promise<Document>;
+  updateDocument(id: string, organizationId: string, doc: Partial<InsertDocument>): Promise<Document | undefined>;
+  deleteDocument(id: string, organizationId: string): Promise<void>;
+
+  // Document Folder operations
+  getDocumentFolders(organizationId: string, eventId?: string): Promise<DocumentFolder[]>;
+  getDocumentFolder(organizationId: string, id: string): Promise<DocumentFolder | undefined>;
+  createDocumentFolder(folder: InsertDocumentFolder): Promise<DocumentFolder>;
+  updateDocumentFolder(id: string, organizationId: string, folder: Partial<InsertDocumentFolder>): Promise<DocumentFolder | undefined>;
+  deleteDocumentFolder(id: string, organizationId: string): Promise<void>;
+
+  // Document Share operations
+  getDocumentShares(organizationId: string, documentId: string): Promise<DocumentShare[]>;
+  createDocumentShare(share: InsertDocumentShare): Promise<DocumentShare>;
+  deleteDocumentShare(id: string, organizationId: string): Promise<void>;
+
+  // Document Comment operations
+  getDocumentComments(organizationId: string, documentId: string): Promise<DocumentComment[]>;
+  getDocumentComment(organizationId: string, id: string): Promise<DocumentComment | undefined>;
+  createDocumentComment(comment: InsertDocumentComment): Promise<DocumentComment>;
+  updateDocumentComment(id: string, organizationId: string, updates: Partial<InsertDocumentComment>): Promise<DocumentComment | undefined>;
+
+  // Document Approval operations
+  getDocumentApprovals(organizationId: string, documentId: string): Promise<DocumentApproval[]>;
+  getDocumentApproval(organizationId: string, id: string): Promise<DocumentApproval | undefined>;
+  createDocumentApproval(approval: InsertDocumentApproval): Promise<DocumentApproval>;
+  updateDocumentApproval(id: string, organizationId: string, updates: Partial<InsertDocumentApproval>): Promise<DocumentApproval | undefined>;
+
+  // Document Activity operations
+  createDocumentActivity(activity: InsertDocumentActivity): Promise<DocumentActivity>;
+  getDocumentActivity(organizationId: string, documentId: string): Promise<DocumentActivity[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2714,6 +2767,217 @@ export class DatabaseStorage implements IStorage {
       ))
       .returning();
     return updated;
+  }
+
+  // Document operations
+  async getDocuments(organizationId: string, eventId?: string, folderId?: string): Promise<Document[]> {
+    const conditions = [eq(documents.organizationId, organizationId)];
+    if (eventId) {
+      conditions.push(eq(documents.eventId, eventId));
+    }
+    if (folderId) {
+      conditions.push(eq(documents.folderId, folderId));
+    } else if (folderId === null) {
+      conditions.push(isNull(documents.folderId));
+    }
+    return db.select().from(documents)
+      .where(and(...conditions))
+      .orderBy(desc(documents.createdAt));
+  }
+
+  async getDocument(organizationId: string, id: string): Promise<Document | undefined> {
+    const [doc] = await db.select().from(documents)
+      .where(and(
+        eq(documents.organizationId, organizationId),
+        eq(documents.id, id)
+      ));
+    return doc;
+  }
+
+  async createDocument(doc: InsertDocument): Promise<Document> {
+    const [newDoc] = await db.insert(documents).values(doc).returning();
+    return newDoc;
+  }
+
+  async updateDocument(id: string, organizationId: string, doc: Partial<InsertDocument>): Promise<Document | undefined> {
+    const [updated] = await db.update(documents)
+      .set({ ...doc, updatedAt: new Date() })
+      .where(and(
+        eq(documents.id, id),
+        eq(documents.organizationId, organizationId)
+      ))
+      .returning();
+    return updated;
+  }
+
+  async deleteDocument(id: string, organizationId: string): Promise<void> {
+    // Delete related records first
+    await db.delete(documentShares).where(eq(documentShares.documentId, id));
+    await db.delete(documentActivity).where(eq(documentActivity.documentId, id));
+    await db.delete(documentComments).where(eq(documentComments.documentId, id));
+    await db.delete(documentApprovals).where(eq(documentApprovals.documentId, id));
+    await db.delete(documents).where(and(
+      eq(documents.id, id),
+      eq(documents.organizationId, organizationId)
+    ));
+  }
+
+  // Document Folder operations
+  async getDocumentFolders(organizationId: string, eventId?: string): Promise<DocumentFolder[]> {
+    if (eventId) {
+      return db.select().from(documentFolders)
+        .where(and(
+          eq(documentFolders.organizationId, organizationId),
+          eq(documentFolders.eventId, eventId)
+        ))
+        .orderBy(documentFolders.name);
+    }
+    return db.select().from(documentFolders)
+      .where(eq(documentFolders.organizationId, organizationId))
+      .orderBy(documentFolders.name);
+  }
+
+  async getDocumentFolder(organizationId: string, id: string): Promise<DocumentFolder | undefined> {
+    const [folder] = await db.select().from(documentFolders)
+      .where(and(
+        eq(documentFolders.organizationId, organizationId),
+        eq(documentFolders.id, id)
+      ));
+    return folder;
+  }
+
+  async createDocumentFolder(folder: InsertDocumentFolder): Promise<DocumentFolder> {
+    const [newFolder] = await db.insert(documentFolders).values(folder).returning();
+    return newFolder;
+  }
+
+  async updateDocumentFolder(id: string, organizationId: string, folder: Partial<InsertDocumentFolder>): Promise<DocumentFolder | undefined> {
+    const [updated] = await db.update(documentFolders)
+      .set({ ...folder, updatedAt: new Date() })
+      .where(and(
+        eq(documentFolders.id, id),
+        eq(documentFolders.organizationId, organizationId)
+      ))
+      .returning();
+    return updated;
+  }
+
+  async deleteDocumentFolder(id: string, organizationId: string): Promise<void> {
+    // Move documents in this folder to no folder
+    await db.update(documents)
+      .set({ folderId: null })
+      .where(eq(documents.folderId, id));
+    await db.delete(documentFolders).where(and(
+      eq(documentFolders.id, id),
+      eq(documentFolders.organizationId, organizationId)
+    ));
+  }
+
+  // Document Share operations
+  async getDocumentShares(organizationId: string, documentId: string): Promise<DocumentShare[]> {
+    return db.select().from(documentShares)
+      .where(and(
+        eq(documentShares.organizationId, organizationId),
+        eq(documentShares.documentId, documentId)
+      ))
+      .orderBy(desc(documentShares.createdAt));
+  }
+
+  async createDocumentShare(share: InsertDocumentShare): Promise<DocumentShare> {
+    const [newShare] = await db.insert(documentShares).values(share).returning();
+    return newShare;
+  }
+
+  async deleteDocumentShare(id: string, organizationId: string): Promise<void> {
+    await db.delete(documentShares).where(and(
+      eq(documentShares.id, id),
+      eq(documentShares.organizationId, organizationId)
+    ));
+  }
+
+  // Document Comment operations
+  async getDocumentComments(organizationId: string, documentId: string): Promise<DocumentComment[]> {
+    return db.select().from(documentComments)
+      .where(and(
+        eq(documentComments.organizationId, organizationId),
+        eq(documentComments.documentId, documentId)
+      ))
+      .orderBy(desc(documentComments.createdAt));
+  }
+
+  async getDocumentComment(organizationId: string, id: string): Promise<DocumentComment | undefined> {
+    const [comment] = await db.select().from(documentComments)
+      .where(and(
+        eq(documentComments.organizationId, organizationId),
+        eq(documentComments.id, id)
+      ));
+    return comment;
+  }
+
+  async createDocumentComment(comment: InsertDocumentComment): Promise<DocumentComment> {
+    const [newComment] = await db.insert(documentComments).values(comment).returning();
+    return newComment;
+  }
+
+  async updateDocumentComment(id: string, organizationId: string, updates: Partial<InsertDocumentComment>): Promise<DocumentComment | undefined> {
+    const [updated] = await db.update(documentComments)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(
+        eq(documentComments.id, id),
+        eq(documentComments.organizationId, organizationId)
+      ))
+      .returning();
+    return updated;
+  }
+
+  // Document Approval operations
+  async getDocumentApprovals(organizationId: string, documentId: string): Promise<DocumentApproval[]> {
+    return db.select().from(documentApprovals)
+      .where(and(
+        eq(documentApprovals.organizationId, organizationId),
+        eq(documentApprovals.documentId, documentId)
+      ))
+      .orderBy(desc(documentApprovals.createdAt));
+  }
+
+  async getDocumentApproval(organizationId: string, id: string): Promise<DocumentApproval | undefined> {
+    const [approval] = await db.select().from(documentApprovals)
+      .where(and(
+        eq(documentApprovals.organizationId, organizationId),
+        eq(documentApprovals.id, id)
+      ));
+    return approval;
+  }
+
+  async createDocumentApproval(approval: InsertDocumentApproval): Promise<DocumentApproval> {
+    const [newApproval] = await db.insert(documentApprovals).values(approval).returning();
+    return newApproval;
+  }
+
+  async updateDocumentApproval(id: string, organizationId: string, updates: Partial<InsertDocumentApproval>): Promise<DocumentApproval | undefined> {
+    const [updated] = await db.update(documentApprovals)
+      .set({ ...updates, respondedAt: updates.status && updates.status !== 'pending' ? new Date() : undefined })
+      .where(and(
+        eq(documentApprovals.id, id),
+        eq(documentApprovals.organizationId, organizationId)
+      ))
+      .returning();
+    return updated;
+  }
+
+  // Document Activity operations
+  async createDocumentActivity(activity: InsertDocumentActivity): Promise<DocumentActivity> {
+    const [newActivity] = await db.insert(documentActivity).values(activity).returning();
+    return newActivity;
+  }
+
+  async getDocumentActivity(organizationId: string, documentId: string): Promise<DocumentActivity[]> {
+    return db.select().from(documentActivity)
+      .where(and(
+        eq(documentActivity.organizationId, organizationId),
+        eq(documentActivity.documentId, documentId)
+      ))
+      .orderBy(desc(documentActivity.createdAt));
   }
 }
 
