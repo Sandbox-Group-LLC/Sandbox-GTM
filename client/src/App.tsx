@@ -50,6 +50,7 @@ import Sponsors from "@/pages/sponsors";
 import SponsorTasks from "@/pages/sponsor-tasks";
 import SponsorPortal from "@/pages/sponsor-portal";
 import Documents from "@/pages/documents";
+import SharedDocument from "@/pages/shared-document";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const sidebarStyle = {
@@ -93,6 +94,7 @@ function Router() {
         <Route path="/event/:slug/cfp" component={PublicCfp} />
         <Route path="/event/:slug" component={PublicEvent} />
         <Route path="/sponsor-portal" component={SponsorPortal} />
+        <Route path="/documents/shared/:token" component={SharedDocument} />
         <Route component={Landing} />
       </Switch>
     );

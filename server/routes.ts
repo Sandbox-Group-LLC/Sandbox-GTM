@@ -6996,6 +6996,41 @@ ${urls.map(u => `  <url>
   });
 
   // ============================================
+  // Public Document Share Routes
+  // ============================================
+
+  app.get("/api/public/documents/shared/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+      
+      const result = await storage.getDocumentShareByToken(token);
+      
+      if (!result) {
+        return res.status(404).json({ message: "Shared document not found or link has expired" });
+      }
+      
+      const { share, document } = result;
+      
+      res.json({
+        document: {
+          id: document.id,
+          name: document.name,
+          description: document.description,
+          mimeType: document.mimeType,
+          fileSize: document.fileSize,
+          fileUrl: document.fileUrl,
+          createdAt: document.createdAt,
+        },
+        permission: share.permission,
+        expiresAt: share.expiresAt,
+      });
+    } catch (error: any) {
+      logError("Error fetching shared document:", error);
+      res.status(500).json({ message: "Failed to fetch shared document" });
+    }
+  });
+
+  // ============================================
   // Reviewer Routes (authenticated)
   // ============================================
 
