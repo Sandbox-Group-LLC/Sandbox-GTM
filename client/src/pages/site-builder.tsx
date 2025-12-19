@@ -76,7 +76,7 @@ import {
   QrCode,
 } from "lucide-react";
 import { format } from "date-fns";
-import type { Event, EventPage, EventPageTheme } from "@shared/schema";
+import type { Event, EventPage, EventPageTheme, EventSession, Speaker, EventSponsor } from "@shared/schema";
 import { MergeTagPicker } from "@/components/merge-tag-picker";
 import { SectionRenderer, GoogleFontsLoader, getThemeStyles, scopeCustomCss, sanitizeCustomCss } from "@/pages/public-event";
 import { eventTemplates, TEMPLATE_CATEGORIES, type EventTemplate, type TemplateCategory } from "@/lib/site-templates";
@@ -335,6 +335,21 @@ export default function SiteBuilder() {
 
   const { data: pages = [], isLoading: pagesLoading } = useQuery<EventPage[]>({
     queryKey: ["/api/events", selectedEventId, "pages"],
+    enabled: !!selectedEventId,
+  });
+
+  const { data: sessions = [] } = useQuery<EventSession[]>({
+    queryKey: ["/api/events", selectedEventId, "sessions"],
+    enabled: !!selectedEventId,
+  });
+
+  const { data: speakers = [] } = useQuery<Speaker[]>({
+    queryKey: ["/api/events", selectedEventId, "speakers"],
+    enabled: !!selectedEventId,
+  });
+
+  const { data: sponsors = [] } = useQuery<EventSponsor[]>({
+    queryKey: ["/api/events", selectedEventId, "sponsors"],
     enabled: !!selectedEventId,
   });
 
@@ -995,7 +1010,7 @@ export default function SiteBuilder() {
                         data-testid={`preview-section-${section.id}`}
                         className={editingSection?.id === section.id ? "ring-2 ring-primary ring-offset-2 rounded-md" : ""}
                       >
-                        <SectionRenderer section={section} event={previewEvent} theme={previewTheme} isHighlighted={editingSection?.id === section.id} isPreview={true} />
+                        <SectionRenderer section={section} event={previewEvent} sessions={sessions} speakers={speakers} sponsors={sponsors} theme={previewTheme} isHighlighted={editingSection?.id === section.id} isPreview={true} />
                       </div>
                     ))
                 )}
