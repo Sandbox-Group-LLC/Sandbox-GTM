@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 
 export const eventFormSchema = z.object({
   name: z.string().min(1, "Event name is required"),
@@ -80,34 +81,24 @@ export function EventFormFields({ form, testIdPrefix = "" }: EventFormFieldsProp
           </FormItem>
         )}
       />
-      <div className="grid grid-cols-2 gap-4">
-        <FormField
-          control={form.control}
-          name="startDate"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Start Date</FormLabel>
-              <FormControl>
-                <Input type="date" {...field} data-testid={`input-${prefix}event-start-date`} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
+      <FormItem>
+        <FormLabel>Event Dates</FormLabel>
+        <DateRangePicker
+          startDate={form.watch("startDate")}
+          endDate={form.watch("endDate")}
+          onRangeChange={(start, end) => {
+            form.setValue("startDate", start, { shouldValidate: true });
+            form.setValue("endDate", end, { shouldValidate: true });
+          }}
+          placeholder="Select start and end dates"
+          testId={`input-${prefix}event-dates`}
         />
-        <FormField
-          control={form.control}
-          name="endDate"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>End Date</FormLabel>
-              <FormControl>
-                <Input type="date" {...field} data-testid={`input-${prefix}event-end-date`} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-      </div>
+        {(form.formState.errors.startDate || form.formState.errors.endDate) && (
+          <p className="text-sm text-destructive">
+            {form.formState.errors.startDate?.message || form.formState.errors.endDate?.message}
+          </p>
+        )}
+      </FormItem>
       <FormField
         control={form.control}
         name="location"
