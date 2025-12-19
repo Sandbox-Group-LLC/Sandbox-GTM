@@ -2532,7 +2532,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getSignupInviteCodeByCode(code: string): Promise<SignupInviteCode | undefined> {
-    const [inviteCode] = await db.select().from(signupInviteCodes).where(eq(signupInviteCodes.code, code));
+    const [inviteCode] = await db.select().from(signupInviteCodes).where(ilike(signupInviteCodes.code, code));
     return inviteCode;
   }
 
