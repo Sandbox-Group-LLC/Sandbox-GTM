@@ -1,5 +1,5 @@
 import * as React from "react";
-import { format, addMonths } from "date-fns";
+import { format } from "date-fns";
 import { Calendar as CalendarIcon, ArrowRight } from "lucide-react";
 import { DateRange, DayPicker } from "react-day-picker";
 import { cn } from "@/lib/utils";
@@ -11,6 +11,18 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+
+function parseLocalDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function formatLocalDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
 interface DateRangePickerProps {
   startDate?: string;
@@ -36,8 +48,8 @@ export function DateRangePicker({
   const dateRange: DateRange | undefined = React.useMemo(() => {
     if (!startDate && !endDate) return undefined;
     return {
-      from: startDate ? new Date(startDate) : undefined,
-      to: endDate ? new Date(endDate) : undefined,
+      from: startDate ? parseLocalDate(startDate) : undefined,
+      to: endDate ? parseLocalDate(endDate) : undefined,
     };
   }, [startDate, endDate]);
 
@@ -46,8 +58,8 @@ export function DateRangePicker({
   );
 
   const handleSelect = (range: DateRange | undefined) => {
-    const start = range?.from ? format(range.from, "yyyy-MM-dd") : "";
-    const end = range?.to ? format(range.to, "yyyy-MM-dd") : "";
+    const start = range?.from ? formatLocalDate(range.from) : "";
+    const end = range?.to ? formatLocalDate(range.to) : "";
     onRangeChange(start, end);
   };
 
