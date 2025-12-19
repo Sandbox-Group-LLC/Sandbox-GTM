@@ -136,7 +136,7 @@ export function registerPublicTrackingRoute(app: Express) {
         // Default to public registration page
         const protocol = req.headers["x-forwarded-proto"] || "https";
         const host = req.headers.host;
-        baseUrl = `${protocol}://${host}/register/${event.publicSlug}`;
+        baseUrl = `${protocol}://${host}/event/${event.publicSlug}/register`;
       }
 
       if (!baseUrl) {
@@ -2436,7 +2436,7 @@ export async function registerRoutes(
         // Default to public registration page
         const protocol = req.headers["x-forwarded-proto"] || "https";
         const host = req.headers.host;
-        baseUrl = `${protocol}://${host}/register/${event.publicSlug}`;
+        baseUrl = `${protocol}://${host}/event/${event.publicSlug}/register`;
       }
 
       if (!baseUrl) {
