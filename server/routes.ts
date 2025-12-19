@@ -90,6 +90,85 @@ import { generateSectionContent } from "./ai";
 import { z } from "zod";
 import { generateCalendarLinksHtml } from "@shared/calendarLinks";
 
+// Register public tracking route early (before auth middleware)
+// This ensures it works even if async initialization fails
+export function registerPublicTrackingRoute(app: Express) {
+  app.get("/api/public/track/:shortCode", async (req: any, res) => {
+    try {
+      const { shortCode } = req.params;
+      logInfo(`[EARLY] Tracking link lookup for shortCode: ${shortCode}`, "activation-link");
+      const link = await storage.getActivationLinkByShortCode(shortCode);
+      
+      if (!link) {
+        logInfo(`[EARLY] Link not found for shortCode: ${shortCode}`, "activation-link");
+        return res.status(404).json({ message: "Link not found", shortCode });
+      }
+      
+      if (link.status !== "active") {
+        logInfo(`[EARLY] Link found but status is: ${link.status} for shortCode: ${shortCode}`, "activation-link");
+        return res.status(404).json({ message: "Link is not active", status: link.status });
+      }
+
+      // Create visitor hash from IP + User-Agent
+      const ip = req.headers["x-forwarded-for"] || req.connection?.remoteAddress || "";
+      const userAgent = req.headers["user-agent"] || "";
+      const visitorHash = createHash("sha256").update(`${ip}:${userAgent}`).digest("hex").substring(0, 32);
+      const ipHash = createHash("sha256").update(String(ip)).digest("hex").substring(0, 32);
+
+      // Record the click
+      await storage.createActivationLinkClick({
+        activationLinkId: link.id,
+        visitorHash,
+        ipHash,
+        userAgent: userAgent.substring(0, 500),
+        referrer: (req.headers.referer || req.headers.referrer || "").substring(0, 1000),
+        queryParams: req.query as Record<string, string>,
+      });
+
+      // Increment click count
+      await storage.incrementActivationLinkClicks(link.id);
+
+      // Build destination URL with UTM params
+      const event = await storage.getEvent(link.organizationId, link.eventId);
+      let baseUrl = link.baseUrl;
+      
+      if (!baseUrl && event) {
+        // Default to public registration page
+        const protocol = req.headers["x-forwarded-proto"] || "https";
+        const host = req.headers.host;
+        baseUrl = `${protocol}://${host}/register/${event.publicSlug}`;
+      }
+
+      if (!baseUrl) {
+        return res.status(404).json({ message: "No destination configured" });
+      }
+
+      // Append UTM parameters
+      const url = new URL(baseUrl);
+      url.searchParams.set("utm_source", link.utmSource);
+      url.searchParams.set("utm_medium", link.utmMedium);
+      url.searchParams.set("utm_campaign", link.utmCampaign);
+      if (link.utmContent) url.searchParams.set("utm_content", link.utmContent);
+      if (link.utmTerm) url.searchParams.set("utm_term", link.utmTerm);
+      
+      // Add activation link ID for attribution tracking
+      url.searchParams.set("al_id", link.id);
+      
+      // Add custom params
+      if (link.customParams) {
+        for (const [key, value] of Object.entries(link.customParams)) {
+          url.searchParams.set(key, value);
+        }
+      }
+
+      res.redirect(302, url.toString());
+    } catch (error) {
+      logError("Error tracking activation link:", error);
+      res.status(500).json({ message: "Failed to process link" });
+    }
+  });
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express

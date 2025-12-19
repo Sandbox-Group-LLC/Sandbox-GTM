@@ -1,5 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
+import { registerRoutes, registerPublicTrackingRoute } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { logInfo, logError } from "./logger";
@@ -26,6 +26,10 @@ app.get("/health", (_req, res) => {
 app.get("/api/ping", (_req, res) => {
   res.status(200).json({ message: "pong", env: process.env.NODE_ENV, timestamp: new Date().toISOString() });
 });
+
+// Register public tracking route early (before async initialization)
+// This ensures activation links work even if auth/session initialization has issues
+registerPublicTrackingRoute(app);
 
 app.use(
   express.json({
