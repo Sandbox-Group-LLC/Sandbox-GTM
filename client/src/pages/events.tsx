@@ -387,9 +387,9 @@ export default function Events() {
                     </div>
                     {(event.startDate || event.endDate) && (
                       <div className="mt-3 text-xs text-muted-foreground">
-                        {event.startDate && format(new Date(event.startDate), "MMM d, yyyy")}
+                        {event.startDate && formatDisplayDate(event.startDate, "MMM d, yyyy")}
                         {event.startDate && event.endDate && " - "}
-                        {event.endDate && format(new Date(event.endDate), "MMM d, yyyy")}
+                        {event.endDate && formatDisplayDate(event.endDate, "MMM d, yyyy")}
                       </div>
                     )}
                   </CardContent>
