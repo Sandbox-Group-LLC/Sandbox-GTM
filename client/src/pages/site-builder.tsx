@@ -102,6 +102,7 @@ interface SectionStyles {
   backgroundColor?: string;
   textColor?: string;
   textAlign?: 'left' | 'center' | 'right';
+  gridJustify?: 'start' | 'center';
   paddingTop?: 'none' | 'small' | 'medium' | 'large';
   paddingBottom?: 'none' | 'small' | 'medium' | 'large';
   customClass?: string;
@@ -3283,6 +3284,36 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId }: S
                   Default alignment is left. Click same option again to reset.
                 </p>
               </div>
+              {(section.type === 'speakers' || section.type === 'sponsors') && (
+                <div className="space-y-2">
+                  <Label>Card Grid Alignment</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant={!styles.gridJustify || styles.gridJustify === 'start' ? 'secondary' : 'ghost'}
+                      size="sm"
+                      onClick={() => updateStyles("gridJustify", undefined)}
+                      data-testid="button-grid-start"
+                    >
+                      <AlignLeft className="h-4 w-4 mr-2" />
+                      Left
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={styles.gridJustify === 'center' ? 'secondary' : 'ghost'}
+                      size="sm"
+                      onClick={() => updateStyles("gridJustify", 'center')}
+                      data-testid="button-grid-center"
+                    >
+                      <AlignCenter className="h-4 w-4 mr-2" />
+                      Center
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Centers the card tiles when there are fewer items than columns.
+                  </p>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="padding-top">Padding Top</Label>

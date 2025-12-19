@@ -186,6 +186,7 @@ export interface SectionStyles {
   backgroundColor?: string;
   textColor?: string;
   textAlign?: 'left' | 'center' | 'right';
+  gridJustify?: 'start' | 'center';
   paddingTop?: 'none' | 'small' | 'medium' | 'large';
   paddingBottom?: 'none' | 'small' | 'medium' | 'large';
   customClass?: string;
@@ -850,9 +851,9 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
         <div data-testid={`section-speakers-${section.id}`}>
           {heading && <h3 className="text-2xl font-semibold mb-6 text-center" style={headingStyles}>{heading}</h3>}
           {displaySpeakers.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className={styles?.gridJustify === 'center' ? "flex flex-wrap justify-center gap-4" : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"}>
               {displaySpeakers.map((speaker) => (
-                <Card key={speaker.id} style={cardStyles}>
+                <Card key={speaker.id} style={cardStyles} className={styles?.gridJustify === 'center' ? "w-full sm:w-[calc(50%-0.5rem)] lg:w-[calc(33.333%-0.75rem)]" : ""}>
                   <CardContent className="p-4 flex items-start gap-4">
                     <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
                       {speaker.photoUrl ? (
@@ -1118,11 +1119,11 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
         <div data-testid={`section-sponsors-${section.id}`}>
           {heading && <h3 className="text-2xl font-semibold mb-6 text-center" style={headingStyles}>{heading}</h3>}
           {sortedSponsors.length > 0 ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div className={styles?.gridJustify === 'center' ? "flex flex-wrap justify-center gap-4" : "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"}>
               {sortedSponsors.map((sponsor, idx) => (
                 <div 
                   key={idx} 
-                  className={`p-4 border rounded-md flex flex-col items-center gap-2 ${tierColors[sponsor.tier] || "bg-muted"}`}
+                  className={`p-4 border rounded-md flex flex-col items-center gap-2 ${tierColors[sponsor.tier] || "bg-muted"} ${styles?.gridJustify === 'center' ? "w-[calc(50%-0.5rem)] md:w-[calc(33.333%-0.75rem)] lg:w-[calc(25%-0.75rem)]" : ""}`}
                   style={{ borderRadius: themeRadius }}
                   data-testid={`sponsor-item-${idx}`}
                 >
