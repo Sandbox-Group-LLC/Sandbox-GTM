@@ -134,6 +134,9 @@ export default function PrivacyPolicy() {
                 <li>Employee training on data protection practices</li>
               </ul>
               <p className="mt-4">
+                Security scanning powered by Semgrep and privacy scanning powered by HoundDog.ai, both running locally on Sandbox infrastructure. No code or data is transmitted to any third party, including Semgrep or HoundDog.ai.
+              </p>
+              <p className="mt-4">
                 However, no method of transmission over the Internet or electronic storage is 100% secure. While we strive to protect your information, we cannot guarantee absolute security.
               </p>
             </section>
