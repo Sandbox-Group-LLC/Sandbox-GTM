@@ -72,6 +72,8 @@ import {
   LayoutGrid,
   FileText,
   Hotel,
+  User,
+  QrCode,
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Event, EventPage, EventPageTheme } from "@shared/schema";
@@ -91,7 +93,7 @@ import {
 
 type PageType = "landing" | "registration" | "portal" | "confirmation";
 
-type SectionType = "hero" | "text" | "cta" | "features" | "countdown" | "speakers" | "agenda" | "faq" | "testimonials" | "gallery" | "html" | "sponsors" | "map" | "video" | "footer" | "navigation" | "columns" | "columns-flex" | "registration-form" | "housing";
+type SectionType = "hero" | "text" | "cta" | "features" | "countdown" | "speakers" | "agenda" | "faq" | "testimonials" | "gallery" | "html" | "sponsors" | "map" | "video" | "footer" | "navigation" | "columns" | "columns-flex" | "registration-form" | "housing" | "attendee-profile" | "attendee-qrcode";
 
 interface SectionStyles {
   backgroundColor?: string;
@@ -139,6 +141,8 @@ const SECTION_TYPES: { type: SectionType; label: string; icon: React.ComponentTy
   { type: "columns-flex", label: "Flexible Columns", icon: LayoutGrid, description: "Columns with icons, images, buttons" },
   { type: "registration-form", label: "Registration Form", icon: FileText, description: "Embed the event registration form" },
   { type: "housing", label: "Hotel Housing", icon: Hotel, description: "Hotel booking section for Passkey integration" },
+  { type: "attendee-profile", label: "Attendee Profile", icon: User, description: "Display and edit attendee profile information" },
+  { type: "attendee-qrcode", label: "Check-in QR Code", icon: QrCode, description: "Display attendee check-in QR code" },
 ];
 
 const GOOGLE_FONTS = [
@@ -288,6 +292,17 @@ const getDefaultConfig = (type: SectionType): Record<string, unknown> => {
         description: "Book your hotel room through our official room block for special event rates.",
         buttonText: "Book Your Hotel Room",
         showWhenDisabled: false 
+      };
+    case "attendee-profile":
+      return {
+        heading: "Your Profile",
+        description: "Your registration information",
+        allowEdit: true,
+      };
+    case "attendee-qrcode":
+      return {
+        heading: "Check-In Code",
+        description: "Show this code at the event check-in",
       };
     default:
       return {};

@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Calendar, MapPin, Clock, Mic, AlertCircle, ArrowRight, ChevronDown, ChevronUp, Quote, Star, Zap, Heart, Check, Award, Target, Users, Mail, Phone, Globe, LogIn, Hotel, ExternalLink } from "lucide-react";
+import { Calendar, MapPin, Clock, Mic, AlertCircle, ArrowRight, ChevronDown, ChevronUp, Quote, Star, Zap, Heart, Check, Award, Target, Users, Mail, Phone, Globe, LogIn, Hotel, ExternalLink, Edit, X, Loader2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { useState, useEffect, useMemo } from "react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import type { Event, EventSession, Speaker, EventPage, EventPageTheme, EventSponsor } from "@shared/schema";
@@ -513,7 +514,47 @@ const SECTION_PADDING_MAP: Record<string, string> = {
   large: "4rem",
 };
 
-export function SectionRenderer({ section, event, sessions, speakers, sponsors, theme, isHighlighted, isPreview }: { section: Section; event: Event; sessions?: EventSession[]; speakers?: Speaker[]; sponsors?: EventSponsor[]; theme?: EventPageTheme | null; isHighlighted?: boolean; isPreview?: boolean }) {
+export interface ProfileFormData {
+  firstName: string;
+  lastName: string;
+  phone?: string;
+  company?: string;
+  jobTitle?: string;
+}
+
+export interface AttendeeContext {
+  attendee: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone?: string | null;
+    company?: string | null;
+    jobTitle?: string | null;
+    checkInCode?: string | null;
+    checkedIn?: boolean | null;
+    ticketType?: string | null;
+    attendeeType?: string | null;
+    registrationStatus?: string | null;
+  };
+  housingInfo?: {
+    housingEnabled: boolean;
+    bookingUrl?: string;
+  };
+  isEditing?: boolean;
+  setIsEditing?: (editing: boolean) => void;
+  onSaveProfile?: (data: ProfileFormData) => void;
+  isUpdating?: boolean;
+  form?: {
+    register: (name: keyof ProfileFormData) => { name: string; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; onBlur: () => void; ref: React.RefCallback<HTMLInputElement> };
+    handleSubmit: (onValid: (data: ProfileFormData) => void) => (e?: React.BaseSyntheticEvent) => Promise<void>;
+    formState: { errors: Record<string, { message?: string }> };
+    reset: () => void;
+    getValues: () => ProfileFormData;
+  };
+}
+
+export function SectionRenderer({ section, event, sessions, speakers, sponsors, theme, isHighlighted, isPreview, attendeeContext }: { section: Section; event: Event; sessions?: EventSession[]; speakers?: Speaker[]; sponsors?: EventSponsor[]; theme?: EventPageTheme | null; isHighlighted?: boolean; isPreview?: boolean; attendeeContext?: AttendeeContext }) {
   const config = section.config;
   const styles = section.styles;
   const isFullWidth = theme?.containerWidth === "full";
@@ -1416,7 +1457,13 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
       );
 
     case "housing":
-      return <HousingSection config={config} section={section} event={event} theme={theme} styles={styles} wrapWithMargins={wrapWithMargins} />;
+      return <HousingSection config={config} section={section} event={event} theme={theme} styles={styles} wrapWithMargins={wrapWithMargins} attendeeContext={attendeeContext} />;
+
+    case "attendee-profile":
+      return <AttendeeProfileSection config={config} section={section} theme={theme} wrapWithMargins={wrapWithMargins} attendeeContext={attendeeContext} />;
+
+    case "attendee-qrcode":
+      return <AttendeeQRCodeSection config={config} section={section} theme={theme} wrapWithMargins={wrapWithMargins} attendeeContext={attendeeContext} />;
 
     default:
       return null;
@@ -1500,9 +1547,13 @@ interface HousingSectionProps {
   theme?: EventPageTheme | null;
   styles?: SectionStyles;
   wrapWithMargins: (content: React.ReactNode) => React.ReactNode;
+  attendeeContext?: AttendeeContext;
 }
 
-function HousingSection({ config, section, event, theme, styles, wrapWithMargins }: HousingSectionProps) {
+function HousingSection({ config, section, event, theme, styles, wrapWithMargins, attendeeContext }: HousingSectionProps) {
+  // If attendee context is provided, use the attendee-specific booking URL directly
+  const useAttendeeHousing = !!attendeeContext?.housingInfo;
+  
   const { data: housingStatus, isLoading } = useQuery<{ housingEnabled: boolean; bookingUrl?: string; eventName?: string }>({
     queryKey: ["/api/public/event", event.publicSlug, "housing-status"],
     queryFn: async () => {
@@ -1510,7 +1561,7 @@ function HousingSection({ config, section, event, theme, styles, wrapWithMargins
       if (!res.ok) throw new Error("Failed to fetch housing status");
       return res.json();
     },
-    enabled: !!event.publicSlug,
+    enabled: !!event.publicSlug && !useAttendeeHousing,
   });
 
   const heading = (config.heading as string) || "Hotel Accommodations";
@@ -1544,7 +1595,7 @@ function HousingSection({ config, section, event, theme, styles, wrapWithMargins
     borderRadius: themeRadius,
   };
 
-  if (isLoading) {
+  if (!useAttendeeHousing && isLoading) {
     return wrapWithMargins(
       <div className="text-center p-8" data-testid={`section-housing-${section.id}`}>
         <div className="animate-pulse space-y-4">
@@ -1556,8 +1607,13 @@ function HousingSection({ config, section, event, theme, styles, wrapWithMargins
     );
   }
 
-  const housingEnabled = housingStatus?.housingEnabled ?? false;
-  const bookingUrl = housingStatus?.bookingUrl;
+  // Use attendee-specific housing info if available, otherwise use general housing status
+  const housingEnabled = useAttendeeHousing 
+    ? attendeeContext?.housingInfo?.housingEnabled ?? false
+    : housingStatus?.housingEnabled ?? false;
+  const bookingUrl = useAttendeeHousing 
+    ? attendeeContext?.housingInfo?.bookingUrl
+    : housingStatus?.bookingUrl;
 
   if (!housingEnabled && !showWhenDisabled) {
     return null;
@@ -1586,5 +1642,297 @@ function HousingSection({ config, section, event, theme, styles, wrapWithMargins
         )}
       </div>
     </div>
+  );
+}
+
+interface AttendeeSectionProps {
+  config: Record<string, unknown>;
+  section: Section;
+  theme?: EventPageTheme | null;
+  wrapWithMargins: (content: React.ReactNode) => React.ReactNode;
+  attendeeContext?: AttendeeContext;
+}
+
+function AttendeeProfileSection({ config, section, theme, wrapWithMargins, attendeeContext }: AttendeeSectionProps) {
+  const heading = (config.heading as string) || "Your Profile";
+  const description = (config.description as string) || "Your registration information";
+
+  const borderRadiusMap: Record<string, string> = {
+    none: "0px", small: "4px", medium: "8px", large: "16px", pill: "9999px",
+  };
+  const themeRadius = borderRadiusMap[theme?.borderRadius || "medium"];
+
+  const cardStyles: React.CSSProperties = {
+    backgroundColor: theme?.cardBackground || undefined,
+    borderRadius: themeRadius,
+  };
+
+  const headingStyles: React.CSSProperties = {
+    fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined,
+    color: theme?.textColor || undefined,
+  };
+
+  const secondaryTextStyles: React.CSSProperties = {
+    fontFamily: theme?.bodyFont ? `"${theme.bodyFont}", sans-serif` : undefined,
+    color: theme?.textSecondaryColor || undefined,
+  };
+
+  const isOutlineButton = theme?.buttonStyle === "outline";
+  const buttonStyles: React.CSSProperties = isOutlineButton 
+    ? {
+        backgroundColor: "transparent",
+        color: theme?.buttonColor || "#3b82f6",
+        border: `2px solid ${theme?.buttonBorderColor || theme?.buttonColor || "#3b82f6"}`,
+        borderRadius: themeRadius,
+      }
+    : {
+        backgroundColor: theme?.buttonColor || undefined,
+        color: theme?.buttonTextColor || undefined,
+        borderRadius: themeRadius,
+        border: theme?.buttonBorderColor ? `2px solid ${theme.buttonBorderColor}` : undefined,
+      };
+
+  if (!attendeeContext?.attendee) {
+    return wrapWithMargins(
+      <div className="text-center p-8" data-testid={`section-attendee-profile-${section.id}`}>
+        <p style={secondaryTextStyles}>Please log in to view your profile</p>
+      </div>
+    );
+  }
+
+  const { attendee, isEditing, setIsEditing, onSaveProfile, isUpdating, form } = attendeeContext;
+  const canEdit = !!setIsEditing && !!onSaveProfile && !!form;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (form && onSaveProfile) {
+      form.handleSubmit(onSaveProfile)(e);
+    }
+  };
+
+  const handleCancel = () => {
+    if (setIsEditing) {
+      setIsEditing(false);
+      form?.reset();
+    }
+  };
+
+  return wrapWithMargins(
+    <Card style={cardStyles} data-testid={`section-attendee-profile-${section.id}`}>
+      <CardHeader className="flex flex-row items-center justify-between gap-4">
+        <div>
+          <CardTitle className="flex items-center gap-2" style={headingStyles}>
+            <Users className="w-5 h-5" />
+            {heading}
+          </CardTitle>
+          <CardDescription style={secondaryTextStyles}>{description}</CardDescription>
+        </div>
+        {canEdit && !isEditing && (
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setIsEditing(true)}
+            data-testid="button-edit-profile"
+          >
+            <Edit className="w-4 h-4 mr-2" />
+            Edit
+          </Button>
+        )}
+      </CardHeader>
+      <CardContent>
+        {isEditing && form ? (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium" style={secondaryTextStyles}>First Name</label>
+                <Input 
+                  {...form.register("firstName")} 
+                  data-testid="input-first-name"
+                />
+                {form.formState.errors.firstName && (
+                  <p className="text-sm text-destructive mt-1">{form.formState.errors.firstName.message}</p>
+                )}
+              </div>
+              <div>
+                <label className="text-sm font-medium" style={secondaryTextStyles}>Last Name</label>
+                <Input 
+                  {...form.register("lastName")} 
+                  data-testid="input-last-name"
+                />
+                {form.formState.errors.lastName && (
+                  <p className="text-sm text-destructive mt-1">{form.formState.errors.lastName.message}</p>
+                )}
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium" style={secondaryTextStyles}>Phone</label>
+              <Input 
+                {...form.register("phone")} 
+                data-testid="input-phone"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium" style={secondaryTextStyles}>Company</label>
+              <Input 
+                {...form.register("company")} 
+                data-testid="input-company"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium" style={secondaryTextStyles}>Job Title</label>
+              <Input 
+                {...form.register("jobTitle")} 
+                data-testid="input-job-title"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                type="submit" 
+                disabled={isUpdating}
+                style={buttonStyles}
+                data-testid="button-save-profile"
+              >
+                {isUpdating ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Check className="w-4 h-4 mr-2" />
+                )}
+                Save
+              </Button>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={handleCancel}
+                data-testid="button-cancel-edit"
+              >
+                <X className="w-4 h-4 mr-2" />
+                Cancel
+              </Button>
+            </div>
+          </form>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <Users className="w-4 h-4 text-muted-foreground" />
+              <div>
+                <p className="text-sm" style={secondaryTextStyles}>Name</p>
+                <p className="font-medium" style={headingStyles} data-testid="text-attendee-name">
+                  {attendee.firstName} {attendee.lastName}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Mail className="w-4 h-4 text-muted-foreground" />
+              <div>
+                <p className="text-sm" style={secondaryTextStyles}>Email</p>
+                <p className="font-medium" style={headingStyles} data-testid="text-attendee-email">{attendee.email}</p>
+              </div>
+            </div>
+            {attendee.phone && (
+              <div className="flex items-center gap-3">
+                <Phone className="w-4 h-4 text-muted-foreground" />
+                <div>
+                  <p className="text-sm" style={secondaryTextStyles}>Phone</p>
+                  <p className="font-medium" style={headingStyles} data-testid="text-attendee-phone">{attendee.phone}</p>
+                </div>
+              </div>
+            )}
+            {attendee.company && (
+              <div className="flex items-center gap-3">
+                <Globe className="w-4 h-4 text-muted-foreground" />
+                <div>
+                  <p className="text-sm" style={secondaryTextStyles}>Company</p>
+                  <p className="font-medium" style={headingStyles} data-testid="text-attendee-company">{attendee.company}</p>
+                </div>
+              </div>
+            )}
+            {attendee.jobTitle && (
+              <div className="flex items-center gap-3">
+                <Users className="w-4 h-4 text-muted-foreground" />
+                <div>
+                  <p className="text-sm" style={secondaryTextStyles}>Job Title</p>
+                  <p className="font-medium" style={headingStyles} data-testid="text-attendee-job-title">{attendee.jobTitle}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function AttendeeQRCodeSection({ config, section, theme, wrapWithMargins, attendeeContext }: AttendeeSectionProps) {
+  const heading = (config.heading as string) || "Check-In Code";
+  const description = (config.description as string) || "Show this code at the event check-in";
+
+  const borderRadiusMap: Record<string, string> = {
+    none: "0px", small: "4px", medium: "8px", large: "16px", pill: "9999px",
+  };
+  const themeRadius = borderRadiusMap[theme?.borderRadius || "medium"];
+
+  const cardStyles: React.CSSProperties = {
+    backgroundColor: theme?.cardBackground || undefined,
+    borderRadius: themeRadius,
+  };
+
+  const headingStyles: React.CSSProperties = {
+    fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined,
+    color: theme?.textColor || undefined,
+  };
+
+  const secondaryTextStyles: React.CSSProperties = {
+    fontFamily: theme?.bodyFont ? `"${theme.bodyFont}", sans-serif` : undefined,
+    color: theme?.textSecondaryColor || undefined,
+  };
+
+  if (!attendeeContext?.attendee) {
+    return wrapWithMargins(
+      <div className="text-center p-8" data-testid={`section-attendee-qrcode-${section.id}`}>
+        <p style={secondaryTextStyles}>Please log in to view your check-in code</p>
+      </div>
+    );
+  }
+
+  const { attendee } = attendeeContext;
+  const checkInCode = attendee.checkInCode;
+  const qrUrl = checkInCode ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(checkInCode)}` : null;
+
+  return wrapWithMargins(
+    <Card style={cardStyles} data-testid={`section-attendee-qrcode-${section.id}`}>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2" style={headingStyles}>
+          <LogIn className="w-5 h-5" />
+          {heading}
+        </CardTitle>
+        <CardDescription style={secondaryTextStyles}>{description}</CardDescription>
+      </CardHeader>
+      <CardContent className="flex justify-center">
+        {checkInCode && qrUrl ? (
+          <div className="flex flex-col items-center gap-3">
+            <div className="bg-white p-4 rounded-lg">
+              <img 
+                src={qrUrl} 
+                alt={`QR Code for ${checkInCode}`} 
+                className="w-40 h-40"
+                data-testid="img-qr-code"
+              />
+            </div>
+            <div className="text-center">
+              <p className="text-sm" style={secondaryTextStyles}>Check-in Code</p>
+              <p className="text-xl font-mono font-bold tracking-wider" style={headingStyles} data-testid="text-checkin-code">{checkInCode}</p>
+            </div>
+            {attendee.checkedIn && (
+              <Badge variant="secondary" className="gap-1" data-testid="badge-checked-in">
+                <Check className="w-3 h-3" />
+                Checked In
+              </Badge>
+            )}
+          </div>
+        ) : (
+          <p style={secondaryTextStyles}>No check-in code available</p>
+        )}
+      </CardContent>
+    </Card>
   );
 }

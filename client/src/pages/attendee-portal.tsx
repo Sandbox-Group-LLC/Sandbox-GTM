@@ -38,7 +38,8 @@ import {
   Hotel,
   ExternalLink
 } from "lucide-react";
-import type { Attendee, Event } from "@shared/schema";
+import type { Attendee, Event, EventPage, EventPageTheme, EventSession, Speaker } from "@shared/schema";
+import { SectionRenderer, GoogleFontsLoader, getThemeStyles } from "@/pages/public-event";
 
 interface AttendeePortalData {
   attendee: Omit<Attendee, 'passwordHash'>;
@@ -50,6 +51,27 @@ interface HousingInfo {
   housingEnabled: boolean;
   bookingUrl?: string;
   passkeyEventName?: string;
+}
+
+interface PortalPageData {
+  event: Event;
+  sessions: EventSession[];
+  speakers: Speaker[];
+  portalPage: EventPage | null;
+  landingTheme?: EventPageTheme | null;
+}
+
+interface Section {
+  id: string;
+  type: string;
+  order: number;
+  config: Record<string, unknown>;
+  styles?: {
+    backgroundColor?: string;
+    textColor?: string;
+    paddingTop?: string;
+    paddingBottom?: string;
+  };
 }
 
 const profileSchema = z.object({
@@ -83,6 +105,316 @@ function QRCodeDisplay({ code }: { code: string }) {
   );
 }
 
+function DefaultPortalLayout({ 
+  attendee, 
+  event, 
+  packageInfo, 
+  housingInfo,
+  isEditing,
+  setIsEditing,
+  form,
+  onSubmit,
+  updateProfileMutation 
+}: { 
+  attendee: Omit<Attendee, 'passwordHash'>;
+  event: { id: string; name: string; publicSlug: string } | null;
+  packageInfo: { id: string; name: string; features: string[] | null } | null;
+  housingInfo?: HousingInfo;
+  isEditing: boolean;
+  setIsEditing: (editing: boolean) => void;
+  form: ReturnType<typeof useForm<ProfileFormData>>;
+  onSubmit: (data: ProfileFormData) => void;
+  updateProfileMutation: ReturnType<typeof useMutation<unknown, Error, ProfileFormData>>;
+}) {
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-4">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <User className="w-5 h-5" />
+              Your Profile
+            </CardTitle>
+            <CardDescription>Your registration information</CardDescription>
+          </div>
+          {!isEditing && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setIsEditing(true)}
+              data-testid="button-edit-profile"
+            >
+              <Edit className="w-4 h-4 mr-2" />
+              Edit
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent>
+          {isEditing ? (
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="firstName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>First Name</FormLabel>
+                        <FormControl>
+                          <Input {...field} data-testid="input-first-name" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="lastName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Last Name</FormLabel>
+                        <FormControl>
+                          <Input {...field} data-testid="input-last-name" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={form.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Phone</FormLabel>
+                      <FormControl>
+                        <Input {...field} data-testid="input-phone" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="company"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Company</FormLabel>
+                      <FormControl>
+                        <Input {...field} data-testid="input-company" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="jobTitle"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Job Title</FormLabel>
+                      <FormControl>
+                        <Input {...field} data-testid="input-job-title" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="flex gap-2">
+                  <Button 
+                    type="submit" 
+                    disabled={updateProfileMutation.isPending}
+                    data-testid="button-save-profile"
+                  >
+                    {updateProfileMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Check className="w-4 h-4 mr-2" />
+                    )}
+                    Save
+                  </Button>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => {
+                      setIsEditing(false);
+                      form.reset();
+                    }}
+                    data-testid="button-cancel-edit"
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <User className="w-4 h-4 text-muted-foreground" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Name</p>
+                  <p className="font-medium" data-testid="text-attendee-name">
+                    {attendee.firstName} {attendee.lastName}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <Mail className="w-4 h-4 text-muted-foreground" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Email</p>
+                  <p className="font-medium" data-testid="text-attendee-email">{attendee.email}</p>
+                </div>
+              </div>
+              {attendee.phone && (
+                <div className="flex items-center gap-3">
+                  <Phone className="w-4 h-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Phone</p>
+                    <p className="font-medium" data-testid="text-attendee-phone">{attendee.phone}</p>
+                  </div>
+                </div>
+              )}
+              {attendee.company && (
+                <div className="flex items-center gap-3">
+                  <Building2 className="w-4 h-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Company</p>
+                    <p className="font-medium" data-testid="text-attendee-company">{attendee.company}</p>
+                  </div>
+                </div>
+              )}
+              {attendee.jobTitle && (
+                <div className="flex items-center gap-3">
+                  <User className="w-4 h-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Job Title</p>
+                    <p className="font-medium" data-testid="text-attendee-job-title">{attendee.jobTitle}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <QrCode className="w-5 h-5" />
+            Check-In Code
+          </CardTitle>
+          <CardDescription>Show this code at the event check-in</CardDescription>
+        </CardHeader>
+        <CardContent className="flex justify-center">
+          {attendee.checkInCode ? (
+            <QRCodeDisplay code={attendee.checkInCode} />
+          ) : (
+            <p className="text-muted-foreground">No check-in code available</p>
+          )}
+        </CardContent>
+        {attendee.checkedIn && (
+          <CardFooter className="justify-center">
+            <Badge variant="secondary" className="gap-1" data-testid="badge-checked-in">
+              <Check className="w-3 h-3" />
+              Checked In
+            </Badge>
+          </CardFooter>
+        )}
+      </Card>
+
+      {housingInfo?.housingEnabled && (
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Hotel className="w-5 h-5" />
+              Hotel Accommodations
+            </CardTitle>
+            <CardDescription>
+              Book your hotel room through our official room block for special event rates
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {housingInfo.bookingUrl ? (
+              <Button asChild data-testid="button-book-hotel">
+                <a href={housingInfo.bookingUrl} target="_blank" rel="noopener noreferrer">
+                  <Hotel className="w-4 h-4 mr-2" />
+                  Book Your Hotel Room
+                  <ExternalLink className="w-3 h-3 ml-2" />
+                </a>
+              </Button>
+            ) : (
+              <p className="text-muted-foreground text-sm">
+                Hotel booking will be available soon. Please check back later.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {(attendee.ticketType || packageInfo) && (
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Ticket className="w-5 h-5" />
+              Registration Details
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {attendee.ticketType && (
+                <div className="flex items-start gap-3">
+                  <Ticket className="w-4 h-4 text-muted-foreground mt-1" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Ticket Type</p>
+                    <p className="font-medium" data-testid="text-ticket-type">{attendee.ticketType}</p>
+                  </div>
+                </div>
+              )}
+              {packageInfo && (
+                <div className="flex items-start gap-3">
+                  <Package className="w-4 h-4 text-muted-foreground mt-1" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Package</p>
+                    <p className="font-medium" data-testid="text-package-name">{packageInfo.name}</p>
+                    {packageInfo.features && packageInfo.features.length > 0 && (
+                      <ul className="mt-2 space-y-1">
+                        {packageInfo.features.map((feature, idx) => (
+                          <li key={idx} className="text-sm text-muted-foreground flex items-center gap-2">
+                            <Check className="w-3 h-3 text-green-500" />
+                            {feature}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              )}
+              {attendee.attendeeType && (
+                <div className="flex items-start gap-3">
+                  <User className="w-4 h-4 text-muted-foreground mt-1" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Attendee Type</p>
+                    <Badge variant="outline" data-testid="badge-attendee-type">{attendee.attendeeType}</Badge>
+                  </div>
+                </div>
+              )}
+              <div className="flex items-start gap-3">
+                <Badge 
+                  variant={attendee.registrationStatus === "confirmed" ? "default" : "secondary"}
+                  data-testid="badge-registration-status"
+                >
+                  {attendee.registrationStatus || "pending"}
+                </Badge>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 export default function AttendeePortal() {
   const { slug } = useParams<{ slug: string }>();
   const [, setLocation] = useLocation();
@@ -104,7 +436,6 @@ export default function AttendeePortal() {
     retry: false,
   });
 
-  // Use the attendee's actual event slug, not the URL parameter
   const attendeeEventSlug = data?.event?.publicSlug;
   
   const { data: housingInfo } = useQuery<HousingInfo>({
@@ -118,6 +449,16 @@ export default function AttendeePortal() {
       return res.json();
     },
     enabled: !!data?.attendee?.id && !!data?.attendee?.checkInCode && !!attendeeEventSlug,
+  });
+
+  const { data: portalPageData } = useQuery<PortalPageData>({
+    queryKey: ["/api/public/event", attendeeEventSlug, "portal"],
+    queryFn: async () => {
+      const res = await fetch(`/api/public/event/${attendeeEventSlug}/portal`);
+      if (!res.ok) throw new Error("Failed to fetch portal page");
+      return res.json();
+    },
+    enabled: !!attendeeEventSlug,
   });
 
   const form = useForm<ProfileFormData>({
@@ -144,7 +485,7 @@ export default function AttendeePortal() {
   }, [data, form]);
 
   useEffect(() => {
-    if (error && (error as any).message === "Not authenticated") {
+    if (error && (error as Error).message === "Not authenticated") {
       setLocation(`/event/${slug}/login`);
     }
   }, [error, slug, setLocation]);
@@ -184,7 +525,7 @@ export default function AttendeePortal() {
       setIsEditing(false);
       refetch();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Update failed",
         description: error.message || "Failed to update profile. Please try again.",
@@ -235,334 +576,117 @@ export default function AttendeePortal() {
   }
 
   const { attendee, event, package: packageInfo } = data;
+  const sections = (portalPageData?.portalPage?.sections as Section[]) || [];
+  const theme = portalPageData?.portalPage?.theme || portalPageData?.landingTheme;
+  const themeStyles = getThemeStyles(theme);
+  const fontsToLoad = [theme?.headingFont, theme?.bodyFont].filter(Boolean) as string[];
+  const hasSections = sections.length > 0;
+
+  const attendeeContext = {
+    attendee: {
+      id: attendee.id,
+      firstName: attendee.firstName || "",
+      lastName: attendee.lastName || "",
+      email: attendee.email,
+      phone: attendee.phone,
+      company: attendee.company,
+      jobTitle: attendee.jobTitle,
+      checkInCode: attendee.checkInCode,
+      checkedIn: attendee.checkedIn,
+      ticketType: attendee.ticketType,
+      attendeeType: attendee.attendeeType,
+      registrationStatus: attendee.registrationStatus,
+    },
+    housingInfo: housingInfo,
+    isEditing,
+    setIsEditing,
+    onSaveProfile: onSubmit,
+    isUpdating: updateProfileMutation.isPending,
+    form: form as unknown as typeof attendeeContext.form,
+  };
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b bg-card">
-        <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" asChild>
-              <Link href={`/event/${slug}`} data-testid="link-back-to-event">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Event
-              </Link>
+    <>
+      {hasSections && <GoogleFontsLoader fonts={fontsToLoad} />}
+      <div 
+        className="min-h-screen bg-background"
+        style={hasSections ? {
+          ...themeStyles,
+          backgroundColor: theme?.backgroundColor || undefined,
+          color: theme?.textColor || undefined,
+          fontFamily: theme?.bodyFont ? `"${theme.bodyFont}", sans-serif` : undefined,
+        } : undefined}
+      >
+        <header className="border-b bg-card">
+          <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" size="sm" asChild>
+                <Link href={`/event/${slug}`} data-testid="link-back-to-event">
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Event
+                </Link>
+              </Button>
+              <Separator orientation="vertical" className="h-6" />
+              <h1 className="text-lg font-semibold" data-testid="text-event-name">{event?.name || "Event Portal"}</h1>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => logoutMutation.mutate()}
+              disabled={logoutMutation.isPending}
+              data-testid="button-logout"
+            >
+              {logoutMutation.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <LogOut className="w-4 h-4 mr-2" />
+              )}
+              Log Out
             </Button>
-            <Separator orientation="vertical" className="h-6" />
-            <h1 className="text-lg font-semibold" data-testid="text-event-name">{event?.name || "Event Portal"}</h1>
           </div>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => logoutMutation.mutate()}
-            disabled={logoutMutation.isPending}
-            data-testid="button-logout"
-          >
-            {logoutMutation.isPending ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <LogOut className="w-4 h-4 mr-2" />
-            )}
-            Log Out
-          </Button>
-        </div>
-      </header>
+        </header>
 
-      <main className="max-w-4xl mx-auto px-6 py-8">
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold mb-2" data-testid="text-welcome">
-            Welcome, {attendee.firstName}!
-          </h2>
-          <p className="text-muted-foreground">
-            Manage your registration and view your check-in code below.
-          </p>
-        </div>
+        <main className="max-w-4xl mx-auto px-6 py-8">
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold mb-2" data-testid="text-welcome">
+              Welcome, {attendee.firstName}!
+            </h2>
+            <p className="text-muted-foreground">
+              Manage your registration and view your check-in code below.
+            </p>
+          </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between gap-4">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="w-5 h-5" />
-                  Your Profile
-                </CardTitle>
-                <CardDescription>Your registration information</CardDescription>
-              </div>
-              {!isEditing && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => setIsEditing(true)}
-                  data-testid="button-edit-profile"
-                >
-                  <Edit className="w-4 h-4 mr-2" />
-                  Edit
-                </Button>
-              )}
-            </CardHeader>
-            <CardContent>
-              {isEditing ? (
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="firstName"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>First Name</FormLabel>
-                            <FormControl>
-                              <Input {...field} data-testid="input-first-name" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="lastName"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Last Name</FormLabel>
-                            <FormControl>
-                              <Input {...field} data-testid="input-last-name" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    <FormField
-                      control={form.control}
-                      name="phone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Phone</FormLabel>
-                          <FormControl>
-                            <Input {...field} data-testid="input-phone" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="company"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Company</FormLabel>
-                          <FormControl>
-                            <Input {...field} data-testid="input-company" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="jobTitle"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Job Title</FormLabel>
-                          <FormControl>
-                            <Input {...field} data-testid="input-job-title" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <div className="flex gap-2">
-                      <Button 
-                        type="submit" 
-                        disabled={updateProfileMutation.isPending}
-                        data-testid="button-save-profile"
-                      >
-                        {updateProfileMutation.isPending ? (
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        ) : (
-                          <Check className="w-4 h-4 mr-2" />
-                        )}
-                        Save
-                      </Button>
-                      <Button 
-                        type="button" 
-                        variant="outline" 
-                        onClick={() => {
-                          setIsEditing(false);
-                          form.reset();
-                        }}
-                        data-testid="button-cancel-edit"
-                      >
-                        <X className="w-4 h-4 mr-2" />
-                        Cancel
-                      </Button>
-                    </div>
-                  </form>
-                </Form>
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <User className="w-4 h-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-sm text-muted-foreground">Name</p>
-                      <p className="font-medium" data-testid="text-attendee-name">
-                        {attendee.firstName} {attendee.lastName}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Mail className="w-4 h-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-sm text-muted-foreground">Email</p>
-                      <p className="font-medium" data-testid="text-attendee-email">{attendee.email}</p>
-                    </div>
-                  </div>
-                  {attendee.phone && (
-                    <div className="flex items-center gap-3">
-                      <Phone className="w-4 h-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-sm text-muted-foreground">Phone</p>
-                        <p className="font-medium" data-testid="text-attendee-phone">{attendee.phone}</p>
-                      </div>
-                    </div>
-                  )}
-                  {attendee.company && (
-                    <div className="flex items-center gap-3">
-                      <Building2 className="w-4 h-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-sm text-muted-foreground">Company</p>
-                        <p className="font-medium" data-testid="text-attendee-company">{attendee.company}</p>
-                      </div>
-                    </div>
-                  )}
-                  {attendee.jobTitle && (
-                    <div className="flex items-center gap-3">
-                      <User className="w-4 h-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-sm text-muted-foreground">Job Title</p>
-                        <p className="font-medium" data-testid="text-attendee-job-title">{attendee.jobTitle}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <QrCode className="w-5 h-5" />
-                Check-In Code
-              </CardTitle>
-              <CardDescription>Show this code at the event check-in</CardDescription>
-            </CardHeader>
-            <CardContent className="flex justify-center">
-              {attendee.checkInCode ? (
-                <QRCodeDisplay code={attendee.checkInCode} />
-              ) : (
-                <p className="text-muted-foreground">No check-in code available</p>
-              )}
-            </CardContent>
-            {attendee.checkedIn && (
-              <CardFooter className="justify-center">
-                <Badge variant="secondary" className="gap-1" data-testid="badge-checked-in">
-                  <Check className="w-3 h-3" />
-                  Checked In
-                </Badge>
-              </CardFooter>
-            )}
-          </Card>
-
-          {housingInfo?.housingEnabled && (
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Hotel className="w-5 h-5" />
-                  Hotel Accommodations
-                </CardTitle>
-                <CardDescription>
-                  Book your hotel room through our official room block for special event rates
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {housingInfo.bookingUrl ? (
-                  <Button asChild data-testid="button-book-hotel">
-                    <a href={housingInfo.bookingUrl} target="_blank" rel="noopener noreferrer">
-                      <Hotel className="w-4 h-4 mr-2" />
-                      Book Your Hotel Room
-                      <ExternalLink className="w-3 h-3 ml-2" />
-                    </a>
-                  </Button>
-                ) : (
-                  <p className="text-muted-foreground text-sm">
-                    Hotel booking will be available soon. Please check back later.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
+          {hasSections ? (
+            <div className="space-y-6">
+              {sections
+                .sort((a, b) => a.order - b.order)
+                .map((section) => (
+                  <SectionRenderer
+                    key={section.id}
+                    section={section}
+                    event={portalPageData?.event as Event}
+                    sessions={portalPageData?.sessions}
+                    speakers={portalPageData?.speakers}
+                    theme={theme}
+                    attendeeContext={attendeeContext}
+                  />
+                ))}
+            </div>
+          ) : (
+            <DefaultPortalLayout 
+              attendee={attendee}
+              event={event}
+              packageInfo={packageInfo}
+              housingInfo={housingInfo}
+              isEditing={isEditing}
+              setIsEditing={setIsEditing}
+              form={form}
+              onSubmit={onSubmit}
+              updateProfileMutation={updateProfileMutation}
+            />
           )}
-
-          {(attendee.ticketType || packageInfo) && (
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Ticket className="w-5 h-5" />
-                  Registration Details
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {attendee.ticketType && (
-                    <div className="flex items-start gap-3">
-                      <Ticket className="w-4 h-4 text-muted-foreground mt-1" />
-                      <div>
-                        <p className="text-sm text-muted-foreground">Ticket Type</p>
-                        <p className="font-medium" data-testid="text-ticket-type">{attendee.ticketType}</p>
-                      </div>
-                    </div>
-                  )}
-                  {packageInfo && (
-                    <div className="flex items-start gap-3">
-                      <Package className="w-4 h-4 text-muted-foreground mt-1" />
-                      <div>
-                        <p className="text-sm text-muted-foreground">Package</p>
-                        <p className="font-medium" data-testid="text-package-name">{packageInfo.name}</p>
-                        {packageInfo.features && packageInfo.features.length > 0 && (
-                          <ul className="mt-2 space-y-1">
-                            {packageInfo.features.map((feature, idx) => (
-                              <li key={idx} className="text-sm text-muted-foreground flex items-center gap-2">
-                                <Check className="w-3 h-3 text-green-500" />
-                                {feature}
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  {attendee.attendeeType && (
-                    <div className="flex items-start gap-3">
-                      <User className="w-4 h-4 text-muted-foreground mt-1" />
-                      <div>
-                        <p className="text-sm text-muted-foreground">Attendee Type</p>
-                        <Badge variant="outline" data-testid="badge-attendee-type">{attendee.attendeeType}</Badge>
-                      </div>
-                    </div>
-                  )}
-                  <div className="flex items-start gap-3">
-                    <Badge 
-                      variant={attendee.registrationStatus === "confirmed" ? "default" : "secondary"}
-                      data-testid="badge-registration-status"
-                    >
-                      {attendee.registrationStatus || "pending"}
-                    </Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      </main>
-    </div>
+        </main>
+      </div>
+    </>
   );
 }
