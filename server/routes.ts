@@ -7776,6 +7776,49 @@ ${urls.map(u => `  <url>
         return res.status(400).json({ message: "Missing required fields: name, fileName, mimeType, uploadUrl" });
       }
       
+      // Validate file size (max 50MB)
+      const maxSizeBytes = 50 * 1024 * 1024;
+      if (byteSize && byteSize > maxSizeBytes) {
+        return res.status(400).json({ message: "File size exceeds maximum allowed (50MB)" });
+      }
+      
+      // Validate MIME type - allow common document types
+      const allowedMimeTypes = [
+        // Documents
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.ms-powerpoint",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "text/plain",
+        "text/csv",
+        "text/html",
+        "text/markdown",
+        // Images
+        "image/jpeg",
+        "image/png",
+        "image/gif",
+        "image/webp",
+        "image/svg+xml",
+        // Archives
+        "application/zip",
+        "application/x-zip-compressed",
+      ];
+      
+      if (!allowedMimeTypes.includes(mimeType)) {
+        return res.status(400).json({ 
+          message: "File type not allowed. Supported types: PDF, Word, Excel, PowerPoint, images, text files, and ZIP archives" 
+        });
+      }
+      
+      // Sanitize filename - remove path traversal and special characters
+      const sanitizedFileName = fileName
+        .replace(/\.\./g, "")
+        .replace(/[\/\\:*?"<>|]/g, "_")
+        .substring(0, 255);
+      
       // Normalize the upload URL to an object path and set ACL
       const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(uploadUrl, {
         owner: userId,
@@ -7788,7 +7831,7 @@ ${urls.map(u => `  <url>
         folderId: folderId || null,
         name,
         description: description || null,
-        fileName,
+        fileName: sanitizedFileName,
         mimeType,
         byteSize: byteSize || 0,
         objectPath,
@@ -7798,14 +7841,16 @@ ${urls.map(u => `  <url>
       
       const document = await storage.createDocument(data);
       
-      // Log activity
+      // Log activity with actor email
+      const user = await storage.getUser(userId);
       await storage.createDocumentActivity({
         documentId: document.id,
         organizationId,
         actorType: "user",
         actorId: userId,
+        actorEmail: user?.email || undefined,
         action: "upload",
-        details: { fileName, mimeType, byteSize },
+        details: { fileName: sanitizedFileName, mimeType, byteSize },
         ipAddress: req.ip,
       });
       
