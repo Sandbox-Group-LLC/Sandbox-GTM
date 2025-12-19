@@ -6073,19 +6073,26 @@ ${urls.map(u => `  <url>
         return res.json({ housingEnabled: false });
       }
       
-      // Build the booking URL with attendee information if regLinkUrl is configured
+      // Build the booking URL with attendee information
+      // Use regLinkUrl if configured, otherwise fall back to passkeyEventId (which is also a URL)
       let bookingUrl = null;
-      if (mapping.regLinkUrl) {
-        const url = new URL(mapping.regLinkUrl);
-        url.searchParams.set('firstName', attendee.firstName);
-        url.searchParams.set('lastName', attendee.lastName);
-        if (attendee.email) {
-          url.searchParams.set('email', attendee.email);
+      const baseUrl = mapping.regLinkUrl || mapping.passkeyEventId;
+      if (baseUrl) {
+        try {
+          const url = new URL(baseUrl);
+          url.searchParams.set('firstName', attendee.firstName);
+          url.searchParams.set('lastName', attendee.lastName);
+          if (attendee.email) {
+            url.searchParams.set('email', attendee.email);
+          }
+          if (attendee.phone) {
+            url.searchParams.set('phone', attendee.phone);
+          }
+          bookingUrl = url.toString();
+        } catch (e) {
+          // If the URL is invalid, just use it as-is without query params
+          bookingUrl = baseUrl;
         }
-        if (attendee.phone) {
-          url.searchParams.set('phone', attendee.phone);
-        }
-        bookingUrl = url.toString();
       }
       
       res.json({
