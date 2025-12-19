@@ -189,6 +189,7 @@ export default function Documents() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [createdShareLink, setCreatedShareLink] = useState<string | null>(null);
 
   const { data: events = [] } = useQuery<Event[]>({
     queryKey: ["/api/events"],
@@ -363,15 +364,23 @@ export default function Documents() {
       const shareValue = data.shareType === "link" 
         ? `link-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
         : data.shareValue;
-      return await apiRequest("POST", `/api/documents/${selectedDocument?.id}/shares`, {
+      const response = await apiRequest("POST", `/api/documents/${selectedDocument?.id}/shares`, {
         ...data,
         shareValue,
         expiresAt: data.expiresAt || null,
       });
+      return { response, shareType: data.shareType, shareValue };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["/api/documents", selectedDocument?.id, "shares"] });
-      toast({ title: "Share created successfully" });
+      if (result.shareType === "link") {
+        const link = `${window.location.origin}/documents/shared/${result.shareValue}`;
+        setCreatedShareLink(link);
+        toast({ title: "Share link created" });
+      } else {
+        toast({ title: "Share created successfully" });
+        setIsShareDialogOpen(false);
+      }
       shareForm.reset();
     },
     onError: (error: Error) => {
@@ -1155,7 +1164,10 @@ export default function Documents() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isShareDialogOpen} onOpenChange={setIsShareDialogOpen}>
+      <Dialog open={isShareDialogOpen} onOpenChange={(open) => {
+          setIsShareDialogOpen(open);
+          if (!open) setCreatedShareLink(null);
+        }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Share Document</DialogTitle>
@@ -1163,6 +1175,48 @@ export default function Documents() {
               Share this document with others via email, role, or create a public link.
             </DialogDescription>
           </DialogHeader>
+          
+          {createdShareLink ? (
+            <div className="space-y-4">
+              <div className="p-4 rounded-md bg-muted">
+                <p className="text-sm font-medium mb-2">Your share link is ready:</p>
+                <div className="flex items-center gap-2">
+                  <Input 
+                    value={createdShareLink} 
+                    readOnly 
+                    className="flex-1 text-sm"
+                    data-testid="input-share-link"
+                  />
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    onClick={async () => {
+                      await navigator.clipboard.writeText(createdShareLink);
+                      setCopiedLink(true);
+                      setTimeout(() => setCopiedLink(false), 2000);
+                      toast({ title: "Link copied to clipboard" });
+                    }}
+                    data-testid="button-copy-share-link"
+                  >
+                    {copiedLink ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button 
+                  type="button" 
+                  onClick={() => {
+                    setCreatedShareLink(null);
+                    setIsShareDialogOpen(false);
+                  }}
+                  data-testid="button-done-sharing"
+                >
+                  Done
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : (
           <Form {...shareForm}>
             <form onSubmit={shareForm.handleSubmit((data) => createShareMutation.mutate(data))} className="space-y-4">
               <FormField
@@ -1254,6 +1308,7 @@ export default function Documents() {
               </DialogFooter>
             </form>
           </Form>
+          )}
         </DialogContent>
       </Dialog>
 
