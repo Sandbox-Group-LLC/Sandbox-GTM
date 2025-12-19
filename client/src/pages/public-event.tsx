@@ -562,8 +562,8 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
   const isFullWidth = theme?.containerWidth === "full";
   const isHtmlSection = section.type === "html";
   
+  // Container styles - NO backgroundColor here (that goes on cards only)
   const sectionWrapperStyles: React.CSSProperties = {
-    backgroundColor: styles?.backgroundColor || undefined,
     color: styles?.textColor || undefined,
     textAlign: styles?.textAlign || undefined,
     paddingTop: SECTION_PADDING_MAP[styles?.paddingTop || "none"] || undefined,
@@ -637,8 +637,10 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
         border: theme?.buttonBorderColor ? `2px solid ${theme.buttonBorderColor}` : undefined,
       };
 
+  // Card styles - section backgroundColor takes priority over theme cardBackground
+  // This ensures section background styling only affects the card, not the container
   const cardStyles: React.CSSProperties = {
-    backgroundColor: theme?.cardBackground || undefined,
+    backgroundColor: styles?.backgroundColor || theme?.cardBackground || undefined,
     borderRadius: themeRadius,
   };
 
@@ -688,7 +690,8 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
   switch (section.type) {
     case "hero":
       const eventDate = event.startDate ? new Date(event.startDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : "";
-      const heroCardBgColor = (config.cardBackgroundColor as string) || theme?.cardBackground || undefined;
+      // Section styles?.backgroundColor takes priority over config.cardBackgroundColor
+      const heroCardBgColor = styles?.backgroundColor || (config.cardBackgroundColor as string) || theme?.cardBackground || undefined;
       const heroStyles: React.CSSProperties = {
         backgroundColor: heroCardBgColor,
         borderRadius: themeRadius,
@@ -1126,14 +1129,18 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
                 const useCustomColors = sponsorCardColorMode === 'custom';
                 const customCardBg = config.cardBackgroundColor as string;
                 const customCardText = config.cardTextColor as string;
-                const cardClassName = (useThemeColors || useCustomColors)
+                // Section styles?.backgroundColor takes priority over all other color modes
+                const useSectionBgColor = !!styles?.backgroundColor;
+                const cardClassName = (useSectionBgColor || useThemeColors || useCustomColors)
                   ? `p-4 border rounded-md flex flex-col items-center gap-2 ${styles?.gridJustify === 'center' ? "w-[calc(50%-0.5rem)] md:w-[calc(33.333%-0.75rem)] lg:w-[calc(25%-0.75rem)]" : ""}`
                   : `p-4 border rounded-md flex flex-col items-center gap-2 ${tierColors[sponsor.tier] || "bg-muted"} ${styles?.gridJustify === 'center' ? "w-[calc(50%-0.5rem)] md:w-[calc(33.333%-0.75rem)] lg:w-[calc(25%-0.75rem)]" : ""}`;
-                const cardStyle: React.CSSProperties = useCustomColors
-                  ? { borderRadius: themeRadius, backgroundColor: customCardBg || '#f9fafb', color: customCardText || undefined }
-                  : useThemeColors 
-                    ? { borderRadius: themeRadius, backgroundColor: theme?.cardBackground || '#f9fafb', color: theme?.textColor || undefined }
-                    : { borderRadius: themeRadius };
+                const cardStyle: React.CSSProperties = useSectionBgColor
+                  ? { borderRadius: themeRadius, backgroundColor: styles?.backgroundColor, color: styles?.textColor || undefined }
+                  : useCustomColors
+                    ? { borderRadius: themeRadius, backgroundColor: customCardBg || '#f9fafb', color: customCardText || undefined }
+                    : useThemeColors 
+                      ? { borderRadius: themeRadius, backgroundColor: theme?.cardBackground || '#f9fafb', color: theme?.textColor || undefined }
+                      : { borderRadius: themeRadius };
                 return (
                 <div 
                   key={idx} 
@@ -1510,8 +1517,9 @@ function CountdownSection({ config, event, sectionId, theme, styles }: { config:
     color: styles?.textColor || theme?.textSecondaryColor || undefined,
   };
 
+  // Section styles?.backgroundColor takes priority over theme cardBackground
   const cardStyles: React.CSSProperties = {
-    backgroundColor: theme?.cardBackground || undefined,
+    backgroundColor: styles?.backgroundColor || theme?.cardBackground || undefined,
     borderRadius: themeRadius,
   };
 
@@ -1608,8 +1616,9 @@ function HousingSection({ config, section, event, theme, styles, wrapWithMargins
     borderRadius: themeRadius,
   };
 
+  // Section styles?.backgroundColor takes priority over theme cardBackground
   const cardStyles: React.CSSProperties = {
-    backgroundColor: theme?.cardBackground || undefined,
+    backgroundColor: styles?.backgroundColor || theme?.cardBackground || undefined,
     borderRadius: themeRadius,
   };
 
@@ -1681,8 +1690,9 @@ function AttendeeProfileSection({ config, section, theme, styles, wrapWithMargin
   };
   const themeRadius = borderRadiusMap[theme?.borderRadius || "medium"];
 
+  // Section styles?.backgroundColor takes priority over theme cardBackground
   const cardStyles: React.CSSProperties = {
-    backgroundColor: theme?.cardBackground || undefined,
+    backgroundColor: styles?.backgroundColor || theme?.cardBackground || undefined,
     borderRadius: themeRadius,
   };
 
@@ -1890,8 +1900,9 @@ function AttendeeQRCodeSection({ config, section, theme, styles, wrapWithMargins
   };
   const themeRadius = borderRadiusMap[theme?.borderRadius || "medium"];
 
+  // Section styles?.backgroundColor takes priority over theme cardBackground
   const cardStyles: React.CSSProperties = {
-    backgroundColor: theme?.cardBackground || undefined,
+    backgroundColor: styles?.backgroundColor || theme?.cardBackground || undefined,
     borderRadius: themeRadius,
   };
 
