@@ -70,20 +70,24 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const isOpen = open ?? internalOpen;
   const setOpen = onOpenChange ?? setInternalOpen;
 
-  const { data: events = [] } = useQuery<Event[]>({
+  const { data: eventsData } = useQuery<Event[]>({
     queryKey: ["/api/events"],
     enabled: isOpen,
   });
 
-  const { data: attendees = [] } = useQuery<Attendee[]>({
+  const { data: attendeesData } = useQuery<Attendee[]>({
     queryKey: ["/api/attendees"],
     enabled: isOpen,
   });
 
-  const { data: speakers = [] } = useQuery<Speaker[]>({
+  const { data: speakersData } = useQuery<Speaker[]>({
     queryKey: ["/api/speakers"],
     enabled: isOpen,
   });
+
+  const events = eventsData ?? [];
+  const attendees = attendeesData ?? [];
+  const speakers = speakersData ?? [];
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
