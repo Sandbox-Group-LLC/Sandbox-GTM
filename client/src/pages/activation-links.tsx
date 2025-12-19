@@ -284,7 +284,9 @@ export default function ActivationLinks() {
       toast({ title: "No tracking URL available", variant: "destructive" });
       return;
     }
-    const trackingUrl = `${window.location.origin}/api/public/track/${shortCode}`;
+    // Use VITE_APP_URL if available (production), otherwise fall back to current origin
+    const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+    const trackingUrl = `${baseUrl}/api/public/track/${shortCode}`;
     navigator.clipboard.writeText(trackingUrl);
     toast({ title: "Tracking URL copied to clipboard" });
   };
