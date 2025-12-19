@@ -108,9 +108,9 @@ const executionSubItems = [
 const programSubItems = [
   { title: "All Programs", path: "/events" },
   { title: "Acquisition Flow", path: "/registration" },
-  { title: "Engagement", path: "/check-in" },
-  { title: "Site Builder", path: "/site-builder" },
-  { title: "Custom Fields", path: "/custom-fields" },
+  { title: "Arrivals", path: "/check-in" },
+  { title: "Properties", path: "/custom-fields" },
+  { title: "Program Hub", path: "/site-builder" },
   { title: "Sponsors", path: "/sponsors" },
   { title: "Sponsor Tasks", path: "/sponsor-tasks" },
 ];
@@ -126,10 +126,10 @@ export function AppSidebar() {
 
   const isPerformanceActive = location === "/" || location === "/acquisition" || location === "/engagement-signals" || location === "/revenue-snapshot";
   const isGtmActive = location === "/attendees" || location === "/import-attendees" || location === "/attendee-types" || location === "/invite-codes" || location === "/packages" || location === "/emails" || location === "/email-analytics" || location === "/social";
-  const isEngagementActive = location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/rooms" || location === "/check-in";
+  const isEngagementActive = location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/rooms";
   const isRevenueActive = location === "/pipeline" || location === "/sales-handoff" || location === "/follow-up" || location === "/roi";
   const isExecutionActive = location === "/run-of-show" || location === "/deliverables" || location === "/vendors" || location === "/budget";
-  const isProgramActive = location === "/events" || location === "/registration" || location === "/site-builder" || location === "/custom-fields" || location === "/sponsors" || location === "/sponsor-tasks";
+  const isProgramActive = location === "/events" || location === "/registration" || location === "/check-in" || location === "/site-builder" || location === "/custom-fields" || location === "/sponsors" || location === "/sponsor-tasks";
   const isContentActive = location === "/content" || location === "/documents" || location === "/call-for-papers";
   
   const isSuperAdmin = user?.email?.toLowerCase().endsWith("@makemysandbox.com") ?? false;
@@ -308,18 +308,6 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               </Collapsible>
 
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={location === "/check-in"}
-                  data-testid="nav-experiences"
-                >
-                  <Link href="/check-in">
-                    <Zap className="h-4 w-4" />
-                    <span>Activations</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
