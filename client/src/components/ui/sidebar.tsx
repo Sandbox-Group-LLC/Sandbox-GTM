@@ -199,18 +199,19 @@ function Sidebar({
             <SheetTitle>Sidebar</SheetTitle>
             <SheetDescription>Displays the mobile sidebar.</SheetDescription>
           </SheetHeader>
-          <div className="flex h-full w-full flex-col relative">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute top-2 h-7 w-7 z-50"
-              style={{ right: '0.5rem' }}
-              onClick={() => setOpenMobile(false)}
-              data-testid="button-close-mobile-sidebar"
-            >
-              <X className="h-4 w-4" />
-              <span className="sr-only">Close sidebar</span>
-            </Button>
+          <div className="flex h-full w-full flex-col">
+            <div className="flex justify-end p-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => setOpenMobile(false)}
+                data-testid="button-close-mobile-sidebar"
+              >
+                <X className="h-4 w-4" />
+                <span className="sr-only">Close sidebar</span>
+              </Button>
+            </div>
             {children}
           </div>
         </SheetContent>
