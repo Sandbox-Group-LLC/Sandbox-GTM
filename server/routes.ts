@@ -80,6 +80,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { sanitizeCustomCss } from "@shared/css-sanitizer";
 import { generateSectionContent } from "./ai";
 import { z } from "zod";
+import { generateCalendarLinksHtml } from "@shared/calendarLinks";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -3744,6 +3745,15 @@ export async function registerRoutes(
         day: 'numeric'
       }) : '';
 
+      // Generate calendar links for merge tag
+      const calendarLinksHtml = event.startDate ? generateCalendarLinksHtml({
+        title: event.name,
+        description: event.description || '',
+        location: event.location || '',
+        startDate: event.startDate,
+        endDate: event.endDate || undefined,
+      }) : '';
+
       // Send emails with merge tag replacement and tracking
       const result = await sendCampaignEmails({
         subject: campaign.subject,
@@ -3761,6 +3771,7 @@ export async function registerRoutes(
           date: eventDate,
           location: event.location || undefined,
           description: event.description || undefined,
+          addToCalendar: calendarLinksHtml,
         },
         organizationContext: {
           name: org?.name,
@@ -7648,6 +7659,15 @@ ${urls.map(u => `  <url>
       const event = await storage.getEvent(organizationId, attendee.eventId);
       const organization = await storage.getOrganization(organizationId);
 
+      // Generate calendar links for merge tag
+      const attendeeCalendarLinksHtml = event?.startDate ? generateCalendarLinksHtml({
+        title: event.name,
+        description: event.description || '',
+        location: event.location || '',
+        startDate: event.startDate,
+        endDate: event.endDate || undefined,
+      }) : '';
+
       // Send the email using sendCampaignEmails
       const result = await sendCampaignEmails({
         subject: template.subject,
@@ -7665,6 +7685,7 @@ ${urls.map(u => `  <url>
           date: event?.startDate ? new Date(event.startDate).toLocaleDateString() : undefined,
           location: event?.location || undefined,
           description: event?.description || undefined,
+          addToCalendar: attendeeCalendarLinksHtml,
         },
         organizationContext: {
           name: organization?.name,
@@ -7759,6 +7780,15 @@ ${urls.map(u => `  <url>
               day: 'numeric'
             }) : '';
 
+            // Generate calendar links for merge tag
+            const scheduledCalendarLinksHtml = event.startDate ? generateCalendarLinksHtml({
+              title: event.name,
+              description: event.description || '',
+              location: event.location || '',
+              startDate: event.startDate,
+              endDate: event.endDate || undefined,
+            }) : '';
+
             // Send emails with merge tag replacement and tracking
             const result = await sendCampaignEmails({
               subject: campaign.subject,
@@ -7776,6 +7806,7 @@ ${urls.map(u => `  <url>
                 date: eventDate,
                 location: event.location || undefined,
                 description: event.description || undefined,
+                addToCalendar: scheduledCalendarLinksHtml,
               },
               organizationContext: {
                 name: org.name,

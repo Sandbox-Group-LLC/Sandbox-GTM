@@ -23,6 +23,7 @@ export const MERGE_TAGS: MergeTagCategory[] = [
       { tag: "{{event.address}}", label: "Address", description: "Full address" },
       { tag: "{{event.description}}", label: "Description", description: "Event details" },
       { tag: "{{event.registrationUrl}}", label: "Registration URL", description: "Registration link" },
+      { tag: "{{event.addToCalendar}}", label: "Add to Calendar", description: "Calendar links for Apple, Google, Outlook, Yahoo" },
     ],
   },
   {
@@ -69,6 +70,7 @@ export interface MergeTagContext {
     address?: string;
     description?: string;
     registrationUrl?: string;
+    addToCalendar?: string;
   };
   attendee?: {
     firstName?: string;
@@ -104,6 +106,7 @@ export function replaceMergeTags(text: string | null | undefined, context: Merge
     "event.address": context.event?.address || "",
     "event.description": context.event?.description || "",
     "event.registrationurl": context.event?.registrationUrl || "",
+    "event.addtocalendar": context.event?.addToCalendar || "",
     "attendee.firstname": context.attendee?.firstName || "",
     "attendee.lastname": context.attendee?.lastName || "",
     "attendee.fullname": context.attendee?.fullName || `${context.attendee?.firstName || ""} ${context.attendee?.lastName || ""}`.trim(),
