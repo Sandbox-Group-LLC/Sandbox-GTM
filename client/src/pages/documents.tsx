@@ -101,9 +101,17 @@ const folderFormSchema = z.object({
 
 const shareFormSchema = z.object({
   shareType: z.enum(["user", "role", "link"]),
-  shareValue: z.string().min(1, "This field is required"),
+  shareValue: z.string().optional(),
   permission: z.enum(["view", "download", "edit"]),
   expiresAt: z.string().optional(),
+}).refine((data) => {
+  if (data.shareType !== "link" && (!data.shareValue || data.shareValue.trim() === "")) {
+    return false;
+  }
+  return true;
+}, {
+  message: "This field is required",
+  path: ["shareValue"],
 });
 
 const commentFormSchema = z.object({
