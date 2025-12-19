@@ -1,0 +1,97 @@
+Update the existing Sandbox app to reflect an Event GTM Platform mental model without removing, breaking, or refactoring any existing backend logic, routes, or data models. This update is strictly an information architecture, navigation, labeling, and default-view reframing, not a rebuild.
+
+Reframe the product around this flow:
+Design GTM motion → Attract the right audience → Deliver high-intent experiences → Prove revenue impact
+
+Navigation & IA Changes
+
+Reorder and relabel the left-hand navigation to prioritize GTM and ROI over operations, using the following structure:
+
+Performance (rename from “Dashboard”)
+
+GTM Overview
+
+Acquisition Health
+
+Engagement Signals
+
+Revenue Snapshot (can be directional / placeholder)
+
+Go-To-Market
+
+Audience (segments, qualification, registration health)
+
+Campaigns (email, social, paid/partner — existing tools reused)
+
+Registration (pages, conversion, source attribution)
+
+Engagement
+
+Attendees (attendance, engagement score, intent signals)
+
+Sessions & Content (sessions, speakers, content performance)
+
+Experiences (activations, booths, check-ins/scans)
+
+Revenue & ROI
+
+Pipeline Influence
+
+Sales Handoff
+
+Follow-Up Performance
+
+ROI Reporting
+(These can initially surface existing data or placeholders; the section must exist to reinforce positioning.)
+
+Execution
+
+Run of Show
+
+Deliverables
+
+Vendors
+
+Budget
+
+Platform
+
+Integrations
+
+Organization
+
+Settings
+
+Language & Framing Updates
+
+Re-label existing UI language to reflect marketing and revenue intent rather than meeting-planner terminology. Examples include:
+
+Event → Program
+
+Registrations → Conversions
+
+Check-In Rate → Engagement Rate
+
+Speakers → Content Contributors
+
+Sessions → Content Experiences
+
+Attendees → Audience
+
+Budget Status → Investment Health
+
+Apply these changes only at the UI/label level; do not alter underlying logic.
+
+Default Behavior
+
+When a user enters a Program/Event, the default landing view should be Performance → GTM Overview, not run-of-show or task management.
+
+Emphasize acquisition quality, engagement signals, and outcome readiness over logistics status in default dashboard views.
+
+Guardrails
+
+Do not delete or rename existing routes, APIs, or database models.
+
+Do not remove any current features.
+
+This change should be fully reversible and additive, focused on positioning Sandbox as a marketing and revenue platform that uses events as a GTM channel, not a traditional event planning tool.

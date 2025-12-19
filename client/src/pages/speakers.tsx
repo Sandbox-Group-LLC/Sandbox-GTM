@@ -132,7 +132,7 @@ export default function Speakers() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/speakers"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
-      toast({ title: "Speaker added successfully" });
+      toast({ title: "Contributor added successfully" });
       setIsDialogOpen(false);
       form.reset();
       setSelectedSessionIds([]);
@@ -165,7 +165,7 @@ export default function Speakers() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/speakers"] });
-      toast({ title: "Speaker updated successfully" });
+      toast({ title: "Contributor updated successfully" });
       setIsDialogOpen(false);
       setEditingSpeaker(null);
       form.reset();
@@ -249,21 +249,21 @@ export default function Speakers() {
   return (
     <div className="flex flex-col h-full">
       <PageHeader
-        title="Speakers"
-        breadcrumbs={[{ label: "Sessions", href: "/sessions" }, { label: "Speakers" }]}
+        title="Contributors"
+        breadcrumbs={[{ label: "Content Experiences", href: "/sessions" }, { label: "Contributors" }]}
         actions={
           <Dialog open={isDialogOpen} onOpenChange={(open) => open ? setIsDialogOpen(true) : handleDialogClose()}>
             <DialogTrigger asChild>
               <Button size="sm" data-testid="button-add-speaker">
                 <Plus className="h-4 w-4 mr-2" />
-                Add Speaker
+                Add Contributor
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>{editingSpeaker ? "Edit Speaker" : "Add New Speaker"}</DialogTitle>
+                <DialogTitle>{editingSpeaker ? "Edit Contributor" : "Add New Contributor"}</DialogTitle>
                 <DialogDescription>
-                  {editingSpeaker ? "Update speaker information" : "Enter the speaker details below"}
+                  {editingSpeaker ? "Update contributor information" : "Enter the contributor details below"}
                 </DialogDescription>
               </DialogHeader>
               <Form {...form}>
@@ -357,7 +357,7 @@ export default function Speakers() {
                       name="speakerRole"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Speaker Role</FormLabel>
+                          <FormLabel>Contributor Role</FormLabel>
                           <Select onValueChange={field.onChange} value={field.value || ""}>
                             <FormControl>
                               <SelectTrigger data-testid="select-speaker-role">
@@ -380,7 +380,7 @@ export default function Speakers() {
                     name="bio"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Speaker Bio</FormLabel>
+                        <FormLabel>Contributor Bio</FormLabel>
                         <FormControl>
                           <Textarea rows={4} {...field} data-testid="input-bio" />
                         </FormControl>
@@ -520,7 +520,7 @@ export default function Speakers() {
                         ? "Saving..."
                         : editingSpeaker
                         ? "Update"
-                        : "Add Speaker"}
+                        : "Add Contributor"}
                     </Button>
                   </div>
                 </form>
@@ -535,7 +535,7 @@ export default function Speakers() {
           <div className="relative max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search speakers..."
+              placeholder="Search contributors..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"
@@ -563,15 +563,15 @@ export default function Speakers() {
           ) : speakers.length === 0 ? (
             <EmptyState
               icon={Mic2}
-              title="No speakers yet"
-              description="Add speakers who will be presenting at your event"
+              title="No contributors yet"
+              description="Add contributors who will be presenting at your program"
               action={{
-                label: "Add Speaker",
+                label: "Add Contributor",
                 onClick: () => setIsDialogOpen(true),
               }}
             />
           ) : filteredSpeakers.length === 0 ? (
-            <p className="text-center text-muted-foreground py-12">No speakers match your search</p>
+            <p className="text-center text-muted-foreground py-12">No contributors match your search</p>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {filteredSpeakers.map((speaker) => {

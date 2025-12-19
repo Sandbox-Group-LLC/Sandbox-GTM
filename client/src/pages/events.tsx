@@ -141,7 +141,7 @@ export default function Events() {
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: "Event created successfully" });
+      toast({ title: "Program created successfully" });
       queryClient.invalidateQueries({ queryKey: ["/api/events"] });
       setCreateDialogOpen(false);
       form.reset();
@@ -157,7 +157,7 @@ export default function Events() {
       return res.json();
     },
     onSuccess: (updatedEvent) => {
-      toast({ title: "Event updated successfully" });
+      toast({ title: "Program updated successfully" });
       queryClient.invalidateQueries({ queryKey: ["/api/events"] });
       setSelectedEvent(updatedEvent);
       setIsEditing(false);
@@ -173,7 +173,7 @@ export default function Events() {
       await apiRequest("DELETE", `/api/events/${id}`);
     },
     onSuccess: () => {
-      toast({ title: "Event deleted successfully" });
+      toast({ title: "Program deleted successfully" });
       queryClient.invalidateQueries({ queryKey: ["/api/events"] });
       setSelectedEvent(null);
       setShowDeleteConfirm(false);
@@ -283,21 +283,21 @@ export default function Events() {
   return (
     <div className="flex flex-col h-full">
       <PageHeader
-        title="Events"
-        breadcrumbs={[{ label: "Events" }]}
+        title="Programs"
+        breadcrumbs={[{ label: "Programs" }]}
         actions={
           <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
             <DialogTrigger asChild>
               <Button size="sm" data-testid="button-new-event">
                 <Plus className="h-4 w-4 mr-2" />
-                New Event
+                New Program
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-hidden flex flex-col">
               <DialogHeader>
-                <DialogTitle>Create New Event</DialogTitle>
+                <DialogTitle>Create New Program</DialogTitle>
                 <DialogDescription>
-                  Add a new event to your management system.
+                  Add a new program to your management system.
                 </DialogDescription>
               </DialogHeader>
               <Form {...form}>
@@ -312,7 +312,7 @@ export default function Events() {
                       disabled={createMutation.isPending}
                       data-testid="button-submit-event"
                     >
-                      {createMutation.isPending ? "Creating..." : "Create Event"}
+                      {createMutation.isPending ? "Creating..." : "Create Program"}
                     </Button>
                   </DialogFooter>
                 </form>
@@ -326,19 +326,19 @@ export default function Events() {
         <div className={`flex-1 overflow-auto p-6 ${selectedEvent ? 'hidden md:block md:w-1/2 lg:w-2/3' : ''}`}>
           {isLoading ? (
             <div className="flex items-center justify-center h-64">
-              <div className="animate-pulse text-muted-foreground">Loading events...</div>
+              <div className="animate-pulse text-muted-foreground">Loading programs...</div>
             </div>
           ) : !events || events.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-16">
                 <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium mb-2">No events yet</h3>
+                <h3 className="text-lg font-medium mb-2">No programs yet</h3>
                 <p className="text-muted-foreground text-sm mb-4">
-                  Create your first event to get started
+                  Create your first program to get started
                 </p>
                 <Button onClick={() => setCreateDialogOpen(true)} data-testid="button-create-first-event">
                   <Plus className="h-4 w-4 mr-2" />
-                  Create Event
+                  Create Program
                 </Button>
               </CardContent>
             </Card>
@@ -411,7 +411,7 @@ export default function Events() {
               >
                 <ArrowLeft className="h-4 w-4" />
               </Button>
-              <h2 className="font-semibold truncate flex-1">{isEditing ? "Edit Event" : selectedEvent.name}</h2>
+              <h2 className="font-semibold truncate flex-1">{isEditing ? "Edit Program" : selectedEvent.name}</h2>
               <Button 
                 variant="ghost" 
                 size="icon" 

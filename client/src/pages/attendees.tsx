@@ -279,7 +279,7 @@ export default function Attendees() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/attendees"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
-      toast({ title: "Attendee added successfully" });
+      toast({ title: "Audience member added successfully" });
       setIsDialogOpen(false);
       form.reset();
     },
@@ -299,7 +299,7 @@ export default function Attendees() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/attendees"] });
-      toast({ title: "Attendee updated successfully" });
+      toast({ title: "Audience member updated successfully" });
       setIsDialogOpen(false);
       setEditingAttendee(null);
       form.reset();
@@ -321,7 +321,7 @@ export default function Attendees() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/attendees"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
-      toast({ title: "Attendee deleted successfully" });
+      toast({ title: "Audience member deleted successfully" });
     },
     onError: (error: Error) => {
       if (isUnauthorizedError(error)) {
@@ -613,21 +613,21 @@ export default function Attendees() {
   return (
     <div className="flex flex-col h-full">
       <PageHeader
-        title="Attendees"
-        breadcrumbs={[{ label: "Attendees" }]}
+        title="Audience"
+        breadcrumbs={[{ label: "Audience" }]}
         actions={
           <Dialog open={isDialogOpen} onOpenChange={(open) => open ? setIsDialogOpen(true) : handleDialogClose()}>
             <DialogTrigger asChild>
               <Button size="sm" data-testid="button-add-attendee">
                 <Plus className="h-4 w-4 mr-2" />
-                Add Attendee
+                Add Audience Member
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>{editingAttendee ? "Edit Attendee" : "Add New Attendee"}</DialogTitle>
+                <DialogTitle>{editingAttendee ? "Edit Audience Member" : "Add New Audience Member"}</DialogTitle>
                 <DialogDescription>
-                  {editingAttendee ? "Update attendee information" : "Enter the attendee details below"}
+                  {editingAttendee ? "Update audience member information" : "Enter the audience member details below"}
                 </DialogDescription>
               </DialogHeader>
               <Form {...form}>
@@ -977,7 +977,7 @@ export default function Attendees() {
             <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search attendees..."
+                placeholder="Search audience..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
@@ -1110,17 +1110,17 @@ export default function Attendees() {
           {/* Results count */}
           {!isLoading && attendees.length > 0 && (
             <div className="text-sm text-muted-foreground">
-              Showing {processedAttendees.length} of {attendees.length} attendees
+              Showing {processedAttendees.length} of {attendees.length} audience members
             </div>
           )}
 
           {!isLoading && attendees.length === 0 ? (
             <EmptyState
               icon={Users}
-              title="No attendees yet"
-              description="Start by adding your first attendee to the event"
+              title="No audience members yet"
+              description="Start by adding your first audience member to the program"
               action={{
-                label: "Add Attendee",
+                label: "Add Audience Member",
                 onClick: () => setIsDialogOpen(true),
               }}
             />
@@ -1129,7 +1129,7 @@ export default function Attendees() {
               columns={columns}
               data={processedAttendees}
               isLoading={isLoading}
-              emptyMessage="No attendees match your filters"
+              emptyMessage="No audience members match your filters"
               getRowKey={(attendee) => attendee.id}
             />
           )}
@@ -1139,9 +1139,9 @@ export default function Attendees() {
       <Sheet open={!!viewingAttendee} onOpenChange={(open) => !open && setViewingAttendee(null)}>
         <SheetContent className="sm:max-w-xl overflow-y-auto" data-testid="sheet-attendee-details">
           <SheetHeader>
-            <SheetTitle>Attendee Details</SheetTitle>
+            <SheetTitle>Audience Member Details</SheetTitle>
             <SheetDescription>
-              View attendee information and email activity
+              View audience member information and email activity
             </SheetDescription>
           </SheetHeader>
 
@@ -1315,7 +1315,7 @@ export default function Attendees() {
                   <div className="text-sm text-muted-foreground">Loading emails...</div>
                 ) : attendeeEmails.length === 0 ? (
                   <div className="text-sm text-muted-foreground py-4 text-center">
-                    No emails have been sent to this attendee yet.
+                    No emails have been sent to this audience member yet.
                   </div>
                 ) : (
                   <div className="border rounded-md">

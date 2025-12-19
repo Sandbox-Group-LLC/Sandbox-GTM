@@ -22,6 +22,20 @@ import {
   ClipboardList,
   Plug,
   FileText,
+  TrendingUp,
+  Target,
+  Zap,
+  PieChart,
+  Megaphone,
+  UserPlus,
+  Activity,
+  Sparkles,
+  HandshakeIcon,
+  Send,
+  LineChart,
+  ListTodo,
+  Truck,
+  Wallet,
 } from "lucide-react";
 import logoImage from "@assets/Orange_bug_-_no_background_1765765097769.png";
 import { OnboardingChecklist } from "./onboarding-checklist";
@@ -49,54 +63,59 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 
-const mainMenuItems = [
-  { title: "Dashboard", icon: LayoutDashboard, path: "/" },
+const performanceSubItems = [
+  { title: "GTM Overview", path: "/" },
+  { title: "Acquisition Health", path: "/acquisition" },
+  { title: "Engagement Signals", path: "/engagement-signals" },
+  { title: "Revenue Snapshot", path: "/revenue-snapshot" },
 ];
 
-const sessionsSubItems = [
-  { title: "All Sessions", path: "/sessions" },
-  { title: "Speakers", path: "/speakers" },
-  { title: "Tracks", path: "/tracks" },
-  { title: "Rooms", path: "/rooms" },
-];
-
-const contentSubItems = [
-  { title: "Media Library", path: "/content" },
-  { title: "Documents", path: "/documents" },
-  { title: "Call for Papers", path: "/call-for-papers" },
-];
-
-const attendeesSubItems = [
-  { title: "All Attendees", path: "/attendees" },
-  { title: "Import Attendees", path: "/import-attendees" },
-  { title: "Attendee Types", path: "/attendee-types" },
+const audienceSubItems = [
+  { title: "All Audience", path: "/attendees" },
+  { title: "Import Audience", path: "/import-attendees" },
+  { title: "Audience Types", path: "/attendee-types" },
   { title: "Invite Codes", path: "/invite-codes" },
   { title: "Packages", path: "/packages" },
 ];
 
-const eventsSubItems = [
-  { title: "All Events", path: "/events" },
-  { title: "Check-In", path: "/check-in" },
-  { title: "Registration", path: "/registration" },
+const campaignsSubItems = [
+  { title: "Email Campaigns", path: "/emails" },
+  { title: "Email Analytics", path: "/email-analytics" },
+  { title: "Social Media", path: "/social" },
+];
+
+const contentSubItems = [
+  { title: "All Experiences", path: "/sessions" },
+  { title: "Contributors", path: "/speakers" },
+  { title: "Tracks", path: "/tracks" },
+  { title: "Rooms", path: "/rooms" },
+];
+
+const revenueSubItems = [
+  { title: "Pipeline Influence", path: "/pipeline" },
+  { title: "Sales Handoff", path: "/sales-handoff" },
+  { title: "Follow-Up Performance", path: "/follow-up" },
+  { title: "ROI Reporting", path: "/roi" },
+];
+
+const executionSubItems = [
+  { title: "Run of Show", path: "/run-of-show" },
+  { title: "Deliverables", path: "/deliverables" },
+  { title: "Vendors", path: "/vendors" },
+  { title: "Investment Health", path: "/budget" },
+];
+
+const programSubItems = [
+  { title: "All Programs", path: "/events" },
+  { title: "Engagement", path: "/check-in" },
   { title: "Site Builder", path: "/site-builder" },
   { title: "Custom Fields", path: "/custom-fields" },
   { title: "Sponsors", path: "/sponsors" },
   { title: "Sponsor Tasks", path: "/sponsor-tasks" },
 ];
 
-const projectMenuItems = [
-  { title: "Budget", icon: DollarSign, path: "/budget" },
-  { title: "Deliverables", icon: CheckSquare, path: "/deliverables" },
-];
-
 const myReviewsItems = [
   { title: "Reviewer Portal", icon: ClipboardList, path: "/reviewer/portal" },
-];
-
-const marketingMenuItems = [
-  { title: "Email Campaigns", icon: Mail, path: "/emails" },
-  { title: "Email Analytics", icon: BarChart3, path: "/email-analytics" },
-  { title: "Social Media", icon: Share2, path: "/social" },
 ];
 
 export function AppSidebar() {
@@ -104,9 +123,12 @@ export function AppSidebar() {
   const { user } = useAuth();
   const [wizardOpen, setWizardOpen] = useState(false);
 
-  const isEventsActive = location === "/events" || location === "/check-in" || location === "/registration" || location === "/site-builder" || location === "/custom-fields" || location === "/sponsors" || location === "/sponsor-tasks";
-  const isSessionsActive = location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/rooms";
-  const isAttendeesActive = location === "/attendees" || location === "/import-attendees" || location === "/attendee-types" || location === "/invite-codes" || location === "/packages";
+  const isPerformanceActive = location === "/" || location === "/acquisition" || location === "/engagement-signals" || location === "/revenue-snapshot";
+  const isGtmActive = location === "/registration" || location === "/attendees" || location === "/import-attendees" || location === "/attendee-types" || location === "/invite-codes" || location === "/packages" || location === "/emails" || location === "/email-analytics" || location === "/social";
+  const isEngagementActive = location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/rooms" || location === "/check-in";
+  const isRevenueActive = location === "/pipeline" || location === "/sales-handoff" || location === "/follow-up" || location === "/roi";
+  const isExecutionActive = location === "/run-of-show" || location === "/deliverables" || location === "/vendors" || location === "/budget";
+  const isProgramActive = location === "/events" || location === "/site-builder" || location === "/custom-fields" || location === "/sponsors" || location === "/sponsor-tasks";
   const isContentActive = location === "/content" || location === "/documents" || location === "/call-for-papers";
   
   const isSuperAdmin = user?.email?.toLowerCase().endsWith("@makemysandbox.com") ?? false;
@@ -132,37 +154,291 @@ export function AppSidebar() {
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Event Management</SidebarGroupLabel>
+          <SidebarGroupLabel>Performance</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <Collapsible defaultOpen={isPerformanceActive} className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton
+                      isActive={isPerformanceActive}
+                      data-testid="nav-performance"
+                    >
+                      <TrendingUp className="h-4 w-4" />
+                      <span>Analytics</span>
+                      <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {performanceSubItems.map((item) => (
+                        <SidebarMenuSubItem key={item.title}>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={location === item.path}
+                          >
+                            <Link
+                              href={item.path}
+                              data-testid={`nav-${item.title.toLowerCase().replace(/ /g, "-")}`}
+                            >
+                              <span>{item.title}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Go-To-Market</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <Collapsible defaultOpen={location === "/attendees" || location === "/import-attendees" || location === "/attendee-types" || location === "/invite-codes" || location === "/packages"} className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton
+                      isActive={location === "/attendees" || location === "/import-attendees" || location === "/attendee-types" || location === "/invite-codes" || location === "/packages"}
+                      data-testid="nav-audience"
+                    >
+                      <Target className="h-4 w-4" />
+                      <span>Audience</span>
+                      <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {audienceSubItems.map((item) => (
+                        <SidebarMenuSubItem key={item.title}>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={location === item.path}
+                          >
+                            <Link
+                              href={item.path}
+                              data-testid={`nav-${item.title.toLowerCase().replace(/ /g, "-")}`}
+                            >
+                              <span>{item.title}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+
+              <Collapsible defaultOpen={location === "/emails" || location === "/email-analytics" || location === "/social"} className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton
+                      isActive={location === "/emails" || location === "/email-analytics" || location === "/social"}
+                      data-testid="nav-campaigns"
+                    >
+                      <Megaphone className="h-4 w-4" />
+                      <span>Campaigns</span>
+                      <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {campaignsSubItems.map((item) => (
+                        <SidebarMenuSubItem key={item.title}>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={location === item.path}
+                          >
+                            <Link
+                              href={item.path}
+                              data-testid={`nav-${item.title.toLowerCase().replace(/ /g, "-")}`}
+                            >
+                              <span>{item.title}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location === "/registration"}
+                  data-testid="nav-conversions"
+                >
+                  <Link href="/registration">
+                    <UserPlus className="h-4 w-4" />
+                    <span>Conversions</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Engagement</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <Collapsible defaultOpen={location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/rooms"} className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton
+                      isActive={location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/rooms"}
+                      data-testid="nav-content-experiences"
+                    >
+                      <Presentation className="h-4 w-4" />
+                      <span>Content Experiences</span>
+                      <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {contentSubItems.map((item) => (
+                        <SidebarMenuSubItem key={item.title}>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={location === item.path}
+                          >
+                            <Link
+                              href={item.path}
+                              data-testid={`nav-${item.title.toLowerCase().replace(/ /g, "-")}`}
+                            >
+                              <span>{item.title}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location === "/check-in"}
+                  data-testid="nav-experiences"
+                >
+                  <Link href="/check-in">
+                    <Zap className="h-4 w-4" />
+                    <span>Activations</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Revenue & ROI</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {revenueSubItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === item.path}
+                    data-testid={`nav-${item.title.toLowerCase().replace(/ /g, "-")}`}
+                  >
+                    <Link href={item.path}>
+                      {item.title === "Pipeline Influence" && <PieChart className="h-4 w-4" />}
+                      {item.title === "Sales Handoff" && <HandshakeIcon className="h-4 w-4" />}
+                      {item.title === "Follow-Up Performance" && <Send className="h-4 w-4" />}
+                      {item.title === "ROI Reporting" && <LineChart className="h-4 w-4" />}
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Execution</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton
                   asChild
-                  isActive={location === "/"}
-                  data-testid="nav-dashboard"
+                  isActive={location === "/run-of-show"}
+                  data-testid="nav-run-of-show"
                 >
-                  <Link href="/">
-                    <LayoutDashboard className="h-4 w-4" />
-                    <span>Dashboard</span>
+                  <Link href="/run-of-show">
+                    <ListTodo className="h-4 w-4" />
+                    <span>Run of Show</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
-              <Collapsible defaultOpen={isEventsActive} className="group/collapsible">
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location === "/deliverables"}
+                  data-testid="nav-deliverables"
+                >
+                  <Link href="/deliverables">
+                    <CheckSquare className="h-4 w-4" />
+                    <span>Deliverables</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location === "/vendors"}
+                  data-testid="nav-vendors"
+                >
+                  <Link href="/vendors">
+                    <Truck className="h-4 w-4" />
+                    <span>Vendors</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location === "/budget"}
+                  data-testid="nav-budget"
+                >
+                  <Link href="/budget">
+                    <Wallet className="h-4 w-4" />
+                    <span>Investment Health</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Programs</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <Collapsible defaultOpen={isProgramActive} className="group/collapsible">
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton
-                      isActive={isEventsActive}
-                      data-testid="nav-events"
+                      isActive={isProgramActive}
+                      data-testid="nav-programs"
                     >
                       <Calendar className="h-4 w-4" />
-                      <span>Events</span>
+                      <span>Program Setup</span>
                       <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <SidebarMenuSub>
-                      {eventsSubItems.map((item) => (
+                      {programSubItems.map((item) => (
                         <SidebarMenuSubItem key={item.title}>
                           <SidebarMenuSubButton
                             asChild
@@ -170,75 +446,7 @@ export function AppSidebar() {
                           >
                             <Link
                               href={item.path}
-                              data-testid={`nav-${item.title.toLowerCase().replace(" ", "-")}`}
-                            >
-                              <span>{item.title}</span>
-                            </Link>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      ))}
-                    </SidebarMenuSub>
-                  </CollapsibleContent>
-                </SidebarMenuItem>
-              </Collapsible>
-
-              <Collapsible defaultOpen={isAttendeesActive} className="group/collapsible">
-                <SidebarMenuItem>
-                  <CollapsibleTrigger asChild>
-                    <SidebarMenuButton
-                      isActive={isAttendeesActive}
-                      data-testid="nav-attendees"
-                    >
-                      <Users className="h-4 w-4" />
-                      <span>Attendees</span>
-                      <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                    </SidebarMenuButton>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <SidebarMenuSub>
-                      {attendeesSubItems.map((item) => (
-                        <SidebarMenuSubItem key={item.title}>
-                          <SidebarMenuSubButton
-                            asChild
-                            isActive={location === item.path}
-                          >
-                            <Link
-                              href={item.path}
-                              data-testid={`nav-${item.title.toLowerCase().replace(" ", "-")}`}
-                            >
-                              <span>{item.title}</span>
-                            </Link>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      ))}
-                    </SidebarMenuSub>
-                  </CollapsibleContent>
-                </SidebarMenuItem>
-              </Collapsible>
-
-              <Collapsible defaultOpen={isSessionsActive} className="group/collapsible">
-                <SidebarMenuItem>
-                  <CollapsibleTrigger asChild>
-                    <SidebarMenuButton
-                      isActive={isSessionsActive}
-                      data-testid="nav-sessions"
-                    >
-                      <Presentation className="h-4 w-4" />
-                      <span>Sessions</span>
-                      <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                    </SidebarMenuButton>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <SidebarMenuSub>
-                      {sessionsSubItems.map((item) => (
-                        <SidebarMenuSubItem key={item.title}>
-                          <SidebarMenuSubButton
-                            asChild
-                            isActive={location === item.path}
-                          >
-                            <Link
-                              href={item.path}
-                              data-testid={`nav-${item.title.toLowerCase().replace(" ", "-")}`}
+                              data-testid={`nav-${item.title.toLowerCase().replace(/ /g, "-")}`}
                             >
                               <span>{item.title}</span>
                             </Link>
@@ -264,69 +472,40 @@ export function AppSidebar() {
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <SidebarMenuSub>
-                      {contentSubItems.map((item) => (
-                        <SidebarMenuSubItem key={item.title}>
-                          <SidebarMenuSubButton
-                            asChild
-                            isActive={location === item.path}
-                          >
-                            <Link
-                              href={item.path}
-                              data-testid={`nav-${item.title.toLowerCase().replace(/ /g, "-")}`}
-                            >
-                              <span>{item.title}</span>
-                            </Link>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      ))}
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={location === "/content"}
+                        >
+                          <Link href="/content" data-testid="nav-media-library">
+                            <span>Media Library</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={location === "/documents"}
+                        >
+                          <Link href="/documents" data-testid="nav-documents">
+                            <span>Documents</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={location === "/call-for-papers"}
+                        >
+                          <Link href="/call-for-papers" data-testid="nav-call-for-papers">
+                            <span>Call for Papers</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
                     </SidebarMenuSub>
                   </CollapsibleContent>
                 </SidebarMenuItem>
               </Collapsible>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel>Marketing</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {marketingMenuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location === item.path}
-                    data-testid={`nav-${item.title.toLowerCase().replace(" ", "-")}`}
-                  >
-                    <Link href={item.path}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel>Project Management</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {projectMenuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location === item.path}
-                    data-testid={`nav-${item.title.toLowerCase().replace(" ", "-")}`}
-                  >
-                    <Link href={item.path}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

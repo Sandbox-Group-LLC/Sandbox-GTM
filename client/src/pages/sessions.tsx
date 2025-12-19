@@ -150,7 +150,7 @@ export default function Sessions() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
-      toast({ title: "Session created successfully" });
+      toast({ title: "Content experience created successfully" });
       setIsDialogOpen(false);
       form.reset();
       setSelectedSpeakerIds([]);
@@ -177,7 +177,7 @@ export default function Sessions() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
-      toast({ title: "Session updated successfully" });
+      toast({ title: "Content experience updated successfully" });
       setIsDialogOpen(false);
       setEditingSession(null);
       form.reset();
@@ -266,21 +266,21 @@ export default function Sessions() {
   return (
     <div className="flex flex-col h-full">
       <PageHeader
-        title="Sessions"
-        breadcrumbs={[{ label: "Sessions" }]}
+        title="Content Experiences"
+        breadcrumbs={[{ label: "Content Experiences" }]}
         actions={
           <Dialog open={isDialogOpen} onOpenChange={(open) => open ? setIsDialogOpen(true) : handleDialogClose()}>
             <DialogTrigger asChild>
               <Button size="sm" data-testid="button-add-session">
                 <Plus className="h-4 w-4 mr-2" />
-                Add Session
+                Add Content Experience
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>{editingSession ? "Edit Session" : "Create New Session"}</DialogTitle>
+                <DialogTitle>{editingSession ? "Edit Content Experience" : "Create New Content Experience"}</DialogTitle>
                 <DialogDescription>
-                  {editingSession ? "Update session details" : "Enter the session details below"}
+                  {editingSession ? "Update content experience details" : "Enter the content experience details below"}
                 </DialogDescription>
               </DialogHeader>
               <Form {...form}>
@@ -546,7 +546,7 @@ export default function Sessions() {
                         ? "Saving..."
                         : editingSession
                         ? "Update"
-                        : "Create Session"}
+                        : "Create Content Experience"}
                     </Button>
                   </div>
                 </form>
@@ -561,7 +561,7 @@ export default function Sessions() {
           <div className="relative max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search sessions..."
+              placeholder="Search content experiences..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"
@@ -585,15 +585,15 @@ export default function Sessions() {
           ) : sessions.length === 0 ? (
             <EmptyState
               icon={Calendar}
-              title="No sessions yet"
-              description="Start building your agenda by adding sessions"
+              title="No content experiences yet"
+              description="Start building your agenda by adding content experiences"
               action={{
-                label: "Add Session",
+                label: "Add Content Experience",
                 onClick: () => setIsDialogOpen(true),
               }}
             />
           ) : filteredSessions.length === 0 ? (
-            <p className="text-center text-muted-foreground py-12">No sessions match your search</p>
+            <p className="text-center text-muted-foreground py-12">No content experiences match your search</p>
           ) : (
             <div className="space-y-8">
               {sortedDates.map((date) => (

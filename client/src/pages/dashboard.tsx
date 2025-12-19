@@ -185,16 +185,16 @@ export default function Dashboard() {
   return (
     <div className="flex flex-col h-full">
       <PageHeader 
-        title="Dashboard" 
-        breadcrumbs={[{ label: "Dashboard" }]}
+        title="GTM Overview" 
+        breadcrumbs={[{ label: "Performance" }, { label: "GTM Overview" }]}
         actions={
           <div className="flex items-center gap-2">
             <Select value={selectedEventId} onValueChange={setSelectedEventId}>
               <SelectTrigger className="w-[120px] sm:w-[180px]" data-testid="select-event-filter">
-                <SelectValue placeholder="Filter by event" />
+                <SelectValue placeholder="Filter by program" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Events</SelectItem>
+                <SelectItem value="all">All Programs</SelectItem>
                 {events?.map((event) => (
                   <SelectItem key={event.id} value={event.id}>
                     {event.name}
@@ -204,16 +204,16 @@ export default function Dashboard() {
             </Select>
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
-                <Button size="icon" className="sm:w-auto sm:px-3" data-testid="button-new-event">
+                <Button size="icon" className="sm:w-auto sm:px-3" data-testid="button-new-program">
                   <Plus className="h-4 w-4 sm:mr-2" />
-                  <span className="hidden sm:inline">New Event</span>
+                  <span className="hidden sm:inline">New Program</span>
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
-                  <DialogTitle>Create New Event</DialogTitle>
+                  <DialogTitle>Create New Program</DialogTitle>
                   <DialogDescription>
-                    Add a new event to your management system.
+                    Add a new program to your GTM platform.
                   </DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
@@ -223,9 +223,9 @@ export default function Dashboard() {
                       name="name"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Event Name</FormLabel>
+                          <FormLabel>Program Name</FormLabel>
                           <FormControl>
-                            <Input placeholder="Annual Conference 2025" {...field} data-testid="input-event-name" />
+                            <Input placeholder="Annual Conference 2025" {...field} data-testid="input-program-name" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -309,7 +309,7 @@ export default function Dashboard() {
                         disabled={createEventMutation.isPending}
                         data-testid="button-submit-event"
                       >
-                        {createEventMutation.isPending ? "Creating..." : "Create Event"}
+                        {createEventMutation.isPending ? "Creating..." : "Create Program"}
                       </Button>
                     </div>
                   </form>
@@ -337,8 +337,8 @@ export default function Dashboard() {
                       <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Total Registrations</p>
-                      <p className="text-2xl font-semibold" data-testid="text-total-registrations">{analytics?.attendance.total || 0}</p>
+                      <p className="text-sm text-muted-foreground">Total Conversions</p>
+                      <p className="text-2xl font-semibold" data-testid="text-total-conversions">{analytics?.attendance.total || 0}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -351,8 +351,8 @@ export default function Dashboard() {
                       <UserCheck className="w-5 h-5 text-green-600 dark:text-green-400" />
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Check-in Rate</p>
-                      <p className="text-2xl font-semibold" data-testid="text-checkin-rate">{analytics?.attendance.checkInRate || 0}%</p>
+                      <p className="text-sm text-muted-foreground">Engagement Rate</p>
+                      <p className="text-2xl font-semibold" data-testid="text-engagement-rate">{analytics?.attendance.checkInRate || 0}%</p>
                     </div>
                   </div>
                 </CardContent>
@@ -365,8 +365,8 @@ export default function Dashboard() {
                       <Calendar className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Sessions</p>
-                      <p className="text-2xl font-semibold" data-testid="text-total-sessions">{analytics?.sessions.total || 0}</p>
+                      <p className="text-sm text-muted-foreground">Content Experiences</p>
+                      <p className="text-2xl font-semibold" data-testid="text-content-experiences">{analytics?.sessions.total || 0}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -379,8 +379,8 @@ export default function Dashboard() {
                       <Mic className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Speakers</p>
-                      <p className="text-2xl font-semibold" data-testid="text-total-speakers">{analytics?.sessions.speakers || 0}</p>
+                      <p className="text-sm text-muted-foreground">Contributors</p>
+                      <p className="text-2xl font-semibold" data-testid="text-contributors">{analytics?.sessions.speakers || 0}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -392,7 +392,7 @@ export default function Dashboard() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-base">
                     <TrendingUp className="w-4 h-4" />
-                    Registration Trends
+                    Conversion Trends
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -408,7 +408,7 @@ export default function Dashboard() {
                     </ResponsiveContainer>
                   ) : (
                     <div className="h-[250px] flex items-center justify-center text-muted-foreground">
-                      No registration data available
+                      No conversion data available
                     </div>
                   )}
                 </CardContent>
@@ -418,7 +418,7 @@ export default function Dashboard() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-base">
                     <PieChart className="w-4 h-4" />
-                    Registration Status
+                    Audience Status
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -444,7 +444,7 @@ export default function Dashboard() {
                     </ResponsiveContainer>
                   ) : (
                     <div className="h-[250px] flex items-center justify-center text-muted-foreground">
-                      No status data available
+                      No audience data available
                     </div>
                   )}
                 </CardContent>
@@ -456,7 +456,7 @@ export default function Dashboard() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-base">
                     <DollarSign className="w-4 h-4" />
-                    Budget Overview
+                    Investment Health
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -484,7 +484,7 @@ export default function Dashboard() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-base">
                     <Target className="w-4 h-4" />
-                    Project Progress
+                    Execution Status
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">

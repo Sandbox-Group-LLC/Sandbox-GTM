@@ -51,6 +51,15 @@ import SponsorTasks from "@/pages/sponsor-tasks";
 import SponsorPortal from "@/pages/sponsor-portal";
 import Documents from "@/pages/documents";
 import SharedDocument from "@/pages/shared-document";
+import Acquisition from "@/pages/acquisition";
+import EngagementSignals from "@/pages/engagement-signals";
+import RevenueSnapshot from "@/pages/revenue-snapshot";
+import Pipeline from "@/pages/pipeline";
+import SalesHandoff from "@/pages/sales-handoff";
+import FollowUp from "@/pages/follow-up";
+import ROI from "@/pages/roi";
+import RunOfShow from "@/pages/run-of-show";
+import Vendors from "@/pages/vendors";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const sidebarStyle = {
@@ -153,6 +162,15 @@ function Router() {
         <Route path="/event/:slug/cfp" component={PublicCfp} />
         <Route path="/event/:slug" component={PublicEvent} />
         <Route path="/sponsor-portal" component={SponsorPortal} />
+        <Route path="/acquisition" component={Acquisition} />
+        <Route path="/engagement-signals" component={EngagementSignals} />
+        <Route path="/revenue-snapshot" component={RevenueSnapshot} />
+        <Route path="/pipeline" component={Pipeline} />
+        <Route path="/sales-handoff" component={SalesHandoff} />
+        <Route path="/follow-up" component={FollowUp} />
+        <Route path="/roi" component={ROI} />
+        <Route path="/run-of-show" component={RunOfShow} />
+        <Route path="/vendors" component={Vendors} />
         <Route component={NotFound} />
       </Switch>
     </AuthenticatedLayout>
