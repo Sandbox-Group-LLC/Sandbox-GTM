@@ -1081,6 +1081,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
     case "sponsors":
       const sponsorsDataSource = config.dataSource as string || "dynamic";
       const sponsorsDynamicFilters = config.dynamicFilters as { limit?: number; filterByTier?: string; sortOrder?: string } || {};
+      const sponsorCardColorMode = config.cardColorMode as string || "tier";
       const tierOrder: Record<string, number> = { gold: 0, silver: 1, bronze: 2 };
       const tierColors: Record<string, string> = {
         gold: "bg-yellow-100 dark:bg-yellow-900/30 border-yellow-400",
@@ -1120,11 +1121,19 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
           {heading && <h3 className="text-2xl font-semibold mb-6 text-center" style={headingStyles}>{heading}</h3>}
           {sortedSponsors.length > 0 ? (
             <div className={styles?.gridJustify === 'center' ? "flex flex-wrap justify-center gap-4" : "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"}>
-              {sortedSponsors.map((sponsor, idx) => (
+              {sortedSponsors.map((sponsor, idx) => {
+                const useThemeColors = sponsorCardColorMode === 'theme';
+                const cardClassName = useThemeColors 
+                  ? `p-4 border rounded-md flex flex-col items-center gap-2 ${styles?.gridJustify === 'center' ? "w-[calc(50%-0.5rem)] md:w-[calc(33.333%-0.75rem)] lg:w-[calc(25%-0.75rem)]" : ""}`
+                  : `p-4 border rounded-md flex flex-col items-center gap-2 ${tierColors[sponsor.tier] || "bg-muted"} ${styles?.gridJustify === 'center' ? "w-[calc(50%-0.5rem)] md:w-[calc(33.333%-0.75rem)] lg:w-[calc(25%-0.75rem)]" : ""}`;
+                const cardStyle: React.CSSProperties = useThemeColors 
+                  ? { borderRadius: themeRadius, backgroundColor: theme?.cardBackground || '#f9fafb', color: theme?.textColor || undefined }
+                  : { borderRadius: themeRadius };
+                return (
                 <div 
                   key={idx} 
-                  className={`p-4 border rounded-md flex flex-col items-center gap-2 ${tierColors[sponsor.tier] || "bg-muted"} ${styles?.gridJustify === 'center' ? "w-[calc(50%-0.5rem)] md:w-[calc(33.333%-0.75rem)] lg:w-[calc(25%-0.75rem)]" : ""}`}
-                  style={{ borderRadius: themeRadius }}
+                  className={cardClassName}
+                  style={cardStyle}
                   data-testid={`sponsor-item-${idx}`}
                 >
                   {sponsor.logoUrl ? (
@@ -1145,7 +1154,8 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
                     <span className="text-sm font-medium text-center" style={headingStyles}>{sponsor.name}</span>
                   )}
                 </div>
-              ))}
+              );
+              })}
             </div>
           ) : (
             <p className="text-center" style={secondaryTextStyles}>Sponsors will appear here</p>

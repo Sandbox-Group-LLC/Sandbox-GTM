@@ -2490,6 +2490,24 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId }: S
                 </p>
               </div>
             )}
+            <div className="space-y-2">
+              <Label>Card Color Mode</Label>
+              <Select
+                value={(config.cardColorMode as string) || "tier"}
+                onValueChange={(value) => updateConfig("cardColorMode", value)}
+              >
+                <SelectTrigger data-testid="select-sponsors-card-color-mode">
+                  <SelectValue placeholder="Select color mode" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="tier">Tier Colors (Gold/Silver/Bronze)</SelectItem>
+                  <SelectItem value="theme">Theme Colors (Use card background)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Choose whether sponsor cards use tier-based colors or inherit from your theme settings.
+              </p>
+            </div>
             {sponsorsDataSource === "manual" && (
               <div className="space-y-3">
                 <Label>Sponsors</Label>
