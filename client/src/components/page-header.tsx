@@ -19,9 +19,9 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, breadcrumbs = [], actions }: PageHeaderProps) {
   return (
-    <header className="flex h-14 items-center gap-4 border-b border-border px-4 shrink-0">
+    <header className="flex h-14 items-center gap-2 sm:gap-4 border-b border-border px-2 sm:px-4 shrink-0">
       <SidebarTrigger data-testid="button-sidebar-toggle" />
-      <Separator orientation="vertical" className="h-6" />
+      <Separator orientation="vertical" className="h-6 hidden sm:block" />
       
       <Breadcrumb className="hidden sm:flex">
         <BreadcrumbList>
@@ -47,7 +47,7 @@ export function PageHeader({ title, breadcrumbs = [], actions }: PageHeaderProps
       
       <CommandPaletteTrigger />
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 sm:gap-2">
         {actions}
         <ThemeToggle />
       </div>

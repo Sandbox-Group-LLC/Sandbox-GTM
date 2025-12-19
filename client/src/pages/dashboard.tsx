@@ -188,9 +188,9 @@ export default function Dashboard() {
         title="Dashboard" 
         breadcrumbs={[{ label: "Dashboard" }]}
         actions={
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <Select value={selectedEventId} onValueChange={setSelectedEventId}>
-              <SelectTrigger className="w-[200px]" data-testid="select-event-filter">
+              <SelectTrigger className="w-[120px] sm:w-[180px]" data-testid="select-event-filter">
                 <SelectValue placeholder="Filter by event" />
               </SelectTrigger>
               <SelectContent>
@@ -204,9 +204,9 @@ export default function Dashboard() {
             </Select>
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
-                <Button size="sm" data-testid="button-new-event">
-                  <Plus className="h-4 w-4 mr-2" />
-                  New Event
+                <Button size="icon" className="sm:w-auto sm:px-3" data-testid="button-new-event">
+                  <Plus className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">New Event</span>
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[500px]">
