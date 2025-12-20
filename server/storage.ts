@@ -185,7 +185,11 @@ import {
   type InsertDocumentComment,
   type DocumentApproval,
   type InsertDocumentApproval,
+  teamInvitations,
+  type TeamInvitation,
+  type InsertTeamInvitation,
 } from "@shared/schema";
+import crypto from "crypto";
 import { encrypt, decrypt } from "./encryption";
 import { db } from "./db";
 import { eq, desc, and, ilike, or, isNull, sql, count, inArray, gt } from "drizzle-orm";
@@ -204,6 +208,20 @@ export interface IStorage {
   addOrganizationMember(member: InsertOrganizationMember): Promise<OrganizationMember>;
   getAllOrganizationsWithStats(): Promise<Array<Organization & { memberCount: number; eventCount: number; attendeeCount: number }>>;
   deleteOrganization(id: string): Promise<void>;
+
+  // Organization Member operations
+  getOrganizationMembers(organizationId: string): Promise<Array<OrganizationMember & { user: User }>>;
+  getOrganizationMember(organizationId: string, userId: string): Promise<OrganizationMember | undefined>;
+  updateOrganizationMember(organizationId: string, userId: string, updates: Partial<InsertOrganizationMember>): Promise<OrganizationMember | undefined>;
+  removeOrganizationMember(organizationId: string, userId: string): Promise<void>;
+
+  // Team Invitation operations
+  createTeamInvitation(invitation: InsertTeamInvitation): Promise<TeamInvitation>;
+  getTeamInvitations(organizationId: string): Promise<TeamInvitation[]>;
+  getTeamInvitationByCode(inviteCode: string): Promise<TeamInvitation | undefined>;
+  updateTeamInvitation(id: string, updates: Partial<InsertTeamInvitation>): Promise<TeamInvitation | undefined>;
+  acceptTeamInvitation(inviteCode: string, userId: string): Promise<OrganizationMember | undefined>;
+  revokeTeamInvitation(organizationId: string, id: string): Promise<void>;
 
   // Event operations
   getEvents(organizationId: string): Promise<Event[]>;
@@ -790,6 +808,140 @@ export class DatabaseStorage implements IStorage {
     await db.delete(events).where(eq(events.organizationId, id));
     await db.delete(organizationMembers).where(eq(organizationMembers.organizationId, id));
     await db.delete(organizations).where(eq(organizations.id, id));
+  }
+
+  // Organization Member operations
+  async getOrganizationMembers(organizationId: string): Promise<Array<OrganizationMember & { user: User }>> {
+    const results = await db
+      .select({
+        id: organizationMembers.id,
+        organizationId: organizationMembers.organizationId,
+        userId: organizationMembers.userId,
+        role: organizationMembers.role,
+        permissions: organizationMembers.permissions,
+        invitedBy: organizationMembers.invitedBy,
+        createdAt: organizationMembers.createdAt,
+        updatedAt: organizationMembers.updatedAt,
+        user: users,
+      })
+      .from(organizationMembers)
+      .innerJoin(users, eq(organizationMembers.userId, users.id))
+      .where(eq(organizationMembers.organizationId, organizationId));
+    
+    return results.map(r => ({
+      id: r.id,
+      organizationId: r.organizationId,
+      userId: r.userId,
+      role: r.role,
+      permissions: r.permissions,
+      invitedBy: r.invitedBy,
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+      user: r.user,
+    }));
+  }
+
+  async getOrganizationMember(organizationId: string, userId: string): Promise<OrganizationMember | undefined> {
+    const [member] = await db.select().from(organizationMembers)
+      .where(and(eq(organizationMembers.organizationId, organizationId), eq(organizationMembers.userId, userId)));
+    return member;
+  }
+
+  async updateOrganizationMember(organizationId: string, userId: string, updates: Partial<InsertOrganizationMember>): Promise<OrganizationMember | undefined> {
+    const [updated] = await db
+      .update(organizationMembers)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(eq(organizationMembers.organizationId, organizationId), eq(organizationMembers.userId, userId)))
+      .returning();
+    return updated;
+  }
+
+  async removeOrganizationMember(organizationId: string, userId: string): Promise<void> {
+    await db.delete(organizationMembers)
+      .where(and(eq(organizationMembers.organizationId, organizationId), eq(organizationMembers.userId, userId)));
+  }
+
+  // Team Invitation operations
+  async createTeamInvitation(invitation: InsertTeamInvitation): Promise<TeamInvitation> {
+    const inviteCode = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+    
+    const [newInvitation] = await db.insert(teamInvitations).values({
+      ...invitation,
+      inviteCode,
+      expiresAt,
+    }).returning();
+    return newInvitation;
+  }
+
+  async getTeamInvitations(organizationId: string): Promise<TeamInvitation[]> {
+    return db.select().from(teamInvitations)
+      .where(eq(teamInvitations.organizationId, organizationId))
+      .orderBy(desc(teamInvitations.invitedAt));
+  }
+
+  async getTeamInvitationByCode(inviteCode: string): Promise<TeamInvitation | undefined> {
+    const [invitation] = await db.select().from(teamInvitations)
+      .where(eq(teamInvitations.inviteCode, inviteCode));
+    return invitation;
+  }
+
+  async updateTeamInvitation(id: string, updates: Partial<InsertTeamInvitation>): Promise<TeamInvitation | undefined> {
+    const [updated] = await db
+      .update(teamInvitations)
+      .set(updates)
+      .where(eq(teamInvitations.id, id))
+      .returning();
+    return updated;
+  }
+
+  async acceptTeamInvitation(inviteCode: string, userId: string): Promise<OrganizationMember | undefined> {
+    const invitation = await this.getTeamInvitationByCode(inviteCode);
+    
+    if (!invitation) {
+      return undefined;
+    }
+    
+    if (invitation.status !== 'pending') {
+      return undefined;
+    }
+    
+    if (invitation.expiresAt && new Date() > invitation.expiresAt) {
+      await db.update(teamInvitations)
+        .set({ status: 'expired' })
+        .where(eq(teamInvitations.id, invitation.id));
+      return undefined;
+    }
+    
+    const existingMember = await this.getOrganizationMember(invitation.organizationId, userId);
+    if (existingMember) {
+      return existingMember;
+    }
+    
+    const [newMember] = await db.insert(organizationMembers).values({
+      organizationId: invitation.organizationId,
+      userId: userId,
+      role: invitation.role,
+      permissions: invitation.permissions,
+      invitedBy: invitation.invitedBy,
+    }).returning();
+    
+    await db.update(teamInvitations)
+      .set({
+        status: 'accepted',
+        acceptedAt: new Date(),
+        acceptedBy: userId,
+      })
+      .where(eq(teamInvitations.id, invitation.id));
+    
+    return newMember;
+  }
+
+  async revokeTeamInvitation(organizationId: string, id: string): Promise<void> {
+    await db.update(teamInvitations)
+      .set({ status: 'revoked' })
+      .where(and(eq(teamInvitations.organizationId, organizationId), eq(teamInvitations.id, id)));
   }
 
   // Event operations
