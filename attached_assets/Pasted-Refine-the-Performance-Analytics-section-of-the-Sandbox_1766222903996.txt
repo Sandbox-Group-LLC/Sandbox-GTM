@@ -1,0 +1,154 @@
+Refine the Performance → Analytics section of the Sandbox app to eliminate perceived redundancy across the four analytics pages while preserving all existing pages, routes, and data sources. This update is a clarity and intent refinement, not a feature removal or rebuild.
+
+The goal is to ensure each analytics page answers one distinct GTM decision question, with no overlap in responsibility or metrics.
+
+Guardrails
+
+Do NOT remove any existing pages.
+
+Do NOT rename routes or break existing logic.
+
+Changes should be limited to metric placement, page intent, framing copy, and visual hierarchy.
+
+Each page should feel like a different altitude, not a duplicate dashboard.
+
+Page-by-Page Refinement Rules
+1. GTM Overview (Executive Summary Only)
+
+Purpose:
+Answer “Is this program working at a glance?”
+
+Changes:
+
+Treat this page as a pure executive summary.
+
+Show only rolled-up, directional indicators:
+
+Acquisition (high-level)
+
+Engagement (high-level)
+
+Revenue (high-level)
+
+Use scorecards, status indicators, or trend arrows only.
+
+Do NOT show:
+
+Funnels
+
+Detailed attribution
+
+Channel breakdowns
+
+Lists (hot leads, attendees, etc.)
+
+This page should summarize outcomes, not explain them.
+
+2. Acquisition Health (Top-of-Funnel Diagnostics)
+
+Purpose:
+Answer “Are we attracting the right audience from the right channels?”
+
+Changes:
+
+This page exclusively owns:
+
+Conversion rate
+
+Audience quality / ICP match
+
+Acquisition funnel
+
+Channel performance
+
+Source attribution
+
+Emphasize audience quality and efficiency, not volume.
+
+Do NOT show:
+
+Revenue numbers
+
+Pipeline metrics
+
+Engagement or intent scoring
+
+This page should feel like a demand-gen optimization workspace.
+
+3. Engagement Signals (Intent & Sales Readiness)
+
+Purpose:
+Answer “Who is showing buying intent, and how?”
+
+Changes:
+
+This page exclusively owns:
+
+Engagement rate
+
+Intent score
+
+Real-time activity
+
+High-intent audience lists (“Hot Leads”)
+
+Frame everything around behavioral signals and readiness.
+
+Do NOT show:
+
+ROI
+
+Cost metrics
+
+Channel acquisition data
+
+This page should feel sales-adjacent and people-centric, not aggregate.
+
+4. Revenue Snapshot (Outcome & Accountability Layer)
+
+Purpose:
+Answer “Did this program move pipeline or revenue?”
+
+Changes:
+
+Treat this as the verdict page.
+
+This page exclusively owns:
+
+Pipeline generated / influenced
+
+Revenue influenced
+
+Cost per lead / cost efficiency
+
+Velocity or time-to-close impact
+
+Do NOT show:
+
+Raw engagement metrics
+
+Attendance counts
+
+Session duration
+
+Channel acquisition details
+
+Optional refinement:
+
+Consider renaming this page to Revenue Impact to better reflect accountability and final outcomes.
+
+Global UX Refinements
+
+Add a one-line framing subtitle at the top of each page that states the decision it supports (e.g., “Are we attracting the right audience?”).
+
+Ensure no individual metric appears on more than one analytics page, except in summarized form on GTM Overview.
+
+Visually differentiate:
+
+GTM Overview = summary
+
+Acquisition Health = inputs
+
+Engagement Signals = behavior
+
+Revenue Snapshot = outcomes

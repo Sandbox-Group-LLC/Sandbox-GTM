@@ -1,14 +1,18 @@
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, TrendingUp, PieChart, Target, ArrowUpRight } from "lucide-react";
+import { DollarSign, TrendingUp, PieChart, Target } from "lucide-react";
 
 export default function RevenueSnapshot() {
   return (
     <div className="flex flex-col h-full">
-      <PageHeader title="Revenue Snapshot" />
+      <PageHeader 
+        title="Revenue Impact" 
+        breadcrumbs={[{ label: "Performance" }, { label: "Revenue Impact" }]}
+      />
 
       <div className="flex-1 overflow-auto p-6">
-        <p className="text-muted-foreground text-sm mb-4">High-level view of program revenue impact and attribution</p>
+        <p className="text-muted-foreground text-sm mb-6">Did this program move pipeline or revenue?</p>
+        
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
@@ -46,7 +50,7 @@ export default function RevenueSnapshot() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">ROI</CardTitle>
-              <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">--x</div>
