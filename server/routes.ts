@@ -51,6 +51,7 @@ import {
   insertBudgetCategorySchema,
   insertBudgetOffsetSchema,
   insertBudgetPaymentSchema,
+  insertVendorSchema,
   insertMilestoneSchema,
   insertDeliverableSchema,
   insertEmailCampaignSchema,
@@ -3903,6 +3904,74 @@ export async function registerRoutes(
     } catch (error) {
       logError("Error deleting budget payment:", error);
       res.status(500).json({ message: "Failed to delete budget payment" });
+    }
+  });
+
+  // Vendor routes
+  app.get("/api/vendors", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const vendors = await storage.getVendors(organizationId);
+      res.json(vendors);
+    } catch (error) {
+      logError("Error fetching vendors:", error);
+      res.status(500).json({ message: "Failed to fetch vendors" });
+    }
+  });
+
+  app.get("/api/vendors/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const vendor = await storage.getVendor(organizationId, req.params.id);
+      if (!vendor) {
+        return res.status(404).json({ message: "Vendor not found" });
+      }
+      res.json(vendor);
+    } catch (error) {
+      logError("Error fetching vendor:", error);
+      res.status(500).json({ message: "Failed to fetch vendor" });
+    }
+  });
+
+  app.post("/api/vendors", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const data = insertVendorSchema.parse({ ...req.body, organizationId });
+      const vendor = await storage.createVendor(data);
+      res.status(201).json(vendor);
+    } catch (error) {
+      logError("Error creating vendor:", error);
+      res.status(400).json({ message: "Invalid vendor data" });
+    }
+  });
+
+  app.patch("/api/vendors/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const vendor = await storage.updateVendor(organizationId, req.params.id, req.body);
+      if (!vendor) {
+        return res.status(404).json({ message: "Vendor not found" });
+      }
+      res.json(vendor);
+    } catch (error) {
+      logError("Error updating vendor:", error);
+      res.status(400).json({ message: "Failed to update vendor" });
+    }
+  });
+
+  app.delete("/api/vendors/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      await storage.deleteVendor(organizationId, req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting vendor:", error);
+      res.status(500).json({ message: "Failed to delete vendor" });
     }
   });
 
