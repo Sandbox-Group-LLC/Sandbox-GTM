@@ -1123,6 +1123,7 @@ export class DatabaseStorage implements IStorage {
     registrations: number;
     conversionRate: number;
     topSource: string | null;
+    channelBreakdown: Array<{ channel: string; visits: number }>;
   }> {
     // Get all activation links for this organization
     const links = await db.select().from(activationLinks)
@@ -1162,27 +1163,40 @@ export class DatabaseStorage implements IStorage {
     // Calculate conversion rate using only attributed registrations vs unique visitors
     const conversionRate = uniqueVisitors > 0 ? (attributedRegistrations / uniqueVisitors) * 100 : 0;
     
-    // Find top source (utm_source with most clicks)
-    let topSource: string | null = null;
+    // Build channel breakdown from activation link clicks grouped by utm_source
+    const channelGroups: Record<string, number> = {};
     if (links.length > 0) {
-      const sourceGroups = links.reduce((acc, link) => {
-        const source = link.utmSource || 'direct';
-        acc[source] = (acc[source] || 0) + (link.clickCount || 0);
-        return acc;
-      }, {} as Record<string, number>);
-      
-      const entries = Object.entries(sourceGroups);
-      if (entries.length > 0) {
-        entries.sort((a, b) => b[1] - a[1]);
-        topSource = entries[0][0];
+      for (const link of links) {
+        const channel = link.utmSource || 'Organic';
+        channelGroups[channel] = (channelGroups[channel] || 0) + (link.clickCount || 0);
       }
     }
+    
+    // Also count organic registrations (those without activation link attribution)
+    const organicAttendees = await db.select().from(attendees)
+      .where(and(
+        eq(attendees.organizationId, organizationId),
+        eq(attendees.registrationStatus, "confirmed"),
+        sql`${attendees.activationLinkId} IS NULL`
+      ));
+    if (organicAttendees.length > 0) {
+      channelGroups['Organic'] = (channelGroups['Organic'] || 0) + organicAttendees.length;
+    }
+    
+    // Convert to array and sort by visits descending
+    const channelBreakdown = Object.entries(channelGroups)
+      .map(([channel, visits]) => ({ channel, visits }))
+      .sort((a, b) => b.visits - a.visits);
+    
+    // Find top source (highest visits)
+    const topSource = channelBreakdown.length > 0 ? channelBreakdown[0].channel : null;
     
     return {
       uniqueVisitors,
       registrations,
       conversionRate: Math.round(conversionRate * 10) / 10, // Round to 1 decimal
       topSource,
+      channelBreakdown,
     };
   }
 

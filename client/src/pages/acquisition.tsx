@@ -3,12 +3,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { TrendingUp, Users, Target, BarChart3, Filter } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { titleCase } from "@/lib/utils";
 
 interface AcquisitionMetrics {
   uniqueVisitors: number;
   registrations: number;
   conversionRate: number;
   topSource: string | null;
+  channelBreakdown: Array<{ channel: string; visits: number }>;
 }
 
 export default function Acquisition() {
@@ -109,14 +112,52 @@ export default function Acquisition() {
           <Card>
             <CardHeader>
               <CardTitle>Channel Performance</CardTitle>
-              <CardDescription>Which channels drive the highest quality audience</CardDescription>
+              <CardDescription>Landing page visits by source (Organic = no tracking attribution)</CardDescription>
             </CardHeader>
-            <CardContent className="h-64 flex items-center justify-center text-muted-foreground">
-              <div className="text-center">
-                <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                <p>Channel breakdown coming soon</p>
-                <p className="text-sm mt-2">Email, social, paid, partner, and direct traffic</p>
-              </div>
+            <CardContent className="h-64">
+              {isLoading ? (
+                <div className="h-full flex items-center justify-center">
+                  <Skeleton className="h-48 w-full" />
+                </div>
+              ) : metrics?.channelBreakdown && metrics.channelBreakdown.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart 
+                    data={metrics.channelBreakdown.map(item => ({
+                      ...item,
+                      channel: titleCase(item.channel)
+                    }))} 
+                    layout="vertical" 
+                    margin={{ top: 5, right: 30, left: 60, bottom: 5 }}
+                  >
+                    <XAxis type="number" allowDecimals={false} />
+                    <YAxis type="category" dataKey="channel" width={80} />
+                    <Tooltip 
+                      formatter={(value: number) => [value, "Visits"]}
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--card))', 
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '6px'
+                      }}
+                    />
+                    <Bar dataKey="visits" radius={[0, 4, 4, 0]}>
+                      {metrics.channelBreakdown.map((_, index) => (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={index === 0 ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground) / 0.3)'} 
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-muted-foreground">
+                  <div className="text-center">
+                    <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                    <p>No channel data yet</p>
+                    <p className="text-sm mt-2">Create activation links to track channel performance</p>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
