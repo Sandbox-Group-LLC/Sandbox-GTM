@@ -61,6 +61,7 @@ export const organizations = pgTable("organizations", {
   paymentEnabled: boolean("payment_enabled").default(false),
   isArchived: boolean("is_archived").default(false),
   enableRevenueRoi: boolean("enable_revenue_roi").default(false),
+  customDomain: varchar("custom_domain", { length: 500 }), // Custom domain for generating links (e.g., www.example.com)
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

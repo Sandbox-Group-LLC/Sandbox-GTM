@@ -519,6 +519,38 @@ export async function registerRoutes(
     }
   });
 
+  // PATCH /api/organization/custom-domain - Update organization custom domain
+  app.patch('/api/organization/custom-domain', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      
+      const { customDomain } = req.body;
+      
+      // Validate domain format if provided
+      if (customDomain !== null && customDomain !== undefined && customDomain !== '') {
+        // Basic domain validation - should not contain protocol or paths
+        const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9-_.]*[a-zA-Z0-9]\.[a-zA-Z]{2,}$/;
+        if (!domainRegex.test(customDomain)) {
+          return res.status(400).json({ message: "Invalid domain format. Please enter a valid domain like www.example.com" });
+        }
+      }
+      
+      const updated = await storage.updateOrganization(organizationId, {
+        customDomain: customDomain || null,
+      });
+      
+      if (!updated) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+      
+      res.json(sanitizeOrganization(updated));
+    } catch (error) {
+      logError("Error updating custom domain:", error);
+      res.status(500).json({ message: "Failed to update custom domain" });
+    }
+  });
+
   // Team Member Management routes
 
   // Helper to check if user is organization owner
@@ -608,6 +640,7 @@ export async function registerRoutes(
         inviterName,
         inviteCode: invitation.inviteCode,
         permissions: validPermissions,
+        customDomain: organization?.customDomain || undefined,
       });
       
       if (!emailResult.success) {
@@ -690,6 +723,7 @@ export async function registerRoutes(
         inviterName,
         inviteCode: invitation.inviteCode,
         permissions: invitation.permissions as string[],
+        customDomain: organization?.customDomain || undefined,
       });
       
       if (!emailResult.success) {

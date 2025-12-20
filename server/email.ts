@@ -760,15 +760,17 @@ export async function sendTeamInvitationEmail(params: {
   inviterName: string;
   inviteCode: string;
   permissions: string[];
+  customDomain?: string; // Organization's custom domain for generating links
 }): Promise<{ success: boolean; error?: string }> {
-  const { email, organizationName, inviterName, inviteCode, permissions } = params;
+  const { email, organizationName, inviterName, inviteCode, permissions, customDomain } = params;
   
   if (!resend) {
     logWarn('Resend not configured - skipping team invitation email', 'Email');
     return { success: false, error: 'Email service not configured' };
   }
 
-  const baseUrl = getBaseUrl();
+  // Use custom domain if provided, otherwise fall back to default
+  const baseUrl = customDomain ? `https://${customDomain.replace(/^https?:\/\//, '')}` : getBaseUrl();
   const acceptUrl = `${baseUrl}/accept-invitation?code=${encodeURIComponent(inviteCode)}`;
 
   const permissionLabels: Record<string, string> = {

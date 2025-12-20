@@ -1,15 +1,58 @@
+import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { LogOut, User, Shield, Bell, Palette, FileText, Plug } from "lucide-react";
+import { LogOut, User, Shield, Bell, Palette, FileText, Plug, Building2, Globe, Loader2 } from "lucide-react";
 import { Link } from "wouter";
+import { useToast } from "@/hooks/use-toast";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import type { Organization } from "@shared/schema";
 
 export default function Settings() {
-  const { user } = useAuth();
+  const { user, organization } = useAuth();
+  const { toast } = useToast();
+  const [customDomain, setCustomDomain] = useState("");
+  const [isEditingDomain, setIsEditingDomain] = useState(false);
+
+  // Fetch current organization data
+  const { data: orgData } = useQuery<Organization>({
+    queryKey: ["/api/auth/organization"],
+  });
+
+  // Set custom domain when org data loads
+  useState(() => {
+    if (orgData?.customDomain) {
+      setCustomDomain(orgData.customDomain);
+    }
+  });
+
+  // Update organization custom domain mutation
+  const updateDomainMutation = useMutation({
+    mutationFn: async (domain: string) => {
+      return await apiRequest("PATCH", "/api/organization/custom-domain", { customDomain: domain || null });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/organization"] });
+      toast({
+        title: "Custom Domain Updated",
+        description: "Your organization's custom domain has been saved.",
+      });
+      setIsEditingDomain(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update custom domain",
+        variant: "destructive",
+      });
+    },
+  });
 
   const getInitials = () => {
     if (user?.firstName && user?.lastName) {
@@ -19,6 +62,20 @@ export default function Settings() {
       return user.email[0].toUpperCase();
     }
     return "U";
+  };
+
+  const handleSaveDomain = () => {
+    // Strip protocol if provided
+    let cleanDomain = customDomain.trim();
+    if (cleanDomain.startsWith("https://")) {
+      cleanDomain = cleanDomain.substring(8);
+    } else if (cleanDomain.startsWith("http://")) {
+      cleanDomain = cleanDomain.substring(7);
+    }
+    // Remove trailing slash
+    cleanDomain = cleanDomain.replace(/\/$/, "");
+    setCustomDomain(cleanDomain);
+    updateDomainMutation.mutate(cleanDomain);
   };
 
   return (
@@ -73,6 +130,87 @@ export default function Settings() {
                     </p>
                   </div>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Building2 className="h-5 w-5" />
+                Organization
+              </CardTitle>
+              <CardDescription>Configure your organization settings</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <p className="font-medium">Organization Name</p>
+                <p className="text-sm text-muted-foreground">{orgData?.name || organization?.name || "Not set"}</p>
+              </div>
+              
+              <Separator />
+              
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Globe className="h-4 w-4 text-muted-foreground" />
+                  <p className="font-medium">Custom Domain</p>
+                </div>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Set your custom domain for invitation links and public URLs (e.g., www.example.com)
+                </p>
+                
+                {isEditingDomain ? (
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="www.example.com"
+                      value={customDomain}
+                      onChange={(e) => setCustomDomain(e.target.value)}
+                      data-testid="input-custom-domain"
+                    />
+                    <Button
+                      onClick={handleSaveDomain}
+                      disabled={updateDomainMutation.isPending}
+                      data-testid="button-save-domain"
+                    >
+                      {updateDomainMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        "Save"
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setIsEditingDomain(false);
+                        setCustomDomain(orgData?.customDomain || "");
+                      }}
+                      data-testid="button-cancel-domain"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm">
+                      {orgData?.customDomain ? (
+                        <span className="font-mono bg-muted px-2 py-1 rounded">{orgData.customDomain}</span>
+                      ) : (
+                        <span className="text-muted-foreground">Not configured</span>
+                      )}
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setCustomDomain(orgData?.customDomain || "");
+                        setIsEditingDomain(true);
+                      }}
+                      data-testid="button-edit-domain"
+                    >
+                      {orgData?.customDomain ? "Edit" : "Configure"}
+                    </Button>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
