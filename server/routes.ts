@@ -31,7 +31,9 @@ async function verifyPassword(password: string, hash: string): Promise<boolean> 
   return timingSafeEqual(derivedKey, storedBuffer);
 }
 
-function isSuperAdmin(email: string | null | undefined): boolean {
+function isSuperAdmin(email: string | null | undefined, isAdmin?: boolean): boolean {
+  // Check if user has isAdmin flag set OR has @makemysandbox.com email
+  if (isAdmin === true) return true;
   return email?.toLowerCase().endsWith("@makemysandbox.com") ?? false;
 }
 import {
@@ -240,7 +242,7 @@ export async function registerRoutes(
       const user = await storage.getUser(userId);
       
       // Super admins bypass invite code requirement
-      if (isSuperAdmin(user?.email)) {
+      if (isSuperAdmin(user?.email, user?.isAdmin)) {
         return next();
       }
       
@@ -1745,8 +1747,8 @@ export async function registerRoutes(
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      const isSuperAdmin = user?.email?.toLowerCase().endsWith("@makemysandbox.com") ?? false;
-      if (!isSuperAdmin) {
+      const userIsSuperAdmin = isSuperAdmin(user?.email, user?.isAdmin);
+      if (!userIsSuperAdmin) {
         return res.status(403).json({ message: "Access denied. Admin privileges required." });
       }
       
@@ -1765,7 +1767,7 @@ export async function registerRoutes(
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      if (!isSuperAdmin(user?.email)) {
+      if (!isSuperAdmin(user?.email, user?.isAdmin)) {
         return res.status(403).json({ message: "Access denied. Admin privileges required." });
       }
       
@@ -1794,8 +1796,8 @@ export async function registerRoutes(
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      const isSuperAdmin = user?.email?.toLowerCase().endsWith("@makemysandbox.com") ?? false;
-      if (!isSuperAdmin) {
+      const userIsSuperAdmin = isSuperAdmin(user?.email, user?.isAdmin);
+      if (!userIsSuperAdmin) {
         return res.status(403).json({ message: "Access denied. Admin privileges required." });
       }
       
@@ -1813,8 +1815,8 @@ export async function registerRoutes(
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      const isSuperAdmin = user?.email?.toLowerCase().endsWith("@makemysandbox.com") ?? false;
-      if (!isSuperAdmin) {
+      const userIsSuperAdmin = isSuperAdmin(user?.email, user?.isAdmin);
+      if (!userIsSuperAdmin) {
         return res.status(403).json({ message: "Access denied. Admin privileges required." });
       }
       
@@ -1857,8 +1859,8 @@ export async function registerRoutes(
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      const isSuperAdmin = user?.email?.toLowerCase().endsWith("@makemysandbox.com") ?? false;
-      if (!isSuperAdmin) {
+      const userIsSuperAdmin = isSuperAdmin(user?.email, user?.isAdmin);
+      if (!userIsSuperAdmin) {
         return res.status(403).json({ message: "Access denied. Admin privileges required." });
       }
       
@@ -1884,8 +1886,8 @@ export async function registerRoutes(
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      const isSuperAdmin = user?.email?.toLowerCase().endsWith("@makemysandbox.com") ?? false;
-      if (!isSuperAdmin) {
+      const userIsSuperAdmin = isSuperAdmin(user?.email, user?.isAdmin);
+      if (!userIsSuperAdmin) {
         return res.status(403).json({ message: "Access denied. Admin privileges required." });
       }
       
@@ -1907,8 +1909,8 @@ export async function registerRoutes(
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      const isSuperAdmin = user?.email?.toLowerCase().endsWith("@makemysandbox.com") ?? false;
-      if (!isSuperAdmin) {
+      const userIsSuperAdmin = isSuperAdmin(user?.email, user?.isAdmin);
+      if (!userIsSuperAdmin) {
         return res.status(403).json({ message: "Access denied. Admin privileges required." });
       }
       
@@ -1943,7 +1945,7 @@ export async function registerRoutes(
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      const userIsSuperAdmin = isSuperAdmin(user?.email);
+      const userIsSuperAdmin = isSuperAdmin(user?.email, user?.isAdmin);
       
       if (userIsSuperAdmin) {
         return res.json({
@@ -1998,7 +2000,7 @@ export async function registerRoutes(
       await storage.redeemSignupInviteCode(code, userId, organizationId);
       
       const user = await storage.getUser(userId);
-      const userIsSuperAdmin = isSuperAdmin(user?.email);
+      const userIsSuperAdmin = isSuperAdmin(user?.email, user?.isAdmin);
       const redemptionData = await storage.getSignupRedemptionForUser(userId);
       
       if (redemptionData) {
