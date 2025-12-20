@@ -62,7 +62,7 @@ export default function Acquisition() {
           <Card>
             <CardHeader>
               <CardTitle>Acquisition Funnel</CardTitle>
-              <CardDescription>Track your audience journey from awareness to program conversion</CardDescription>
+              <CardDescription>Track your audience journey from awareness to registration conversion</CardDescription>
             </CardHeader>
             <CardContent className="h-64 flex items-center justify-center text-muted-foreground">
               <div className="text-center">
