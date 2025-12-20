@@ -44,7 +44,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { FEATURE_PERMISSIONS, type FeaturePermission } from "@shared/schema";
-import { Users, UserPlus, Mail, Trash2, Edit, Shield, Loader2 } from "lucide-react";
+import { Users, UserPlus, Mail, Trash2, Edit, Shield, Loader2, Send } from "lucide-react";
 
 interface Member {
   id: string;
@@ -547,6 +547,18 @@ function InvitationRow({ invitation, isOwner }: { invitation: Invitation; isOwne
     },
   });
 
+  const resendMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", `/api/organization/invitations/${invitation.id}/resend`);
+    },
+    onSuccess: () => {
+      toast({ title: "Email sent", description: "The invitation email has been resent." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "N/A";
     return new Date(dateStr).toLocaleDateString();
@@ -589,6 +601,20 @@ function InvitationRow({ invitation, isOwner }: { invitation: Invitation; isOwne
 
       {isOwner && (
         <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => resendMutation.mutate()}
+            disabled={resendMutation.isPending}
+            data-testid={`button-resend-invitation-${invitation.id}`}
+            title="Resend invitation email"
+          >
+            {resendMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+          </Button>
           <EditInvitationDialog invitation={invitation} onSuccess={() => {}} />
           <AlertDialog>
             <AlertDialogTrigger asChild>

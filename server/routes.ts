@@ -659,6 +659,50 @@ export async function registerRoutes(
     }
   });
 
+  // POST /api/organization/invitations/:id/resend - Resend invitation email
+  app.post('/api/organization/invitations/:id/resend', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const { id } = req.params;
+      
+      if (!await isOrganizationOwner(userId, organizationId)) {
+        return res.status(403).json({ message: "Only organization owners can resend invitations" });
+      }
+      
+      const invitations = await storage.getTeamInvitations(organizationId);
+      const invitation = invitations.find(i => i.id === id && i.status === 'pending');
+      
+      if (!invitation) {
+        return res.status(404).json({ message: "Pending invitation not found" });
+      }
+      
+      const user = await storage.getUser(userId);
+      const organization = await storage.getOrganization(organizationId);
+      const inviterName = user?.firstName && user?.lastName 
+        ? `${user.firstName} ${user.lastName}` 
+        : user?.email || 'A team member';
+      const organizationName = organization?.name || 'the organization';
+      
+      const emailResult = await sendTeamInvitationEmail({
+        email: invitation.email,
+        organizationName,
+        inviterName,
+        inviteCode: invitation.inviteCode,
+        permissions: invitation.permissions as string[],
+      });
+      
+      if (!emailResult.success) {
+        return res.status(500).json({ message: `Failed to resend email: ${emailResult.error}` });
+      }
+      
+      res.json({ message: "Invitation email resent successfully" });
+    } catch (error) {
+      logError("Error resending team invitation:", error);
+      res.status(500).json({ message: "Failed to resend invitation" });
+    }
+  });
+
   // PATCH /api/organization/invitations/:id - Update pending invitation permissions
   app.patch('/api/organization/invitations/:id', isAuthenticated, async (req: any, res) => {
     try {
