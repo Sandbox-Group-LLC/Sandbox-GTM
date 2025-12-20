@@ -65,13 +65,44 @@ export const organizations = pgTable("organizations", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Feature permission keys for team access control
+export const FEATURE_PERMISSIONS = [
+  'programs',      // Program Setup, Content
+  'performance',   // Analytics
+  'goToMarket',    // Audience, Campaigns
+  'engagement',    // Agenda
+  'execution',     // Run of Show, Deliverables, Vendors, Budget
+  'revenueRoi',    // Revenue & ROI (if enabled for org)
+] as const;
+
+export type FeaturePermission = typeof FEATURE_PERMISSIONS[number];
+
 // Organization Members table
 export const organizationMembers = pgTable("organization_members", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
   userId: varchar("user_id").references(() => users.id).notNull(),
-  role: varchar("role", { length: 50 }).default("member"),
+  role: varchar("role", { length: 50 }).default("member"), // 'owner' or 'member'
+  permissions: text("permissions").array(), // array of feature keys from FEATURE_PERMISSIONS
+  invitedBy: varchar("invited_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Team Invitations table - for pending invitations before user accepts
+export const teamInvitations = pgTable("team_invitations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  email: varchar("email", { length: 255 }).notNull(),
+  role: varchar("role", { length: 50 }).default("member"),
+  permissions: text("permissions").array(),
+  inviteCode: varchar("invite_code", { length: 64 }).unique().notNull(),
+  invitedBy: varchar("invited_by").references(() => users.id).notNull(),
+  status: varchar("status", { length: 20 }).default("pending"), // 'pending', 'accepted', 'expired', 'revoked'
+  expiresAt: timestamp("expires_at"),
+  invitedAt: timestamp("invited_at").defaultNow(),
+  acceptedAt: timestamp("accepted_at"),
+  acceptedBy: varchar("accepted_by").references(() => users.id),
 });
 
 // Social Media Credentials table - stores encrypted OAuth credentials per organization
@@ -1167,6 +1198,13 @@ export const organizationsRelations = relations(organizations, ({ many }) => ({
 export const organizationMembersRelations = relations(organizationMembers, ({ one }) => ({
   organization: one(organizations, { fields: [organizationMembers.organizationId], references: [organizations.id] }),
   user: one(users, { fields: [organizationMembers.userId], references: [users.id] }),
+  invitedByUser: one(users, { fields: [organizationMembers.invitedBy], references: [users.id] }),
+}));
+
+export const teamInvitationsRelations = relations(teamInvitations, ({ one }) => ({
+  organization: one(organizations, { fields: [teamInvitations.organizationId], references: [organizations.id] }),
+  invitedByUser: one(users, { fields: [teamInvitations.invitedBy], references: [users.id] }),
+  acceptedByUser: one(users, { fields: [teamInvitations.acceptedBy], references: [users.id] }),
 }));
 
 export const eventsRelations = relations(events, ({ one, many }) => ({
@@ -1498,7 +1536,8 @@ export const documentApprovalsRelations = relations(documentApprovals, ({ one })
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true, updatedAt: true });
 export const insertOrganizationSchema = createInsertSchema(organizations).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertOrganizationMemberSchema = createInsertSchema(organizationMembers).omit({ id: true, createdAt: true });
+export const insertOrganizationMemberSchema = createInsertSchema(organizationMembers).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertTeamInvitationSchema = createInsertSchema(teamInvitations).omit({ id: true, invitedAt: true, acceptedAt: true, acceptedBy: true });
 export const insertEventSchema = createInsertSchema(events).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertAttendeeSchema = createInsertSchema(attendees).omit({ id: true, createdAt: true, updatedAt: true }).extend({
   passwordHash: z.string().optional().nullable(),
@@ -1571,6 +1610,8 @@ export type InsertOrganization = z.infer<typeof insertOrganizationSchema>;
 export type Organization = typeof organizations.$inferSelect;
 export type InsertOrganizationMember = z.infer<typeof insertOrganizationMemberSchema>;
 export type OrganizationMember = typeof organizationMembers.$inferSelect;
+export type InsertTeamInvitation = z.infer<typeof insertTeamInvitationSchema>;
+export type TeamInvitation = typeof teamInvitations.$inferSelect;
 export type InsertEvent = z.infer<typeof insertEventSchema>;
 export type Event = typeof events.$inferSelect;
 export type InsertAttendee = z.infer<typeof insertAttendeeSchema>;
