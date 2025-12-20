@@ -637,6 +637,44 @@ export async function registerRoutes(
     }
   });
 
+  // PATCH /api/organization/invitations/:id - Update pending invitation permissions
+  app.patch('/api/organization/invitations/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const { id } = req.params;
+      const { permissions } = req.body;
+      
+      if (!await isOrganizationOwner(userId, organizationId)) {
+        return res.status(403).json({ message: "Only organization owners can update invitations" });
+      }
+      
+      if (!Array.isArray(permissions)) {
+        return res.status(400).json({ message: "Permissions must be an array" });
+      }
+      
+      const validPermissions = permissions.filter(p => FEATURE_PERMISSIONS.includes(p as any));
+      if (validPermissions.length !== permissions.length) {
+        return res.status(400).json({ 
+          message: "Invalid permissions. Valid values are: " + FEATURE_PERMISSIONS.join(', ')
+        });
+      }
+      
+      const updatedInvitation = await storage.updateTeamInvitation(id, {
+        permissions: validPermissions,
+      });
+      
+      if (!updatedInvitation) {
+        return res.status(404).json({ message: "Invitation not found" });
+      }
+      
+      res.json(updatedInvitation);
+    } catch (error) {
+      logError("Error updating invitation:", error);
+      res.status(500).json({ message: "Failed to update invitation" });
+    }
+  });
+
   // PATCH /api/organization/members/:userId - Update member permissions
   app.patch('/api/organization/members/:userId', isAuthenticated, async (req: any, res) => {
     try {

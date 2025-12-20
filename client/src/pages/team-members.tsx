@@ -456,6 +456,81 @@ function InviteMemberDialog({ isOwner }: { isOwner: boolean }) {
   );
 }
 
+function EditInvitationDialog({
+  invitation,
+  onSuccess,
+}: {
+  invitation: Invitation;
+  onSuccess: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [permissions, setPermissions] = useState<string[]>(invitation.permissions || []);
+  const { toast } = useToast();
+
+  const updateMutation = useMutation({
+    mutationFn: async (newPermissions: string[]) => {
+      return await apiRequest("PATCH", `/api/organization/invitations/${invitation.id}`, {
+        permissions: newPermissions,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/organization/invitations"] });
+      toast({ title: "Invitation updated", description: "Invitation permissions have been updated." });
+      setOpen(false);
+      onSuccess();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          data-testid={`button-edit-invitation-${invitation.id}`}
+        >
+          <Edit className="h-4 w-4" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit Invitation Permissions</DialogTitle>
+          <DialogDescription>
+            Update permissions for the invitation to {invitation.email}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="py-4">
+          <PermissionCheckboxList
+            value={permissions}
+            onChange={setPermissions}
+            disabled={updateMutation.isPending}
+          />
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => setOpen(false)}
+            data-testid="button-cancel-edit-invitation"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={() => updateMutation.mutate(permissions)}
+            disabled={updateMutation.isPending || permissions.length === 0}
+            data-testid="button-save-invitation"
+          >
+            {updateMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function InvitationRow({ invitation, isOwner }: { invitation: Invitation; isOwner: boolean }) {
   const { toast } = useToast();
 
@@ -513,35 +588,38 @@ function InvitationRow({ invitation, isOwner }: { invitation: Invitation; isOwne
       </div>
 
       {isOwner && (
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              data-testid={`button-revoke-invitation-${invitation.id}`}
-            >
-              <Trash2 className="h-4 w-4 text-destructive" />
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Revoke invitation?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This will revoke the invitation for {invitation.email}. They will no longer be able to join using this invitation.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel data-testid="button-cancel-revoke">Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() => revokeMutation.mutate()}
-                className="bg-destructive text-destructive-foreground"
-                data-testid="button-confirm-revoke"
+        <div className="flex items-center gap-1">
+          <EditInvitationDialog invitation={invitation} onSuccess={() => {}} />
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                data-testid={`button-revoke-invitation-${invitation.id}`}
               >
-                {revokeMutation.isPending ? "Revoking..." : "Revoke"}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Revoke invitation?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will revoke the invitation for {invitation.email}. They will no longer be able to join using this invitation.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel data-testid="button-cancel-revoke">Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => revokeMutation.mutate()}
+                  className="bg-destructive text-destructive-foreground"
+                  data-testid="button-confirm-revoke"
+                >
+                  {revokeMutation.isPending ? "Revoking..." : "Revoke"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       )}
     </div>
   );
