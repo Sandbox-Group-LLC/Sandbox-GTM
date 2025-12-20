@@ -12,7 +12,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Vendor, BudgetCategory } from "@shared/schema";
-import { titleCase } from "@/lib/titleCase";
+import { titleCase } from "@/lib/utils";
 
 export default function Vendors() {
   const { toast } = useToast();
