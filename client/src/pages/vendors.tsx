@@ -11,7 +11,7 @@ import { Truck, DollarSign, CheckCircle, Clock, Plus, Trash2 } from "lucide-reac
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Vendor, BudgetCategory, BudgetItem } from "@shared/schema";
+import type { Vendor, BudgetCategory, BudgetItem, Event } from "@shared/schema";
 import { titleCase } from "@/lib/utils";
 
 export default function Vendors() {
@@ -20,6 +20,7 @@ export default function Vendors() {
   const [newVendorName, setNewVendorName] = useState("");
   const [newVendorCategoryId, setNewVendorCategoryId] = useState("");
   const [newVendorCost, setNewVendorCost] = useState("");
+  const [newVendorEventId, setNewVendorEventId] = useState("");
 
   const { data: vendors = [], isLoading } = useQuery<Vendor[]>({
     queryKey: ["/api/vendors"],
@@ -33,16 +34,22 @@ export default function Vendors() {
     queryKey: ["/api/budget"],
   });
 
+  const { data: events = [] } = useQuery<Event[]>({
+    queryKey: ["/api/events"],
+  });
+
   const createVendorMutation = useMutation({
-    mutationFn: async (data: { name: string; categoryId?: string; cost?: string; contractStatus: string; approvalStatus: string }) => {
+    mutationFn: async (data: { name: string; categoryId?: string; eventId?: string; cost?: string; contractStatus: string; approvalStatus: string }) => {
       return apiRequest("POST", "/api/vendors", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/vendors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/budget"] });
       setIsAddDialogOpen(false);
       setNewVendorName("");
       setNewVendorCategoryId("");
       setNewVendorCost("");
+      setNewVendorEventId("");
       toast({ title: "Vendor added successfully" });
     },
     onError: () => {
@@ -51,11 +58,12 @@ export default function Vendors() {
   });
 
   const updateVendorMutation = useMutation({
-    mutationFn: async ({ id, ...data }: { id: string; contractStatus?: string; approvalStatus?: string }) => {
+    mutationFn: async ({ id, ...data }: { id: string; contractStatus?: string; approvalStatus?: string; eventId?: string }) => {
       return apiRequest("PATCH", `/api/vendors/${id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/vendors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/budget"] });
       toast({ title: "Vendor updated" });
     },
     onError: () => {
@@ -84,6 +92,7 @@ export default function Vendors() {
     createVendorMutation.mutate({
       name: newVendorName.trim(),
       categoryId: newVendorCategoryId || undefined,
+      eventId: newVendorEventId || undefined,
       cost: newVendorCost || "0",
       contractStatus: "active",
       approvalStatus: "pending",
@@ -94,6 +103,12 @@ export default function Vendors() {
     if (!categoryId) return "-";
     const category = categories.find((c) => c.id === categoryId);
     return category ? titleCase(category.name) : "-";
+  };
+
+  const getEventName = (eventId: string | null) => {
+    if (!eventId) return "-";
+    const event = events.find((e) => e.id === eventId);
+    return event ? event.name : "-";
   };
 
   const totalForecastCost = budgetItems.reduce((sum, item) => sum + parseFloat(item.forecastAmount || "0"), 0);
@@ -224,6 +239,22 @@ export default function Vendors() {
                       data-testid="input-vendor-cost"
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="vendorEvent">Event</Label>
+                    <Select value={newVendorEventId} onValueChange={setNewVendorEventId}>
+                      <SelectTrigger data-testid="select-vendor-event">
+                        <SelectValue placeholder="Select event (optional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {events.map((event) => (
+                          <SelectItem key={event.id} value={event.id}>
+                            {event.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">Assigns vendor to event and creates budget item</p>
+                  </div>
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
@@ -258,6 +289,7 @@ export default function Vendors() {
                     <tr className="border-b">
                       <th className="text-left py-3 px-2 font-medium text-sm">Vendor Name</th>
                       <th className="text-left py-3 px-2 font-medium text-sm">Category</th>
+                      <th className="text-left py-3 px-2 font-medium text-sm">Event</th>
                       <th className="text-left py-3 px-2 font-medium text-sm">Cost</th>
                       <th className="text-left py-3 px-2 font-medium text-sm">Contract Status</th>
                       <th className="text-left py-3 px-2 font-medium text-sm">Approval Status</th>
@@ -270,6 +302,27 @@ export default function Vendors() {
                         <td className="py-3 px-2 font-medium">{vendor.name}</td>
                         <td className="py-3 px-2">
                           <Badge variant="outline">{getCategoryName(vendor.categoryId)}</Badge>
+                        </td>
+                        <td className="py-3 px-2">
+                          <Select
+                            value={vendor.eventId || ""}
+                            onValueChange={(value) =>
+                              updateVendorMutation.mutate({ id: vendor.id, eventId: value })
+                            }
+                          >
+                            <SelectTrigger className="w-40" data-testid={`select-event-${vendor.id}`}>
+                              <SelectValue placeholder="Select event">
+                                {vendor.eventId ? getEventName(vendor.eventId) : "Select event"}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {events.map((event) => (
+                                <SelectItem key={event.id} value={event.id}>
+                                  {event.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </td>
                         <td className="py-3 px-2">
                           {vendor.cost ? `$${parseFloat(vendor.cost).toLocaleString()}` : "-"}
