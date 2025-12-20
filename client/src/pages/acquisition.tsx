@@ -41,7 +41,7 @@ export default function Acquisition() {
                     : "--%"}
                 </div>
               )}
-              <p className="text-xs text-muted-foreground">Page views to registrations</p>
+              <p className="text-xs text-muted-foreground">Tracked link clicks to registrations</p>
             </CardContent>
           </Card>
 
