@@ -143,6 +143,19 @@ export default function AdminOrganizations() {
     },
   });
 
+  const toggleRevenueRoiMutation = useMutation({
+    mutationFn: async ({ id, enabled }: { id: string; enabled: boolean }) => {
+      await apiRequest("PATCH", `/api/admin/organizations/${id}/revenue-roi`, { enabled });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/organizations"] });
+      toast({ title: "Revenue & ROI feature updated successfully" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to update Revenue & ROI feature", description: error.message, variant: "destructive" });
+    },
+  });
+
   const copyToClipboard = async (text: string) => {
     await navigator.clipboard.writeText(text);
     toast({ title: "Copied to clipboard" });
@@ -211,6 +224,20 @@ export default function AdminOrganizations() {
         <Badge variant="secondary" className="font-mono" data-testid={`badge-attendees-${org.id}`}>
           {org.attendeeCount}
         </Badge>
+      ),
+    },
+    {
+      key: "enableRevenueRoi",
+      header: "Revenue & ROI",
+      cell: (org: OrganizationWithStats) => (
+        <Switch
+          checked={org.enableRevenueRoi ?? false}
+          onCheckedChange={(checked) => {
+            toggleRevenueRoiMutation.mutate({ id: org.id, enabled: checked });
+          }}
+          disabled={toggleRevenueRoiMutation.isPending}
+          data-testid={`switch-revenue-roi-${org.id}`}
+        />
       ),
     },
     { 

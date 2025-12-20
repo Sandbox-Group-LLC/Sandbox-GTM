@@ -122,7 +122,7 @@ const myReviewsItems = [
 
 export function AppSidebar() {
   const [location] = useLocation();
-  const { user } = useAuth();
+  const { user, organization } = useAuth();
   const [wizardOpen, setWizardOpen] = useState(false);
 
   const isPerformanceActive = location === "/" || location === "/acquisition" || location === "/engagement-signals" || location === "/revenue-snapshot";
@@ -313,30 +313,32 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup>
-          <SidebarGroupLabel>Revenue & ROI</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {revenueSubItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location === item.path}
-                    data-testid={`nav-${item.title.toLowerCase().replace(/ /g, "-")}`}
-                  >
-                    <Link href={item.path}>
-                      {item.title === "Pipeline Influence" && <PieChart className="h-4 w-4" />}
-                      {item.title === "Sales Handoff" && <HandshakeIcon className="h-4 w-4" />}
-                      {item.title === "Follow-Up Performance" && <Send className="h-4 w-4" />}
-                      {item.title === "ROI Reporting" && <LineChart className="h-4 w-4" />}
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {organization?.enableRevenueRoi && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Revenue & ROI</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {revenueSubItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={location === item.path}
+                      data-testid={`nav-${item.title.toLowerCase().replace(/ /g, "-")}`}
+                    >
+                      <Link href={item.path}>
+                        {item.title === "Pipeline Influence" && <PieChart className="h-4 w-4" />}
+                        {item.title === "Sales Handoff" && <HandshakeIcon className="h-4 w-4" />}
+                        {item.title === "Follow-Up Performance" && <Send className="h-4 w-4" />}
+                        {item.title === "ROI Reporting" && <LineChart className="h-4 w-4" />}
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         <SidebarGroup>
           <SidebarGroupLabel>Execution</SidebarGroupLabel>
