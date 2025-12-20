@@ -2139,8 +2139,9 @@ export async function registerRoutes(
         });
       }
       
+      // Default: don't require invite code for regular users
       return res.json({
-        requiresInvite: true,
+        requiresInvite: false,
         userIsSuperAdmin: false,
       });
     } catch (error) {
