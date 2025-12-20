@@ -30,11 +30,8 @@ export default function Vendors() {
   });
 
   const createVendorMutation = useMutation({
-    mutationFn: async (data: { name: string; categoryId: string | null; cost: string | null; contractStatus: string; approvalStatus: string }) => {
-      return apiRequest("/api/vendors", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+    mutationFn: async (data: { name: string; categoryId?: string; cost?: string; contractStatus: string; approvalStatus: string }) => {
+      return apiRequest("POST", "/api/vendors", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/vendors"] });
@@ -51,10 +48,7 @@ export default function Vendors() {
 
   const updateVendorMutation = useMutation({
     mutationFn: async ({ id, ...data }: { id: string; contractStatus?: string; approvalStatus?: string }) => {
-      return apiRequest(`/api/vendors/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(data),
-      });
+      return apiRequest("PATCH", `/api/vendors/${id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/vendors"] });
@@ -67,7 +61,7 @@ export default function Vendors() {
 
   const deleteVendorMutation = useMutation({
     mutationFn: async (id: string) => {
-      return apiRequest(`/api/vendors/${id}`, { method: "DELETE" });
+      return apiRequest("DELETE", `/api/vendors/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/vendors"] });
@@ -85,7 +79,7 @@ export default function Vendors() {
     }
     createVendorMutation.mutate({
       name: newVendorName.trim(),
-      categoryId: newVendorCategoryId || null,
+      categoryId: newVendorCategoryId || undefined,
       cost: newVendorCost || "0",
       contractStatus: "active",
       approvalStatus: "pending",
@@ -278,14 +272,14 @@ export default function Vendors() {
                         </td>
                         <td className="py-3 px-2">
                           <Select
-                            value={vendor.contractStatus}
+                            value={vendor.contractStatus || "active"}
                             onValueChange={(value) =>
                               updateVendorMutation.mutate({ id: vendor.id, contractStatus: value })
                             }
                           >
                             <SelectTrigger className="w-32" data-testid={`select-contract-status-${vendor.id}`}>
-                              <Badge variant={getContractStatusVariant(vendor.contractStatus)}>
-                                {titleCase(vendor.contractStatus)}
+                              <Badge variant={getContractStatusVariant(vendor.contractStatus || "active")}>
+                                {titleCase(vendor.contractStatus || "active")}
                               </Badge>
                             </SelectTrigger>
                             <SelectContent>
@@ -296,14 +290,14 @@ export default function Vendors() {
                         </td>
                         <td className="py-3 px-2">
                           <Select
-                            value={vendor.approvalStatus}
+                            value={vendor.approvalStatus || "pending"}
                             onValueChange={(value) =>
                               updateVendorMutation.mutate({ id: vendor.id, approvalStatus: value })
                             }
                           >
                             <SelectTrigger className="w-32" data-testid={`select-approval-status-${vendor.id}`}>
-                              <Badge variant={getApprovalStatusVariant(vendor.approvalStatus)}>
-                                {titleCase(vendor.approvalStatus)}
+                              <Badge variant={getApprovalStatusVariant(vendor.approvalStatus || "pending")}>
+                                {titleCase(vendor.approvalStatus || "pending")}
                               </Badge>
                             </SelectTrigger>
                             <SelectContent>
