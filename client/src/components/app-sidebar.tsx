@@ -67,7 +67,7 @@ const performanceSubItems = [
   { title: "GTM Overview", path: "/" },
   { title: "Acquisition Health", path: "/acquisition" },
   { title: "Engagement Signals", path: "/engagement-signals" },
-  { title: "Revenue Snapshot", path: "/revenue-snapshot" },
+  { title: "Revenue Impact", path: "/revenue-snapshot" },
 ];
 
 const audienceSubItems = [
