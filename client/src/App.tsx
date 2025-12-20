@@ -61,6 +61,7 @@ import FollowUp from "@/pages/follow-up";
 import ROI from "@/pages/roi";
 import RunOfShow from "@/pages/run-of-show";
 import Vendors from "@/pages/vendors";
+import TeamMembers from "@/pages/team-members";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const sidebarStyle = {
@@ -156,6 +157,7 @@ function Router() {
         <Route path="/integrations" component={Integrations} />
         <Route path="/settings" component={Settings} />
         <Route path="/my-organization" component={MyOrganization} />
+        <Route path="/team-members" component={TeamMembers} />
         <Route path="/admin/organizations" component={AdminOrganizations} />
         <Route path="/privacy-policy" component={PrivacyPolicy} />
         <Route path="/event/:slug/register" component={PublicRegistration} />
