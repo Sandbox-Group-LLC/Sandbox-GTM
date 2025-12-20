@@ -1139,16 +1139,28 @@ export class DatabaseStorage implements IStorage {
       uniqueVisitors = clicksResult.filter(c => c.visitorHash).length;
     }
     
-    // Count confirmed registrations only
-    const attendeesList = await db.select().from(attendees)
+    // Count ALL confirmed registrations for display
+    const allConfirmedAttendees = await db.select().from(attendees)
       .where(and(
         eq(attendees.organizationId, organizationId),
         eq(attendees.registrationStatus, "confirmed")
       ));
-    const registrations = attendeesList.length;
+    const registrations = allConfirmedAttendees.length;
     
-    // Calculate conversion rate
-    const conversionRate = uniqueVisitors > 0 ? (registrations / uniqueVisitors) * 100 : 0;
+    // For conversion rate, only count registrations that came through activation links
+    let attributedRegistrations = 0;
+    if (linkIds.length > 0) {
+      const attributedAttendees = await db.select().from(attendees)
+        .where(and(
+          eq(attendees.organizationId, organizationId),
+          eq(attendees.registrationStatus, "confirmed"),
+          inArray(attendees.activationLinkId, linkIds)
+        ));
+      attributedRegistrations = attributedAttendees.length;
+    }
+    
+    // Calculate conversion rate using only attributed registrations vs unique visitors
+    const conversionRate = uniqueVisitors > 0 ? (attributedRegistrations / uniqueVisitors) * 100 : 0;
     
     // Find top source (utm_source with most clicks)
     let topSource: string | null = null;
