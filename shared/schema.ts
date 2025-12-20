@@ -744,6 +744,21 @@ export const budgetPayments = pgTable("budget_payments", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Vendors table - for managing vendor relationships and contracts
+export const vendors = pgTable("vendors", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  categoryId: varchar("category_id").references(() => budgetCategories.id),
+  description: text("description"),
+  cost: decimal("cost", { precision: 10, scale: 2 }).default("0"),
+  contractStatus: varchar("contract_status", { length: 50 }).default("active"), // 'active', 'inactive'
+  approvalStatus: varchar("approval_status", { length: 50 }).default("pending"), // 'pending', 'approved', 'denied'
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Timeline/Milestones table
 export const milestones = pgTable("milestones", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1496,6 +1511,7 @@ export const insertBudgetCategorySchema = createInsertSchema(budgetCategories).o
 export const insertBudgetOffsetSchema = createInsertSchema(budgetOffsets).omit({ id: true });
 export const insertEventBudgetSettingsSchema = createInsertSchema(eventBudgetSettings).omit({ id: true });
 export const insertBudgetPaymentSchema = createInsertSchema(budgetPayments).omit({ id: true, createdAt: true });
+export const insertVendorSchema = createInsertSchema(vendors).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertMilestoneSchema = createInsertSchema(milestones).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertDeliverableSchema = createInsertSchema(deliverables).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertEmailCampaignSchema = createInsertSchema(emailCampaigns).omit({ id: true, createdAt: true, updatedAt: true }).extend({
@@ -1578,6 +1594,8 @@ export type InsertEventBudgetSettings = z.infer<typeof insertEventBudgetSettings
 export type EventBudgetSettings = typeof eventBudgetSettings.$inferSelect;
 export type InsertBudgetPayment = z.infer<typeof insertBudgetPaymentSchema>;
 export type BudgetPayment = typeof budgetPayments.$inferSelect;
+export type InsertVendor = z.infer<typeof insertVendorSchema>;
+export type Vendor = typeof vendors.$inferSelect;
 export type InsertMilestone = z.infer<typeof insertMilestoneSchema>;
 export type Milestone = typeof milestones.$inferSelect;
 export type InsertDeliverable = z.infer<typeof insertDeliverableSchema>;
