@@ -558,30 +558,46 @@ export function AppSidebar() {
           </div>
         </div>
         <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              isActive={location === "/my-organization"}
-              data-testid="nav-my-organization"
-            >
-              <Link href="/my-organization">
-                <Building2 className="h-4 w-4" />
-                <span>My Organization</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              isActive={location === "/team-members"}
-              data-testid="nav-team-members"
-            >
-              <Link href="/team-members">
-                <Users className="h-4 w-4" />
-                <span>Team Members</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+          <Collapsible defaultOpen={location === "/my-organization" || location === "/team-members"} className="group/collapsible">
+            <SidebarMenuItem>
+              <CollapsibleTrigger asChild>
+                <SidebarMenuButton
+                  isActive={location === "/my-organization" || location === "/team-members"}
+                  data-testid="nav-my-organization"
+                >
+                  <Building2 className="h-4 w-4" />
+                  <span>My Organization</span>
+                  <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                </SidebarMenuButton>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <SidebarMenuSub>
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton
+                      asChild
+                      isActive={location === "/my-organization"}
+                      data-testid="nav-my-organization-details"
+                    >
+                      <Link href="/my-organization">
+                        <span>Organization Details</span>
+                      </Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton
+                      asChild
+                      isActive={location === "/team-members"}
+                      data-testid="nav-team-members"
+                    >
+                      <Link href="/team-members">
+                        <span>Team Members</span>
+                      </Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                </SidebarMenuSub>
+              </CollapsibleContent>
+            </SidebarMenuItem>
+          </Collapsible>
           <SidebarMenuItem>
             <SidebarMenuButton
               asChild

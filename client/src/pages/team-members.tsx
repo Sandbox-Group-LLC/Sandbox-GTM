@@ -670,7 +670,7 @@ export default function TeamMembers() {
       <PageHeader
         title="Team Members"
         breadcrumbs={[
-          { label: "Settings", href: "/settings" },
+          { label: "My Organization", href: "/my-organization" },
           { label: "Team Members" },
         ]}
         actions={<InviteMemberDialog isOwner={isOwner} />}
