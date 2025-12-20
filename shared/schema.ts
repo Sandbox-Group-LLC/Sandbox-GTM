@@ -301,6 +301,24 @@ export const activationLinkClicks = pgTable("activation_link_clicks", {
   index("IDX_activation_link_click_time").on(table.clickedAt),
 ]);
 
+// Page Views table - track real-time visitor activity on public pages
+export const pageViews = pgTable("page_views", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id).notNull(),
+  pageType: varchar("page_type", { length: 50 }).notNull(), // 'landing', 'registration', 'portal', 'agenda'
+  visitorHash: varchar("visitor_hash", { length: 64 }).notNull(),
+  viewedAt: timestamp("viewed_at").defaultNow(),
+}, (table) => [
+  index("IDX_page_view_org").on(table.organizationId),
+  index("IDX_page_view_event").on(table.eventId),
+  index("IDX_page_view_time").on(table.viewedAt),
+]);
+
+export const insertPageViewSchema = createInsertSchema(pageViews).omit({ id: true, viewedAt: true });
+export type InsertPageView = z.infer<typeof insertPageViewSchema>;
+export type PageView = typeof pageViews.$inferSelect;
+
 // Event Pages table - stores customizable page configurations for site builder
 export const eventPages = pgTable("event_pages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

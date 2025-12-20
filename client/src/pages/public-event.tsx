@@ -209,6 +209,7 @@ interface PublicEventData {
   sponsors: EventSponsor[];
   landingPage: EventPage | null;
   requirePassword?: boolean;
+  organizationId: string;
 }
 
 export default function PublicEvent() {
@@ -282,6 +283,32 @@ export default function PublicEvent() {
       const canonical = document.querySelector('link[rel="canonical"]');
       if (canonical) canonical.remove();
     };
+  }, [data]);
+
+  // Track page view for real-time activity monitoring
+  useEffect(() => {
+    if (!data?.event) return;
+    const { event, organizationId } = data;
+    
+    // Determine page type from URL path
+    const path = window.location.pathname;
+    let pageType = 'landing';
+    if (path.includes('/register')) pageType = 'registration';
+    else if (path.includes('/portal')) pageType = 'portal';
+    else if (path.includes('/agenda')) pageType = 'agenda';
+    
+    // Send page view tracking
+    fetch('/api/public/page-view', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        eventId: event.id,
+        pageType,
+        organizationId,
+      }),
+    }).catch(() => {
+      // Silently fail - tracking shouldn't break the page
+    });
   }, [data]);
 
   if (isLoading) {

@@ -189,6 +189,34 @@ export function registerPublicTrackingRoute(app: Express) {
       res.status(500).json({ message: "Failed to process link" });
     }
   });
+
+  // Record page view for real-time activity tracking
+  app.post("/api/public/page-view", async (req: any, res) => {
+    try {
+      const { eventId, pageType, organizationId } = req.body;
+      
+      if (!eventId || !pageType || !organizationId) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+      
+      // Create visitor hash from IP + User-Agent
+      const ip = req.headers["x-forwarded-for"] || req.connection?.remoteAddress || "";
+      const userAgent = req.headers["user-agent"] || "";
+      const visitorHash = createHash("sha256").update(`${ip}:${userAgent}`).digest("hex").substring(0, 32);
+      
+      await storage.createPageView({
+        organizationId,
+        eventId,
+        pageType,
+        visitorHash,
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      logError("Error recording page view:", error);
+      res.status(500).json({ message: "Failed to record page view" });
+    }
+  });
 }
 
 export async function registerRoutes(
@@ -1790,6 +1818,20 @@ export async function registerRoutes(
     } catch (error) {
       logError("Error fetching acquisition metrics:", error);
       res.status(500).json({ message: "Failed to fetch acquisition metrics" });
+    }
+  });
+
+  // Get active visitors for real-time activity dashboard
+  app.get("/api/analytics/active-visitors", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const minutesAgo = parseInt(req.query.minutes as string) || 5;
+      const activeVisitors = await storage.getActiveVisitors(organizationId, Math.min(minutesAgo, 30));
+      res.json(activeVisitors);
+    } catch (error) {
+      logError("Error fetching active visitors:", error);
+      res.status(500).json({ message: "Failed to fetch active visitors" });
     }
   });
 
@@ -4744,7 +4786,7 @@ ${urls.map(u => `  <url>
       
       logInfo(`[Public Event] Sessions: ${sessions.length}, Speakers: ${speakers.length}, Sponsors: ${sponsors.length}, Pages: ${pages.length}, Landing published: ${!!landingPage}`);
       
-      res.json({ event, sessions, speakers, sponsors, landingPage: landingPage || null, requirePassword });
+      res.json({ event, sessions, speakers, sponsors, landingPage: landingPage || null, requirePassword, organizationId: event.organizationId });
     } catch (error) {
       logError("[Public Event] Error fetching public event:", error);
       res.status(500).json({ message: "Failed to fetch event" });

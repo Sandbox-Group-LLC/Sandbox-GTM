@@ -1,8 +1,27 @@
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Activity, Zap, Flame } from "lucide-react";
+import { Activity, Zap, Flame, Users, RefreshCw } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { titleCase } from "@/lib/utils";
+
+interface ActiveVisitor {
+  eventId: string;
+  eventName: string;
+  pageType: string;
+  activeVisitors: number;
+}
 
 export default function EngagementSignals() {
+  const { data: activeVisitors, isLoading } = useQuery<ActiveVisitor[]>({
+    queryKey: ["/api/analytics/active-visitors"],
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  // Calculate total active visitors
+  const totalActiveVisitors = activeVisitors?.reduce((sum, v) => sum + v.activeVisitors, 0) || 0;
+
   return (
     <div className="flex flex-col h-full">
       <PageHeader 
@@ -69,15 +88,63 @@ export default function EngagementSignals() {
         <div className="grid gap-6 md:grid-cols-2">
           <Card>
             <CardHeader>
-              <CardTitle>Real-Time Activity</CardTitle>
-              <CardDescription>Live engagement across all active programs</CardDescription>
+              <CardTitle className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-2">
+                  Real-Time Activity
+                  {totalActiveVisitors > 0 && (
+                    <Badge variant="secondary" className="ml-2">
+                      {totalActiveVisitors} active
+                    </Badge>
+                  )}
+                </span>
+                <RefreshCw className="w-4 h-4 text-muted-foreground animate-spin" style={{ animationDuration: '3s' }} />
+              </CardTitle>
+              <CardDescription>Visitors on Program Hub pages in the last 5 minutes</CardDescription>
             </CardHeader>
-            <CardContent className="h-64 flex items-center justify-center text-muted-foreground">
-              <div className="text-center">
-                <Activity className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                <p>Live activity feed coming soon</p>
-                <p className="text-sm mt-2">Track audience behavior in real-time</p>
-              </div>
+            <CardContent className="h-64 overflow-auto">
+              {isLoading ? (
+                <div className="space-y-3">
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                </div>
+              ) : activeVisitors && activeVisitors.length > 0 ? (
+                <div className="space-y-2">
+                  {activeVisitors.map((visitor, index) => (
+                    <div 
+                      key={`${visitor.eventId}-${visitor.pageType}`}
+                      className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                      data-testid={`row-active-visitor-${index}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                        <div>
+                          <p className="font-medium text-sm" data-testid={`text-event-name-${index}`}>
+                            {visitor.eventName}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {titleCase(visitor.pageType)} page
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Users className="w-4 h-4 text-muted-foreground" />
+                        <span className="font-semibold" data-testid={`text-visitor-count-${index}`}>
+                          {visitor.activeVisitors}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="h-full flex items-center justify-center text-muted-foreground">
+                  <div className="text-center">
+                    <Activity className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                    <p>No active visitors right now</p>
+                    <p className="text-sm mt-2">Visitors will appear when they view your Program Hub pages</p>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 

@@ -54,6 +54,7 @@ import {
   documentApprovals,
   activationLinks,
   activationLinkClicks,
+  pageViews,
   type User,
   type UpsertUser,
   type Event,
@@ -72,6 +73,8 @@ import {
   type InsertActivationLink,
   type ActivationLinkClick,
   type InsertActivationLinkClick,
+  type InsertPageView,
+  type PageView,
   type Speaker,
   type InsertSpeaker,
   type EventSession,
@@ -261,12 +264,22 @@ export interface IStorage {
   createActivationLinkClick(click: InsertActivationLinkClick): Promise<ActivationLinkClick>;
   updateActivationLinkClickConversion(clickId: string, attendeeId: string): Promise<void>;
 
+  // Page View operations
+  createPageView(pageView: InsertPageView): Promise<PageView>;
+  getActiveVisitors(organizationId: string, minutesAgo?: number): Promise<Array<{
+    eventId: string;
+    eventName: string;
+    pageType: string;
+    activeVisitors: number;
+  }>>;
+
   // Acquisition Metrics operations
   getAcquisitionMetrics(organizationId: string): Promise<{
     uniqueVisitors: number;
     registrations: number;
     conversionRate: number;
     topSource: string | null;
+    channelBreakdown: Array<{ channel: string; visits: number }>;
   }>;
 
   // Speaker operations
@@ -1115,6 +1128,60 @@ export class DatabaseStorage implements IStorage {
     await db.update(activationLinkClicks)
       .set({ convertedToAttendeeId: attendeeId, convertedAt: new Date() })
       .where(eq(activationLinkClicks.id, clickId));
+  }
+
+  // Page View operations
+  async createPageView(pageView: InsertPageView): Promise<PageView> {
+    const [newView] = await db.insert(pageViews).values(pageView).returning();
+    return newView;
+  }
+
+  async getActiveVisitors(organizationId: string, minutesAgo: number = 5): Promise<Array<{
+    eventId: string;
+    eventName: string;
+    pageType: string;
+    activeVisitors: number;
+  }>> {
+    const cutoffTime = new Date(Date.now() - minutesAgo * 60 * 1000);
+    
+    // Get recent page views with unique visitor counts per event/pageType
+    const recentViews = await db.select({
+      eventId: pageViews.eventId,
+      pageType: pageViews.pageType,
+      visitorHash: pageViews.visitorHash,
+    })
+      .from(pageViews)
+      .where(and(
+        eq(pageViews.organizationId, organizationId),
+        sql`${pageViews.viewedAt} >= ${cutoffTime}`
+      ));
+    
+    // Group by event and pageType, count unique visitors
+    const visitorCounts: Record<string, { eventId: string; pageType: string; visitors: Set<string> }> = {};
+    for (const view of recentViews) {
+      const key = `${view.eventId}:${view.pageType}`;
+      if (!visitorCounts[key]) {
+        visitorCounts[key] = { eventId: view.eventId, pageType: view.pageType, visitors: new Set() };
+      }
+      visitorCounts[key].visitors.add(view.visitorHash);
+    }
+    
+    // Get event names
+    const eventIds = [...new Set(Object.values(visitorCounts).map(v => v.eventId))];
+    if (eventIds.length === 0) return [];
+    
+    const eventList = await db.select({ id: events.id, name: events.name })
+      .from(events)
+      .where(inArray(events.id, eventIds));
+    const eventMap = new Map(eventList.map(e => [e.id, e.name]));
+    
+    // Build result
+    return Object.values(visitorCounts).map(v => ({
+      eventId: v.eventId,
+      eventName: eventMap.get(v.eventId) || 'Unknown Event',
+      pageType: v.pageType,
+      activeVisitors: v.visitors.size,
+    })).sort((a, b) => b.activeVisitors - a.activeVisitors);
   }
 
   // Acquisition Metrics operations
