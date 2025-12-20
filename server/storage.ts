@@ -17,6 +17,7 @@ import {
   budgetOffsets,
   eventBudgetSettings,
   budgetPayments,
+  vendors,
   milestones,
   deliverables,
   emailCampaigns,
@@ -97,6 +98,8 @@ import {
   type InsertEventBudgetSettings,
   type BudgetPayment,
   type InsertBudgetPayment,
+  type Vendor,
+  type InsertVendor,
   type Milestone,
   type InsertMilestone,
   type Deliverable,
@@ -387,6 +390,13 @@ export interface IStorage {
   createBudgetPayment(payment: InsertBudgetPayment): Promise<BudgetPayment>;
   updateBudgetPayment(organizationId: string, id: string, payment: Partial<InsertBudgetPayment>): Promise<BudgetPayment | undefined>;
   deleteBudgetPayment(organizationId: string, id: string): Promise<void>;
+
+  // Vendor operations
+  getVendors(organizationId: string): Promise<Vendor[]>;
+  getVendor(organizationId: string, id: string): Promise<Vendor | undefined>;
+  createVendor(vendor: InsertVendor): Promise<Vendor>;
+  updateVendor(organizationId: string, id: string, vendor: Partial<InsertVendor>): Promise<Vendor | undefined>;
+  deleteVendor(organizationId: string, id: string): Promise<void>;
 
   // Milestone operations
   getMilestones(organizationId: string, eventId?: string): Promise<Milestone[]>;
@@ -2264,6 +2274,37 @@ export class DatabaseStorage implements IStorage {
 
   async deleteBudgetPayment(organizationId: string, id: string): Promise<void> {
     await db.delete(budgetPayments).where(and(eq(budgetPayments.organizationId, organizationId), eq(budgetPayments.id, id)));
+  }
+
+  // Vendor operations
+  async getVendors(organizationId: string): Promise<Vendor[]> {
+    return db.select().from(vendors)
+      .where(eq(vendors.organizationId, organizationId))
+      .orderBy(vendors.name);
+  }
+
+  async getVendor(organizationId: string, id: string): Promise<Vendor | undefined> {
+    const [vendor] = await db.select().from(vendors)
+      .where(and(eq(vendors.organizationId, organizationId), eq(vendors.id, id)));
+    return vendor;
+  }
+
+  async createVendor(vendor: InsertVendor): Promise<Vendor> {
+    const [newVendor] = await db.insert(vendors).values(vendor).returning();
+    return newVendor;
+  }
+
+  async updateVendor(organizationId: string, id: string, vendor: Partial<InsertVendor>): Promise<Vendor | undefined> {
+    const [updated] = await db
+      .update(vendors)
+      .set({ ...vendor, updatedAt: new Date() })
+      .where(and(eq(vendors.organizationId, organizationId), eq(vendors.id, id)))
+      .returning();
+    return updated;
+  }
+
+  async deleteVendor(organizationId: string, id: string): Promise<void> {
+    await db.delete(vendors).where(and(eq(vendors.organizationId, organizationId), eq(vendors.id, id)));
   }
 
   // CFP Config operations
