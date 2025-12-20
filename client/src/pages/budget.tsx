@@ -321,6 +321,7 @@ export default function Budget() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/budget", selectedEventId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/overview"] });
       toast({ title: "Budget item added" });
       setIsItemDialogOpen(false);
       itemForm.reset();
@@ -341,6 +342,7 @@ export default function Budget() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/budget", selectedEventId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/overview"] });
       toast({ title: "Budget item updated" });
       setIsItemDialogOpen(false);
       setEditingItem(null);
@@ -357,6 +359,7 @@ export default function Budget() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/budget", selectedEventId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/overview"] });
       toast({ title: "Budget item deleted" });
     },
   });
