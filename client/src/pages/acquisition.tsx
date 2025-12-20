@@ -9,7 +9,6 @@ export default function Acquisition() {
         title="Acquisition Health" 
         breadcrumbs={[{ label: "Performance" }, { label: "Acquisition Health" }]}
       />
-
       <div className="flex-1 overflow-auto p-6">
         <p className="text-muted-foreground text-sm mb-6">Are we attracting the right audience from the right channels?</p>
         
@@ -63,7 +62,7 @@ export default function Acquisition() {
           <Card>
             <CardHeader>
               <CardTitle>Acquisition Funnel</CardTitle>
-              <CardDescription>Track your audience journey from awareness to conversion</CardDescription>
+              <CardDescription>rack your audience journey from awareness to program conversion</CardDescription>
             </CardHeader>
             <CardContent className="h-64 flex items-center justify-center text-muted-foreground">
               <div className="text-center">
