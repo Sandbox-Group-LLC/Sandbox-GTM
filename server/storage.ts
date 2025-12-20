@@ -935,6 +935,26 @@ export class DatabaseStorage implements IStorage {
       })
       .where(eq(teamInvitations.id, invitation.id));
     
+    // Clean up auto-created default organization if user was its sole member
+    // This happens when a new user logs in before accepting their team invitation
+    const userMemberships = await this.getUserOrganizations(userId);
+    for (const membership of userMemberships) {
+      // Skip the organization they just joined
+      if (membership.organizationId === invitation.organizationId) {
+        continue;
+      }
+      
+      const org = await this.getOrganization(membership.organizationId);
+      // Only clean up default "My Organization" orgs where user is the sole owner
+      if (org && org.name === 'My Organization' && membership.role === 'owner') {
+        const orgMembers = await this.getOrganizationMembers(membership.organizationId);
+        // Only delete if user is the sole member
+        if (orgMembers.length === 1 && orgMembers[0].userId === userId) {
+          await this.deleteOrganization(membership.organizationId);
+        }
+      }
+    }
+    
     return newMember;
   }
 
