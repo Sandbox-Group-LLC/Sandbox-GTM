@@ -364,7 +364,7 @@ export default function Dashboard() {
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2 text-lg">
                     <DollarSign className="w-5 h-5 text-amber-500" />
-                    Investment to Date
+                    Program Spend
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
