@@ -750,6 +750,8 @@ export const vendors = pgTable("vendors", {
   organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
   name: varchar("name", { length: 255 }).notNull(),
   categoryId: varchar("category_id").references(() => budgetCategories.id),
+  eventId: varchar("event_id").references(() => events.id),
+  budgetItemId: varchar("budget_item_id").references(() => budgetItems.id),
   description: text("description"),
   cost: decimal("cost", { precision: 10, scale: 2 }).default("0"),
   contractStatus: varchar("contract_status", { length: 50 }).default("active"), // 'active', 'inactive'
