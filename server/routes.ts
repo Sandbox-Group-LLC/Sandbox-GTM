@@ -1457,6 +1457,36 @@ export async function registerRoutes(
     }
   });
 
+  // Toggle Revenue & ROI feature for an organization (super admin only)
+  app.patch("/api/admin/organizations/:id/revenue-roi", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!isSuperAdmin(user?.email)) {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+      
+      const { enabled } = req.body;
+      if (typeof enabled !== "boolean") {
+        return res.status(400).json({ message: "Invalid request body. 'enabled' must be a boolean." });
+      }
+      
+      const updated = await storage.updateOrganization(req.params.id, {
+        enableRevenueRoi: enabled
+      });
+      
+      if (!updated) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+      
+      res.json(sanitizeOrganization(updated));
+    } catch (error) {
+      logError("Error toggling revenue ROI feature:", error);
+      res.status(500).json({ message: "Failed to update organization" });
+    }
+  });
+
   app.delete("/api/organizations/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
