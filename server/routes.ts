@@ -5590,9 +5590,10 @@ ${urls.map(u => `  <url>
       const checkedInCount = attendees.filter(a => a.checkedIn).length;
       const checkInRate = attendees.length > 0 ? Math.round((checkedInCount / attendees.length) * 100) : 0;
 
-      // Budget metrics
+      // Budget metrics - use forecastAmount for committed spending (from approved vendors)
       const totalPlanned = budgetItems.reduce((sum, item) => sum + parseFloat(item.plannedAmount || "0"), 0);
-      const totalSpent = budgetItems.reduce((sum, item) => sum + parseFloat(item.actualAmount || "0"), 0);
+      const totalForecast = budgetItems.reduce((sum, item) => sum + parseFloat(item.forecastAmount || "0"), 0);
+      const totalSpent = totalForecast; // Program Spend shows committed/forecast amounts
       const budgetRemaining = totalPlanned - totalSpent;
 
       // Project progress
