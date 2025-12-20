@@ -741,6 +741,78 @@ export async function registerRoutes(
     }
   });
 
+  // GET /api/invitations/:code - Get invitation details by invite code (public route for acceptance page)
+  app.get('/api/invitations/:code', async (req, res) => {
+    try {
+      const { code } = req.params;
+      const invitation = await storage.getTeamInvitationByCode(code);
+      
+      if (!invitation) {
+        return res.status(404).json({ message: "Invitation not found" });
+      }
+      
+      if (invitation.status !== 'pending') {
+        return res.status(400).json({ message: `This invitation has already been ${invitation.status}` });
+      }
+      
+      if (invitation.expiresAt && new Date(invitation.expiresAt) < new Date()) {
+        return res.status(400).json({ message: "This invitation has expired" });
+      }
+      
+      // Get organization details
+      const organization = await storage.getOrganization(invitation.organizationId);
+      
+      res.json({
+        id: invitation.id,
+        email: invitation.email,
+        organizationName: organization?.name || 'Unknown Organization',
+        permissions: invitation.permissions,
+        expiresAt: invitation.expiresAt,
+      });
+    } catch (error) {
+      logError("Error fetching invitation by code:", error);
+      res.status(500).json({ message: "Failed to fetch invitation" });
+    }
+  });
+
+  // POST /api/invitations/accept - Accept a team invitation
+  app.post('/api/invitations/accept', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { code } = req.body;
+      
+      if (!code) {
+        return res.status(400).json({ message: "Invite code is required" });
+      }
+      
+      const invitation = await storage.getTeamInvitationByCode(code);
+      
+      if (!invitation) {
+        return res.status(404).json({ message: "Invitation not found" });
+      }
+      
+      if (invitation.status !== 'pending') {
+        return res.status(400).json({ message: `This invitation has already been ${invitation.status}` });
+      }
+      
+      if (invitation.expiresAt && new Date(invitation.expiresAt) < new Date()) {
+        return res.status(400).json({ message: "This invitation has expired" });
+      }
+      
+      // Accept the invitation
+      const member = await storage.acceptTeamInvitation(code, userId);
+      
+      if (!member) {
+        return res.status(500).json({ message: "Failed to accept invitation" });
+      }
+      
+      res.json({ message: "Invitation accepted successfully", member });
+    } catch (error) {
+      logError("Error accepting team invitation:", error);
+      res.status(500).json({ message: "Failed to accept invitation" });
+    }
+  });
+
   // PATCH /api/organization/members/:userId - Update member permissions
   app.patch('/api/organization/members/:userId', isAuthenticated, async (req: any, res) => {
     try {
