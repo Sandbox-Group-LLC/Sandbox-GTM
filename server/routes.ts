@@ -3940,7 +3940,38 @@ export async function registerRoutes(
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
       const data = insertVendorSchema.parse({ ...req.body, organizationId });
-      const vendor = await storage.createVendor(data);
+      
+      let budgetItemId: string | undefined;
+      
+      // If vendor is assigned to an event, create a budget item automatically
+      if (data.eventId) {
+        // Get the category name for the budget item
+        let categoryName = "Vendor Services";
+        if (data.categoryId) {
+          const category = await storage.getBudgetCategory(organizationId, data.categoryId);
+          if (category) {
+            categoryName = category.name;
+          }
+        }
+        
+        // Create budget item with vendor cost as estimate (forecast only set when approved)
+        const budgetItem = await storage.createBudgetItem({
+          organizationId,
+          eventId: data.eventId,
+          category: categoryName,
+          categoryId: data.categoryId || null,
+          description: `Vendor: ${data.name}`,
+          estimateAmount: data.cost || "0",
+          forecastAmount: data.approvalStatus === "approved" ? (data.cost || "0") : "0",
+          status: "pending",
+        });
+        budgetItemId = budgetItem.id;
+      }
+      
+      const vendor = await storage.createVendor({ 
+        ...data, 
+        budgetItemId: budgetItemId || null 
+      });
       res.status(201).json(vendor);
     } catch (error) {
       logError("Error creating vendor:", error);
@@ -3952,10 +3983,70 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId);
-      const vendor = await storage.updateVendor(organizationId, req.params.id, req.body);
-      if (!vendor) {
+      
+      // Get current vendor state before update
+      const existingVendor = await storage.getVendor(organizationId, req.params.id);
+      if (!existingVendor) {
         return res.status(404).json({ message: "Vendor not found" });
       }
+      
+      const updateData = { ...req.body };
+      const newEventId = updateData.eventId;
+      const newApprovalStatus = updateData.approvalStatus;
+      const newCost = updateData.cost;
+      
+      // Handle event assignment - create budget item if event is being set for the first time
+      if (newEventId && !existingVendor.eventId && !existingVendor.budgetItemId) {
+        // Get the category name for the budget item
+        let categoryName = "Vendor Services";
+        const categoryId = updateData.categoryId || existingVendor.categoryId;
+        if (categoryId) {
+          const category = await storage.getBudgetCategory(organizationId, categoryId);
+          if (category) {
+            categoryName = category.name;
+          }
+        }
+        
+        // Determine the cost to use
+        const costToUse = newCost || existingVendor.cost || "0";
+        const effectiveApprovalStatus = newApprovalStatus || existingVendor.approvalStatus;
+        
+        // Create budget item
+        const budgetItem = await storage.createBudgetItem({
+          organizationId,
+          eventId: newEventId,
+          category: categoryName,
+          categoryId: categoryId || null,
+          description: `Vendor: ${updateData.name || existingVendor.name}`,
+          estimateAmount: costToUse,
+          forecastAmount: effectiveApprovalStatus === "approved" ? costToUse : "0",
+          status: "pending",
+        });
+        updateData.budgetItemId = budgetItem.id;
+      }
+      
+      // Handle approval status change to "approved" - update forecast amount
+      if (newApprovalStatus === "approved" && existingVendor.approvalStatus !== "approved") {
+        const budgetItemId = updateData.budgetItemId || existingVendor.budgetItemId;
+        if (budgetItemId) {
+          const costToUse = newCost || existingVendor.cost || "0";
+          await storage.updateBudgetItem(organizationId, budgetItemId, {
+            forecastAmount: costToUse,
+          });
+        }
+      }
+      
+      // Handle cost change when already approved - update forecast amount
+      if (newCost && existingVendor.approvalStatus === "approved" && !newApprovalStatus) {
+        const budgetItemId = existingVendor.budgetItemId;
+        if (budgetItemId) {
+          await storage.updateBudgetItem(organizationId, budgetItemId, {
+            forecastAmount: newCost,
+          });
+        }
+      }
+      
+      const vendor = await storage.updateVendor(organizationId, req.params.id, updateData);
       res.json(vendor);
     } catch (error) {
       logError("Error updating vendor:", error);
