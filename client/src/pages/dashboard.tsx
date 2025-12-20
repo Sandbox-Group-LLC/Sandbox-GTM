@@ -383,15 +383,12 @@ export default function Dashboard() {
             </div>
 
             <Collapsible defaultOpen={false} className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium text-muted-foreground">Program Status</h3>
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" size="sm" data-testid="button-toggle-program-status">
-                    <span className="text-sm">Show Details</span>
-                    <ChevronDown className="h-4 w-4 ml-1 transition-transform duration-200 [&[data-state=open]>svg]:rotate-180" />
-                  </Button>
-                </CollapsibleTrigger>
-              </div>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground" data-testid="button-toggle-program-status">
+                  <span className="text-sm font-medium">Program Status</span>
+                  <ChevronDown className="h-4 w-4 transition-transform duration-200 data-[state=open]:rotate-180" />
+                </Button>
+              </CollapsibleTrigger>
               <CollapsibleContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <Card>
