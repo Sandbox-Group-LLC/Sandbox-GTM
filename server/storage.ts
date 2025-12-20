@@ -216,7 +216,7 @@ export interface IStorage {
   removeOrganizationMember(organizationId: string, userId: string): Promise<void>;
 
   // Team Invitation operations
-  createTeamInvitation(invitation: InsertTeamInvitation): Promise<TeamInvitation>;
+  createTeamInvitation(invitation: Omit<InsertTeamInvitation, 'inviteCode'>): Promise<TeamInvitation>;
   getTeamInvitations(organizationId: string): Promise<TeamInvitation[]>;
   getTeamInvitationByCode(inviteCode: string): Promise<TeamInvitation | undefined>;
   updateTeamInvitation(id: string, updates: Partial<InsertTeamInvitation>): Promise<TeamInvitation | undefined>;
@@ -862,7 +862,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Team Invitation operations
-  async createTeamInvitation(invitation: InsertTeamInvitation): Promise<TeamInvitation> {
+  async createTeamInvitation(invitation: Omit<InsertTeamInvitation, 'inviteCode'>): Promise<TeamInvitation> {
     const inviteCode = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);

@@ -81,6 +81,7 @@ import {
   emailPlatformConnections,
   emailPlatformAudiences,
   emailSyncJobs,
+  FEATURE_PERMISSIONS,
 } from "@shared/schema";
 import { createMailchimpProvider } from "./integrations/mailchimp";
 import { decrypt, encrypt } from "./encryption";
@@ -513,6 +514,269 @@ export async function registerRoutes(
     } catch (error) {
       logError("Error updating organization:", error);
       res.status(500).json({ message: "Failed to update organization" });
+    }
+  });
+
+  // Team Member Management routes
+
+  // Helper to check if user is organization owner
+  async function isOrganizationOwner(userId: string, organizationId: string): Promise<boolean> {
+    const member = await storage.getOrganizationMember(organizationId, userId);
+    return member?.role === 'owner';
+  }
+
+  // GET /api/organization/members - Get all members for the organization
+  app.get('/api/organization/members', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      
+      if (!await isOrganizationOwner(userId, organizationId)) {
+        return res.status(403).json({ message: "Only organization owners can view members" });
+      }
+      
+      const members = await storage.getOrganizationMembers(organizationId);
+      res.json(members);
+    } catch (error) {
+      logError("Error fetching organization members:", error);
+      res.status(500).json({ message: "Failed to fetch organization members" });
+    }
+  });
+
+  // POST /api/organization/invitations - Create a new team invitation
+  app.post('/api/organization/invitations', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      
+      if (!await isOrganizationOwner(userId, organizationId)) {
+        return res.status(403).json({ message: "Only organization owners can invite members" });
+      }
+      
+      const { email, permissions } = req.body;
+      
+      if (!email || typeof email !== 'string' || !email.includes('@')) {
+        return res.status(400).json({ message: "Valid email is required" });
+      }
+      
+      if (!Array.isArray(permissions)) {
+        return res.status(400).json({ message: "Permissions must be an array" });
+      }
+      
+      const validPermissions = permissions.filter(p => FEATURE_PERMISSIONS.includes(p as any));
+      if (validPermissions.length !== permissions.length) {
+        return res.status(400).json({ 
+          message: "Invalid permissions. Valid values are: " + FEATURE_PERMISSIONS.join(', ')
+        });
+      }
+      
+      const members = await storage.getOrganizationMembers(organizationId);
+      const existingMember = members.find(m => m.user.email?.toLowerCase() === email.toLowerCase());
+      if (existingMember) {
+        return res.status(400).json({ message: "This email is already a member of the organization" });
+      }
+      
+      const existingInvitations = await storage.getTeamInvitations(organizationId);
+      const pendingInvitation = existingInvitations.find(
+        i => i.email.toLowerCase() === email.toLowerCase() && i.status === 'pending'
+      );
+      if (pendingInvitation) {
+        return res.status(400).json({ message: "A pending invitation already exists for this email" });
+      }
+      
+      const invitation = await storage.createTeamInvitation({
+        organizationId,
+        email: email.toLowerCase(),
+        role: 'member',
+        permissions: validPermissions,
+        invitedBy: userId,
+      });
+      
+      res.status(201).json(invitation);
+    } catch (error) {
+      logError("Error creating team invitation:", error);
+      res.status(500).json({ message: "Failed to create invitation" });
+    }
+  });
+
+  // GET /api/organization/invitations - Get all pending invitations
+  app.get('/api/organization/invitations', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      
+      if (!await isOrganizationOwner(userId, organizationId)) {
+        return res.status(403).json({ message: "Only organization owners can view invitations" });
+      }
+      
+      const invitations = await storage.getTeamInvitations(organizationId);
+      const pendingInvitations = invitations.filter(i => i.status === 'pending');
+      res.json(pendingInvitations);
+    } catch (error) {
+      logError("Error fetching team invitations:", error);
+      res.status(500).json({ message: "Failed to fetch invitations" });
+    }
+  });
+
+  // DELETE /api/organization/invitations/:id - Revoke a pending invitation
+  app.delete('/api/organization/invitations/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const { id } = req.params;
+      
+      if (!await isOrganizationOwner(userId, organizationId)) {
+        return res.status(403).json({ message: "Only organization owners can revoke invitations" });
+      }
+      
+      await storage.revokeTeamInvitation(organizationId, id);
+      res.status(204).send();
+    } catch (error) {
+      logError("Error revoking team invitation:", error);
+      res.status(500).json({ message: "Failed to revoke invitation" });
+    }
+  });
+
+  // PATCH /api/organization/members/:userId - Update member permissions
+  app.patch('/api/organization/members/:userId', isAuthenticated, async (req: any, res) => {
+    try {
+      const currentUserId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(currentUserId);
+      const { userId: targetUserId } = req.params;
+      const { permissions } = req.body;
+      
+      if (!await isOrganizationOwner(currentUserId, organizationId)) {
+        return res.status(403).json({ message: "Only organization owners can update member permissions" });
+      }
+      
+      const targetMember = await storage.getOrganizationMember(organizationId, targetUserId);
+      if (!targetMember) {
+        return res.status(404).json({ message: "Member not found" });
+      }
+      
+      if (targetMember.role === 'owner') {
+        return res.status(400).json({ message: "Cannot update owner's permissions" });
+      }
+      
+      if (!Array.isArray(permissions)) {
+        return res.status(400).json({ message: "Permissions must be an array" });
+      }
+      
+      const validPermissions = permissions.filter(p => FEATURE_PERMISSIONS.includes(p as any));
+      if (validPermissions.length !== permissions.length) {
+        return res.status(400).json({ 
+          message: "Invalid permissions. Valid values are: " + FEATURE_PERMISSIONS.join(', ')
+        });
+      }
+      
+      const updatedMember = await storage.updateOrganizationMember(organizationId, targetUserId, {
+        permissions: validPermissions,
+      });
+      
+      if (!updatedMember) {
+        return res.status(404).json({ message: "Member not found" });
+      }
+      
+      res.json(updatedMember);
+    } catch (error) {
+      logError("Error updating member permissions:", error);
+      res.status(500).json({ message: "Failed to update member permissions" });
+    }
+  });
+
+  // DELETE /api/organization/members/:userId - Remove a member from organization
+  app.delete('/api/organization/members/:userId', isAuthenticated, async (req: any, res) => {
+    try {
+      const currentUserId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(currentUserId);
+      const { userId: targetUserId } = req.params;
+      
+      if (!await isOrganizationOwner(currentUserId, organizationId)) {
+        return res.status(403).json({ message: "Only organization owners can remove members" });
+      }
+      
+      const targetMember = await storage.getOrganizationMember(organizationId, targetUserId);
+      if (!targetMember) {
+        return res.status(404).json({ message: "Member not found" });
+      }
+      
+      if (targetMember.role === 'owner') {
+        return res.status(400).json({ message: "Cannot remove the organization owner" });
+      }
+      
+      await storage.removeOrganizationMember(organizationId, targetUserId);
+      res.status(204).send();
+    } catch (error) {
+      logError("Error removing member:", error);
+      res.status(500).json({ message: "Failed to remove member" });
+    }
+  });
+
+  // GET /api/team/invite/:inviteCode - Public route to get invitation details
+  app.get('/api/team/invite/:inviteCode', async (req: any, res) => {
+    try {
+      const { inviteCode } = req.params;
+      
+      const invitation = await storage.getTeamInvitationByCode(inviteCode);
+      
+      if (!invitation) {
+        return res.status(404).json({ message: "Invitation not found" });
+      }
+      
+      if (invitation.status !== 'pending') {
+        return res.status(404).json({ message: "Invitation is no longer valid" });
+      }
+      
+      if (invitation.expiresAt && new Date(invitation.expiresAt) < new Date()) {
+        return res.status(404).json({ message: "Invitation has expired" });
+      }
+      
+      const organization = await storage.getOrganization(invitation.organizationId);
+      const inviter = invitation.invitedBy ? await storage.getUser(invitation.invitedBy) : null;
+      
+      res.json({
+        email: invitation.email,
+        organizationName: organization?.name || 'Unknown Organization',
+        inviterName: inviter ? `${inviter.firstName || ''} ${inviter.lastName || ''}`.trim() || inviter.email : 'Unknown',
+        expiresAt: invitation.expiresAt,
+      });
+    } catch (error) {
+      logError("Error fetching invitation details:", error);
+      res.status(500).json({ message: "Failed to fetch invitation details" });
+    }
+  });
+
+  // POST /api/team/invite/:inviteCode/accept - Accept an invitation
+  app.post('/api/team/invite/:inviteCode/accept', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { inviteCode } = req.params;
+      
+      const invitation = await storage.getTeamInvitationByCode(inviteCode);
+      
+      if (!invitation) {
+        return res.status(404).json({ message: "Invitation not found" });
+      }
+      
+      if (invitation.status !== 'pending') {
+        return res.status(400).json({ message: "Invitation is no longer valid" });
+      }
+      
+      if (invitation.expiresAt && new Date(invitation.expiresAt) < new Date()) {
+        await storage.updateTeamInvitation(invitation.id, { status: 'expired' });
+        return res.status(400).json({ message: "Invitation has expired" });
+      }
+      
+      const newMember = await storage.acceptTeamInvitation(inviteCode, userId);
+      
+      if (!newMember) {
+        return res.status(400).json({ message: "Failed to accept invitation" });
+      }
+      
+      res.json(newMember);
+    } catch (error) {
+      logError("Error accepting invitation:", error);
+      res.status(500).json({ message: "Failed to accept invitation" });
     }
   });
 
