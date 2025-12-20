@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { PageHeader } from "@/components/page-header";
@@ -26,11 +26,11 @@ export default function Settings() {
   });
 
   // Set custom domain when org data loads
-  useState(() => {
+  useEffect(() => {
     if (orgData?.customDomain) {
       setCustomDomain(orgData.customDomain);
     }
-  });
+  }, [orgData?.customDomain]);
 
   // Update organization custom domain mutation
   const updateDomainMutation = useMutation({
