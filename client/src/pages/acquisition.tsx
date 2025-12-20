@@ -69,7 +69,7 @@ export default function Acquisition() {
                   {metrics?.registrations ?? "--"}
                 </div>
               )}
-              <p className="text-xs text-muted-foreground">Registered attendees</p>
+              <p className="text-xs text-muted-foreground">Confirmed registrations</p>
             </CardContent>
           </Card>
 

@@ -1139,9 +1139,12 @@ export class DatabaseStorage implements IStorage {
       uniqueVisitors = clicksResult.filter(c => c.visitorHash).length;
     }
     
-    // Count registrations (attendees for this organization)
+    // Count confirmed registrations only
     const attendeesList = await db.select().from(attendees)
-      .where(eq(attendees.organizationId, organizationId));
+      .where(and(
+        eq(attendees.organizationId, organizationId),
+        eq(attendees.registrationStatus, "confirmed")
+      ));
     const registrations = attendeesList.length;
     
     // Calculate conversion rate
