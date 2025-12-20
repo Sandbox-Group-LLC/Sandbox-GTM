@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { sendNewOrganizationAlert, sendCampaignEmails, sendTestEmail, validateTrackingToken, verifyResendWebhookSignature, isValidRedirectUrl, sendReviewerNotificationEmail, sendSubmissionAcceptanceEmail } from "./email";
+import { sendNewOrganizationAlert, sendCampaignEmails, sendTestEmail, validateTrackingToken, verifyResendWebhookSignature, isValidRedirectUrl, sendReviewerNotificationEmail, sendSubmissionAcceptanceEmail, sendTeamInvitationEmail } from "./email";
 import { createPaymentIntent, getPaymentIntent, calculateFinalPrice } from "./stripe";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
@@ -593,6 +593,26 @@ export async function registerRoutes(
         permissions: validPermissions,
         invitedBy: userId,
       });
+      
+      // Send invitation email
+      const user = await storage.getUser(userId);
+      const organization = await storage.getOrganization(organizationId);
+      const inviterName = user?.firstName && user?.lastName 
+        ? `${user.firstName} ${user.lastName}` 
+        : user?.email || 'A team member';
+      const organizationName = organization?.name || 'the organization';
+      
+      const emailResult = await sendTeamInvitationEmail({
+        email: email.toLowerCase(),
+        organizationName,
+        inviterName,
+        inviteCode: invitation.inviteCode,
+        permissions: validPermissions,
+      });
+      
+      if (!emailResult.success) {
+        logWarn(`Invitation created but email failed: ${emailResult.error}`, 'TeamInvitation');
+      }
       
       res.status(201).json(invitation);
     } catch (error) {
