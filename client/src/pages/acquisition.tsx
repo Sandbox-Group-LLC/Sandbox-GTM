@@ -127,23 +127,41 @@ export default function Acquisition() {
                       channel: titleCase(item.channel)
                     }))} 
                     layout="vertical" 
-                    margin={{ top: 5, right: 30, left: 60, bottom: 5 }}
+                    margin={{ top: 8, right: 24, left: 8, bottom: 8 }}
+                    barCategoryGap="20%"
                   >
-                    <XAxis type="number" allowDecimals={false} />
-                    <YAxis type="category" dataKey="channel" width={80} />
-                    <Tooltip 
-                      formatter={(value: number) => [value, "Visits"]}
-                      contentStyle={{ 
-                        backgroundColor: 'hsl(var(--card))', 
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '6px'
-                      }}
+                    <XAxis 
+                      type="number" 
+                      allowDecimals={false} 
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
                     />
-                    <Bar dataKey="visits" radius={[0, 4, 4, 0]}>
+                    <YAxis 
+                      type="category" 
+                      dataKey="channel" 
+                      width={72}
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 13, fill: 'hsl(var(--foreground))' }}
+                    />
+                    <Tooltip 
+                      formatter={(value: number) => [value.toLocaleString(), "Visits"]}
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--popover))', 
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                        padding: '8px 12px'
+                      }}
+                      labelStyle={{ fontWeight: 600, marginBottom: 4 }}
+                      cursor={{ fill: 'hsl(var(--muted) / 0.3)' }}
+                    />
+                    <Bar dataKey="visits" radius={[0, 6, 6, 0]} maxBarSize={32}>
                       {metrics.channelBreakdown.map((_, index) => (
                         <Cell 
                           key={`cell-${index}`} 
-                          fill={index === 0 ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground) / 0.3)'} 
+                          fill={index === 0 ? 'hsl(var(--primary))' : 'hsl(var(--primary) / 0.4)'} 
                         />
                       ))}
                     </Bar>
