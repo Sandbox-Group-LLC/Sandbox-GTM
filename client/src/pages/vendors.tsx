@@ -11,7 +11,7 @@ import { Truck, DollarSign, CheckCircle, Clock, Plus, Trash2 } from "lucide-reac
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Vendor, BudgetCategory } from "@shared/schema";
+import type { Vendor, BudgetCategory, BudgetItem } from "@shared/schema";
 import { titleCase } from "@/lib/utils";
 
 export default function Vendors() {
@@ -27,6 +27,10 @@ export default function Vendors() {
 
   const { data: categories = [] } = useQuery<BudgetCategory[]>({
     queryKey: ["/api/budget-categories"],
+  });
+
+  const { data: budgetItems = [] } = useQuery<BudgetItem[]>({
+    queryKey: ["/api/budget"],
   });
 
   const createVendorMutation = useMutation({
@@ -92,7 +96,7 @@ export default function Vendors() {
     return category ? titleCase(category.name) : "-";
   };
 
-  const totalSpend = vendors.reduce((sum, v) => sum + parseFloat(v.cost || "0"), 0);
+  const totalForecastCost = budgetItems.reduce((sum, item) => sum + parseFloat(item.forecastAmount || "0"), 0);
   const activeContracts = vendors.filter((v) => v.contractStatus === "active").length;
   const pendingApproval = vendors.filter((v) => v.approvalStatus === "pending").length;
 
@@ -136,9 +140,9 @@ export default function Vendors() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold" data-testid="text-total-spend">
-                ${totalSpend.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                ${totalForecastCost.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
               </div>
-              <p className="text-xs text-muted-foreground">Vendor costs</p>
+              <p className="text-xs text-muted-foreground">Total forecast cost</p>
             </CardContent>
           </Card>
 
