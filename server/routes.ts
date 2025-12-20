@@ -1780,6 +1780,19 @@ export async function registerRoutes(
     }
   });
 
+  // Acquisition metrics endpoint
+  app.get("/api/analytics/acquisition", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId);
+      const metrics = await storage.getAcquisitionMetrics(organizationId);
+      res.json(metrics);
+    } catch (error) {
+      logError("Error fetching acquisition metrics:", error);
+      res.status(500).json({ message: "Failed to fetch acquisition metrics" });
+    }
+  });
+
   // Attendee routes
   app.get("/api/attendees", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {

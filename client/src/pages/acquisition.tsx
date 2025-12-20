@@ -1,8 +1,21 @@
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, Users, Target, BarChart3, Filter } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Skeleton } from "@/components/ui/skeleton";
+
+interface AcquisitionMetrics {
+  uniqueVisitors: number;
+  registrations: number;
+  conversionRate: number;
+  topSource: string | null;
+}
 
 export default function Acquisition() {
+  const { data: metrics, isLoading } = useQuery<AcquisitionMetrics>({
+    queryKey: ["/api/analytics/acquisition"],
+  });
+
   return (
     <div className="flex flex-col h-full">
       <PageHeader 
@@ -19,7 +32,15 @@ export default function Acquisition() {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">--%</div>
+              {isLoading ? (
+                <Skeleton className="h-8 w-16" />
+              ) : (
+                <div className="text-2xl font-bold" data-testid="text-conversion-rate">
+                  {metrics?.uniqueVisitors && metrics.uniqueVisitors > 0 
+                    ? `${metrics.conversionRate}%` 
+                    : "--%"}
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">Page views to registrations</p>
             </CardContent>
           </Card>
@@ -41,7 +62,13 @@ export default function Acquisition() {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">--</div>
+              {isLoading ? (
+                <Skeleton className="h-8 w-16" />
+              ) : (
+                <div className="text-2xl font-bold" data-testid="text-qualified-audience">
+                  {metrics?.registrations ?? "--"}
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">Registered attendees</p>
             </CardContent>
           </Card>
@@ -52,7 +79,13 @@ export default function Acquisition() {
               <Filter className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">--</div>
+              {isLoading ? (
+                <Skeleton className="h-8 w-16" />
+              ) : (
+                <div className="text-2xl font-bold" data-testid="text-top-source">
+                  {metrics?.topSource || "--"}
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">Top performing channel</p>
             </CardContent>
           </Card>

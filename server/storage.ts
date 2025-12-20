@@ -261,6 +261,14 @@ export interface IStorage {
   createActivationLinkClick(click: InsertActivationLinkClick): Promise<ActivationLinkClick>;
   updateActivationLinkClickConversion(clickId: string, attendeeId: string): Promise<void>;
 
+  // Acquisition Metrics operations
+  getAcquisitionMetrics(organizationId: string): Promise<{
+    uniqueVisitors: number;
+    registrations: number;
+    conversionRate: number;
+    topSource: string | null;
+  }>;
+
   // Speaker operations
   getSpeakers(organizationId: string, eventId?: string): Promise<Speaker[]>;
   getSpeaker(organizationId: string, id: string): Promise<Speaker | undefined>;
@@ -1107,6 +1115,60 @@ export class DatabaseStorage implements IStorage {
     await db.update(activationLinkClicks)
       .set({ convertedToAttendeeId: attendeeId, convertedAt: new Date() })
       .where(eq(activationLinkClicks.id, clickId));
+  }
+
+  // Acquisition Metrics operations
+  async getAcquisitionMetrics(organizationId: string): Promise<{
+    uniqueVisitors: number;
+    registrations: number;
+    conversionRate: number;
+    topSource: string | null;
+  }> {
+    // Get all activation links for this organization
+    const links = await db.select().from(activationLinks)
+      .where(eq(activationLinks.organizationId, organizationId));
+    
+    const linkIds = links.map(l => l.id);
+    
+    // Count unique visitors (unique visitorHash from clicks)
+    let uniqueVisitors = 0;
+    if (linkIds.length > 0) {
+      const clicksResult = await db.selectDistinct({ visitorHash: activationLinkClicks.visitorHash })
+        .from(activationLinkClicks)
+        .where(inArray(activationLinkClicks.activationLinkId, linkIds));
+      uniqueVisitors = clicksResult.filter(c => c.visitorHash).length;
+    }
+    
+    // Count registrations (attendees for this organization)
+    const attendeesList = await db.select().from(attendees)
+      .where(eq(attendees.organizationId, organizationId));
+    const registrations = attendeesList.length;
+    
+    // Calculate conversion rate
+    const conversionRate = uniqueVisitors > 0 ? (registrations / uniqueVisitors) * 100 : 0;
+    
+    // Find top source (utm_source with most clicks)
+    let topSource: string | null = null;
+    if (links.length > 0) {
+      const sourceGroups = links.reduce((acc, link) => {
+        const source = link.utmSource || 'direct';
+        acc[source] = (acc[source] || 0) + (link.clickCount || 0);
+        return acc;
+      }, {} as Record<string, number>);
+      
+      const entries = Object.entries(sourceGroups);
+      if (entries.length > 0) {
+        entries.sort((a, b) => b[1] - a[1]);
+        topSource = entries[0][0];
+      }
+    }
+    
+    return {
+      uniqueVisitors,
+      registrations,
+      conversionRate: Math.round(conversionRate * 10) / 10, // Round to 1 decimal
+      topSource,
+    };
   }
 
   // Speaker operations
