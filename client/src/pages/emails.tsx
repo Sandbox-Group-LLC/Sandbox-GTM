@@ -1050,7 +1050,7 @@ export default function Emails() {
                                 rows={12}
                                 {...field}
                                 ref={templateContentRef}
-                                placeholder="Write your email template content here. Use merge tags like {{event.name}}, {{attendee.firstName}}..."
+                                placeholder="Write your email template content here. Use properties like {{event.name}}, {{attendee.firstName}}..."
                                 data-testid="input-template-content"
                                 className="flex-1"
                               />

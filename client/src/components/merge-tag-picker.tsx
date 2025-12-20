@@ -50,7 +50,7 @@ export function MergeTagPicker({ onInsert, categories, inputRef, value, onChange
           type="button"
           variant="ghost"
           size="icon"
-          title="Insert merge tag"
+          title="Insert Property"
           data-testid="button-merge-tag-picker"
         >
           <Code2 className="h-4 w-4" />
@@ -58,7 +58,7 @@ export function MergeTagPicker({ onInsert, categories, inputRef, value, onChange
       </PopoverTrigger>
       <PopoverContent className="w-72 p-0" align="end" side="bottom">
         <div className="p-3 border-b">
-          <h4 className="font-medium text-sm">Insert Merge Tag</h4>
+          <h4 className="font-medium text-sm">Insert Property</h4>
           <p className="text-xs text-muted-foreground mt-1">
             Click to insert at cursor
           </p>

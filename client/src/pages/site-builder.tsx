@@ -2403,7 +2403,7 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId }: S
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                Enter raw HTML code. Use merge tags to insert dynamic content.
+                Enter raw HTML code. Use properties to insert dynamic content.
               </p>
             </div>
           </>
