@@ -62,6 +62,7 @@ import ROI from "@/pages/roi";
 import RunOfShow from "@/pages/run-of-show";
 import Vendors from "@/pages/vendors";
 import TeamMembers from "@/pages/team-members";
+import AcceptInvitation from "@/pages/accept-invitation";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const sidebarStyle = {
@@ -106,6 +107,7 @@ function Router() {
         <Route path="/event/:slug" component={PublicEvent} />
         <Route path="/sponsor-portal" component={SponsorPortal} />
         <Route path="/documents/shared/:token" component={SharedDocument} />
+        <Route path="/accept-invitation" component={AcceptInvitation} />
         <Route component={Landing} />
       </Switch>
     );
@@ -166,6 +168,7 @@ function Router() {
         <Route path="/event/:slug/cfp" component={PublicCfp} />
         <Route path="/event/:slug" component={PublicEvent} />
         <Route path="/sponsor-portal" component={SponsorPortal} />
+        <Route path="/accept-invitation" component={AcceptInvitation} />
         <Route path="/acquisition" component={Acquisition} />
         <Route path="/engagement-signals" component={EngagementSignals} />
         <Route path="/revenue-snapshot" component={RevenueSnapshot} />
