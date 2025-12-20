@@ -40,8 +40,14 @@ import {
   Target,
   Mail,
   TrendingUp,
-  Plus
+  Plus,
+  ChevronDown
 } from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { insertEventSchema, type Event } from "@shared/schema";
@@ -312,18 +318,18 @@ export default function Dashboard() {
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Users className="w-4 h-4 text-blue-500" />
+              <Card className="border-2">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Users className="w-5 h-5 text-blue-500" />
                     Acquisition
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-3xl font-bold" data-testid="text-total-conversions">{analytics?.attendance.total || 0}</p>
-                      <p className="text-sm text-muted-foreground">Total conversions</p>
+                      <p className="text-4xl font-bold" data-testid="text-total-conversions">{analytics?.attendance.total || 0}</p>
+                      <p className="text-sm text-muted-foreground mt-1">Total conversions</p>
                     </div>
                     <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
                       <TrendingUp className="w-5 h-5" />
@@ -333,18 +339,18 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <UserCheck className="w-4 h-4 text-green-500" />
+              <Card className="border-2">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <UserCheck className="w-5 h-5 text-green-500" />
                     Engagement
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-3xl font-bold" data-testid="text-engagement-rate">{analytics?.attendance.checkInRate || 0}%</p>
-                      <p className="text-sm text-muted-foreground">Check-in rate</p>
+                      <p className="text-4xl font-bold" data-testid="text-engagement-rate">{analytics?.attendance.checkInRate || 0}%</p>
+                      <p className="text-sm text-muted-foreground mt-1">Check-in rate</p>
                     </div>
                     <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
                       <TrendingUp className="w-5 h-5" />
@@ -354,18 +360,18 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <DollarSign className="w-4 h-4 text-amber-500" />
+              <Card className="border-2">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <DollarSign className="w-5 h-5 text-amber-500" />
                     Revenue
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-3xl font-bold" data-testid="text-budget-spent">${analytics?.budget.totalSpent.toLocaleString() || 0}</p>
-                      <p className="text-sm text-muted-foreground">Investment to date</p>
+                      <p className="text-4xl font-bold" data-testid="text-budget-spent">${analytics?.budget.totalSpent.toLocaleString() || 0}</p>
+                      <p className="text-sm text-muted-foreground mt-1">Investment to date</p>
                     </div>
                     <div className="flex items-center gap-1 text-muted-foreground">
                       <Target className="w-5 h-5" />
@@ -376,56 +382,69 @@ export default function Dashboard() {
               </Card>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Calendar className="w-4 h-4" />
-                    Program Health
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between py-2 border-b">
-                    <span className="text-sm text-muted-foreground">Execution Progress</span>
-                    <div className="flex items-center gap-2">
-                      <Progress value={analytics?.project.projectProgress || 0} className="w-24" />
-                      <span className="text-sm font-medium" data-testid="text-project-progress">{analytics?.project.projectProgress || 0}%</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between py-2 border-b">
-                    <span className="text-sm text-muted-foreground">Deliverables Complete</span>
-                    <span className="text-sm font-medium">{analytics?.project.completedDeliverables || 0} / {analytics?.project.deliverables || 0}</span>
-                  </div>
-                  <div className="flex items-center justify-between py-2">
-                    <span className="text-sm text-muted-foreground">Content Experiences</span>
-                    <span className="text-sm font-medium" data-testid="text-content-experiences">{analytics?.sessions.total || 0}</span>
-                  </div>
-                </CardContent>
-              </Card>
+            <Collapsible defaultOpen={false} className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium text-muted-foreground">Program Status</h3>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" data-testid="button-toggle-program-status">
+                    <span className="text-sm">Show Details</span>
+                    <ChevronDown className="h-4 w-4 ml-1 transition-transform duration-200 [&[data-state=open]>svg]:rotate-180" />
+                  </Button>
+                </CollapsibleTrigger>
+              </div>
+              <CollapsibleContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        <Calendar className="w-4 h-4" />
+                        Program Health
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center justify-between py-2 border-b">
+                        <span className="text-sm text-muted-foreground">Execution Progress</span>
+                        <div className="flex items-center gap-2">
+                          <Progress value={analytics?.project.projectProgress || 0} className="w-24" />
+                          <span className="text-sm font-medium" data-testid="text-project-progress">{analytics?.project.projectProgress || 0}%</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between py-2 border-b">
+                        <span className="text-sm text-muted-foreground">Deliverables Complete</span>
+                        <span className="text-sm font-medium">{analytics?.project.completedDeliverables || 0} / {analytics?.project.deliverables || 0}</span>
+                      </div>
+                      <div className="flex items-center justify-between py-2">
+                        <span className="text-sm text-muted-foreground">Content Experiences</span>
+                        <span className="text-sm font-medium" data-testid="text-content-experiences">{analytics?.sessions.total || 0}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
 
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Mail className="w-4 h-4" />
-                    Outreach Status
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between py-2 border-b">
-                    <span className="text-sm text-muted-foreground">Email Campaigns</span>
-                    <span className="text-sm font-medium" data-testid="text-total-emails">{analytics?.marketing.totalEmails || 0} total</span>
-                  </div>
-                  <div className="flex items-center justify-between py-2 border-b">
-                    <span className="text-sm text-muted-foreground">Sent / Scheduled</span>
-                    <span className="text-sm font-medium">{analytics?.marketing.sentEmails || 0} / {analytics?.marketing.scheduledEmails || 0}</span>
-                  </div>
-                  <div className="flex items-center justify-between py-2">
-                    <span className="text-sm text-muted-foreground">Contributors</span>
-                    <span className="text-sm font-medium" data-testid="text-contributors">{analytics?.sessions.speakers || 0}</span>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        <Mail className="w-4 h-4" />
+                        Outreach Status
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center justify-between py-2 border-b">
+                        <span className="text-sm text-muted-foreground">Email Campaigns</span>
+                        <span className="text-sm font-medium" data-testid="text-total-emails">{analytics?.marketing.totalEmails || 0} total</span>
+                      </div>
+                      <div className="flex items-center justify-between py-2 border-b">
+                        <span className="text-sm text-muted-foreground">Sent / Scheduled</span>
+                        <span className="text-sm font-medium">{analytics?.marketing.sentEmails || 0} / {analytics?.marketing.scheduledEmails || 0}</span>
+                      </div>
+                      <div className="flex items-center justify-between py-2">
+                        <span className="text-sm text-muted-foreground">Contributors</span>
+                        <span className="text-sm font-medium" data-testid="text-contributors">{analytics?.sessions.speakers || 0}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
           </>
         )}
       </div>
