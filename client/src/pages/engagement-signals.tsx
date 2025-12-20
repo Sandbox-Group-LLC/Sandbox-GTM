@@ -1,6 +1,6 @@
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Activity, Zap, Users, Flame } from "lucide-react";
+import { Activity, Zap, Flame } from "lucide-react";
 
 export default function EngagementSignals() {
   return (
@@ -10,51 +10,58 @@ export default function EngagementSignals() {
         breadcrumbs={[{ label: "Performance" }, { label: "Engagement Signals" }]}
       />
 
-      <div className="flex-1 overflow-auto p-6">
-        <p className="text-muted-foreground text-sm mb-6">Who is showing buying intent, and how?</p>
+      <div className="flex-1 overflow-auto p-6 space-y-6">
+        <p className="text-muted-foreground text-sm">Who is showing buying intent, and how?</p>
         
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Engagement Rate</CardTitle>
-              <Activity className="h-4 w-4 text-muted-foreground" />
+        <div className="grid gap-6 md:grid-cols-3">
+          <Card className="border-2">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Activity className="w-5 h-5 text-blue-500" />
+                Engagement Rate
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">--%</div>
-              <p className="text-xs text-muted-foreground">Active participation level</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-4xl font-bold">--%</p>
+                  <p className="text-sm text-muted-foreground mt-1">Active participation level</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Intent Score</CardTitle>
-              <Zap className="h-4 w-4 text-muted-foreground" />
+          <Card className="border-2">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Zap className="w-5 h-5 text-amber-500" />
+                Intent Score
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">--</div>
-              <p className="text-xs text-muted-foreground">Behavioral signals</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-4xl font-bold">--</p>
+                  <p className="text-sm text-muted-foreground mt-1">Behavioral signals</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Hot Leads</CardTitle>
-              <Flame className="h-4 w-4 text-muted-foreground" />
+          <Card className="border-2">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Flame className="w-5 h-5 text-orange-500" />
+                Hot Leads
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">--</div>
-              <p className="text-xs text-muted-foreground">Sales-ready contacts</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Now</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">--</div>
-              <p className="text-xs text-muted-foreground">Real-time participants</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-4xl font-bold">--</p>
+                  <p className="text-sm text-muted-foreground mt-1">Sales-ready contacts</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
