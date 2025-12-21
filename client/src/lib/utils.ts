@@ -25,7 +25,21 @@ export function formatEventDate(
   if (!date) return "";
   
   try {
-    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    let dateObj: Date;
+    
+    if (typeof date === 'string') {
+      // Handle date-only strings (YYYY-MM-DD) by appending T00:00:00 to interpret as local time
+      // This prevents timezone offset issues where UTC midnight shows as previous day in negative offsets
+      const dateOnlyPattern = /^\d{4}-\d{2}-\d{2}$/;
+      if (dateOnlyPattern.test(date)) {
+        dateObj = new Date(`${date}T00:00:00`);
+      } else {
+        dateObj = new Date(date);
+      }
+    } else {
+      dateObj = date;
+    }
+    
     if (isNaN(dateObj.getTime())) return "";
     
     const options: Record<string, Intl.DateTimeFormatOptions> = {
