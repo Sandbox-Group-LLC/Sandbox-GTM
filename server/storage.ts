@@ -57,6 +57,7 @@ import {
   activationLinkClicks,
   pageViews,
   marketingLeads,
+  eventTranslations,
   type User,
   type UpsertUser,
   type Event,
@@ -197,6 +198,8 @@ import {
   type InsertCustomFontVariant,
   type MarketingLead,
   type InsertMarketingLead,
+  type EventTranslation,
+  type InsertEventTranslation,
 } from "@shared/schema";
 import crypto from "crypto";
 import { encrypt, decrypt } from "./encryption";
@@ -244,6 +247,12 @@ export interface IStorage {
   createEvent(event: InsertEvent): Promise<Event>;
   updateEvent(organizationId: string, id: string, event: Partial<InsertEvent>): Promise<Event | undefined>;
   deleteEvent(organizationId: string, id: string): Promise<void>;
+
+  // Event Translation operations
+  getEventTranslations(organizationId: string, eventId: string): Promise<EventTranslation[]>;
+  getEventTranslation(organizationId: string, eventId: string, languageCode: string): Promise<EventTranslation | undefined>;
+  upsertEventTranslation(translation: InsertEventTranslation): Promise<EventTranslation>;
+  deleteEventTranslation(organizationId: string, eventId: string, languageCode: string): Promise<void>;
 
   // Attendee operations
   getAttendees(organizationId: string, eventId?: string): Promise<Attendee[]>;
@@ -1098,9 +1107,56 @@ export class DatabaseStorage implements IStorage {
     await db.delete(emailTemplates).where(eq(emailTemplates.eventId, id));
     await db.delete(eventPages).where(eq(eventPages.eventId, id));
     await db.delete(registrationConfigs).where(eq(registrationConfigs.eventId, id));
+    await db.delete(eventTranslations).where(eq(eventTranslations.eventId, id));
     
     // Now delete the event itself
     await db.delete(events).where(and(eq(events.organizationId, organizationId), eq(events.id, id)));
+  }
+
+  // Event Translation operations
+  async getEventTranslations(organizationId: string, eventId: string): Promise<EventTranslation[]> {
+    return db.select().from(eventTranslations)
+      .where(and(
+        eq(eventTranslations.organizationId, organizationId),
+        eq(eventTranslations.eventId, eventId)
+      ))
+      .orderBy(eventTranslations.languageCode);
+  }
+
+  async getEventTranslation(organizationId: string, eventId: string, languageCode: string): Promise<EventTranslation | undefined> {
+    const [translation] = await db.select().from(eventTranslations)
+      .where(and(
+        eq(eventTranslations.organizationId, organizationId),
+        eq(eventTranslations.eventId, eventId),
+        eq(eventTranslations.languageCode, languageCode)
+      ));
+    return translation;
+  }
+
+  async upsertEventTranslation(translation: InsertEventTranslation): Promise<EventTranslation> {
+    const [result] = await db
+      .insert(eventTranslations)
+      .values(translation)
+      .onConflictDoUpdate({
+        target: [eventTranslations.eventId, eventTranslations.languageCode],
+        set: {
+          name: translation.name,
+          description: translation.description,
+          location: translation.location,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return result;
+  }
+
+  async deleteEventTranslation(organizationId: string, eventId: string, languageCode: string): Promise<void> {
+    await db.delete(eventTranslations)
+      .where(and(
+        eq(eventTranslations.organizationId, organizationId),
+        eq(eventTranslations.eventId, eventId),
+        eq(eventTranslations.languageCode, languageCode)
+      ));
   }
 
   // Attendee operations

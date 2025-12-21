@@ -3137,6 +3137,67 @@ export async function registerRoutes(
     }
   });
 
+  // Event Translations
+  app.get("/api/events/:eventId/translations", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { eventId } = req.params;
+      const translations = await storage.getEventTranslations(organizationId, eventId);
+      res.json(translations);
+    } catch (error) {
+      logError("Error fetching event translations:", error);
+      res.status(500).json({ message: "Failed to fetch event translations" });
+    }
+  });
+
+  app.get("/api/events/:eventId/translations/:lang", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { eventId, lang } = req.params;
+      const translation = await storage.getEventTranslation(organizationId, eventId, lang);
+      if (!translation) {
+        return res.status(404).json({ message: "Translation not found" });
+      }
+      res.json(translation);
+    } catch (error) {
+      logError("Error fetching event translation:", error);
+      res.status(500).json({ message: "Failed to fetch event translation" });
+    }
+  });
+
+  app.put("/api/events/:eventId/translations/:lang", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { eventId, lang } = req.params;
+      const translation = await storage.upsertEventTranslation({
+        organizationId,
+        eventId,
+        languageCode: lang,
+        ...req.body,
+      });
+      res.json(translation);
+    } catch (error) {
+      logError("Error upserting event translation:", error);
+      res.status(500).json({ message: "Failed to save event translation" });
+    }
+  });
+
+  app.delete("/api/events/:eventId/translations/:lang", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { eventId, lang } = req.params;
+      await storage.deleteEventTranslation(organizationId, eventId, lang);
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting event translation:", error);
+      res.status(500).json({ message: "Failed to delete event translation" });
+    }
+  });
+
   // Dashboard stats
   app.get("/api/dashboard/stats", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
