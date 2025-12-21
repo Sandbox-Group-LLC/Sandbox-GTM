@@ -277,26 +277,36 @@ export async function registerRoutes(
     }
     
     if (memberships.length > 0) {
-      // If user has multiple organizations, prefer ones where they were invited (member/admin)
-      // over ones they created themselves (owner)
-      if (memberships.length > 1) {
-        // First, try to find an org where user is NOT the owner (likely invited)
-        for (const membership of memberships) {
-          if (membership.role !== 'owner') {
-            logInfo(`Routing to invited org (non-owner): ${membership.organizationId}`, 'OrgRouting');
-            return membership.organizationId;
-          }
-        }
-        // If all are owner, prefer ones that aren't "My Organization"
-        for (const membership of memberships) {
-          const org = await storage.getOrganization(membership.organizationId);
-          if (org && org.name !== 'My Organization') {
-            logInfo(`Routing to named org: ${membership.organizationId} (${org.name})`, 'OrgRouting');
-            return membership.organizationId;
-          }
+      // Filter out archived organizations first
+      const activeMemberships = [];
+      for (const membership of memberships) {
+        const org = await storage.getOrganization(membership.organizationId);
+        if (org && !org.isArchived) {
+          activeMemberships.push({ membership, org });
         }
       }
-      return memberships[0].organizationId;
+      
+      if (activeMemberships.length > 0) {
+        // If user has multiple active organizations, prefer ones where they were invited (member/admin)
+        // over ones they created themselves (owner)
+        if (activeMemberships.length > 1) {
+          // First, try to find an org where user is NOT the owner (likely invited)
+          for (const { membership, org } of activeMemberships) {
+            if (membership.role !== 'owner') {
+              logInfo(`Routing to invited org (non-owner): ${membership.organizationId}`, 'OrgRouting');
+              return membership.organizationId;
+            }
+          }
+          // If all are owner, prefer ones that aren't "My Organization"
+          for (const { membership, org } of activeMemberships) {
+            if (org.name !== 'My Organization') {
+              logInfo(`Routing to named org: ${membership.organizationId} (${org.name})`, 'OrgRouting');
+              return membership.organizationId;
+            }
+          }
+        }
+        return activeMemberships[0].membership.organizationId;
+      }
     }
     // Create default org for user if none exists
     const org = await storage.createOrganization({
