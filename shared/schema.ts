@@ -1136,6 +1136,31 @@ export const passkeyReservations = pgTable("passkey_reservations", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Custom Fonts - Organization-scoped custom font families
+export const customFonts = pgTable("custom_fonts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  name: varchar("name", { length: 100 }).notNull(), // CSS font-family name (e.g., "intel-one")
+  displayName: varchar("display_name", { length: 255 }), // Human-readable name for UI
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("custom_fonts_org_name_idx").on(table.organizationId, table.name),
+]);
+
+// Custom Font Variants - Font file variants (weights/styles) for each font family
+export const customFontVariants = pgTable("custom_font_variants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customFontId: varchar("custom_font_id").references(() => customFonts.id).notNull(),
+  fileUrl: text("file_url").notNull(), // URL to the font file
+  format: varchar("format", { length: 20 }).notNull(), // "woff2", "woff", "truetype", "opentype"
+  weight: integer("weight").default(400), // 100-900
+  style: varchar("style", { length: 20 }).default("normal"), // "normal" or "italic"
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("custom_font_variants_font_idx").on(table.customFontId),
+]);
+
 // Document Folders - Organization-scoped folders for organizing documents
 export const documentFolders = pgTable("document_folders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1626,6 +1651,8 @@ export const insertDocumentShareSchema = createInsertSchema(documentShares).omit
 export const insertDocumentActivitySchema = createInsertSchema(documentActivity).omit({ id: true, createdAt: true });
 export const insertDocumentCommentSchema = createInsertSchema(documentComments).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertDocumentApprovalSchema = createInsertSchema(documentApprovals).omit({ id: true, createdAt: true });
+export const insertCustomFontSchema = createInsertSchema(customFonts).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertCustomFontVariantSchema = createInsertSchema(customFontVariants).omit({ id: true, createdAt: true });
 
 // Types
 export type UpsertUser = typeof users.$inferInsert;
@@ -1753,3 +1780,7 @@ export type InsertDocumentComment = z.infer<typeof insertDocumentCommentSchema>;
 export type DocumentComment = typeof documentComments.$inferSelect;
 export type InsertDocumentApproval = z.infer<typeof insertDocumentApprovalSchema>;
 export type DocumentApproval = typeof documentApprovals.$inferSelect;
+export type InsertCustomFont = z.infer<typeof insertCustomFontSchema>;
+export type CustomFont = typeof customFonts.$inferSelect;
+export type InsertCustomFontVariant = z.infer<typeof insertCustomFontVariantSchema>;
+export type CustomFontVariant = typeof customFontVariants.$inferSelect;
