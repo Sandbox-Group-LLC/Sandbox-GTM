@@ -421,28 +421,11 @@ export async function registerRoutes(
   app.get('/api/auth/organization', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const memberships = await storage.getUserOrganizations(userId);
-      if (memberships.length > 0) {
-        const org = await storage.getOrganization(memberships[0].organizationId);
-        res.json(sanitizeOrganization(org));
-      } else {
-        // Create default org for user if none exists
-        const org = await storage.createOrganization({
-          name: 'My Organization',
-          slug: `org-${userId.slice(0, 8)}-${Date.now()}`
-        });
-        await storage.addOrganizationMember({
-          organizationId: org.id,
-          userId: userId,
-          role: 'owner'
-        });
-        
-        // Send email alert for new organization
-        const user = await storage.getUser(userId);
-        sendNewOrganizationAlert(org.name, org.slug, user?.email || undefined);
-        
-        res.json(sanitizeOrganization(org));
-      }
+      // Use session-aware helper to respect preferred organization from invitation acceptance
+      const organizationId = await getOrganizationId(userId, req.session);
+      const org = await storage.getOrganization(organizationId);
+      logInfo(`GET /api/auth/organization: returning org ${organizationId} for user ${userId}`, 'OrgRouting');
+      res.json(sanitizeOrganization(org));
     } catch (error) {
       logError("Error fetching organization:", error);
       res.status(500).json({ message: "Failed to fetch organization" });
