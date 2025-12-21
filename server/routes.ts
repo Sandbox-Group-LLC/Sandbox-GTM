@@ -308,7 +308,20 @@ export async function registerRoutes(
         return activeMemberships[0].membership.organizationId;
       }
     }
-    // Create default org for user if none exists
+    // Before creating a default org, check if user has pending invitations
+    // If they do, don't auto-create - they should accept their invitation first
+    const user = await storage.getUser(userId);
+    if (user?.email) {
+      const pendingInvitations = await storage.getTeamInvitationsForEmail(user.email);
+      if (pendingInvitations && pendingInvitations.length > 0) {
+        logInfo(`User ${userId} has ${pendingInvitations.length} pending invitation(s) - skipping auto org creation`, 'OrgRouting');
+        // Return the organization from the first pending invitation
+        // This allows them to see the invitation page properly
+        return pendingInvitations[0].organizationId;
+      }
+    }
+    
+    // Create default org for user if none exists AND no pending invitations
     const org = await storage.createOrganization({
       name: 'My Organization',
       slug: `org-${userId.slice(0, 8)}-${Date.now()}`
@@ -320,7 +333,6 @@ export async function registerRoutes(
     });
     
     // Send email alert for new organization
-    const user = await storage.getUser(userId);
     sendNewOrganizationAlert(org.name, org.slug, user?.email || undefined);
     
     return org.id;

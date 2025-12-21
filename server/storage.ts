@@ -218,6 +218,7 @@ export interface IStorage {
   // Team Invitation operations
   createTeamInvitation(invitation: Omit<InsertTeamInvitation, 'inviteCode'>): Promise<TeamInvitation>;
   getTeamInvitations(organizationId: string): Promise<TeamInvitation[]>;
+  getTeamInvitationsForEmail(email: string): Promise<TeamInvitation[]>;
   getTeamInvitationByCode(inviteCode: string): Promise<TeamInvitation | undefined>;
   updateTeamInvitation(id: string, updates: Partial<InsertTeamInvitation>): Promise<TeamInvitation | undefined>;
   acceptTeamInvitation(inviteCode: string, userId: string): Promise<OrganizationMember | undefined>;
@@ -878,6 +879,15 @@ export class DatabaseStorage implements IStorage {
   async getTeamInvitations(organizationId: string): Promise<TeamInvitation[]> {
     return db.select().from(teamInvitations)
       .where(eq(teamInvitations.organizationId, organizationId))
+      .orderBy(desc(teamInvitations.invitedAt));
+  }
+
+  async getTeamInvitationsForEmail(email: string): Promise<TeamInvitation[]> {
+    return db.select().from(teamInvitations)
+      .where(and(
+        eq(teamInvitations.email, email),
+        eq(teamInvitations.status, 'pending')
+      ))
       .orderBy(desc(teamInvitations.invitedAt));
   }
 
