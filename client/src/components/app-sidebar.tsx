@@ -122,7 +122,7 @@ const myReviewsItems = [
 
 export function AppSidebar() {
   const [location] = useLocation();
-  const { user, organization } = useAuth();
+  const { user, organization, hasPermission, isOwner } = useAuth();
   const [wizardOpen, setWizardOpen] = useState(false);
 
   const isPerformanceActive = location === "/" || location === "/acquisition" || location === "/engagement-signals" || location === "/revenue-snapshot";
@@ -134,6 +134,14 @@ export function AppSidebar() {
   const isContentActive = location === "/content" || location === "/documents" || location === "/call-for-papers";
   
   const isSuperAdmin = user?.email?.toLowerCase().endsWith("@makemysandbox.com") ?? false;
+  
+  // Permission checks for each section
+  const canViewPrograms = hasPermission('programs');
+  const canViewPerformance = hasPermission('performance');
+  const canViewGoToMarket = hasPermission('goToMarket');
+  const canViewEngagement = hasPermission('engagement');
+  const canViewExecution = hasPermission('execution');
+  const canViewRevenueRoi = hasPermission('revenueRoi');
 
   const getInitials = () => {
     if (user?.firstName && user?.lastName) {
@@ -155,6 +163,7 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
+        {canViewPrograms && (
         <SidebarGroup>
           <SidebarGroupLabel>Programs</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -244,7 +253,9 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        )}
 
+        {canViewPerformance && (
         <SidebarGroup>
           <SidebarGroupLabel>Performance</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -285,7 +296,9 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        )}
 
+        {canViewGoToMarket && (
         <SidebarGroup>
           <SidebarGroupLabel>Go-To-Market</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -360,7 +373,9 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        )}
 
+        {canViewEngagement && (
         <SidebarGroup>
           <SidebarGroupLabel>Engagement</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -402,8 +417,9 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        )}
 
-        {organization?.enableRevenueRoi && (
+        {organization?.enableRevenueRoi && canViewRevenueRoi && (
           <SidebarGroup>
             <SidebarGroupLabel>Revenue & ROI</SidebarGroupLabel>
             <SidebarGroupContent>
@@ -430,6 +446,7 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
+        {canViewExecution && (
         <SidebarGroup>
           <SidebarGroupLabel>Execution</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -488,6 +505,7 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        )}
 
         <SidebarGroup>
           <SidebarGroupLabel>My Reviews</SidebarGroupLabel>
