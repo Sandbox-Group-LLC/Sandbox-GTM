@@ -80,6 +80,20 @@ export const FEATURE_PERMISSIONS = [
 
 export type FeaturePermission = typeof FEATURE_PERMISSIONS[number];
 
+// Supported languages for multi-language event content
+export const SUPPORTED_LANGUAGES = [
+  { code: "en", name: "English" },
+  { code: "es", name: "Spanish" },
+  { code: "fr", name: "French" },
+  { code: "de", name: "German" },
+  { code: "it", name: "Italian" },
+  { code: "pt", name: "Portuguese" },
+  { code: "zh", name: "Chinese" },
+  { code: "ja", name: "Japanese" },
+  { code: "ko", name: "Korean" },
+  { code: "ar", name: "Arabic" },
+] as const;
+
 // Organization Members table
 export const organizationMembers = pgTable("organization_members", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -214,10 +228,28 @@ export const events = pgTable("events", {
   registrationOpen: boolean("registration_open").default(false),
   maxAttendees: integer("max_attendees"),
   publicSlug: varchar("public_slug", { length: 100 }).unique(),
+  // Multi-language support
+  supportedLanguages: text("supported_languages").array(), // e.g., ["en", "es", "fr"]
+  defaultLanguage: varchar("default_language", { length: 10 }).default("en"),
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+// Event Translations table - stores translated event content
+export const eventTranslations = pgTable("event_translations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id).notNull(),
+  languageCode: varchar("language_code", { length: 10 }).notNull(), // e.g., "en", "es", "fr"
+  name: varchar("name", { length: 255 }),
+  description: text("description"),
+  location: varchar("location", { length: 255 }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("IDX_event_translation_unique").on(table.eventId, table.languageCode),
+]);
 
 // Attendee Types table
 export const attendeeTypes = pgTable("attendee_types", {
@@ -1292,6 +1324,12 @@ export const eventsRelations = relations(events, ({ one, many }) => ({
   deliverables: many(deliverables),
   emailCampaigns: many(emailCampaigns),
   socialPosts: many(socialPosts),
+  translations: many(eventTranslations),
+}));
+
+export const eventTranslationsRelations = relations(eventTranslations, ({ one }) => ({
+  organization: one(organizations, { fields: [eventTranslations.organizationId], references: [organizations.id] }),
+  event: one(events, { fields: [eventTranslations.eventId], references: [events.id] }),
 }));
 
 export const attendeesRelations = relations(attendees, ({ one }) => ({
@@ -1689,6 +1727,9 @@ export type InsertTeamInvitation = z.infer<typeof insertTeamInvitationSchema>;
 export type TeamInvitation = typeof teamInvitations.$inferSelect;
 export type InsertEvent = z.infer<typeof insertEventSchema>;
 export type Event = typeof events.$inferSelect;
+export const insertEventTranslationSchema = createInsertSchema(eventTranslations).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertEventTranslation = z.infer<typeof insertEventTranslationSchema>;
+export type EventTranslation = typeof eventTranslations.$inferSelect;
 export type InsertAttendee = z.infer<typeof insertAttendeeSchema>;
 export type Attendee = typeof attendees.$inferSelect;
 export type InsertSpeaker = z.infer<typeof insertSpeakerSchema>;
