@@ -19,6 +19,9 @@ export default function Settings() {
   const { toast } = useToast();
   const [customDomain, setCustomDomain] = useState("");
   const [isEditingDomain, setIsEditingDomain] = useState(false);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
 
   // Fetch current organization data
   const { data: orgData } = useQuery<Organization>({
@@ -31,6 +34,36 @@ export default function Settings() {
       setCustomDomain(orgData.customDomain);
     }
   }, [orgData?.customDomain]);
+
+  // Set profile fields when user data loads
+  useEffect(() => {
+    if (user) {
+      setFirstName(user.firstName || "");
+      setLastName(user.lastName || "");
+    }
+  }, [user]);
+
+  // Update user profile mutation
+  const updateProfileMutation = useMutation({
+    mutationFn: async (data: { firstName: string; lastName: string }) => {
+      return await apiRequest("PATCH", "/api/auth/user", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({
+        title: "Profile Updated",
+        description: "Your name has been updated successfully.",
+      });
+      setIsEditingProfile(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update profile",
+        variant: "destructive",
+      });
+    },
+  });
 
   // Update organization custom domain mutation
   const updateDomainMutation = useMutation({
@@ -102,14 +135,70 @@ export default function Settings() {
                   />
                   <AvatarFallback className="text-xl">{getInitials()}</AvatarFallback>
                 </Avatar>
-                <div>
-                  <h3 className="text-lg font-semibold" data-testid="text-user-name">
-                    {user?.firstName && user?.lastName
-                      ? `${user.firstName} ${user.lastName}`
-                      : "User"}
-                  </h3>
-                  <p className="text-muted-foreground" data-testid="text-user-email">{user?.email}</p>
-                  <Badge variant="secondary" className="mt-2">Admin</Badge>
+                <div className="flex-1">
+                  {isEditingProfile ? (
+                    <div className="space-y-3">
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="First name"
+                          value={firstName}
+                          onChange={(e) => setFirstName(e.target.value)}
+                          data-testid="input-first-name"
+                        />
+                        <Input
+                          placeholder="Last name"
+                          value={lastName}
+                          onChange={(e) => setLastName(e.target.value)}
+                          data-testid="input-last-name"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => updateProfileMutation.mutate({ firstName, lastName })}
+                          disabled={updateProfileMutation.isPending}
+                          data-testid="button-save-profile"
+                        >
+                          {updateProfileMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            "Save"
+                          )}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setIsEditingProfile(false);
+                            setFirstName(user?.firstName || "");
+                            setLastName(user?.lastName || "");
+                          }}
+                          data-testid="button-cancel-profile"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-lg font-semibold" data-testid="text-user-name">
+                          {user?.firstName && user?.lastName
+                            ? `${user.firstName} ${user.lastName}`
+                            : user?.firstName || user?.lastName || "Set your name"}
+                        </h3>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setIsEditingProfile(true)}
+                          data-testid="button-edit-profile"
+                        >
+                          Edit
+                        </Button>
+                      </div>
+                      <p className="text-muted-foreground" data-testid="text-user-email">{user?.email}</p>
+                    </>
+                  )}
                 </div>
               </div>
 

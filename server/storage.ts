@@ -199,6 +199,7 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
+  updateUserProfile(id: string, updates: { firstName?: string; lastName?: string }): Promise<User | undefined>;
 
   // Organization operations
   getOrganization(id: string): Promise<Organization | undefined>;
@@ -703,6 +704,15 @@ export class DatabaseStorage implements IStorage {
     }
     
     return user;
+  }
+
+  async updateUserProfile(id: string, updates: { firstName?: string; lastName?: string }): Promise<User | undefined> {
+    const [updated] = await db
+      .update(users)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return updated;
   }
 
   // Organization operations

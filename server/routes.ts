@@ -358,6 +358,33 @@ export async function registerRoutes(
     }
   });
 
+  // PATCH /api/auth/user - Update user profile (first/last name)
+  app.patch('/api/auth/user', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { firstName, lastName } = req.body;
+      
+      // Validate that at least one field is being updated
+      if (firstName === undefined && lastName === undefined) {
+        return res.status(400).json({ message: "At least one of firstName or lastName must be provided" });
+      }
+      
+      const updates: { firstName?: string; lastName?: string } = {};
+      if (firstName !== undefined) updates.firstName = firstName;
+      if (lastName !== undefined) updates.lastName = lastName;
+      
+      const updatedUser = await storage.updateUserProfile(userId, updates);
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      res.json(updatedUser);
+    } catch (error) {
+      logError("Error updating user profile:", error);
+      res.status(500).json({ message: "Failed to update user profile" });
+    }
+  });
+
   // Helper to sanitize organization before returning to client (masks secret key)
   function sanitizeOrganization(org: any) {
     if (!org) return org;
