@@ -817,6 +817,7 @@ export const deliverables = pgTable("deliverables", {
   milestoneId: varchar("milestone_id").references(() => milestones.id),
   title: varchar("title", { length: 255 }).notNull(),
   description: text("description"),
+  workstream: varchar("workstream", { length: 100 }),
   status: varchar("status", { length: 50 }).default("todo"),
   priority: varchar("priority", { length: 20 }).default("medium"),
   assignedTo: varchar("assigned_to").references(() => users.id),
