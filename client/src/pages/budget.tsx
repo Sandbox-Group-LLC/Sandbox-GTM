@@ -787,7 +787,7 @@ export default function Budget() {
                                   <>
                                     <CollapsibleTrigger asChild>
                                       <TableRow
-                                        className="cursor-pointer hover-elevate bg-muted/30"
+                                        className="cursor-pointer bg-muted/30"
                                         data-testid={`row-category-${category}`}
                                       >
                                         <TableCell className="font-medium">
@@ -833,7 +833,7 @@ export default function Budget() {
                                             : "0.0";
 
                                           return (
-                                            <TableRow key={item.id} className="hover-elevate" data-testid={`row-item-${item.id}`}>
+                                            <TableRow key={item.id} data-testid={`row-item-${item.id}`}>
                                               <TableCell className="pl-10 text-muted-foreground">
                                                 {item.description}
                                               </TableCell>
@@ -961,7 +961,7 @@ export default function Budget() {
                           ) : (
                             <>
                               {offsets.map((offset) => (
-                                <TableRow key={offset.id} className="hover-elevate" data-testid={`row-offset-${offset.id}`}>
+                                <TableRow key={offset.id} data-testid={`row-offset-${offset.id}`}>
                                   <TableCell>{offset.name}</TableCell>
                                   <TableCell className="text-right font-mono text-green-600 dark:text-green-400">
                                     -{formatCurrency(offset.estimateAmount)}
@@ -1140,7 +1140,7 @@ export default function Budget() {
                             payments.map((payment) => {
                               const linkedItem = budgetItems.find((i) => i.id === payment.budgetItemId);
                               return (
-                                <TableRow key={payment.id} className="hover-elevate" data-testid={`row-payment-${payment.id}`}>
+                                <TableRow key={payment.id} data-testid={`row-payment-${payment.id}`}>
                                   <TableCell className="font-mono">{payment.invoiceNumber}</TableCell>
                                   <TableCell className="text-muted-foreground">
                                     {linkedItem ? linkedItem.description : "-"}
@@ -1226,7 +1226,7 @@ export default function Budget() {
                             </TableRow>
                           ) : (
                             categories.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)).map((category) => (
-                              <TableRow key={category.id} className="hover-elevate" data-testid={`row-category-${category.id}`}>
+                              <TableRow key={category.id} data-testid={`row-category-${category.id}`}>
                                 <TableCell className="font-medium">{category.name}</TableCell>
                                 <TableCell className="text-center text-muted-foreground">{category.sortOrder || 0}</TableCell>
                                 <TableCell>
