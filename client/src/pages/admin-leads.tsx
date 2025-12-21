@@ -193,6 +193,7 @@ export default function AdminLeads() {
           data={leads}
           searchable
           searchPlaceholder="Search leads..."
+          getRowKey={(lead) => lead.id}
         />
       ) : (
         <EmptyState
