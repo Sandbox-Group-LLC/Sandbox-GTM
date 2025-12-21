@@ -81,7 +81,7 @@ import {
   X,
 } from "lucide-react";
 import { format } from "date-fns";
-import type { Event, EventPage, EventPageTheme, EventSession, Speaker, EventSponsor } from "@shared/schema";
+import type { Event, EventPage, EventPageTheme, EventSession, Speaker, EventSponsor, CustomFont } from "@shared/schema";
 import { MergeTagPicker } from "@/components/merge-tag-picker";
 import { SectionRenderer, GoogleFontsLoader, getThemeStyles, scopeCustomCss, sanitizeCustomCss } from "@/pages/public-event";
 import { eventTemplates, TEMPLATE_CATEGORIES, type EventTemplate, type TemplateCategory } from "@/lib/site-templates";
@@ -419,6 +419,13 @@ export default function SiteBuilder() {
     enabled: !!selectedEventId,
   });
 
+  const selectedEvent = events.find((e) => e.id === selectedEventId);
+  
+  const { data: customFonts = [] } = useQuery<CustomFont[]>({
+    queryKey: ["/api/custom-fonts"],
+    enabled: !!selectedEvent?.organizationId,
+  });
+
   const currentPage = pages.find((p) => p.pageType === activeTab);
   const sections = (currentPage?.sections as Section[]) || [];
 
@@ -595,7 +602,6 @@ export default function SiteBuilder() {
     ? eventTemplates 
     : eventTemplates.filter(t => t.category === templateCategoryFilter);
 
-  const selectedEvent = events.find((e) => e.id === selectedEventId);
   const currentTheme = currentPage?.theme || {};
 
   const previewEvent: Event = selectedEvent || {
@@ -985,6 +991,7 @@ export default function SiteBuilder() {
                           isPending={saveMutation.isPending}
                           seo={currentPage?.seo}
                           onUpdateSeo={handleUpdateSeo}
+                          customFonts={customFonts}
                         />
                       )}
                     </TabsContent>
@@ -1139,6 +1146,7 @@ export default function SiteBuilder() {
                 ));
               }}
               eventId={selectedEventId}
+              customFonts={customFonts}
             />
           )}
         </DialogContent>
@@ -1466,11 +1474,12 @@ interface SectionEditorProps {
   onCancel: () => void;
   onConfigChange?: (config: Record<string, unknown>, styles?: SectionStyles) => void;
   eventId?: string;
+  customFonts?: CustomFont[];
 }
 
 const AI_SUPPORTED_SECTIONS: SectionType[] = ["hero", "text", "cta", "features", "faq", "testimonials"];
 
-function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId }: SectionEditorProps) {
+function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId, customFonts = [] }: SectionEditorProps) {
   const { toast } = useToast();
   const [config, setConfig] = useState<Record<string, unknown>>(section.config);
   const [styles, setStyles] = useState<SectionStyles>(section.styles || {});
@@ -1808,6 +1817,21 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId }: S
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="theme">Use Theme Font</SelectItem>
+                          {customFonts.length > 0 && (
+                            <>
+                              <SelectItem value="__custom_header" disabled className="text-xs text-muted-foreground font-semibold">
+                                Custom Fonts
+                              </SelectItem>
+                              {customFonts.map((font) => (
+                                <SelectItem key={`custom-${font.id}`} value={font.name}>
+                                  {font.displayName || font.name}
+                                </SelectItem>
+                              ))}
+                              <SelectItem value="__google_header" disabled className="text-xs text-muted-foreground font-semibold">
+                                Google Fonts
+                              </SelectItem>
+                            </>
+                          )}
                           {GOOGLE_FONTS.map((font) => (
                             <SelectItem key={font.value} value={font.value}>{font.label}</SelectItem>
                           ))}
@@ -1892,6 +1916,21 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId }: S
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="theme">Use Theme Font</SelectItem>
+                          {customFonts.length > 0 && (
+                            <>
+                              <SelectItem value="__custom_header" disabled className="text-xs text-muted-foreground font-semibold">
+                                Custom Fonts
+                              </SelectItem>
+                              {customFonts.map((font) => (
+                                <SelectItem key={`custom-${font.id}`} value={font.name}>
+                                  {font.displayName || font.name}
+                                </SelectItem>
+                              ))}
+                              <SelectItem value="__google_header" disabled className="text-xs text-muted-foreground font-semibold">
+                                Google Fonts
+                              </SelectItem>
+                            </>
+                          )}
                           {GOOGLE_FONTS.map((font) => (
                             <SelectItem key={font.value} value={font.value}>{font.label}</SelectItem>
                           ))}
@@ -3786,6 +3825,7 @@ interface StylesEditorProps {
   isPending: boolean;
   seo?: { title?: string; description?: string; ogImage?: string };
   onUpdateSeo: (updates: { title?: string; description?: string; ogImage?: string }) => void;
+  customFonts?: CustomFont[];
 }
 
 // Debounced color input component to prevent saving on every keystroke
@@ -3878,7 +3918,7 @@ function DebouncedColorInput({
   );
 }
 
-function StylesEditor({ theme, onUpdateTheme, isPending, seo, onUpdateSeo }: StylesEditorProps) {
+function StylesEditor({ theme, onUpdateTheme, isPending, seo, onUpdateSeo, customFonts = [] }: StylesEditorProps) {
   const [localCss, setLocalCss] = useState(theme.customCss || "");
   const [cssHasChanges, setCssHasChanges] = useState(false);
   
@@ -3917,6 +3957,21 @@ function StylesEditor({ theme, onUpdateTheme, isPending, seo, onUpdateSeo }: Sty
                 <SelectValue placeholder="Select font" />
               </SelectTrigger>
               <SelectContent>
+                {customFonts.length > 0 && (
+                  <>
+                    <SelectItem value="__custom_header" disabled className="text-xs text-muted-foreground font-semibold">
+                      Custom Fonts
+                    </SelectItem>
+                    {customFonts.map((font) => (
+                      <SelectItem key={`custom-${font.id}`} value={font.name}>
+                        {font.displayName || font.name}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="__google_header" disabled className="text-xs text-muted-foreground font-semibold">
+                      Google Fonts
+                    </SelectItem>
+                  </>
+                )}
                 {GOOGLE_FONTS.map((font) => (
                   <SelectItem key={font.value} value={font.value}>
                     {font.label}
@@ -3936,6 +3991,21 @@ function StylesEditor({ theme, onUpdateTheme, isPending, seo, onUpdateSeo }: Sty
                 <SelectValue placeholder="Select font" />
               </SelectTrigger>
               <SelectContent>
+                {customFonts.length > 0 && (
+                  <>
+                    <SelectItem value="__custom_header" disabled className="text-xs text-muted-foreground font-semibold">
+                      Custom Fonts
+                    </SelectItem>
+                    {customFonts.map((font) => (
+                      <SelectItem key={`custom-${font.id}`} value={font.name}>
+                        {font.displayName || font.name}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="__google_header" disabled className="text-xs text-muted-foreground font-semibold">
+                      Google Fonts
+                    </SelectItem>
+                  </>
+                )}
                 {GOOGLE_FONTS.map((font) => (
                   <SelectItem key={font.value} value={font.value}>
                     {font.label}

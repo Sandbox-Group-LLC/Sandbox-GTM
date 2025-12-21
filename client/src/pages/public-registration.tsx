@@ -221,6 +221,17 @@ function GoogleFontsLoader({ fonts }: { fonts: string[] }) {
   );
 }
 
+function CustomFontsLoader({ slug }: { slug: string }) {
+  if (!slug) return null;
+  
+  return (
+    <link
+      rel="stylesheet"
+      href={`/api/public/events/${slug}/fonts.css`}
+    />
+  );
+}
+
 function getThemeStyles(theme: EventPageTheme | null | undefined): React.CSSProperties {
   if (!theme) return {};
   
@@ -1084,6 +1095,7 @@ export default function PublicRegistration() {
   return (
     <>
       <GoogleFontsLoader fonts={fontsToLoad} />
+      <CustomFontsLoader slug={slug || ''} />
       {isSpoof && spoofAttendee && (
         <div className="bg-primary/10 border-b border-primary/20 py-2 px-4 flex items-center justify-between sticky top-0 z-50 backdrop-blur-sm">
           <div className="flex items-center gap-2 text-sm font-medium text-primary">

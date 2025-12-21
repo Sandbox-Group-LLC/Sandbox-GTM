@@ -141,6 +141,17 @@ export function GoogleFontsLoader({ fonts }: { fonts: string[] }) {
   );
 }
 
+export function CustomFontsLoader({ slug }: { slug: string }) {
+  if (!slug) return null;
+  
+  return (
+    <link
+      rel="stylesheet"
+      href={`/api/public/events/${slug}/fonts.css`}
+    />
+  );
+}
+
 export function getThemeStyles(theme: EventPageTheme | null | undefined): React.CSSProperties {
   if (!theme) return {};
   
@@ -487,6 +498,7 @@ export default function PublicEvent() {
     return (
       <>
         <GoogleFontsLoader fonts={fontsToLoad} />
+        <CustomFontsLoader slug={slug || ''} />
         {theme?.customCss && (
           <style dangerouslySetInnerHTML={{ __html: scopeCustomCss(sanitizeCustomCss(theme.customCss)) }} />
         )}

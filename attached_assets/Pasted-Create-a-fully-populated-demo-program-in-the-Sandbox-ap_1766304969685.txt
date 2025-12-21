@@ -1,0 +1,158 @@
+Create a fully populated demo program in the Sandbox app called “AI GTM Summit” to support product demos, screen recordings, and social marketing content. This program should look realistic, active, and GTM-driven, with believable data across acquisition, engagement, and revenue views.
+
+This is demo-only sample data and should not affect production logic or real customer data.
+
+⸻
+
+Program Details
+	•	Program Name: AI GTM Summit
+	•	Type: Field / Conference Program
+	•	Status: Active (post-registration, mid-engagement)
+	•	Dates:
+	•	Start: March 12
+	•	End: March 14
+	•	Location: San Francisco, CA
+	•	Description:
+A multi-day event for marketing, revenue, and product leaders exploring how AI is transforming go-to-market strategy, demand generation, and customer engagement.
+
+⸻
+
+Audience & Acquisition (Populate Analytics)
+
+Simulate realistic acquisition data:
+	•	Total Registrations: ~850
+	•	Qualified Audience (ICP Match): ~62%
+	•	Conversion Rate: ~18% (from first program page views)
+	•	Top Channels:
+	•	LinkedIn Paid
+	•	Partner Campaigns
+	•	Email (existing audience)
+
+Populate:
+	•	Acquisition Funnel
+	•	Channel Performance
+	•	Source Attribution
+
+⸻
+
+Campaigns (Create Sample Campaigns)
+
+Create multiple campaigns tied to the program:
+	•	“AI GTM Summit – LinkedIn Paid”
+	•	“AI GTM Summit – Partner Outreach”
+	•	“AI GTM Summit – Email Invite Wave 1”
+
+Each campaign should:
+	•	Be associated with Attribution Links
+	•	Show realistic send / click / conversion activity
+
+⸻
+
+Engagement & Intent (Populate Signals)
+
+Simulate mid-event engagement:
+	•	Engagement Rate: ~47%
+	•	High-Intent Audience: ~120 contacts
+	•	Active Now: fluctuating live count (e.g., 35–60)
+
+Create:
+	•	Engagement Signals data
+	•	Real-time activity feed (mocked)
+	•	Hot Leads / High-Intent Audience list
+
+⸻
+
+Content Experiences
+
+Create multiple Content Experiences grouped under Content Pillars:
+	•	AI for Demand Gen
+	•	AI for RevOps
+	•	AI for Product-Led Growth
+
+Each pillar should include:
+	•	3–4 sessions
+	•	Realistic attendance counts
+	•	Time-based engagement data
+
+⸻
+
+Experience Packages
+
+Create multiple Experience Packages:
+	•	General Admission (Free)
+	•	Executive Pass ($1,495)
+	•	Partner Access (Complimentary)
+
+Ensure Experience Packages:
+	•	Control access to select sessions
+	•	Are referenced by Activation Keys
+	•	Appear in audience and engagement views
+
+⸻
+
+Activation Links & Keys
+
+Generate sample Activation Links with embedded Activation Keys:
+	•	Paid Campaign Link (LinkedIn)
+	•	Partner-specific Link
+	•	VIP Executive Link
+
+Each Activation Key should:
+	•	Assign an audience segment
+	•	Assign an experience package
+	•	Enable downstream personalization
+
+⸻
+
+Revenue & ROI (Populate Outcome Data)
+
+Simulate believable revenue outcomes:
+	•	Pipeline Influenced: ~$2.4M
+	•	Revenue Influenced: ~$620K
+	•	Cost per Lead: ~$180
+	•	Program Investment: ~$95K
+	•	ROI: Positive (directional)
+
+Populate:
+	•	Revenue Impact / Snapshot
+	•	Pipeline Velocity (mocked)
+	•	Attribution placeholders (CRM not required)
+
+⸻
+
+Email & Campaign Activity
+
+Create example emails using existing templates:
+	•	Invitation
+	•	Registration Confirmation
+	•	Reminder
+	•	Post-Event Follow-Up
+
+Each should:
+	•	Be labeled with purpose
+	•	Show basic engagement metrics
+	•	Reference merge tags and personalization
+
+⸻
+
+Demo & Visual Guidelines
+	•	Ensure data feels active and in-progress, not “empty state”
+	•	Avoid extreme numbers; aim for realistic B2B event performance
+	•	This program should be safe to screen-record across:
+	•	Performance dashboards
+	•	Campaigns
+	•	Engagement Signals
+	•	Revenue Impact
+	•	Email builder
+
+⸻
+
+Success Criteria
+
+After creation:
+	•	Navigating the AI GTM Summit program should immediately demonstrate Sandbox as an Event GTM Platform
+	•	All major sections should have believable, populated data suitable for:
+	•	Product walkthrough videos
+	•	Social clips
+	•	Sales demos
+	•	Website screenshots

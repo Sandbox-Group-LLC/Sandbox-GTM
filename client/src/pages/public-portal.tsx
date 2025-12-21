@@ -26,6 +26,17 @@ function GoogleFontsLoader({ fonts }: { fonts: string[] }) {
   );
 }
 
+function CustomFontsLoader({ slug }: { slug: string }) {
+  if (!slug) return null;
+  
+  return (
+    <link
+      rel="stylesheet"
+      href={`/api/public/events/${slug}/fonts.css`}
+    />
+  );
+}
+
 function getThemeStyles(theme: EventPageTheme | null | undefined): React.CSSProperties {
   if (!theme) return {};
   
@@ -136,6 +147,7 @@ export default function PublicPortal() {
   return (
     <>
       <GoogleFontsLoader fonts={fontsToLoad} />
+      <CustomFontsLoader slug={slug || ''} />
       <div 
         className="min-h-screen bg-background"
         style={{
