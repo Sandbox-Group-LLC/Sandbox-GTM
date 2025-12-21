@@ -9203,6 +9203,53 @@ ${urls.map(u => `  <url>
     }
   });
 
+  // Spoof attendee portal - allows organization owners to preview what an attendee would see
+  app.get("/api/organizations/:organizationId/attendees/:attendeeId/spoof-portal", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { organizationId, attendeeId } = req.params;
+      
+      // Verify user has access to this organization
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === organizationId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      // Only organization owners can use spoof/preview mode
+      if (membership.role !== 'owner') {
+        return res.status(403).json({ message: "Access denied - owner permission required" });
+      }
+
+      // Get the attendee and verify they belong to this organization
+      const attendee = await storage.getAttendee(organizationId, attendeeId);
+      if (!attendee) {
+        return res.status(404).json({ message: "Attendee not found" });
+      }
+
+      // Get event info for context
+      const event = await storage.getEvent(organizationId, attendee.eventId);
+      
+      // Get package info if attendee has one
+      let packageInfo = null;
+      if (attendee.packageId) {
+        packageInfo = await storage.getPackage(organizationId, attendee.packageId);
+      }
+      
+      // Return attendee data (without password hash)
+      const { passwordHash, ...safeAttendee } = attendee;
+      res.json({ 
+        attendee: safeAttendee, 
+        event: event ? { id: event.id, name: event.name, publicSlug: event.publicSlug } : null,
+        package: packageInfo ? { id: packageInfo.id, name: packageInfo.name, features: packageInfo.features } : null,
+        isSpoof: true
+      });
+    } catch (error) {
+      logError("Error fetching spoof portal data:", error);
+      res.status(500).json({ message: "Failed to fetch spoof portal data" });
+    }
+  });
+
   // ============================================
   // Document Workspace Routes
   // ============================================

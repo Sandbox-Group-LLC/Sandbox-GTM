@@ -36,7 +36,8 @@ import {
   Check,
   X,
   Hotel,
-  ExternalLink
+  ExternalLink,
+  Eye
 } from "lucide-react";
 import type { Attendee, Event, EventPage, EventPageTheme, EventSession, Speaker } from "@shared/schema";
 import { SectionRenderer, GoogleFontsLoader, getThemeStyles } from "@/pages/public-event";
@@ -510,23 +511,48 @@ function DefaultPortalLayout({
   );
 }
 
+interface SpoofPortalData extends AttendeePortalData {
+  isSpoof?: boolean;
+}
+
 export default function AttendeePortal() {
   const { slug } = useParams<{ slug: string }>();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
 
-  const { data, isLoading, error, refetch } = useQuery<AttendeePortalData>({
-    queryKey: ["/api/public/attendee/me"],
+  // Parse spoof parameters from URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const spoofAttendeeId = urlParams.get('spoof');
+  const spoofOrgId = urlParams.get('orgId');
+  const isSpoof = !!(spoofAttendeeId && spoofOrgId);
+
+  const { data, isLoading, error, refetch } = useQuery<SpoofPortalData>({
+    queryKey: isSpoof 
+      ? ["/api/organizations", spoofOrgId, "attendees", spoofAttendeeId, "spoof-portal"]
+      : ["/api/public/attendee/me"],
     queryFn: async () => {
-      const res = await fetch("/api/public/attendee/me");
-      if (!res.ok) {
-        if (res.status === 401) {
-          throw new Error("Not authenticated");
+      if (isSpoof) {
+        // Fetch spoof data for admin preview
+        const res = await fetch(`/api/organizations/${spoofOrgId}/attendees/${spoofAttendeeId}/spoof-portal`);
+        if (!res.ok) {
+          if (res.status === 401 || res.status === 403) {
+            throw new Error("Access denied - you must be logged in as an admin");
+          }
+          throw new Error("Failed to fetch spoof portal data");
         }
-        throw new Error("Failed to fetch portal data");
+        return res.json();
+      } else {
+        // Normal attendee portal fetch
+        const res = await fetch("/api/public/attendee/me");
+        if (!res.ok) {
+          if (res.status === 401) {
+            throw new Error("Not authenticated");
+          }
+          throw new Error("Failed to fetch portal data");
+        }
+        return res.json();
       }
-      return res.json();
     },
     retry: false,
   });
@@ -580,10 +606,11 @@ export default function AttendeePortal() {
   }, [data, form]);
 
   useEffect(() => {
-    if (error && (error as Error).message === "Not authenticated") {
+    // Don't redirect in spoof mode - show error instead
+    if (!isSpoof && error && (error as Error).message === "Not authenticated") {
       setLocation(`/event/${slug}/login`);
     }
-  }, [error, slug, setLocation]);
+  }, [error, slug, setLocation, isSpoof]);
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
@@ -653,13 +680,26 @@ export default function AttendeePortal() {
         <Card className="max-w-md w-full">
           <CardContent className="pt-6 text-center">
             <AlertCircle className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-            <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
-            <p className="text-muted-foreground mb-4">Please log in to access your portal.</p>
-            <Button asChild>
-              <Link href={`/event/${slug}/login`} data-testid="link-login">
-                Log In
-              </Link>
-            </Button>
+            <h2 className="text-xl font-semibold mb-2">
+              {isSpoof ? "Preview Error" : "Access Denied"}
+            </h2>
+            <p className="text-muted-foreground mb-4">
+              {isSpoof 
+                ? (error as Error).message || "Unable to load preview. Please make sure you're logged in as an admin."
+                : "Please log in to access your portal."
+              }
+            </p>
+            {isSpoof ? (
+              <Button onClick={() => window.close()} data-testid="button-close-preview">
+                Close Preview
+              </Button>
+            ) : (
+              <Button asChild>
+                <Link href={`/event/${slug}/login`} data-testid="link-login">
+                  Log In
+                </Link>
+              </Button>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -693,11 +733,11 @@ export default function AttendeePortal() {
       registrationStatus: attendee.registrationStatus,
     },
     housingInfo: housingInfo,
-    isEditing,
-    setIsEditing,
-    onSaveProfile: onSubmit,
+    isEditing: isSpoof ? false : isEditing, // Disable editing in spoof mode
+    setIsEditing: isSpoof ? undefined : setIsEditing, // No edit toggle in spoof mode
+    onSaveProfile: isSpoof ? undefined : onSubmit,
     isUpdating: updateProfileMutation.isPending,
-    form: form as unknown as typeof attendeeContext.form,
+    form: isSpoof ? undefined : (form as unknown as typeof attendeeContext.form),
   };
 
   return (
@@ -712,6 +752,28 @@ export default function AttendeePortal() {
           fontFamily: theme?.bodyFont ? `"${theme.bodyFont}", sans-serif` : undefined,
         } : undefined}
       >
+        {/* Spoof Mode Banner */}
+        {isSpoof && (
+          <div className="bg-amber-500 dark:bg-amber-600 text-white px-6 py-3">
+            <div className="max-w-4xl mx-auto flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Eye className="w-5 h-5" />
+                <span className="font-medium" data-testid="text-spoof-banner">
+                  Preview Mode: Viewing portal as {attendee.firstName} {attendee.lastName} ({attendee.email})
+                </span>
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => window.close()}
+                data-testid="button-close-spoof"
+              >
+                Close Preview
+              </Button>
+            </div>
+          </div>
+        )}
+
         <header className="border-b bg-card">
           <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
             <div className="flex items-center gap-4">
@@ -724,20 +786,22 @@ export default function AttendeePortal() {
               <Separator orientation="vertical" className="h-6" />
               <h1 className="text-lg font-semibold" data-testid="text-event-name">{event?.name || "Event Portal"}</h1>
             </div>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => logoutMutation.mutate()}
-              disabled={logoutMutation.isPending}
-              data-testid="button-logout"
-            >
-              {logoutMutation.isPending ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <LogOut className="w-4 h-4 mr-2" />
-              )}
-              Log Out
-            </Button>
+            {!isSpoof && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => logoutMutation.mutate()}
+                disabled={logoutMutation.isPending}
+                data-testid="button-logout"
+              >
+                {logoutMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <LogOut className="w-4 h-4 mr-2" />
+                )}
+                Log Out
+              </Button>
+            )}
           </div>
         </header>
 

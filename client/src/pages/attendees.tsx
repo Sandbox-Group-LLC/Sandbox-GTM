@@ -50,7 +50,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { titleCase } from "@/lib/utils";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Plus, Users, Search, Download, Settings2, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Trash2, Eye, Mail } from "lucide-react";
+import { Plus, Users, Search, Download, Settings2, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Trash2, Eye, Mail, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -238,6 +238,16 @@ export default function Attendees() {
     const lookup: Record<string, string> = {};
     events.forEach((event) => {
       lookup[event.id] = event.name;
+    });
+    return lookup;
+  }, [events]);
+
+  const eventSlugLookup = useMemo(() => {
+    const lookup: Record<string, string> = {};
+    events.forEach((event) => {
+      if (event.publicSlug) {
+        lookup[event.id] = event.publicSlug;
+      }
     });
     return lookup;
   }, [events]);
@@ -1316,6 +1326,36 @@ export default function Attendees() {
                         </div>
                       )}
                     </div>
+                  </div>
+                </>
+              )}
+
+              {/* Preview Portal Button */}
+              {viewingAttendee && eventSlugLookup[viewingAttendee.eventId] && (
+                <>
+                  <Separator />
+
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Eye className="h-4 w-4 text-muted-foreground" />
+                      <h3 className="text-sm font-medium text-muted-foreground">Portal Preview</h3>
+                    </div>
+                    
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        const slug = eventSlugLookup[viewingAttendee.eventId];
+                        const spoofUrl = `/event/${slug}/portal?spoof=${viewingAttendee.id}&orgId=${organization?.id}`;
+                        window.open(spoofUrl, '_blank');
+                      }}
+                      data-testid="button-preview-portal"
+                    >
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Preview Portal As Attendee
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      Opens the attendee portal showing exactly what this person would see
+                    </p>
                   </div>
                 </>
               )}
