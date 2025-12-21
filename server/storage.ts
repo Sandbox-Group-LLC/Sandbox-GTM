@@ -938,15 +938,16 @@ export class DatabaseStorage implements IStorage {
         invitedBy: invitation.invitedBy,
       }).returning();
       memberToReturn = newMember;
-      
-      await db.update(teamInvitations)
-        .set({
-          status: 'accepted',
-          acceptedAt: new Date(),
-          acceptedBy: userId,
-        })
-        .where(eq(teamInvitations.id, invitation.id));
     }
+    
+    // Always update invitation status to accepted (regardless of whether member existed)
+    await db.update(teamInvitations)
+      .set({
+        status: 'accepted',
+        acceptedAt: new Date(),
+        acceptedBy: userId,
+      })
+      .where(eq(teamInvitations.id, invitation.id));
     
     // Clean up auto-created default organization if user was its sole member
     // This runs ALWAYS (even for existing members) to ensure cleanup happens
