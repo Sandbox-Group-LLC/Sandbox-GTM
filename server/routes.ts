@@ -263,9 +263,19 @@ export async function registerRoutes(
   };
 
   // Helper function to get user's organization (creates default if none exists)
-  // Prioritizes invited organizations (member/admin role) over auto-created ones (owner role)
-  async function getOrganizationId(userId: string): Promise<string> {
+  // Prioritizes: 1) Session preferred org, 2) Invited orgs (non-owner), 3) Non-default orgs, 4) First available
+  async function getOrganizationId(userId: string, session?: any): Promise<string> {
     const memberships = await storage.getUserOrganizations(userId);
+    
+    // If session has a preferred organization, use it if user is still a member
+    if (session?.preferredOrganizationId) {
+      const preferredMembership = memberships.find(m => m.organizationId === session.preferredOrganizationId);
+      if (preferredMembership) {
+        logInfo(`Using preferred organization from session: ${session.preferredOrganizationId}`, 'OrgRouting');
+        return preferredMembership.organizationId;
+      }
+    }
+    
     if (memberships.length > 0) {
       // If user has multiple organizations, prefer ones where they were invited (member/admin)
       // over ones they created themselves (owner)
@@ -273,6 +283,7 @@ export async function registerRoutes(
         // First, try to find an org where user is NOT the owner (likely invited)
         for (const membership of memberships) {
           if (membership.role !== 'owner') {
+            logInfo(`Routing to invited org (non-owner): ${membership.organizationId}`, 'OrgRouting');
             return membership.organizationId;
           }
         }
@@ -280,6 +291,7 @@ export async function registerRoutes(
         for (const membership of memberships) {
           const org = await storage.getOrganization(membership.organizationId);
           if (org && org.name !== 'My Organization') {
+            logInfo(`Routing to named org: ${membership.organizationId} (${org.name})`, 'OrgRouting');
             return membership.organizationId;
           }
         }
@@ -440,7 +452,7 @@ export async function registerRoutes(
   app.patch('/api/auth/organization', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       
       const { 
         name, 
@@ -541,7 +553,7 @@ export async function registerRoutes(
   app.patch('/api/organization/custom-domain', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       
       const { customDomain } = req.body;
       
@@ -581,7 +593,7 @@ export async function registerRoutes(
   app.get('/api/organization/members', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       
       if (!await isOrganizationOwner(userId, organizationId)) {
         return res.status(403).json({ message: "Only organization owners can view members" });
@@ -599,7 +611,7 @@ export async function registerRoutes(
   app.post('/api/organization/invitations', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       
       if (!await isOrganizationOwner(userId, organizationId)) {
         return res.status(403).json({ message: "Only organization owners can invite members" });
@@ -676,7 +688,7 @@ export async function registerRoutes(
   app.get('/api/organization/invitations', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       
       if (!await isOrganizationOwner(userId, organizationId)) {
         return res.status(403).json({ message: "Only organization owners can view invitations" });
@@ -695,7 +707,7 @@ export async function registerRoutes(
   app.delete('/api/organization/invitations/:id', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const { id } = req.params;
       
       if (!await isOrganizationOwner(userId, organizationId)) {
@@ -714,7 +726,7 @@ export async function registerRoutes(
   app.post('/api/organization/invitations/:id/resend', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const { id } = req.params;
       
       if (!await isOrganizationOwner(userId, organizationId)) {
@@ -759,7 +771,7 @@ export async function registerRoutes(
   app.patch('/api/organization/invitations/:id', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const { id } = req.params;
       const { permissions } = req.body;
       
@@ -858,6 +870,12 @@ export async function registerRoutes(
         return res.status(500).json({ message: "Failed to accept invitation" });
       }
       
+      // Store the invited organization ID in the session for routing
+      if (req.session) {
+        req.session.preferredOrganizationId = invitation.organizationId;
+        logInfo(`Set preferred organization ID in session: ${invitation.organizationId}`, 'TeamInvitation');
+      }
+      
       res.json({ message: "Invitation accepted successfully", member });
     } catch (error) {
       logError("Error accepting team invitation:", error);
@@ -869,7 +887,7 @@ export async function registerRoutes(
   app.patch('/api/organization/members/:userId', isAuthenticated, async (req: any, res) => {
     try {
       const currentUserId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(currentUserId);
+      const organizationId = await getOrganizationId(currentUserId, req.session);
       const { userId: targetUserId } = req.params;
       const { permissions } = req.body;
       
@@ -916,7 +934,7 @@ export async function registerRoutes(
   app.delete('/api/organization/members/:userId', isAuthenticated, async (req: any, res) => {
     try {
       const currentUserId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(currentUserId);
+      const organizationId = await getOrganizationId(currentUserId, req.session);
       const { userId: targetUserId } = req.params;
       
       if (!await isOrganizationOwner(currentUserId, organizationId)) {
@@ -1022,7 +1040,7 @@ export async function registerRoutes(
   app.get('/api/settings/social-integrations-status', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       
       const credentials = await storage.getSocialMediaCredentials(organizationId);
       
@@ -1050,7 +1068,7 @@ export async function registerRoutes(
   app.get('/api/settings/social-credentials', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       
       const credentials = await storage.getSocialMediaCredentials(organizationId);
       
@@ -1092,7 +1110,7 @@ export async function registerRoutes(
   app.post('/api/settings/social-credentials/:provider', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const { provider } = req.params;
       const { clientId, clientSecret } = req.body;
       
@@ -1151,7 +1169,7 @@ export async function registerRoutes(
   app.delete('/api/settings/social-credentials/:provider', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const { provider } = req.params;
       
       const validProviders = ['linkedin', 'twitter', 'facebook', 'instagram'];
@@ -1204,7 +1222,7 @@ export async function registerRoutes(
   app.get('/api/email-integrations', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       
       const connections = await storage.getEmailPlatformConnections(organizationId);
       res.json(connections.map(sanitizeEmailConnection));
@@ -1217,7 +1235,7 @@ export async function registerRoutes(
   app.post('/api/email-integrations', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const { provider, apiKey } = req.body;
 
       const validProviders = ['mailchimp'];
@@ -1267,7 +1285,7 @@ export async function registerRoutes(
   app.delete('/api/email-integrations/:id', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const { id } = req.params;
 
       const connection = await storage.getEmailPlatformConnection(organizationId, id);
@@ -1288,7 +1306,7 @@ export async function registerRoutes(
   app.get('/api/email-integrations/:id/audiences', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const { id } = req.params;
 
       const connection = await storage.getEmailPlatformConnection(organizationId, id);
@@ -1335,7 +1353,7 @@ export async function registerRoutes(
       logError("Error fetching email audiences:", error);
 
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const { id } = req.params;
 
       await storage.updateEmailPlatformConnection(organizationId, id, {
@@ -1350,7 +1368,7 @@ export async function registerRoutes(
   app.post('/api/email-integrations/:id/sync', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const { id } = req.params;
       const { audienceId, eventId, direction } = req.body;
 
@@ -1485,7 +1503,7 @@ export async function registerRoutes(
   app.get('/api/passkey/connection', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       
       const connection = await storage.getPasskeyConnection(organizationId);
       if (!connection) {
@@ -1502,7 +1520,7 @@ export async function registerRoutes(
   app.post('/api/passkey/connection', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const { clientId, clientSecret } = req.body;
       
       if (!clientId || !clientSecret) {
@@ -1540,7 +1558,7 @@ export async function registerRoutes(
   app.delete('/api/passkey/connection', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       
       await storage.deletePasskeyConnection(organizationId);
       res.status(204).send();
@@ -1554,7 +1572,7 @@ export async function registerRoutes(
   app.get('/api/passkey/events/:eventId/mapping', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const { eventId } = req.params;
       
       const mapping = await storage.getPasskeyEventMapping(organizationId, eventId);
@@ -1568,7 +1586,7 @@ export async function registerRoutes(
   app.post('/api/passkey/events/:eventId/mapping', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const { eventId } = req.params;
       const { passkeyEventId, passkeyEventName, regLinkUrl, isEnabled } = req.body;
       
@@ -1607,7 +1625,7 @@ export async function registerRoutes(
   app.delete('/api/passkey/events/:eventId/mapping', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const { eventId } = req.params;
       
       await storage.deletePasskeyEventMapping(organizationId, eventId);
@@ -1622,7 +1640,7 @@ export async function registerRoutes(
   app.get('/api/passkey/events/:eventId/reservations', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const { eventId } = req.params;
       
       const reservations = await storage.getPasskeyReservations(organizationId, eventId);
@@ -1637,7 +1655,7 @@ export async function registerRoutes(
   app.get('/api/passkey/attendees/:attendeeId/booking-link', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const { attendeeId } = req.params;
       
       const attendee = await storage.getAttendee(organizationId, attendeeId);
@@ -1680,7 +1698,7 @@ export async function registerRoutes(
   app.get('/api/onboarding/status', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const org = await storage.getOrganization(organizationId);
       
       if (!org) {
@@ -1753,7 +1771,7 @@ export async function registerRoutes(
   app.post('/api/onboarding/complete-step', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const { step, data } = req.body;
       
       // Validate step number
@@ -1834,7 +1852,7 @@ export async function registerRoutes(
   app.post('/api/onboarding/skip-step', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const { step } = req.body;
       
       if (!step || typeof step !== 'number' || step < 1 || step > 6) {
@@ -1869,7 +1887,7 @@ export async function registerRoutes(
   app.post('/api/onboarding/dismiss', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       
       const updated = await storage.updateOrganization(organizationId, {
         onboardingCompleted: true
@@ -2219,7 +2237,7 @@ export async function registerRoutes(
   app.get("/api/events", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const events = await storage.getEvents(organizationId);
       res.json(events);
     } catch (error) {
@@ -2231,7 +2249,7 @@ export async function registerRoutes(
   app.post("/api/events", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const slug = req.body.name
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
@@ -2254,7 +2272,7 @@ export async function registerRoutes(
   app.get("/api/events/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const event = await storage.getEvent(organizationId, req.params.id);
       if (!event) {
         return res.status(404).json({ message: "Event not found" });
@@ -2269,7 +2287,7 @@ export async function registerRoutes(
   app.patch("/api/events/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const event = await storage.updateEvent(organizationId, req.params.id, req.body);
       if (!event) {
         return res.status(404).json({ message: "Event not found" });
@@ -2284,7 +2302,7 @@ export async function registerRoutes(
   app.delete("/api/events/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       await storage.deleteEvent(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -2297,7 +2315,7 @@ export async function registerRoutes(
   app.get("/api/dashboard/stats", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       
       const [attendees, sessions, speakers, budgetItems, deliverablesList, milestonesList] = await Promise.all([
         storage.getAttendees(organizationId),
@@ -2336,7 +2354,7 @@ export async function registerRoutes(
   app.get("/api/analytics/acquisition", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const metrics = await storage.getAcquisitionMetrics(organizationId);
       res.json(metrics);
     } catch (error) {
@@ -2349,7 +2367,7 @@ export async function registerRoutes(
   app.get("/api/analytics/active-visitors", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const minutesAgo = parseInt(req.query.minutes as string) || 5;
       const activeVisitors = await storage.getActiveVisitors(organizationId, Math.min(minutesAgo, 30));
       res.json(activeVisitors);
@@ -2363,7 +2381,7 @@ export async function registerRoutes(
   app.get("/api/attendees", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.query.eventId as string | undefined;
       const attendees = await storage.getAttendees(organizationId, eventId);
       res.json(attendees);
@@ -2376,7 +2394,7 @@ export async function registerRoutes(
   app.post("/api/attendees", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const { inviteCode, ...attendeeData } = req.body;
       
       let inviteCodeId: string | undefined;
@@ -2483,7 +2501,7 @@ export async function registerRoutes(
   app.patch("/api/attendees/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const attendee = await storage.updateAttendee(organizationId, req.params.id, req.body);
       if (!attendee) {
         return res.status(404).json({ message: "Attendee not found" });
@@ -2498,7 +2516,7 @@ export async function registerRoutes(
   app.delete("/api/attendees/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       await storage.deleteAttendee(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -2511,7 +2529,7 @@ export async function registerRoutes(
   app.post("/api/attendees/bulk-import", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const { eventId, attendees } = req.body;
       
       if (!eventId || !Array.isArray(attendees)) {
@@ -2605,7 +2623,7 @@ export async function registerRoutes(
   app.get("/api/attendee-types", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.query.eventId as string | undefined;
       const attendeeTypes = await storage.getAttendeeTypes(organizationId, eventId);
       res.json(attendeeTypes);
@@ -2618,7 +2636,7 @@ export async function registerRoutes(
   app.get("/api/attendee-types/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const attendeeType = await storage.getAttendeeType(organizationId, req.params.id);
       if (!attendeeType) {
         return res.status(404).json({ message: "Attendee type not found" });
@@ -2633,7 +2651,7 @@ export async function registerRoutes(
   app.post("/api/attendee-types", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const data = insertAttendeeTypeSchema.parse({ ...req.body, organizationId });
       const attendeeType = await storage.createAttendeeType(data);
       res.status(201).json(attendeeType);
@@ -2646,7 +2664,7 @@ export async function registerRoutes(
   app.patch("/api/attendee-types/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const attendeeType = await storage.updateAttendeeType(organizationId, req.params.id, req.body);
       if (!attendeeType) {
         return res.status(404).json({ message: "Attendee type not found" });
@@ -2661,7 +2679,7 @@ export async function registerRoutes(
   app.delete("/api/attendee-types/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       await storage.deleteAttendeeType(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -2674,7 +2692,7 @@ export async function registerRoutes(
   app.get("/api/packages", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const packages = await storage.getPackages(organizationId);
       res.json(packages);
     } catch (error) {
@@ -2686,7 +2704,7 @@ export async function registerRoutes(
   app.get("/api/packages/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const pkg = await storage.getPackage(organizationId, req.params.id);
       if (!pkg) {
         return res.status(404).json({ message: "Package not found" });
@@ -2701,7 +2719,7 @@ export async function registerRoutes(
   app.post("/api/packages", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const body = {
         ...req.body,
         organizationId,
@@ -2719,7 +2737,7 @@ export async function registerRoutes(
   app.patch("/api/packages/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const body = {
         ...req.body,
         ...(req.body.price !== undefined && { price: String(req.body.price) }),
@@ -2738,7 +2756,7 @@ export async function registerRoutes(
   app.delete("/api/packages/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       await storage.deletePackage(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -2751,7 +2769,7 @@ export async function registerRoutes(
   app.get("/api/packages/:id/events", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const eventPackages = await storage.getEventPackagesByPackageId(organizationId, req.params.id);
       res.json(eventPackages.map(ep => ep.eventId));
     } catch (error) {
@@ -2764,7 +2782,7 @@ export async function registerRoutes(
   app.get("/api/events/:eventId/packages", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.params.eventId;
 
       // Get all base packages for the organization
@@ -2798,7 +2816,7 @@ export async function registerRoutes(
   app.put("/api/events/:eventId/packages/:packageId", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const { eventId, packageId } = req.params;
       const { priceOverride, featuresOverride, isEnabled } = req.body;
 
@@ -2821,7 +2839,7 @@ export async function registerRoutes(
   app.delete("/api/events/:eventId/packages/:packageId", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const { eventId, packageId } = req.params;
 
       await storage.deleteEventPackage(organizationId, eventId, packageId);
@@ -2836,7 +2854,7 @@ export async function registerRoutes(
   app.get("/api/invite-codes", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.query.eventId as string | undefined;
       const inviteCodes = await storage.getInviteCodes(organizationId, eventId);
       res.json(inviteCodes);
@@ -2849,7 +2867,7 @@ export async function registerRoutes(
   app.get("/api/invite-codes/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const inviteCode = await storage.getInviteCode(organizationId, req.params.id);
       if (!inviteCode) {
         return res.status(404).json({ message: "Invite code not found" });
@@ -2864,7 +2882,7 @@ export async function registerRoutes(
   app.post("/api/invite-codes", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const data = insertInviteCodeSchema.parse({ ...req.body, organizationId });
       const inviteCode = await storage.createInviteCode(data);
       res.status(201).json(inviteCode);
@@ -2877,7 +2895,7 @@ export async function registerRoutes(
   app.patch("/api/invite-codes/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const inviteCode = await storage.updateInviteCode(organizationId, req.params.id, req.body);
       if (!inviteCode) {
         return res.status(404).json({ message: "Invite code not found" });
@@ -2892,7 +2910,7 @@ export async function registerRoutes(
   app.delete("/api/invite-codes/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       await storage.deleteInviteCode(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -2905,7 +2923,7 @@ export async function registerRoutes(
   app.get("/api/activation-links", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.query.eventId as string | undefined;
       const links = await storage.getActivationLinks(organizationId, eventId);
       res.json(links);
@@ -2918,7 +2936,7 @@ export async function registerRoutes(
   app.get("/api/activation-links/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const link = await storage.getActivationLink(organizationId, req.params.id);
       if (!link) {
         return res.status(404).json({ message: "Activation link not found" });
@@ -2933,7 +2951,7 @@ export async function registerRoutes(
   app.get("/api/activation-links/:id/clicks", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const link = await storage.getActivationLink(organizationId, req.params.id);
       if (!link) {
         return res.status(404).json({ message: "Activation link not found" });
@@ -2949,7 +2967,7 @@ export async function registerRoutes(
   app.post("/api/activation-links", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       // Generate a random short code
       const shortCode = randomBytes(4).toString("hex");
       const data = insertActivationLinkSchema.parse({ 
@@ -2969,7 +2987,7 @@ export async function registerRoutes(
   app.patch("/api/activation-links/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const link = await storage.updateActivationLink(organizationId, req.params.id, req.body);
       if (!link) {
         return res.status(404).json({ message: "Activation link not found" });
@@ -2984,7 +3002,7 @@ export async function registerRoutes(
   app.delete("/api/activation-links/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       await storage.deleteActivationLink(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -3073,7 +3091,7 @@ export async function registerRoutes(
   app.get("/api/speakers", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.query.eventId as string | undefined;
       const speakers = await storage.getSpeakers(organizationId, eventId);
       res.json(speakers);
@@ -3086,7 +3104,7 @@ export async function registerRoutes(
   app.post("/api/speakers", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const data = insertSpeakerSchema.parse({ ...req.body, organizationId });
       const speaker = await storage.createSpeaker(data);
       res.status(201).json(speaker);
@@ -3099,7 +3117,7 @@ export async function registerRoutes(
   app.patch("/api/speakers/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const speaker = await storage.updateSpeaker(organizationId, req.params.id, req.body);
       if (!speaker) {
         return res.status(404).json({ message: "Speaker not found" });
@@ -3114,7 +3132,7 @@ export async function registerRoutes(
   app.delete("/api/speakers/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       await storage.deleteSpeaker(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -3127,7 +3145,7 @@ export async function registerRoutes(
   app.get("/api/events/:eventId/sponsors", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const { tier, limit, activeOnly } = req.query;
       const options: { tier?: string; limit?: number; activeOnly?: boolean } = {};
       if (tier) options.tier = tier as string;
@@ -3144,7 +3162,7 @@ export async function registerRoutes(
   app.post("/api/events/:eventId/sponsors", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.params.eventId;
       const data = insertEventSponsorSchema.parse({ ...req.body, organizationId, eventId });
       
@@ -3183,7 +3201,7 @@ export async function registerRoutes(
   app.patch("/api/events/:eventId/sponsors/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.params.eventId;
       const sponsorId = req.params.id;
       
@@ -3239,7 +3257,7 @@ export async function registerRoutes(
   app.delete("/api/events/:eventId/sponsors/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       await storage.deleteEventSponsor(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -3252,7 +3270,7 @@ export async function registerRoutes(
   app.get("/api/sponsors/:sponsorId/contacts", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const contacts = await storage.getSponsorContacts(organizationId, req.params.sponsorId);
       res.json(contacts);
     } catch (error) {
@@ -3264,7 +3282,7 @@ export async function registerRoutes(
   app.get("/api/sponsors/:sponsorId/contacts/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const contact = await storage.getSponsorContact(organizationId, req.params.id);
       if (!contact) {
         return res.status(404).json({ message: "Sponsor contact not found" });
@@ -3279,7 +3297,7 @@ export async function registerRoutes(
   app.post("/api/sponsors/:sponsorId/contacts", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const data = insertSponsorContactSchema.parse({ ...req.body, organizationId, sponsorId: req.params.sponsorId });
       const contact = await storage.createSponsorContact(data);
       res.status(201).json(contact);
@@ -3292,7 +3310,7 @@ export async function registerRoutes(
   app.patch("/api/sponsors/:sponsorId/contacts/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const contact = await storage.updateSponsorContact(organizationId, req.params.id, req.body);
       if (!contact) {
         return res.status(404).json({ message: "Sponsor contact not found" });
@@ -3307,7 +3325,7 @@ export async function registerRoutes(
   app.delete("/api/sponsors/:sponsorId/contacts/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       await storage.deleteSponsorContact(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -3320,7 +3338,7 @@ export async function registerRoutes(
   app.get("/api/events/:eventId/sponsor-tasks", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const tasks = await storage.getSponsorTasks(organizationId, req.params.eventId);
       res.json(tasks);
     } catch (error) {
@@ -3332,7 +3350,7 @@ export async function registerRoutes(
   app.get("/api/sponsor-tasks/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const task = await storage.getSponsorTask(organizationId, req.params.id);
       if (!task) {
         return res.status(404).json({ message: "Sponsor task not found" });
@@ -3347,7 +3365,7 @@ export async function registerRoutes(
   app.post("/api/events/:eventId/sponsor-tasks", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const data = insertSponsorTaskSchema.parse({ ...req.body, organizationId, eventId: req.params.eventId });
       const task = await storage.createSponsorTask(data);
       res.status(201).json(task);
@@ -3360,7 +3378,7 @@ export async function registerRoutes(
   app.patch("/api/sponsor-tasks/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const task = await storage.updateSponsorTask(organizationId, req.params.id, req.body);
       if (!task) {
         return res.status(404).json({ message: "Sponsor task not found" });
@@ -3375,7 +3393,7 @@ export async function registerRoutes(
   app.delete("/api/sponsor-tasks/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       await storage.deleteSponsorTask(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -3388,7 +3406,7 @@ export async function registerRoutes(
   app.get("/api/sponsors/:sponsorId/task-completions", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const completions = await storage.getSponsorTaskCompletions(organizationId, req.params.sponsorId);
       res.json(completions);
     } catch (error) {
@@ -3401,7 +3419,7 @@ export async function registerRoutes(
   app.get("/api/events/:eventId/sponsor-task-completions", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.params.eventId;
       
       // Get all sponsors for this event
@@ -3424,7 +3442,7 @@ export async function registerRoutes(
   app.patch("/api/task-completions/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const completion = await storage.updateSponsorTaskCompletion(organizationId, req.params.id, req.body);
       if (!completion) {
         return res.status(404).json({ message: "Task completion not found" });
@@ -3440,7 +3458,7 @@ export async function registerRoutes(
   app.post("/api/sponsors/:sponsorId/generate-portal-token", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const sponsorId = req.params.sponsorId;
       
       const sponsor = await storage.getEventSponsor(organizationId, sponsorId);
@@ -3467,7 +3485,7 @@ export async function registerRoutes(
   app.post("/api/sponsors/:sponsorId/send-portal-email", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const sponsorId = req.params.sponsorId;
       
       const sponsor = await storage.getEventSponsor(organizationId, sponsorId);
@@ -3884,7 +3902,7 @@ export async function registerRoutes(
   app.get("/api/sessions", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.query.eventId as string | undefined;
       const sessions = await storage.getSessions(organizationId, eventId);
       res.json(sessions);
@@ -3897,7 +3915,7 @@ export async function registerRoutes(
   app.post("/api/sessions", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const data = insertSessionSchema.parse({ ...req.body, organizationId });
       const session = await storage.createSession(data);
       res.status(201).json(session);
@@ -3910,7 +3928,7 @@ export async function registerRoutes(
   app.patch("/api/sessions/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const session = await storage.updateSession(organizationId, req.params.id, req.body);
       if (!session) {
         return res.status(404).json({ message: "Session not found" });
@@ -3925,7 +3943,7 @@ export async function registerRoutes(
   app.delete("/api/sessions/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       await storage.deleteSession(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -3938,7 +3956,7 @@ export async function registerRoutes(
   app.get("/api/session-tracks", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const tracks = await storage.getSessionTracks(organizationId);
       res.json(tracks);
     } catch (error) {
@@ -3950,7 +3968,7 @@ export async function registerRoutes(
   app.post("/api/session-tracks", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const data = insertSessionTrackSchema.parse({ ...req.body, organizationId });
       const track = await storage.createSessionTrack(data);
       res.status(201).json(track);
@@ -3963,7 +3981,7 @@ export async function registerRoutes(
   app.patch("/api/session-tracks/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const updateData = insertSessionTrackSchema.partial().parse(req.body);
       const track = await storage.updateSessionTrack(organizationId, req.params.id, updateData);
       if (!track) {
@@ -3979,7 +3997,7 @@ export async function registerRoutes(
   app.delete("/api/session-tracks/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       await storage.deleteSessionTrack(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -3992,7 +4010,7 @@ export async function registerRoutes(
   app.get("/api/session-rooms", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const rooms = await storage.getSessionRooms(organizationId);
       res.json(rooms);
     } catch (error) {
@@ -4004,7 +4022,7 @@ export async function registerRoutes(
   app.post("/api/session-rooms", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const data = insertSessionRoomSchema.parse({ ...req.body, organizationId });
       const room = await storage.createSessionRoom(data);
       res.status(201).json(room);
@@ -4017,7 +4035,7 @@ export async function registerRoutes(
   app.patch("/api/session-rooms/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const updateData = insertSessionRoomSchema.partial().parse(req.body);
       const room = await storage.updateSessionRoom(organizationId, req.params.id, updateData);
       if (!room) {
@@ -4033,7 +4051,7 @@ export async function registerRoutes(
   app.delete("/api/session-rooms/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       await storage.deleteSessionRoom(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -4046,7 +4064,7 @@ export async function registerRoutes(
   app.get("/api/sessions/:sessionId/speakers", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const session = await storage.getSession(organizationId, req.params.sessionId);
       if (!session) {
         return res.status(404).json({ message: "Session not found" });
@@ -4062,7 +4080,7 @@ export async function registerRoutes(
   app.put("/api/sessions/:sessionId/speakers", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const { speakerIds } = req.body;
       if (!Array.isArray(speakerIds)) {
         return res.status(400).json({ message: "speakerIds must be an array" });
@@ -4081,7 +4099,7 @@ export async function registerRoutes(
   app.get("/api/speakers/:speakerId/sessions", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const speaker = await storage.getSpeaker(organizationId, req.params.speakerId);
       if (!speaker) {
         return res.status(404).json({ message: "Speaker not found" });
@@ -4097,7 +4115,7 @@ export async function registerRoutes(
   app.put("/api/speakers/:speakerId/sessions", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const { sessionIds } = req.body;
       if (!Array.isArray(sessionIds)) {
         return res.status(400).json({ message: "sessionIds must be an array" });
@@ -4117,7 +4135,7 @@ export async function registerRoutes(
   app.get("/api/content", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.query.eventId as string | undefined;
       const sessionId = req.query.sessionId as string | undefined;
       const content = await storage.getContentItems(organizationId, eventId, sessionId);
@@ -4131,7 +4149,7 @@ export async function registerRoutes(
   app.post("/api/content", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const data = insertContentItemSchema.parse({ ...req.body, organizationId });
       const content = await storage.createContentItem(data);
       res.status(201).json(content);
@@ -4144,7 +4162,7 @@ export async function registerRoutes(
   app.patch("/api/content/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const content = await storage.updateContentItem(organizationId, req.params.id, req.body);
       if (!content) {
         return res.status(404).json({ message: "Content not found" });
@@ -4159,7 +4177,7 @@ export async function registerRoutes(
   app.delete("/api/content/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       await storage.deleteContentItem(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -4172,7 +4190,7 @@ export async function registerRoutes(
   app.get("/api/budget", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.query.eventId as string | undefined;
       const budget = await storage.getBudgetItems(organizationId, eventId);
       res.json(budget);
@@ -4185,7 +4203,7 @@ export async function registerRoutes(
   app.post("/api/budget", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       // Convert empty categoryId to null to avoid FK violation
       const body = { ...req.body };
       if (body.categoryId === "") {
@@ -4203,7 +4221,7 @@ export async function registerRoutes(
   app.patch("/api/budget/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       // Convert empty categoryId to null to avoid FK violation
       const body = { ...req.body };
       if (body.categoryId === "") {
@@ -4223,7 +4241,7 @@ export async function registerRoutes(
   app.delete("/api/budget/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       await storage.deleteBudgetItem(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -4236,7 +4254,7 @@ export async function registerRoutes(
   app.get("/api/budget-categories", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const categories = await storage.getBudgetCategories(organizationId);
       res.json(categories);
     } catch (error) {
@@ -4248,7 +4266,7 @@ export async function registerRoutes(
   app.post("/api/budget-categories", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const data = insertBudgetCategorySchema.parse({ ...req.body, organizationId });
       const category = await storage.createBudgetCategory(data);
       res.status(201).json(category);
@@ -4261,7 +4279,7 @@ export async function registerRoutes(
   app.patch("/api/budget-categories/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const category = await storage.updateBudgetCategory(organizationId, req.params.id, req.body);
       if (!category) {
         return res.status(404).json({ message: "Budget category not found" });
@@ -4276,7 +4294,7 @@ export async function registerRoutes(
   app.delete("/api/budget-categories/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       await storage.deleteBudgetCategory(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -4289,7 +4307,7 @@ export async function registerRoutes(
   app.get("/api/budget-offsets", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.query.eventId as string | undefined;
       const offsets = await storage.getBudgetOffsets(organizationId, eventId);
       res.json(offsets);
@@ -4302,7 +4320,7 @@ export async function registerRoutes(
   app.post("/api/budget-offsets", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const data = insertBudgetOffsetSchema.parse({ ...req.body, organizationId });
       const offset = await storage.createBudgetOffset(data);
       res.status(201).json(offset);
@@ -4315,7 +4333,7 @@ export async function registerRoutes(
   app.patch("/api/budget-offsets/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const offset = await storage.updateBudgetOffset(organizationId, req.params.id, req.body);
       if (!offset) {
         return res.status(404).json({ message: "Budget offset not found" });
@@ -4330,7 +4348,7 @@ export async function registerRoutes(
   app.delete("/api/budget-offsets/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       await storage.deleteBudgetOffset(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -4343,7 +4361,7 @@ export async function registerRoutes(
   app.get("/api/events/:eventId/budget-settings", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const event = await storage.getEvent(organizationId, req.params.eventId);
       if (!event) {
         return res.status(404).json({ message: "Event not found" });
@@ -4359,7 +4377,7 @@ export async function registerRoutes(
   app.put("/api/events/:eventId/budget-settings", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const event = await storage.getEvent(organizationId, req.params.eventId);
       if (!event) {
         return res.status(404).json({ message: "Event not found" });
@@ -4380,7 +4398,7 @@ export async function registerRoutes(
   app.get("/api/budget-payments", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.query.eventId as string | undefined;
       const payments = await storage.getBudgetPayments(organizationId, eventId);
       res.json(payments);
@@ -4393,7 +4411,7 @@ export async function registerRoutes(
   app.post("/api/budget-payments", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const data = insertBudgetPaymentSchema.parse({ ...req.body, organizationId });
       const payment = await storage.createBudgetPayment(data);
       res.status(201).json(payment);
@@ -4406,7 +4424,7 @@ export async function registerRoutes(
   app.patch("/api/budget-payments/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const payment = await storage.updateBudgetPayment(organizationId, req.params.id, req.body);
       if (!payment) {
         return res.status(404).json({ message: "Budget payment not found" });
@@ -4421,7 +4439,7 @@ export async function registerRoutes(
   app.delete("/api/budget-payments/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       await storage.deleteBudgetPayment(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -4434,7 +4452,7 @@ export async function registerRoutes(
   app.get("/api/vendors", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const vendors = await storage.getVendors(organizationId);
       res.json(vendors);
     } catch (error) {
@@ -4446,7 +4464,7 @@ export async function registerRoutes(
   app.get("/api/vendors/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const vendor = await storage.getVendor(organizationId, req.params.id);
       if (!vendor) {
         return res.status(404).json({ message: "Vendor not found" });
@@ -4461,7 +4479,7 @@ export async function registerRoutes(
   app.post("/api/vendors", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const data = insertVendorSchema.parse({ ...req.body, organizationId });
       
       let budgetItemId: string | undefined;
@@ -4505,7 +4523,7 @@ export async function registerRoutes(
   app.patch("/api/vendors/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       
       // Get current vendor state before update
       const existingVendor = await storage.getVendor(organizationId, req.params.id);
@@ -4580,7 +4598,7 @@ export async function registerRoutes(
   app.delete("/api/vendors/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       await storage.deleteVendor(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -4593,7 +4611,7 @@ export async function registerRoutes(
   app.get("/api/milestones", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.query.eventId as string | undefined;
       const milestones = await storage.getMilestones(organizationId, eventId);
       res.json(milestones);
@@ -4606,7 +4624,7 @@ export async function registerRoutes(
   app.post("/api/milestones", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const data = insertMilestoneSchema.parse({ ...req.body, organizationId });
       const milestone = await storage.createMilestone(data);
       res.status(201).json(milestone);
@@ -4619,7 +4637,7 @@ export async function registerRoutes(
   app.patch("/api/milestones/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const milestone = await storage.updateMilestone(organizationId, req.params.id, req.body);
       if (!milestone) {
         return res.status(404).json({ message: "Milestone not found" });
@@ -4634,7 +4652,7 @@ export async function registerRoutes(
   app.delete("/api/milestones/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       await storage.deleteMilestone(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -4647,7 +4665,7 @@ export async function registerRoutes(
   app.get("/api/deliverables", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.query.eventId as string | undefined;
       const deliverables = await storage.getDeliverables(organizationId, eventId);
       res.json(deliverables);
@@ -4660,7 +4678,7 @@ export async function registerRoutes(
   app.post("/api/deliverables", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const data = insertDeliverableSchema.parse({ ...req.body, organizationId });
       const deliverable = await storage.createDeliverable(data);
       res.status(201).json(deliverable);
@@ -4673,7 +4691,7 @@ export async function registerRoutes(
   app.patch("/api/deliverables/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const deliverable = await storage.updateDeliverable(organizationId, req.params.id, req.body);
       if (!deliverable) {
         return res.status(404).json({ message: "Deliverable not found" });
@@ -4688,7 +4706,7 @@ export async function registerRoutes(
   app.delete("/api/deliverables/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       await storage.deleteDeliverable(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -4701,7 +4719,7 @@ export async function registerRoutes(
   app.get("/api/emails", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.query.eventId as string | undefined;
       const emails = await storage.getEmailCampaigns(organizationId, eventId);
       res.json(emails);
@@ -4714,7 +4732,7 @@ export async function registerRoutes(
   app.post("/api/emails", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const data = insertEmailCampaignSchema.parse({ ...req.body, organizationId, createdBy: userId });
       const email = await storage.createEmailCampaign(data);
       res.status(201).json(email);
@@ -4727,7 +4745,7 @@ export async function registerRoutes(
   app.patch("/api/emails/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       // Convert scheduledAt string to Date if present
       const updateData = { ...req.body };
       if (updateData.scheduledAt && typeof updateData.scheduledAt === 'string') {
@@ -4747,7 +4765,7 @@ export async function registerRoutes(
   app.delete("/api/emails/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       await storage.deleteEmailCampaign(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -4760,7 +4778,7 @@ export async function registerRoutes(
   app.post("/api/emails/:id/send", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       
       // Get the email campaign
       const campaigns = await storage.getEmailCampaigns(organizationId);
@@ -4881,7 +4899,7 @@ export async function registerRoutes(
   app.get("/api/social", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.query.eventId as string | undefined;
       const posts = await storage.getSocialPosts(organizationId, eventId);
       res.json(posts);
@@ -4894,7 +4912,7 @@ export async function registerRoutes(
   app.post("/api/social", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const { status, platform, content } = req.body;
       
       if (status === 'published' && platform === 'linkedin') {
@@ -5067,7 +5085,7 @@ export async function registerRoutes(
   app.patch("/api/social/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const { status } = req.body;
       
       const existingPost = await storage.getSocialPost(organizationId, req.params.id);
@@ -5251,7 +5269,7 @@ export async function registerRoutes(
   app.delete("/api/social/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       await storage.deleteSocialPost(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -5264,7 +5282,7 @@ export async function registerRoutes(
   app.get("/api/email-templates", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.query.eventId as string | undefined;
       const templates = await storage.getEmailTemplates(organizationId, eventId);
       res.json(templates);
@@ -5277,7 +5295,7 @@ export async function registerRoutes(
   app.post("/api/email-templates", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const data = insertEmailTemplateSchema.parse({ ...req.body, organizationId, eventId: req.body.eventId || null, createdBy: userId });
       const template = await storage.createEmailTemplate(data);
       res.status(201).json(template);
@@ -5290,7 +5308,7 @@ export async function registerRoutes(
   app.patch("/api/email-templates/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const template = await storage.updateEmailTemplate(organizationId, req.params.id, req.body);
       if (!template) {
         return res.status(404).json({ message: "Email template not found" });
@@ -5305,7 +5323,7 @@ export async function registerRoutes(
   app.delete("/api/email-templates/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       await storage.deleteEmailTemplate(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -5317,7 +5335,7 @@ export async function registerRoutes(
   app.post("/api/email-templates/:id/test-email", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       
       // Get user's email
       const user = await storage.getUser(userId);
@@ -5379,7 +5397,7 @@ export async function registerRoutes(
   app.get("/api/check-in/stats", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const attendees = await storage.getAttendees(organizationId);
       const totalAttendees = attendees.length;
       const checkedIn = attendees.filter(a => a.checkedIn).length;
@@ -6082,7 +6100,7 @@ ${urls.map(u => `  <url>
   app.get("/api/analytics/overview", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       
       const [attendees, sessions, speakers, budgetItems, deliverables, milestones, emailCampaigns, socialPosts] = await Promise.all([
         storage.getAttendees(organizationId),
@@ -6219,7 +6237,7 @@ ${urls.map(u => `  <url>
   app.get("/api/social/linkedin/authorize", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       
       const credentials = await storage.getSocialMediaCredentials(organizationId);
       const linkedinCred = credentials.find(c => c.provider === 'linkedin');
@@ -6296,7 +6314,7 @@ ${urls.map(u => `  <url>
         return res.redirect('/social?error=' + encodeURIComponent('Session expired. Please log in and try again.'));
       }
       
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const credentials = await storage.getSocialMediaCredentials(organizationId);
       const linkedinCred = credentials.find(c => c.provider === 'linkedin');
       
@@ -6494,7 +6512,7 @@ ${urls.map(u => `  <url>
   app.get("/api/social/twitter/authorize", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       
       const credentials = await storage.getSocialMediaCredentials(organizationId);
       const twitterCred = credentials.find(c => c.provider === 'twitter');
@@ -6580,7 +6598,7 @@ ${urls.map(u => `  <url>
         return res.redirect('/social?error=' + encodeURIComponent('Session expired. Please log in and try again.'));
       }
       
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const credentials = await storage.getSocialMediaCredentials(organizationId);
       const twitterCred = credentials.find(c => c.provider === 'twitter');
       
@@ -6693,7 +6711,7 @@ ${urls.map(u => `  <url>
   app.get("/api/events/:eventId/pages", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.params.eventId;
       const pages = await storage.getEventPages(organizationId, eventId);
       res.json(pages);
@@ -6706,7 +6724,7 @@ ${urls.map(u => `  <url>
   app.get("/api/events/:eventId/pages/:pageType", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const { eventId, pageType } = req.params;
       const page = await storage.getEventPageByType(organizationId, eventId, pageType);
       if (!page) {
@@ -6722,7 +6740,7 @@ ${urls.map(u => `  <url>
   app.post("/api/events/:eventId/pages", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.params.eventId;
       const { theme, ...rest } = req.body;
       
@@ -6744,7 +6762,7 @@ ${urls.map(u => `  <url>
   app.patch("/api/events/:eventId/pages/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       
       // Sanitize customCss in theme before persisting to prevent XSS
       const updateData = { ...req.body };
@@ -6769,7 +6787,7 @@ ${urls.map(u => `  <url>
   app.delete("/api/events/:eventId/pages/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       await storage.deleteEventPage(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -6782,7 +6800,7 @@ ${urls.map(u => `  <url>
   app.get("/api/events/:eventId/pages/:pageId/versions", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const { pageId } = req.params;
       
       const page = await storage.getEventPage(organizationId, pageId);
@@ -6808,7 +6826,7 @@ ${urls.map(u => `  <url>
   app.post("/api/events/:eventId/pages/:pageId/versions", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const { pageId } = req.params;
       
       const page = await storage.getEventPage(organizationId, pageId);
@@ -6838,7 +6856,7 @@ ${urls.map(u => `  <url>
   app.post("/api/events/:eventId/pages/:pageId/versions/:versionId/restore", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const { pageId, versionId } = req.params;
       
       const currentPage = await storage.getEventPage(organizationId, pageId);
@@ -6903,7 +6921,7 @@ ${urls.map(u => `  <url>
   app.get("/api/events/:eventId/registration-config", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const config = await storage.getRegistrationConfig(organizationId, req.params.eventId);
       res.json(config || null);
     } catch (error) {
@@ -6915,7 +6933,7 @@ ${urls.map(u => `  <url>
   app.post("/api/events/:eventId/registration-config", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.params.eventId;
       const data = {
         ...req.body,
@@ -6934,7 +6952,7 @@ ${urls.map(u => `  <url>
   app.get("/api/custom-fields", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const fields = await storage.getCustomFields(organizationId);
       res.json(fields);
     } catch (error) {
@@ -6946,7 +6964,7 @@ ${urls.map(u => `  <url>
   app.post("/api/custom-fields", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const data = insertCustomFieldSchema.parse({ ...req.body, organizationId });
       const field = await storage.createCustomField(data);
       res.status(201).json(field);
@@ -6959,7 +6977,7 @@ ${urls.map(u => `  <url>
   app.patch("/api/custom-fields/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const field = await storage.updateCustomField(organizationId, req.params.id, req.body);
       if (!field) {
         return res.status(404).json({ message: "Custom field not found" });
@@ -6974,7 +6992,7 @@ ${urls.map(u => `  <url>
   app.delete("/api/custom-fields/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       await storage.deleteCustomField(organizationId, req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -7243,7 +7261,7 @@ ${urls.map(u => `  <url>
   app.post("/api/content/assets", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       
       const { fileName, mimeType, byteSize, uploadUrl } = req.body;
       
@@ -7282,7 +7300,7 @@ ${urls.map(u => `  <url>
   app.get("/api/content/assets", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const assets = await storage.getContentAssets(organizationId);
       res.json(assets);
     } catch (error) {
@@ -7295,7 +7313,7 @@ ${urls.map(u => `  <url>
   app.delete("/api/content/assets/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       
       const asset = await storage.getContentAsset(req.params.id, organizationId);
       if (!asset) {
@@ -7314,7 +7332,7 @@ ${urls.map(u => `  <url>
   app.post("/api/ai/generate-content", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       
       const { sectionType, eventId, customPrompt } = req.body;
       
@@ -7373,7 +7391,7 @@ ${urls.map(u => `  <url>
   app.get("/api/events/:eventId/cfp", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.params.eventId;
       
       if (!eventId) {
@@ -7394,7 +7412,7 @@ ${urls.map(u => `  <url>
   app.post("/api/events/:eventId/cfp", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.params.eventId;
       
       if (!eventId) {
@@ -7437,7 +7455,7 @@ ${urls.map(u => `  <url>
   app.patch("/api/events/:eventId/cfp", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.params.eventId;
       
       if (!eventId) {
@@ -7472,7 +7490,7 @@ ${urls.map(u => `  <url>
   app.get("/api/events/:eventId/cfp/topics", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.params.eventId;
       
       if (!eventId) {
@@ -7495,7 +7513,7 @@ ${urls.map(u => `  <url>
   app.post("/api/events/:eventId/cfp/topics", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.params.eventId;
       
       if (!eventId) {
@@ -7524,7 +7542,7 @@ ${urls.map(u => `  <url>
   app.patch("/api/events/:eventId/cfp/topics/:topicId", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const topicId = parseInt(req.params.topicId, 10);
       
       if (isNaN(topicId)) {
@@ -7547,7 +7565,7 @@ ${urls.map(u => `  <url>
   app.delete("/api/events/:eventId/cfp/topics/:topicId", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const topicId = parseInt(req.params.topicId, 10);
       
       if (isNaN(topicId)) {
@@ -7569,7 +7587,7 @@ ${urls.map(u => `  <url>
   app.get("/api/events/:eventId/cfp/submissions", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.params.eventId;
       
       if (!eventId) {
@@ -7592,7 +7610,7 @@ ${urls.map(u => `  <url>
   app.get("/api/events/:eventId/cfp/submissions/:submissionId", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const submissionId = parseInt(req.params.submissionId, 10);
       
       if (isNaN(submissionId)) {
@@ -7617,7 +7635,7 @@ ${urls.map(u => `  <url>
   app.patch("/api/events/:eventId/cfp/submissions/:submissionId", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.params.eventId;
       const submissionId = parseInt(req.params.submissionId, 10);
       
@@ -7704,7 +7722,7 @@ ${urls.map(u => `  <url>
   app.post("/api/events/:eventId/cfp/submissions/:submissionId/resend-acceptance", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.params.eventId;
       const submissionId = parseInt(req.params.submissionId, 10);
       
@@ -7769,7 +7787,7 @@ ${urls.map(u => `  <url>
   app.delete("/api/events/:eventId/cfp/submissions/:submissionId", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const submissionId = parseInt(req.params.submissionId, 10);
       
       if (isNaN(submissionId)) {
@@ -7791,7 +7809,7 @@ ${urls.map(u => `  <url>
   app.get("/api/events/:eventId/cfp/reviewers", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.params.eventId;
       
       if (!eventId) {
@@ -7814,7 +7832,7 @@ ${urls.map(u => `  <url>
   app.post("/api/events/:eventId/cfp/reviewers", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.params.eventId;
       
       if (!eventId) {
@@ -7843,7 +7861,7 @@ ${urls.map(u => `  <url>
   app.patch("/api/events/:eventId/cfp/reviewers/:reviewerId", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const reviewerId = parseInt(req.params.reviewerId, 10);
       
       if (isNaN(reviewerId)) {
@@ -7866,7 +7884,7 @@ ${urls.map(u => `  <url>
   app.delete("/api/events/:eventId/cfp/reviewers/:reviewerId", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const reviewerId = parseInt(req.params.reviewerId, 10);
       
       if (isNaN(reviewerId)) {
@@ -7888,7 +7906,7 @@ ${urls.map(u => `  <url>
   app.post("/api/events/:eventId/cfp/submissions/:submissionId/assign-reviewer", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.params.eventId;
       const submissionId = parseInt(req.params.submissionId, 10);
       const { reviewerId } = req.body;
@@ -7944,7 +7962,7 @@ ${urls.map(u => `  <url>
   app.post("/api/events/:eventId/cfp/submissions/:submissionId/create-session", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.params.eventId;
       const submissionId = parseInt(req.params.submissionId, 10);
       
@@ -8892,7 +8910,7 @@ ${urls.map(u => `  <url>
   app.get("/api/documents", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.query.eventId as string | undefined;
       const folderId = req.query.folderId as string | undefined;
       
@@ -8919,7 +8937,7 @@ ${urls.map(u => `  <url>
   app.post("/api/documents", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       
       const { name, description, fileName, mimeType, byteSize, uploadUrl, eventId, folderId, accessLevel } = req.body;
       
@@ -9016,7 +9034,7 @@ ${urls.map(u => `  <url>
   app.get("/api/documents/folders", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.query.eventId as string | undefined;
       
       const folders = await storage.getDocumentFolders(organizationId, eventId);
@@ -9031,7 +9049,7 @@ ${urls.map(u => `  <url>
   app.post("/api/documents/folders", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       
       const { name, description, eventId, parentId } = req.body;
       
@@ -9060,7 +9078,7 @@ ${urls.map(u => `  <url>
   app.patch("/api/documents/folders/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const folderId = req.params.id;
       
       const folder = await storage.getDocumentFolder(organizationId, folderId);
@@ -9080,7 +9098,7 @@ ${urls.map(u => `  <url>
   app.delete("/api/documents/folders/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const folderId = req.params.id;
       
       const folder = await storage.getDocumentFolder(organizationId, folderId);
@@ -9100,7 +9118,7 @@ ${urls.map(u => `  <url>
   app.get("/api/documents/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       
       const document = await storage.getDocument(organizationId, req.params.id);
       if (!document) {
@@ -9128,7 +9146,7 @@ ${urls.map(u => `  <url>
   app.patch("/api/documents/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       
       const document = await storage.getDocument(organizationId, req.params.id);
       if (!document) {
@@ -9165,7 +9183,7 @@ ${urls.map(u => `  <url>
   app.delete("/api/documents/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       
       const document = await storage.getDocument(organizationId, req.params.id);
       if (!document) {
@@ -9184,7 +9202,7 @@ ${urls.map(u => `  <url>
   app.get("/api/documents/:id/download", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       
       const document = await storage.getDocument(organizationId, req.params.id);
       if (!document) {
@@ -9218,7 +9236,7 @@ ${urls.map(u => `  <url>
   app.get("/api/documents/:id/activity", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       
       const document = await storage.getDocument(organizationId, req.params.id);
       if (!document) {
@@ -9237,7 +9255,7 @@ ${urls.map(u => `  <url>
   app.get("/api/documents/:id/shares", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       
       const document = await storage.getDocument(organizationId, req.params.id);
       if (!document) {
@@ -9256,7 +9274,7 @@ ${urls.map(u => `  <url>
   app.post("/api/documents/:id/shares", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const documentId = req.params.id;
       
       const document = await storage.getDocument(organizationId, documentId);
@@ -9304,7 +9322,7 @@ ${urls.map(u => `  <url>
   app.delete("/api/documents/:id/shares/:shareId", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const { id: documentId, shareId } = req.params;
       
       const document = await storage.getDocument(organizationId, documentId);
@@ -9336,7 +9354,7 @@ ${urls.map(u => `  <url>
   app.get("/api/documents/:id/comments", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       
       const document = await storage.getDocument(organizationId, req.params.id);
       if (!document) {
@@ -9355,7 +9373,7 @@ ${urls.map(u => `  <url>
   app.post("/api/documents/:id/comments", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const documentId = req.params.id;
       
       const document = await storage.getDocument(organizationId, documentId);
@@ -9394,7 +9412,7 @@ ${urls.map(u => `  <url>
   app.patch("/api/documents/:id/comments/:commentId", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const { id: documentId, commentId } = req.params;
       
       const document = await storage.getDocument(organizationId, documentId);
@@ -9433,7 +9451,7 @@ ${urls.map(u => `  <url>
   app.get("/api/documents/:id/approvals", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       
       const document = await storage.getDocument(organizationId, req.params.id);
       if (!document) {
@@ -9452,7 +9470,7 @@ ${urls.map(u => `  <url>
   app.post("/api/documents/:id/approvals", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const documentId = req.params.id;
       
       const document = await storage.getDocument(organizationId, documentId);
@@ -9488,7 +9506,7 @@ ${urls.map(u => `  <url>
   app.patch("/api/documents/:id/approvals/:approvalId", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId);
+      const organizationId = await getOrganizationId(userId, req.session);
       const { id: documentId, approvalId } = req.params;
       
       const document = await storage.getDocument(organizationId, documentId);
