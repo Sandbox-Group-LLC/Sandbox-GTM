@@ -19,6 +19,7 @@ import Speakers from "@/pages/speakers";
 import Content from "@/pages/content";
 import Budget from "@/pages/budget";
 import Deliverables from "@/pages/deliverables";
+import MyDeliverables from "@/pages/my-deliverables";
 import Emails from "@/pages/emails";
 import Social from "@/pages/social";
 import Settings from "@/pages/settings";
@@ -153,6 +154,7 @@ function Router() {
         <Route path="/documents" component={Documents} />
         <Route path="/budget" component={Budget} />
         <Route path="/deliverables" component={Deliverables} />
+        <Route path="/my-deliverables" component={MyDeliverables} />
         <Route path="/emails" component={Emails} />
         <Route path="/email-analytics" component={EmailAnalytics} />
         <Route path="/social" component={Social} />
