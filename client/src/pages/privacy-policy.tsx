@@ -7,7 +7,7 @@ export default function PrivacyPolicy() {
         <Card>
           <CardContent className="prose dark:prose-invert max-w-none p-8">
             <h1 className="text-3xl font-bold mb-2">Privacy Policy</h1>
-            <p className="text-muted-foreground mb-8">Last updated: December 14, 2024</p>
+            <p className="text-muted-foreground mb-8">Last updated: December 21, 2024</p>
 
             <section className="mb-8">
               <h2 className="text-xl font-semibold mb-4">1. Introduction</h2>
@@ -30,6 +30,7 @@ export default function PrivacyPolicy() {
                 <li>Register as an attendee for events</li>
                 <li>Contact us for support</li>
                 <li>Subscribe to marketing communications</li>
+                <li>Submit inquiries through our pricing or contact forms</li>
               </ul>
               <p>This information may include:</p>
               <ul className="list-disc pl-6 mb-4">
@@ -39,6 +40,7 @@ export default function PrivacyPolicy() {
                 <li>Payment and billing information</li>
                 <li>Speaker and session information</li>
                 <li>Profile photos and biographical information</li>
+                <li>Business inquiries and messages submitted through lead forms</li>
               </ul>
 
               <h3 className="text-lg font-medium mb-2">Automatically Collected Information</h3>
@@ -154,6 +156,31 @@ export default function PrivacyPolicy() {
               </ul>
               <p className="mt-4">
                 You can control cookies through your browser settings. However, disabling cookies may affect the functionality of certain features.
+              </p>
+
+              <h3 className="text-lg font-medium mb-2 mt-6">Email Tracking</h3>
+              <p>
+                Our email communications may include tracking technologies to help us understand how recipients interact with our messages. This includes:
+              </p>
+              <ul className="list-disc pl-6 mt-2">
+                <li><strong>Open tracking:</strong> Small transparent images (pixels) that record when an email is opened</li>
+                <li><strong>Click tracking:</strong> Links that record when recipients click through to our content</li>
+                <li><strong>Delivery tracking:</strong> Information about whether emails were successfully delivered, bounced, or marked as spam</li>
+              </ul>
+              <p className="mt-4">
+                You can opt out of email tracking by disabling images in your email client or by unsubscribing from our communications.
+              </p>
+
+              <h3 className="text-lg font-medium mb-2 mt-6">Marketing Attribution</h3>
+              <p>
+                We use activation links and campaign URLs to track the effectiveness of our marketing efforts. These links may contain:
+              </p>
+              <ul className="list-disc pl-6 mt-2">
+                <li>UTM parameters to identify traffic sources and campaigns</li>
+                <li>Privacy-compliant visitor identifiers (hashed values) to attribute conversions</li>
+              </ul>
+              <p className="mt-4">
+                This information helps us understand which marketing channels are most effective and improve our outreach. No personally identifiable information is stored in these tracking mechanisms.
               </p>
             </section>
 
