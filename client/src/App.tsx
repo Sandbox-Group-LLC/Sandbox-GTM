@@ -65,6 +65,7 @@ import RunOfShow from "@/pages/run-of-show";
 import Vendors from "@/pages/vendors";
 import TeamMembers from "@/pages/team-members";
 import AcceptInvitation from "@/pages/accept-invitation";
+import Pricing from "@/pages/pricing";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const sidebarStyle = {
@@ -113,6 +114,7 @@ function Router() {
     return (
       <Switch>
         <Route path="/" component={Landing} />
+        <Route path="/pricing" component={Pricing} />
         <Route path="/signup" component={Signup} />
         <Route path="/privacy-policy" component={PrivacyPolicy} />
         <Route path="/event/:slug/register" component={PublicRegistration} />

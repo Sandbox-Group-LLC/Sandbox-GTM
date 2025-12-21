@@ -1,0 +1,133 @@
+
+Create a public-facing Pricing page for Sandbox that clearly positions the product as an Event GTM Platform, not an event planning or registration tool.
+
+The pricing page should emphasize:
+	•	Platform licensing (not per-event or per-registrant fees)
+	•	Transparency and confidence
+	•	Annual billing as the preferred option
+	•	Optional professional services as an accelerator, not a requirement
+
+Page Goals
+	•	Make pricing feel simple, modern, and infrastructure-level
+	•	Reinforce Sandbox as part of the GTM tech stack
+	•	Avoid “enterprise SaaS dark patterns” (no forced contact sales just to see pricing)
+
+⸻
+
+Pricing Structure (Must Match Exactly)
+
+Sandbox Platform License
+
+Display pricing prominently:
+	•	$3,500 per month
+	•	$36,000 per year (preferred pricing — annual prepay)
+
+Visually emphasize annual billing as the recommended option, while keeping monthly available.
+
+Include copy that explains:
+
+“Most customers choose annual billing for preferred pricing and easier budgeting.”
+
+⸻
+
+What’s Included (Single Plan)
+
+Under the price, list inclusions clearly:
+	•	Unlimited programs and events
+	•	Program Experiences (conversion + attendee experiences)
+	•	Attribution Links & Activation Keys
+	•	Audience segmentation & properties
+	•	Engagement Signals & intent tracking
+	•	Revenue Impact & GTM analytics
+	•	Email & campaign orchestration
+	•	Core integrations and APIs
+
+Explicitly state:
+	•	No per-event fees
+	•	No per-registrant pricing
+	•	No usage-based overages
+
+This is critical for differentiation.
+
+⸻
+
+Professional Services Section (Secondary)
+
+Add a clearly separated section titled:
+
+Professional Services (Optional)
+
+Position services as value acceleration, not required setup.
+
+Include two subsections:
+
+Implementation & Integrations
+	•	CRM and marketing automation integrations
+	•	Attribution modeling and validation
+	•	Data mapping and GTM configuration
+
+GTM Optimization
+	•	Event portfolio design
+	•	Measurement frameworks
+	•	Sales handoff and pipeline alignment
+
+Add a sentence:
+
+“Sandbox works out of the box. Professional services help teams accelerate impact.”
+
+Do NOT show pricing for services — keep this conversational and outcome-oriented.
+
+⸻
+
+Who This Is For
+
+Include a short section titled:
+
+Who Sandbox Is For
+
+Bullet list:
+	•	Event marketers
+	•	Demand generation teams
+	•	Field marketing & experiential teams
+	•	Marketing Ops and RevOps leaders
+
+Follow with a one-line qualifier:
+
+“If events influence your pipeline, Sandbox belongs in your GTM stack.”
+
+⸻
+
+Tone & Copy Guidelines
+	•	Confident, modern, and GTM-native
+	•	Avoid event-ops language (“attendees,” “check-in,” “badge scanning”)
+	•	Avoid “contact sales to see pricing”
+	•	Avoid multi-tier confusion — this is a single-platform license
+
+⸻
+
+Call to Action
+
+Primary CTA:
+	•	Request Access
+or
+	•	Talk to Us
+
+Secondary CTA (optional):
+	•	See How Sandbox Works
+
+CTAs should feel consultative, not transactional.
+
+⸻
+
+Success Criteria
+
+After viewing this pricing page, a visitor should understand:
+	•	Sandbox is a platform license, not a per-event tool
+	•	Pricing is transparent and defensible
+	•	Annual billing is preferred but monthly is available
+	•	Professional services are optional accelerators
+	•	Sandbox replaces fragmented event + GTM tooling
+
+⸻
+
+If you paste this prompt into Replit, it should generate a clean, credible pricing page that aligns with everything you’ve defined so far — without over-engineering or premature tiering.
