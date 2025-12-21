@@ -10125,6 +10125,30 @@ ${urls.map(u => `  <url>
     }
   });
 
+  // Demo data seed endpoint for AI GTM Summit
+  app.post('/api/demo/seed-ai-gtm-summit', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      // Only allow super admins to seed demo data
+      if (!isSuperAdmin(user?.email)) {
+        return res.status(403).json({ message: "Only super admins can seed demo data" });
+      }
+      
+      const organizationId = await getOrganizationId(userId, req.session);
+      
+      // Dynamically import the seed function to avoid loading it on every request
+      const { seedAIGTMSummit } = await import("./demo-seed");
+      const result = await seedAIGTMSummit(organizationId, userId);
+      
+      res.json(result);
+    } catch (error: any) {
+      logError("Error seeding AI GTM Summit demo data:", error);
+      res.status(500).json({ message: error.message || "Failed to seed demo data" });
+    }
+  });
+
   // Background scheduler to process scheduled email campaigns
   const processScheduledCampaigns = async () => {
     try {

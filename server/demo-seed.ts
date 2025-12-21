@@ -1,0 +1,586 @@
+import { db } from "./db";
+import { 
+  events, packages, eventPackages, inviteCodes, activationLinks, activationLinkClicks,
+  speakers, eventSessions, sessionSpeakers, attendees, emailTemplates, emailCampaigns
+} from "@shared/schema";
+import { sql } from "drizzle-orm";
+
+const FIRST_NAMES = [
+  "James", "Sarah", "Michael", "Emily", "David", "Jennifer", "Robert", "Amanda", 
+  "William", "Jessica", "John", "Ashley", "Richard", "Stephanie", "Thomas", "Nicole",
+  "Christopher", "Melissa", "Daniel", "Elizabeth", "Matthew", "Michelle", "Anthony",
+  "Laura", "Mark", "Kimberly", "Steven", "Rebecca", "Andrew", "Rachel", "Paul", "Heather",
+  "Joshua", "Katherine", "Brian", "Christine", "Kevin", "Maria", "Jason", "Samantha",
+  "Timothy", "Andrea", "Jeffrey", "Danielle", "Ryan", "Angela", "Eric", "Victoria",
+  "Jacob", "Natalie", "Nicholas", "Lisa", "Gary", "Sharon", "Jonathan", "Sandra",
+  "Stephen", "Brenda", "Larry", "Amy", "Justin", "Anna", "Scott", "Helen", "Benjamin"
+];
+
+const LAST_NAMES = [
+  "Smith", "Johnson", "Williams", "Brown", "Jones", "Miller", "Davis", "Garcia",
+  "Rodriguez", "Wilson", "Martinez", "Anderson", "Taylor", "Thomas", "Hernandez",
+  "Moore", "Martin", "Jackson", "Thompson", "White", "Lopez", "Lee", "Gonzalez",
+  "Harris", "Clark", "Lewis", "Robinson", "Walker", "Perez", "Hall", "Young",
+  "Allen", "Sanchez", "Wright", "King", "Scott", "Green", "Baker", "Adams",
+  "Nelson", "Hill", "Ramirez", "Campbell", "Mitchell", "Roberts", "Carter", "Phillips",
+  "Evans", "Turner", "Torres", "Parker", "Collins", "Edwards", "Stewart", "Flores"
+];
+
+const COMPANIES = [
+  "Acme Corp", "TechForward Inc", "Digital Dynamics", "CloudScale Solutions", "DataDriven Co",
+  "Innovation Labs", "FutureTech", "GrowthEngine", "Velocity Partners", "Nexus Systems",
+  "Quantum Analytics", "Spark Digital", "Elevate AI", "Summit Technologies", "Horizon Group",
+  "Catalyst Partners", "Momentum Marketing", "Synergy Solutions", "Apex Consulting", "Prism Software",
+  "BlueWave Analytics", "RedPoint Data", "GreenLight Tech", "SilverLine Systems", "GoldStar AI",
+  "Pinnacle Digital", "Vertex Solutions", "Orbit Marketing", "Pulse Analytics", "Echo Systems",
+  "Beacon Technology", "Atlas AI", "Forge Digital", "Nimbus Cloud", "Radiant Software",
+  "Vanguard Tech", "Pioneer Analytics", "Trailblazer Inc", "Frontier Digital", "Odyssey Systems"
+];
+
+const JOB_TITLES = [
+  "VP of Marketing", "Director of Demand Gen", "CMO", "Head of Growth", "Marketing Manager",
+  "Director of Revenue Operations", "VP of Sales", "Chief Revenue Officer", "Head of Product Marketing",
+  "Director of Digital Marketing", "Growth Marketing Lead", "Senior Marketing Manager",
+  "VP of Product", "Director of Customer Success", "Head of Partnerships", "Marketing Operations Manager",
+  "Demand Generation Manager", "Content Marketing Director", "Brand Marketing Manager",
+  "Performance Marketing Lead", "RevOps Manager", "GTM Strategy Lead", "Account Executive",
+  "Sales Director", "Business Development Manager", "Customer Marketing Manager"
+];
+
+function randomElement<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function generateEmail(firstName: string, lastName: string, company: string): string {
+  const domain = company.toLowerCase().replace(/[^a-z0-9]/g, "") + ".com";
+  return `${firstName.toLowerCase()}.${lastName.toLowerCase()}@${domain}`;
+}
+
+function generateCheckInCode(): string {
+  return Math.random().toString(36).substring(2, 10).toUpperCase();
+}
+
+function randomDate(start: Date, end: Date): Date {
+  return new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
+}
+
+export async function seedAIGTMSummit(organizationId: string, createdBy: string): Promise<{ eventId: string; message: string }> {
+  console.log("Starting AI GTM Summit demo data seed...");
+
+  // Generate unique suffix for this seed run to avoid conflicts
+  const uniqueSuffix = Date.now().toString(36);
+  const publicSlug = `ai-gtm-summit-${uniqueSuffix}`;
+
+  // Check if there's already an AI GTM Summit event for this organization
+  const existingEvents = await db.select().from(events)
+    .where(sql`${events.organizationId} = ${organizationId} AND ${events.name} = 'AI GTM Summit'`);
+  
+  if (existingEvents.length > 0) {
+    // Return existing event instead of creating duplicate
+    return {
+      eventId: existingEvents[0].id,
+      message: `AI GTM Summit already exists for this organization. Event ID: ${existingEvents[0].id}. To create a new demo, delete the existing event first.`
+    };
+  }
+
+  // 1. Create the event
+  const eventStartDate = "2025-03-12";
+  const eventEndDate = "2025-03-14";
+  
+  const [event] = await db.insert(events).values({
+    organizationId,
+    name: "AI GTM Summit",
+    description: "A multi-day event for marketing, revenue, and product leaders exploring how AI is transforming go-to-market strategy, demand generation, and customer engagement.",
+    startDate: eventStartDate,
+    endDate: eventEndDate,
+    location: "Moscone Center",
+    address: "747 Howard St",
+    city: "San Francisco",
+    state: "CA",
+    country: "United States",
+    postalCode: "94103",
+    status: "active",
+    isPublic: true,
+    registrationOpen: true,
+    maxAttendees: 1200,
+    publicSlug,
+    createdBy,
+  }).returning();
+
+  const eventId = event.id;
+  console.log(`Created event: ${event.name} (${eventId})`);
+
+  // 2. Create packages
+  const [generalPackage] = await db.insert(packages).values({
+    organizationId,
+    name: "General Admission",
+    description: "Access to all keynotes, main sessions, and networking events",
+    price: "0",
+    features: ["Keynote Access", "Main Sessions", "Networking Events", "Expo Hall"],
+    isActive: true,
+    isPublic: true,
+  }).returning();
+
+  const [executivePackage] = await db.insert(packages).values({
+    organizationId,
+    name: "Executive Pass",
+    description: "VIP access including exclusive workshops, executive networking, and premium seating",
+    price: "1495.00",
+    features: ["All General Admission Benefits", "Executive Workshops", "VIP Networking Dinner", "Premium Seating", "1:1 Expert Sessions"],
+    isActive: true,
+    isPublic: true,
+  }).returning();
+
+  const [partnerPackage] = await db.insert(packages).values({
+    organizationId,
+    name: "Partner Access",
+    description: "Complimentary access for strategic partners",
+    price: "0",
+    features: ["All General Admission Benefits", "Partner Lounge Access", "Co-Marketing Opportunities"],
+    isActive: true,
+    isPublic: false,
+  }).returning();
+
+  console.log("Created packages");
+
+  // 3. Link packages to event
+  await db.insert(eventPackages).values([
+    { organizationId, eventId, packageId: generalPackage.id, isEnabled: true },
+    { organizationId, eventId, packageId: executivePackage.id, priceOverride: "1495.00", isEnabled: true },
+    { organizationId, eventId, packageId: partnerPackage.id, isEnabled: true },
+  ]);
+
+  // 4. Create invite codes (activation keys)
+  const [linkedInCode] = await db.insert(inviteCodes).values({
+    organizationId,
+    eventId,
+    code: `LINKEDIN${uniqueSuffix.toUpperCase()}`,
+    quantity: 500,
+    usedCount: 142,
+    packageId: generalPackage.id,
+    discountType: "percentage",
+    discountValue: "15",
+    isActive: true,
+  }).returning();
+
+  const [partnerCode] = await db.insert(inviteCodes).values({
+    organizationId,
+    eventId,
+    code: `PARTNER${uniqueSuffix.toUpperCase()}`,
+    quantity: 100,
+    usedCount: 48,
+    packageId: partnerPackage.id,
+    forcePackage: true,
+    isActive: true,
+  }).returning();
+
+  const [vipCode] = await db.insert(inviteCodes).values({
+    organizationId,
+    eventId,
+    code: `VIP${uniqueSuffix.toUpperCase()}`,
+    quantity: 50,
+    usedCount: 23,
+    packageId: executivePackage.id,
+    discountType: "percentage",
+    discountValue: "25",
+    isActive: true,
+  }).returning();
+
+  console.log("Created invite codes");
+
+  // 5. Create activation links
+  const [linkedInLink] = await db.insert(activationLinks).values({
+    organizationId,
+    eventId,
+    name: "AI GTM Summit - LinkedIn Paid",
+    description: "Primary LinkedIn advertising campaign",
+    destinationType: "registration",
+    utmSource: "linkedin",
+    utmMedium: "paid_social",
+    utmCampaign: "ai-gtm-summit-2025",
+    utmContent: "awareness",
+    inviteCodeId: linkedInCode.id,
+    status: "active",
+    shortCode: `li-${uniqueSuffix}`,
+    clickCount: 4850,
+    conversionCount: 312,
+    createdBy,
+  }).returning();
+
+  const [partnerLink] = await db.insert(activationLinks).values({
+    organizationId,
+    eventId,
+    name: "AI GTM Summit - Partner Outreach",
+    description: "Partner referral campaign",
+    destinationType: "registration",
+    utmSource: "partner",
+    utmMedium: "referral",
+    utmCampaign: "ai-gtm-summit-partners",
+    inviteCodeId: partnerCode.id,
+    status: "active",
+    shortCode: `ptr-${uniqueSuffix}`,
+    clickCount: 1240,
+    conversionCount: 186,
+    createdBy,
+  }).returning();
+
+  const [vipLink] = await db.insert(activationLinks).values({
+    organizationId,
+    eventId,
+    name: "VIP Executive Link",
+    description: "Exclusive link for executive invitations",
+    destinationType: "registration",
+    utmSource: "direct",
+    utmMedium: "email",
+    utmCampaign: "vip-executive-invite",
+    inviteCodeId: vipCode.id,
+    status: "active",
+    shortCode: `vip-${uniqueSuffix}`,
+    clickCount: 320,
+    conversionCount: 89,
+    createdBy,
+  }).returning();
+
+  const [emailLink] = await db.insert(activationLinks).values({
+    organizationId,
+    eventId,
+    name: "AI GTM Summit - Email Invite Wave 1",
+    description: "Email campaign to existing database",
+    destinationType: "registration",
+    utmSource: "email",
+    utmMedium: "newsletter",
+    utmCampaign: "ai-gtm-summit-wave1",
+    status: "active",
+    shortCode: `eml-${uniqueSuffix}`,
+    clickCount: 2890,
+    conversionCount: 263,
+    createdBy,
+  }).returning();
+
+  console.log("Created activation links");
+
+  // 6. Create speakers
+  const speakerData = [
+    { firstName: "Sarah", lastName: "Chen", company: "AI Ventures", jobTitle: "CEO", bio: "Pioneer in AI-driven marketing automation with 15+ years experience.", isFeatured: true },
+    { firstName: "Marcus", lastName: "Johnson", company: "RevOps Labs", jobTitle: "Chief Revenue Officer", bio: "Led revenue transformation at 3 unicorn startups.", isFeatured: true },
+    { firstName: "Elena", lastName: "Rodriguez", company: "GrowthAI", jobTitle: "VP of Product", bio: "Building the future of product-led growth with AI.", isFeatured: true },
+    { firstName: "David", lastName: "Kim", company: "DemandGen Pro", jobTitle: "Head of Demand Generation", bio: "Generated $500M+ pipeline through innovative demand strategies.", isFeatured: false },
+    { firstName: "Rachel", lastName: "Thompson", company: "CloudScale", jobTitle: "CMO", bio: "Award-winning marketer focused on B2B SaaS growth.", isFeatured: false },
+    { firstName: "Alex", lastName: "Patel", company: "DataDriven Co", jobTitle: "Director of Analytics", bio: "Data scientist turned marketing leader.", isFeatured: false },
+    { firstName: "Jennifer", lastName: "Wu", company: "TechForward", jobTitle: "VP of Marketing", bio: "Scaling marketing teams from seed to IPO.", isFeatured: false },
+    { firstName: "Michael", lastName: "Brown", company: "Catalyst AI", jobTitle: "Founder", bio: "Serial entrepreneur building AI tools for GTM teams.", isFeatured: true },
+  ];
+
+  const createdSpeakers = await db.insert(speakers).values(
+    speakerData.map((s, idx) => ({
+      organizationId,
+      eventId,
+      firstName: s.firstName,
+      lastName: s.lastName,
+      email: generateEmail(s.firstName, s.lastName, s.company),
+      company: s.company,
+      jobTitle: s.jobTitle,
+      bio: s.bio,
+      isFeatured: s.isFeatured,
+      displayOrder: idx,
+    }))
+  ).returning();
+
+  console.log(`Created ${createdSpeakers.length} speakers`);
+
+  // 7. Create sessions organized by tracks
+  const tracks = [
+    { name: "AI for Demand Gen", sessions: [
+      { title: "The Future of AI-Powered Demand Generation", time: "09:00", endTime: "10:00", type: "keynote", capacity: 500 },
+      { title: "Predictive Lead Scoring with Machine Learning", time: "10:30", endTime: "11:30", type: "session", capacity: 200 },
+      { title: "Automating Campaign Optimization with AI", time: "13:00", endTime: "14:00", type: "session", capacity: 200 },
+      { title: "Intent Data and AI: The Perfect Match", time: "14:30", endTime: "15:30", type: "workshop", capacity: 75 },
+    ]},
+    { name: "AI for RevOps", sessions: [
+      { title: "Building an AI-First Revenue Operations Stack", time: "09:00", endTime: "10:00", type: "keynote", capacity: 500 },
+      { title: "Sales Forecasting with Predictive AI", time: "10:30", endTime: "11:30", type: "session", capacity: 200 },
+      { title: "Automated Pipeline Management", time: "13:00", endTime: "14:00", type: "session", capacity: 200 },
+      { title: "RevOps Metrics That Matter in the AI Era", time: "14:30", endTime: "15:30", type: "panel", capacity: 150 },
+    ]},
+    { name: "AI for Product-Led Growth", sessions: [
+      { title: "PLG + AI: Accelerating User Activation", time: "09:00", endTime: "10:00", type: "keynote", capacity: 500 },
+      { title: "AI-Driven Product Analytics", time: "10:30", endTime: "11:30", type: "session", capacity: 200 },
+      { title: "Personalization at Scale with AI", time: "13:00", endTime: "14:00", type: "session", capacity: 200 },
+      { title: "Building AI Features Your Users Actually Want", time: "14:30", endTime: "15:30", type: "workshop", capacity: 75 },
+    ]},
+  ];
+
+  const sessionDates = ["2025-03-12", "2025-03-13", "2025-03-14"];
+  const createdSessions: any[] = [];
+
+  for (const track of tracks) {
+    for (let dayIdx = 0; dayIdx < sessionDates.length; dayIdx++) {
+      for (const session of track.sessions) {
+        const [created] = await db.insert(eventSessions).values({
+          organizationId,
+          eventId,
+          title: session.title,
+          description: `${track.name} track session exploring ${session.title.toLowerCase()}.`,
+          sessionDate: sessionDates[dayIdx],
+          startTime: session.time,
+          endTime: session.endTime,
+          room: `Room ${Math.floor(Math.random() * 10) + 1}`,
+          capacity: session.capacity,
+          track: track.name,
+          sessionType: session.type,
+        }).returning();
+        createdSessions.push(created);
+      }
+    }
+  }
+
+  console.log(`Created ${createdSessions.length} sessions`);
+
+  // 8. Link some speakers to sessions
+  const speakerSessionLinks = [];
+  for (let i = 0; i < Math.min(createdSessions.length, createdSpeakers.length * 3); i++) {
+    speakerSessionLinks.push({
+      sessionId: createdSessions[i].id,
+      speakerId: createdSpeakers[i % createdSpeakers.length].id,
+    });
+  }
+  await db.insert(sessionSpeakers).values(speakerSessionLinks);
+
+  // 9. Create attendees (~850)
+  const attendeeCount = 850;
+  const attendeeValues = [];
+  const packageDistribution = [
+    { pkg: generalPackage, weight: 0.70 },
+    { pkg: executivePackage, weight: 0.20 },
+    { pkg: partnerPackage, weight: 0.10 },
+  ];
+
+  const linkDistribution = [
+    { link: linkedInLink, weight: 0.35 },
+    { link: partnerLink, weight: 0.20 },
+    { link: vipLink, weight: 0.10 },
+    { link: emailLink, weight: 0.30 },
+    { link: null, weight: 0.05 },
+  ];
+
+  const statusDistribution = [
+    { status: "registered", weight: 0.75 },
+    { status: "confirmed", weight: 0.15 },
+    { status: "checked_in", weight: 0.08 },
+    { status: "cancelled", weight: 0.02 },
+  ];
+
+  for (let i = 0; i < attendeeCount; i++) {
+    const firstName = randomElement(FIRST_NAMES);
+    const lastName = randomElement(LAST_NAMES);
+    const company = randomElement(COMPANIES);
+    
+    // Select package based on weight
+    let selectedPackage = generalPackage;
+    const pkgRand = Math.random();
+    let cumWeight = 0;
+    for (const pd of packageDistribution) {
+      cumWeight += pd.weight;
+      if (pkgRand < cumWeight) {
+        selectedPackage = pd.pkg;
+        break;
+      }
+    }
+
+    // Select activation link based on weight
+    let selectedLink = null;
+    const linkRand = Math.random();
+    cumWeight = 0;
+    for (const ld of linkDistribution) {
+      cumWeight += ld.weight;
+      if (linkRand < cumWeight) {
+        selectedLink = ld.link;
+        break;
+      }
+    }
+
+    // Select status based on weight
+    let status = "registered";
+    const statusRand = Math.random();
+    cumWeight = 0;
+    for (const sd of statusDistribution) {
+      cumWeight += sd.weight;
+      if (statusRand < cumWeight) {
+        status = sd.status;
+        break;
+      }
+    }
+
+    attendeeValues.push({
+      organizationId,
+      eventId,
+      attendeeType: selectedPackage.id === executivePackage.id ? "executive" : "general",
+      firstName,
+      lastName,
+      email: generateEmail(firstName, lastName, company) + i,
+      company,
+      jobTitle: randomElement(JOB_TITLES),
+      registrationStatus: status,
+      ticketType: selectedPackage.name,
+      checkInCode: generateCheckInCode(),
+      checkedIn: status === "checked_in",
+      checkInTime: status === "checked_in" ? new Date() : null,
+      packageId: selectedPackage.id,
+      activationLinkId: selectedLink?.id || null,
+      utmSource: selectedLink?.utmSource || null,
+      utmMedium: selectedLink?.utmMedium || null,
+      utmCampaign: selectedLink?.utmCampaign || null,
+    });
+  }
+
+  // Insert in batches
+  const batchSize = 100;
+  for (let i = 0; i < attendeeValues.length; i += batchSize) {
+    const batch = attendeeValues.slice(i, i + batchSize);
+    await db.insert(attendees).values(batch);
+  }
+
+  console.log(`Created ${attendeeCount} attendees`);
+
+  // 10. Create email templates
+  const [inviteTemplate] = await db.insert(emailTemplates).values({
+    organizationId,
+    eventId,
+    name: "Event Invitation",
+    subject: "You're Invited: AI GTM Summit 2025",
+    content: `<h1>Join Us at AI GTM Summit 2025</h1>
+<p>Hi {{firstName}},</p>
+<p>You're invited to the premier event for marketing, revenue, and product leaders exploring how AI is transforming go-to-market strategy.</p>
+<p><strong>When:</strong> March 12-14, 2025</p>
+<p><strong>Where:</strong> San Francisco, CA</p>
+<p><a href="{{registrationUrl}}">Register Now</a></p>
+<p>Best regards,<br>The AI GTM Summit Team</p>`,
+    category: "invitation",
+    isDefault: true,
+  }).returning();
+
+  const [confirmTemplate] = await db.insert(emailTemplates).values({
+    organizationId,
+    eventId,
+    name: "Registration Confirmation",
+    subject: "You're Registered for AI GTM Summit!",
+    content: `<h1>Welcome to AI GTM Summit 2025!</h1>
+<p>Hi {{firstName}},</p>
+<p>Thank you for registering! Your spot is confirmed.</p>
+<p><strong>Your Check-in Code:</strong> {{checkInCode}}</p>
+<p><strong>Package:</strong> {{ticketType}}</p>
+<p>We'll send you more details as the event approaches.</p>
+<p>See you in San Francisco!</p>`,
+    category: "confirmation",
+    isDefault: true,
+  }).returning();
+
+  const [reminderTemplate] = await db.insert(emailTemplates).values({
+    organizationId,
+    eventId,
+    name: "Event Reminder",
+    subject: "AI GTM Summit Starts in 1 Week!",
+    content: `<h1>One Week Until AI GTM Summit!</h1>
+<p>Hi {{firstName}},</p>
+<p>We're excited to see you next week! Here's what you need to know:</p>
+<ul>
+<li><strong>Dates:</strong> March 12-14, 2025</li>
+<li><strong>Location:</strong> Moscone Center, San Francisco</li>
+<li><strong>Check-in Code:</strong> {{checkInCode}}</li>
+</ul>
+<p><a href="{{portalUrl}}">View Your Personalized Agenda</a></p>`,
+    category: "reminder",
+    isDefault: false,
+  }).returning();
+
+  const [followUpTemplate] = await db.insert(emailTemplates).values({
+    organizationId,
+    eventId,
+    name: "Post-Event Follow-Up",
+    subject: "Thank You for Attending AI GTM Summit!",
+    content: `<h1>Thank You for Joining Us!</h1>
+<p>Hi {{firstName}},</p>
+<p>Thank you for being part of AI GTM Summit 2025. We hope you found the sessions valuable.</p>
+<p><strong>What's Next:</strong></p>
+<ul>
+<li>Session recordings are now available</li>
+<li>Connect with speakers on LinkedIn</li>
+<li>Join our community for year-round insights</li>
+</ul>
+<p><a href="{{portalUrl}}">Access Your Content</a></p>`,
+    category: "follow-up",
+    isDefault: false,
+  }).returning();
+
+  console.log("Created email templates");
+
+  // 11. Create email campaigns with realistic metrics
+  const [inviteCampaign] = await db.insert(emailCampaigns).values({
+    organizationId,
+    eventId,
+    subject: "You're Invited: AI GTM Summit 2025",
+    content: inviteTemplate.content,
+    recipientType: "all",
+    status: "sent",
+    sentAt: new Date("2025-01-15T09:00:00Z"),
+    isInviteEmail: true,
+    createdBy,
+  }).returning();
+
+  const [confirmCampaign] = await db.insert(emailCampaigns).values({
+    organizationId,
+    eventId,
+    subject: "You're Registered for AI GTM Summit!",
+    content: confirmTemplate.content,
+    recipientType: "registered",
+    status: "sent",
+    sentAt: new Date("2025-02-01T10:00:00Z"),
+    createdBy,
+  }).returning();
+
+  const [reminderCampaign] = await db.insert(emailCampaigns).values({
+    organizationId,
+    eventId,
+    subject: "AI GTM Summit Starts in 1 Week!",
+    content: reminderTemplate.content,
+    recipientType: "registered",
+    status: "scheduled",
+    scheduledAt: new Date("2025-03-05T09:00:00Z"),
+    createdBy,
+  }).returning();
+
+  console.log("Created email campaigns");
+
+  // 12. Generate activation link clicks for analytics
+  const clickData = [];
+  const now = new Date();
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+  for (const link of [linkedInLink, partnerLink, vipLink, emailLink]) {
+    const clickCount = Math.floor(Math.random() * 200) + 100;
+    for (let i = 0; i < clickCount; i++) {
+      clickData.push({
+        activationLinkId: link.id,
+        visitorHash: Math.random().toString(36).substring(2, 18),
+        ipHash: Math.random().toString(36).substring(2, 18),
+        userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        clickedAt: randomDate(thirtyDaysAgo, now),
+      });
+    }
+  }
+
+  // Insert clicks in batches
+  for (let i = 0; i < clickData.length; i += batchSize) {
+    const batch = clickData.slice(i, i + batchSize);
+    await db.insert(activationLinkClicks).values(batch);
+  }
+
+  console.log(`Created ${clickData.length} activation link clicks`);
+
+  console.log("AI GTM Summit demo data seed completed successfully!");
+
+  return {
+    eventId,
+    message: `Successfully created AI GTM Summit with ${attendeeCount} attendees, ${createdSessions.length} sessions, ${createdSpeakers.length} speakers, and 4 activation links.`
+  };
+}
