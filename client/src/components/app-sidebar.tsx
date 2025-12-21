@@ -161,6 +161,14 @@ export function AppSidebar() {
           <img src={logoImage} alt="Sandbox" className="h-6 w-6" />
           <span className="font-semibold text-lg">Sandbox</span>
         </div>
+        {organization && (
+          <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+            <Building2 className="h-3.5 w-3.5" />
+            <span className="truncate" title={organization.name} data-testid="text-organization-name">
+              {organization.name}
+            </span>
+          </div>
+        )}
       </SidebarHeader>
 
       <SidebarContent>

@@ -746,7 +746,8 @@ export class DatabaseStorage implements IStorage {
           eq(organizationMembers.userId, userId),
           or(eq(organizations.isArchived, false), isNull(organizations.isArchived))
         )
-      );
+      )
+      .orderBy(desc(organizationMembers.createdAt));
   }
 
   async addOrganizationMember(member: InsertOrganizationMember): Promise<OrganizationMember> {
