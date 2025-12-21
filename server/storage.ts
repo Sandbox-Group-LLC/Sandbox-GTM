@@ -3627,6 +3627,18 @@ export class DatabaseStorage implements IStorage {
     const [newLead] = await db.insert(marketingLeads).values(lead).returning();
     return newLead;
   }
+
+  async getMarketingLeads(): Promise<MarketingLead[]> {
+    return db.select().from(marketingLeads).orderBy(desc(marketingLeads.createdAt));
+  }
+
+  async updateMarketingLeadStatus(id: string, status: string): Promise<MarketingLead | undefined> {
+    const [updated] = await db.update(marketingLeads)
+      .set({ status })
+      .where(eq(marketingLeads.id, id))
+      .returning();
+    return updated;
+  }
 }
 
 export const storage = new DatabaseStorage();

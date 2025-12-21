@@ -631,6 +631,18 @@ export function AppSidebar() {
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === "/admin/leads"}
+                    data-testid="nav-admin-leads"
+                  >
+                    <Link href="/admin/leads">
+                      <Users className="h-4 w-4" />
+                      <span>Marketing Leads</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>

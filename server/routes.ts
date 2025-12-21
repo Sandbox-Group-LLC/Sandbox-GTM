@@ -2512,6 +2512,50 @@ export async function registerRoutes(
     }
   });
 
+  // Marketing Leads routes (super admin only)
+  app.get("/api/admin/leads", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!isSuperAdmin(user?.email, user?.isAdmin)) {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+      
+      const leads = await storage.getMarketingLeads();
+      res.json(leads);
+    } catch (error) {
+      logError("Error fetching marketing leads:", error);
+      res.status(500).json({ message: "Failed to fetch leads" });
+    }
+  });
+
+  app.patch("/api/admin/leads/:id/status", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!isSuperAdmin(user?.email, user?.isAdmin)) {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+      
+      const { status } = req.body;
+      if (!status || !["new", "contacted", "qualified", "converted"].includes(status)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+      
+      const updated = await storage.updateMarketingLeadStatus(req.params.id, status);
+      if (!updated) {
+        return res.status(404).json({ message: "Lead not found" });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      logError("Error updating lead status:", error);
+      res.status(500).json({ message: "Failed to update lead status" });
+    }
+  });
+
   // Toggle Revenue & ROI feature for an organization (super admin only)
   app.patch("/api/admin/organizations/:id/revenue-roi", isAuthenticated, async (req: any, res) => {
     try {

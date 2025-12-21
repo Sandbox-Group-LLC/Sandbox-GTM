@@ -37,6 +37,7 @@ import InviteCodes from "@/pages/invite-codes";
 import ActivationLinks from "@/pages/activation-links";
 import SiteBuilder from "@/pages/site-builder";
 import AdminOrganizations from "@/pages/admin-organizations";
+import AdminLeads from "@/pages/admin-leads";
 import MyOrganization from "@/pages/my-organization";
 import CustomFields from "@/pages/custom-fields";
 import PrivacyPolicy from "@/pages/privacy-policy";
@@ -179,6 +180,7 @@ function Router() {
         <Route path="/my-organization" component={MyOrganization} />
         <Route path="/team-members" component={TeamMembers} />
         <Route path="/admin/organizations" component={AdminOrganizations} />
+        <Route path="/admin/leads" component={AdminLeads} />
         <Route path="/privacy-policy" component={PrivacyPolicy} />
         <Route path="/event/:slug/register" component={PublicRegistration} />
         <Route path="/event/:slug/portal" component={AttendeePortal} />
