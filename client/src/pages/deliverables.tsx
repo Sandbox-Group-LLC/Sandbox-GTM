@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,6 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -37,10 +45,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Plus, CheckSquare, Clock, AlertCircle, CheckCircle, Circle, User } from "lucide-react";
+import { Plus, CheckSquare, Clock, AlertCircle, CheckCircle, Circle, User, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { EventSelectField } from "@/components/event-select-field";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import type { Deliverable } from "@shared/schema";
+import type { Deliverable, Event } from "@shared/schema";
 
 type Assignee = {
   id: string;
@@ -90,18 +98,118 @@ const priorityColors: Record<string, "default" | "secondary" | "destructive" | "
   urgent: "destructive",
 };
 
+type SortColumn = "title" | "status" | "priority" | "workstream" | "assignedTo" | "dueDate" | "event";
+type SortDirection = "asc" | "desc" | null;
+
 export default function Deliverables() {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Deliverable | null>(null);
+  const [filterEventId, setFilterEventId] = useState<string>("all");
+  const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
 
   const { data: deliverables = [], isLoading } = useQuery<Deliverable[]>({
     queryKey: ["/api/deliverables"],
   });
 
+  const { data: events = [] } = useQuery<Event[]>({
+    queryKey: ["/api/events"],
+  });
+
   const { data: assignees = [] } = useQuery<Assignee[]>({
     queryKey: ["/api/organization/assignees"],
   });
+
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      if (sortDirection === "asc") {
+        setSortDirection("desc");
+      } else if (sortDirection === "desc") {
+        setSortColumn(null);
+        setSortDirection(null);
+      } else {
+        setSortDirection("asc");
+      }
+    } else {
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+  };
+
+  const getSortIcon = (column: SortColumn) => {
+    if (sortColumn !== column) return <ArrowUpDown className="h-4 w-4 ml-1" />;
+    if (sortDirection === "asc") return <ArrowUp className="h-4 w-4 ml-1" />;
+    if (sortDirection === "desc") return <ArrowDown className="h-4 w-4 ml-1" />;
+    return <ArrowUpDown className="h-4 w-4 ml-1" />;
+  };
+
+  const eventsMap = useMemo(() => {
+    return events.reduce((acc, event) => {
+      acc[event.id] = event.name;
+      return acc;
+    }, {} as Record<string, string>);
+  }, [events]);
+
+  const assigneesMap = useMemo(() => {
+    return assignees.reduce((acc, a) => {
+      acc[a.id] = `${a.firstName || ""} ${a.lastName || ""}`.trim() || a.email || "";
+      return acc;
+    }, {} as Record<string, string>);
+  }, [assignees]);
+
+  const filteredAndSortedDeliverables = useMemo(() => {
+    let result = [...deliverables];
+
+    if (filterEventId && filterEventId !== "all") {
+      result = result.filter(d => d.eventId === filterEventId);
+    }
+
+    if (sortColumn && sortDirection) {
+      result.sort((a, b) => {
+        let aVal: string | null = null;
+        let bVal: string | null = null;
+
+        switch (sortColumn) {
+          case "title":
+            aVal = a.title || "";
+            bVal = b.title || "";
+            break;
+          case "status":
+            aVal = a.status || "";
+            bVal = b.status || "";
+            break;
+          case "priority":
+            const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 };
+            aVal = String(priorityOrder[a.priority as keyof typeof priorityOrder] ?? 2);
+            bVal = String(priorityOrder[b.priority as keyof typeof priorityOrder] ?? 2);
+            break;
+          case "workstream":
+            aVal = a.workstream || "";
+            bVal = b.workstream || "";
+            break;
+          case "assignedTo":
+            aVal = a.assignedTo ? assigneesMap[a.assignedTo] || "" : "";
+            bVal = b.assignedTo ? assigneesMap[b.assignedTo] || "" : "";
+            break;
+          case "dueDate":
+            aVal = a.dueDate || "";
+            bVal = b.dueDate || "";
+            break;
+          case "event":
+            aVal = eventsMap[a.eventId] || "";
+            bVal = eventsMap[b.eventId] || "";
+            break;
+        }
+
+        if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
+        if (aVal > bVal) return sortDirection === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return result;
+  }, [deliverables, filterEventId, sortColumn, sortDirection, eventsMap, assigneesMap]);
 
   const form = useForm<DeliverableFormData>({
     resolver: zodResolver(deliverableFormSchema),
@@ -406,25 +514,172 @@ export default function Deliverables() {
               }}
             />
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {columns.map((status) => {
-                const config = statusConfig[status];
-                const StatusIcon = config.icon;
-                const count = groupedDeliverables[status]?.length || 0;
-                return (
-                  <Card key={status} data-testid={`card-stage-${status}`}>
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center gap-2">
-                        <StatusIcon className={`h-5 w-5 ${config.color}`} />
-                        <CardTitle className="text-sm font-medium">{config.label}</CardTitle>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-3xl font-bold" data-testid={`text-count-${status}`}>{count}</p>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {columns.map((status) => {
+                  const config = statusConfig[status];
+                  const StatusIcon = config.icon;
+                  const count = groupedDeliverables[status]?.length || 0;
+                  return (
+                    <Card key={status} data-testid={`card-stage-${status}`}>
+                      <CardHeader className="pb-2">
+                        <div className="flex items-center gap-2">
+                          <StatusIcon className={`h-5 w-5 ${config.color}`} />
+                          <CardTitle className="text-sm font-medium">{config.label}</CardTitle>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-3xl font-bold" data-testid={`text-count-${status}`}>{count}</p>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <Select value={filterEventId} onValueChange={setFilterEventId}>
+                    <SelectTrigger className="w-[250px]" data-testid="select-filter-event">
+                      <SelectValue placeholder="Filter by program" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Programs</SelectItem>
+                      {events.map((event) => (
+                        <SelectItem key={event.id} value={event.id}>
+                          {event.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Card>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead 
+                          className="cursor-pointer hover-elevate" 
+                          onClick={() => handleSort("title")}
+                          data-testid="th-title"
+                        >
+                          <div className="flex items-center">
+                            Title
+                            {getSortIcon("title")}
+                          </div>
+                        </TableHead>
+                        <TableHead 
+                          className="cursor-pointer hover-elevate" 
+                          onClick={() => handleSort("event")}
+                          data-testid="th-event"
+                        >
+                          <div className="flex items-center">
+                            Program
+                            {getSortIcon("event")}
+                          </div>
+                        </TableHead>
+                        <TableHead 
+                          className="cursor-pointer hover-elevate" 
+                          onClick={() => handleSort("status")}
+                          data-testid="th-status"
+                        >
+                          <div className="flex items-center">
+                            Status
+                            {getSortIcon("status")}
+                          </div>
+                        </TableHead>
+                        <TableHead 
+                          className="cursor-pointer hover-elevate" 
+                          onClick={() => handleSort("priority")}
+                          data-testid="th-priority"
+                        >
+                          <div className="flex items-center">
+                            Priority
+                            {getSortIcon("priority")}
+                          </div>
+                        </TableHead>
+                        <TableHead 
+                          className="cursor-pointer hover-elevate" 
+                          onClick={() => handleSort("workstream")}
+                          data-testid="th-workstream"
+                        >
+                          <div className="flex items-center">
+                            Workstream
+                            {getSortIcon("workstream")}
+                          </div>
+                        </TableHead>
+                        <TableHead 
+                          className="cursor-pointer hover-elevate" 
+                          onClick={() => handleSort("assignedTo")}
+                          data-testid="th-assignee"
+                        >
+                          <div className="flex items-center">
+                            Assignee
+                            {getSortIcon("assignedTo")}
+                          </div>
+                        </TableHead>
+                        <TableHead 
+                          className="cursor-pointer hover-elevate" 
+                          onClick={() => handleSort("dueDate")}
+                          data-testid="th-due-date"
+                        >
+                          <div className="flex items-center">
+                            Due Date
+                            {getSortIcon("dueDate")}
+                          </div>
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredAndSortedDeliverables.map((item) => {
+                        const statusCfg = statusConfig[item.status || "todo"];
+                        const workstreamLabel = item.workstream 
+                          ? WORKSTREAM_OPTIONS.find(w => w.value === item.workstream)?.label 
+                          : null;
+                        return (
+                          <TableRow 
+                            key={item.id} 
+                            className="cursor-pointer hover-elevate"
+                            onClick={() => handleEdit(item)}
+                            data-testid={`row-deliverable-${item.id}`}
+                          >
+                            <TableCell className="font-medium">{item.title}</TableCell>
+                            <TableCell>{eventsMap[item.eventId] || "—"}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="gap-1">
+                                <statusCfg.icon className={`h-3 w-3 ${statusCfg.color}`} />
+                                {statusCfg.label}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={priorityColors[item.priority || "medium"]}>
+                                {(item.priority || "medium").charAt(0).toUpperCase() + (item.priority || "medium").slice(1)}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{workstreamLabel || "—"}</TableCell>
+                            <TableCell>
+                              {item.assignedTo && assigneesMap[item.assignedTo] 
+                                ? assigneesMap[item.assignedTo] 
+                                : "—"}
+                            </TableCell>
+                            <TableCell>
+                              {item.dueDate 
+                                ? new Date(item.dueDate).toLocaleDateString() 
+                                : "—"}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                      {filteredAndSortedDeliverables.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                            No deliverables found
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </Card>
+              </div>
             </div>
           )}
         </div>
