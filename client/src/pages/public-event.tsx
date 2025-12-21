@@ -13,6 +13,8 @@ import type { Event, EventSession, Speaker, EventPage, EventPageTheme, EventSpon
 import { replaceMergeTags, type MergeTagContext } from "@shared/mergeTags";
 import { titleCase, formatEventDate } from "@/lib/utils";
 import { sanitizeCustomCss } from "@shared/css-sanitizer";
+import { EventLocaleProvider, useEventLocale } from "@/hooks/use-event-locale";
+import { LanguageSwitcher } from "@/components/language-switcher";
 
 export { sanitizeCustomCss };
 
@@ -525,6 +527,35 @@ export default function PublicEvent() {
   }
 
   const { event, sessions, speakers, sponsors, landingPage, requirePassword } = data;
+  
+  return (
+    <EventLocaleProvider event={event}>
+      <PublicEventContent 
+        data={data}
+        slug={slug || ''}
+        isSpoof={isSpoof}
+        spoofAttendee={spoofAttendee}
+        exitSpoofMode={exitSpoofMode}
+      />
+    </EventLocaleProvider>
+  );
+}
+
+interface PublicEventContentProps {
+  data: PublicEventData;
+  slug: string;
+  isSpoof: boolean;
+  spoofAttendee: SpoofAttendee | null | undefined;
+  exitSpoofMode: () => void;
+}
+
+function PublicEventContent({ data, slug, isSpoof, spoofAttendee, exitSpoofMode }: PublicEventContentProps) {
+  const { event, sessions, speakers, sponsors, landingPage, requirePassword } = data;
+  const { currentLocale, setLocale, supportedLanguages, getLocalizedContent, isLoading: localeLoading } = useEventLocale();
+  
+  // Get localized event content
+  const localizedEvent = getLocalizedContent(event);
+  
   const allSections = (landingPage?.sections as Section[]) || [];
   
   // Filter sections by visibility conditions when in spoof mode
@@ -557,26 +588,39 @@ export default function PublicEvent() {
             fontFamily: theme?.bodyFont ? `"${theme.bodyFont}", sans-serif` : undefined,
           }}
         >
-          {isSpoof && spoofAttendee && (
-            <div className="bg-amber-500 dark:bg-amber-600 text-white px-6 py-3">
+          {(isSpoof && spoofAttendee) || supportedLanguages.length > 1 ? (
+            <div className={`${isSpoof && spoofAttendee ? 'bg-amber-500 dark:bg-amber-600 text-white' : 'bg-muted/50'} px-6 py-3`}>
               <div className="max-w-4xl mx-auto flex items-center justify-between gap-4 flex-wrap">
+                {isSpoof && spoofAttendee ? (
+                  <div className="flex items-center gap-2">
+                    <Eye className="w-5 h-5" />
+                    <span className="font-medium" data-testid="text-spoof-banner">
+                      Preview Mode: Viewing as {spoofAttendee.firstName} {spoofAttendee.lastName} ({spoofAttendee.attendeeType || 'unknown type'})
+                    </span>
+                  </div>
+                ) : (
+                  <div />
+                )}
                 <div className="flex items-center gap-2">
-                  <Eye className="w-5 h-5" />
-                  <span className="font-medium" data-testid="text-spoof-banner">
-                    Preview Mode: Viewing as {spoofAttendee.firstName} {spoofAttendee.lastName} ({spoofAttendee.attendeeType || 'unknown type'})
-                  </span>
+                  <LanguageSwitcher
+                    currentLocale={currentLocale}
+                    supportedLanguages={supportedLanguages}
+                    onLocaleChange={setLocale}
+                  />
+                  {isSpoof && spoofAttendee && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={exitSpoofMode}
+                      data-testid="button-exit-spoof"
+                    >
+                      Exit Preview
+                    </Button>
+                  )}
                 </div>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={exitSpoofMode}
-                  data-testid="button-exit-spoof"
-                >
-                  Exit Preview
-                </Button>
               </div>
             </div>
-          )}
+          ) : null}
           <div 
             className={`mx-auto ${theme?.pagePadding === 'none' ? '' : 'px-6 py-12'} pb-24`}
             style={{
@@ -589,7 +633,7 @@ export default function PublicEvent() {
             {sections
               .sort((a, b) => a.order - b.order)
               .map((section) => (
-                <SectionRenderer key={section.id} section={section} event={event} sessions={sessions} speakers={speakers} sponsors={sponsors} theme={theme} />
+                <SectionRenderer key={section.id} section={section} event={localizedEvent as Event} sessions={sessions} speakers={speakers} sponsors={sponsors} theme={theme} />
               ))}
           </div>
         </div>
@@ -600,26 +644,37 @@ export default function PublicEvent() {
   // Default layout when no site builder content exists
   return (
     <div className="min-h-screen bg-background">
+      {supportedLanguages.length > 1 && (
+        <div className="bg-muted/50 px-6 py-2">
+          <div className="max-w-4xl mx-auto flex justify-end">
+            <LanguageSwitcher
+              currentLocale={currentLocale}
+              supportedLanguages={supportedLanguages}
+              onLocaleChange={setLocale}
+            />
+          </div>
+        </div>
+      )}
       <div className="bg-gradient-to-b from-primary/10 to-background py-12 px-6">
         <div className="max-w-4xl mx-auto">
           <Badge variant="secondary" className="mb-4">Public Event</Badge>
-          <h1 className="text-4xl font-bold mb-4" data-testid="text-event-name">{event.name}</h1>
+          <h1 className="text-4xl font-bold mb-4" data-testid="text-event-name">{localizedEvent.name}</h1>
           
           <div className="flex flex-wrap gap-4 text-muted-foreground">
             <div className="flex items-center gap-2">
               <Calendar className="w-4 h-4" />
               <span>{new Date(event.startDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</span>
             </div>
-            {event.location && (
+            {localizedEvent.location && (
               <div className="flex items-center gap-2">
                 <MapPin className="w-4 h-4" />
-                <span>{event.location}</span>
+                <span>{localizedEvent.location}</span>
               </div>
             )}
           </div>
 
-          {event.description && (
-            <p className="mt-6 text-lg text-muted-foreground">{event.description}</p>
+          {localizedEvent.description && (
+            <p className="mt-6 text-lg text-muted-foreground">{localizedEvent.description}</p>
           )}
 
           {event.registrationOpen && (
@@ -717,7 +772,7 @@ export default function PublicEvent() {
                 {event.registrationOpen ? (
                   <div className="space-y-4">
                     <p className="text-sm text-muted-foreground">
-                      Complete your registration to secure your spot at {event.name}.
+                      Complete your registration to secure your spot at {localizedEvent.name}.
                     </p>
                     <Button className="w-full" asChild data-testid="button-register">
                       <Link href={`/event/${slug}/register`}>
