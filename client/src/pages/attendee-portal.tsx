@@ -40,7 +40,7 @@ import {
   Eye
 } from "lucide-react";
 import type { Attendee, Event, EventPage, EventPageTheme, EventSession, Speaker } from "@shared/schema";
-import { SectionRenderer, GoogleFontsLoader, CustomFontsLoader, getThemeStyles } from "@/pages/public-event";
+import { SectionRenderer, GoogleFontsLoader, CustomFontsLoader, GoogleAnalyticsLoader, getThemeStyles } from "@/pages/public-event";
 
 interface AttendeePortalData {
   attendee: Omit<Attendee, 'passwordHash'>;
@@ -744,6 +744,7 @@ export default function AttendeePortal() {
     <>
       {hasSections && <GoogleFontsLoader fonts={fontsToLoad} />}
       <CustomFontsLoader slug={slug || ''} />
+      <GoogleAnalyticsLoader googleTagId={theme?.googleTagId} />
       <div 
         className="min-h-screen bg-background"
         style={hasSections ? {

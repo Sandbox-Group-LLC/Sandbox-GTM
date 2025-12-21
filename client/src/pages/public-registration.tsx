@@ -232,6 +232,38 @@ function CustomFontsLoader({ slug }: { slug: string }) {
   );
 }
 
+function GoogleAnalyticsLoader({ googleTagId }: { googleTagId?: string }) {
+  useEffect(() => {
+    if (!googleTagId) return;
+    
+    // Prevent duplicate scripts
+    if (document.querySelector(`script[src*="${googleTagId}"]`)) return;
+    
+    // Add Google Analytics script
+    const script1 = document.createElement('script');
+    script1.async = true;
+    script1.src = `https://www.googletagmanager.com/gtag/js?id=${googleTagId}`;
+    document.head.appendChild(script1);
+
+    // Initialize gtag
+    const script2 = document.createElement('script');
+    script2.textContent = `
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', '${googleTagId}');
+    `;
+    document.head.appendChild(script2);
+    
+    return () => {
+      script1.remove();
+      script2.remove();
+    };
+  }, [googleTagId]);
+  
+  return null;
+}
+
 function getThemeStyles(theme: EventPageTheme | null | undefined): React.CSSProperties {
   if (!theme) return {};
   
@@ -1096,6 +1128,7 @@ export default function PublicRegistration() {
     <>
       <GoogleFontsLoader fonts={fontsToLoad} />
       <CustomFontsLoader slug={slug || ''} />
+      <GoogleAnalyticsLoader googleTagId={theme?.googleTagId} />
       {isSpoof && spoofAttendee && (
         <div className="bg-primary/10 border-b border-primary/20 py-2 px-4 flex items-center justify-between sticky top-0 z-50 backdrop-blur-sm">
           <div className="flex items-center gap-2 text-sm font-medium text-primary">

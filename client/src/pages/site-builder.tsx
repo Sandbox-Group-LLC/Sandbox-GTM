@@ -79,6 +79,7 @@ import {
   AlignCenter,
   AlignRight,
   X,
+  BarChart3,
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Event, EventPage, EventPageTheme, EventSession, Speaker, EventSponsor, CustomFont } from "@shared/schema";
@@ -4384,6 +4385,28 @@ function StylesEditor({ theme, onUpdateTheme, isPending, seo, onUpdateSeo, custo
               </Button>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <BarChart3 className="h-5 w-5 text-muted-foreground" />
+          <h4 className="font-medium">Google Analytics</h4>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="googleTagId">Google Tag (Measurement ID)</Label>
+          <Input
+            id="googleTagId"
+            value={theme.googleTagId || ""}
+            onChange={(e) => onUpdateTheme({ googleTagId: e.target.value })}
+            disabled={isPending}
+            placeholder="G-XXXXXXXXXX"
+            data-testid="input-google-tag-id"
+          />
+          <p className="text-xs text-muted-foreground">
+            Enter your Google Analytics 4 Measurement ID to track visitor analytics for this page. 
+            Find it in Google Analytics under Admin &gt; Data Streams &gt; Web.
+          </p>
         </div>
       </div>
     </div>

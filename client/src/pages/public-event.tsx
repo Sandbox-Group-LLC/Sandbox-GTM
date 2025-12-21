@@ -126,7 +126,7 @@ function scopeSingleRule(rule: string): string {
 }
 
 export function GoogleFontsLoader({ fonts }: { fonts: string[] }) {
-  const uniqueFonts = useMemo(() => [...new Set(fonts.filter(Boolean))], [fonts]);
+  const uniqueFonts = useMemo(() => Array.from(new Set(fonts.filter(Boolean))), [fonts]);
   
   if (uniqueFonts.length === 0) return null;
   
@@ -151,6 +151,39 @@ export function CustomFontsLoader({ slug }: { slug: string }) {
       href={`/api/public/events/${slug}/fonts.css`}
     />
   );
+}
+
+export function GoogleAnalyticsLoader({ googleTagId }: { googleTagId?: string }) {
+  useEffect(() => {
+    if (!googleTagId) return;
+    
+    // Prevent duplicate scripts
+    if (document.querySelector(`script[src*="${googleTagId}"]`)) return;
+    
+    // Add Google Analytics script
+    const script1 = document.createElement('script');
+    script1.async = true;
+    script1.src = `https://www.googletagmanager.com/gtag/js?id=${googleTagId}`;
+    document.head.appendChild(script1);
+
+    // Initialize gtag
+    const script2 = document.createElement('script');
+    script2.textContent = `
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', '${googleTagId}');
+    `;
+    document.head.appendChild(script2);
+    
+    return () => {
+      // Cleanup on unmount
+      script1.remove();
+      script2.remove();
+    };
+  }, [googleTagId]);
+  
+  return null;
 }
 
 export function getThemeStyles(theme: EventPageTheme | null | undefined): React.CSSProperties {
@@ -500,6 +533,7 @@ export default function PublicEvent() {
       <>
         <GoogleFontsLoader fonts={fontsToLoad} />
         <CustomFontsLoader slug={slug || ''} />
+        <GoogleAnalyticsLoader googleTagId={theme?.googleTagId} />
         {theme?.customCss && (
           <style dangerouslySetInnerHTML={{ __html: scopeCustomCss(sanitizeCustomCss(theme.customCss)) }} />
         )}
