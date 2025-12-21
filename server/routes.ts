@@ -1966,6 +1966,246 @@ export async function registerRoutes(
     }
   });
 
+  // Custom Fonts routes
+  app.get('/api/custom-fonts', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const fonts = await storage.getCustomFonts(organizationId);
+      
+      // For each font, get its variants
+      const fontsWithVariants = await Promise.all(fonts.map(async (font) => {
+        const variants = await storage.getCustomFontVariants(font.id);
+        return { ...font, variants };
+      }));
+      
+      res.json(fontsWithVariants);
+    } catch (error) {
+      logError("Error fetching custom fonts:", error);
+      res.status(500).json({ message: "Failed to fetch custom fonts" });
+    }
+  });
+
+  app.get('/api/custom-fonts/:id', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { id } = req.params;
+      
+      const font = await storage.getCustomFont(organizationId, id);
+      if (!font) {
+        return res.status(404).json({ message: "Font not found" });
+      }
+      
+      const variants = await storage.getCustomFontVariants(font.id);
+      res.json({ ...font, variants });
+    } catch (error) {
+      logError("Error fetching custom font:", error);
+      res.status(500).json({ message: "Failed to fetch custom font" });
+    }
+  });
+
+  app.post('/api/custom-fonts', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { name, displayName, variants } = req.body;
+      
+      if (!name || typeof name !== 'string') {
+        return res.status(400).json({ message: "Font name is required" });
+      }
+      
+      // Check if font name already exists
+      const existing = await storage.getCustomFontByName(organizationId, name);
+      if (existing) {
+        return res.status(400).json({ message: "A font with this name already exists" });
+      }
+      
+      // Create the font
+      const font = await storage.createCustomFont({
+        organizationId,
+        name: name.toLowerCase().replace(/\s+/g, '-'), // CSS-safe name
+        displayName: displayName || name,
+      });
+      
+      // Create variants if provided
+      if (variants && Array.isArray(variants)) {
+        for (const variant of variants) {
+          if (variant.fileUrl && variant.format) {
+            await storage.createCustomFontVariant({
+              customFontId: font.id,
+              fileUrl: variant.fileUrl,
+              format: variant.format,
+              weight: variant.weight || 400,
+              style: variant.style || 'normal',
+            });
+          }
+        }
+      }
+      
+      const allVariants = await storage.getCustomFontVariants(font.id);
+      res.status(201).json({ ...font, variants: allVariants });
+    } catch (error) {
+      logError("Error creating custom font:", error);
+      res.status(500).json({ message: "Failed to create custom font" });
+    }
+  });
+
+  app.patch('/api/custom-fonts/:id', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { id } = req.params;
+      const { name, displayName } = req.body;
+      
+      const font = await storage.getCustomFont(organizationId, id);
+      if (!font) {
+        return res.status(404).json({ message: "Font not found" });
+      }
+      
+      // If changing name, check for duplicates
+      if (name && name !== font.name) {
+        const existing = await storage.getCustomFontByName(organizationId, name);
+        if (existing) {
+          return res.status(400).json({ message: "A font with this name already exists" });
+        }
+      }
+      
+      const updates: { name?: string; displayName?: string } = {};
+      if (name) updates.name = name.toLowerCase().replace(/\s+/g, '-');
+      if (displayName !== undefined) updates.displayName = displayName;
+      
+      const updated = await storage.updateCustomFont(id, organizationId, updates);
+      const variants = await storage.getCustomFontVariants(id);
+      res.json({ ...updated, variants });
+    } catch (error) {
+      logError("Error updating custom font:", error);
+      res.status(500).json({ message: "Failed to update custom font" });
+    }
+  });
+
+  app.delete('/api/custom-fonts/:id', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { id } = req.params;
+      
+      const font = await storage.getCustomFont(organizationId, id);
+      if (!font) {
+        return res.status(404).json({ message: "Font not found" });
+      }
+      
+      await storage.deleteCustomFont(id, organizationId);
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting custom font:", error);
+      res.status(500).json({ message: "Failed to delete custom font" });
+    }
+  });
+
+  // Custom Font Variant routes
+  app.post('/api/custom-fonts/:fontId/variants', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { fontId } = req.params;
+      const { fileUrl, format, weight, style } = req.body;
+      
+      const font = await storage.getCustomFont(organizationId, fontId);
+      if (!font) {
+        return res.status(404).json({ message: "Font not found" });
+      }
+      
+      if (!fileUrl || !format) {
+        return res.status(400).json({ message: "fileUrl and format are required" });
+      }
+      
+      const validFormats = ['woff2', 'woff', 'truetype', 'opentype'];
+      if (!validFormats.includes(format)) {
+        return res.status(400).json({ message: "Invalid format. Must be one of: " + validFormats.join(', ') });
+      }
+      
+      const variant = await storage.createCustomFontVariant({
+        customFontId: fontId,
+        fileUrl,
+        format,
+        weight: weight || 400,
+        style: style || 'normal',
+      });
+      
+      res.status(201).json(variant);
+    } catch (error) {
+      logError("Error creating custom font variant:", error);
+      res.status(500).json({ message: "Failed to create font variant" });
+    }
+  });
+
+  app.delete('/api/custom-fonts/:fontId/variants/:variantId', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { fontId, variantId } = req.params;
+      
+      const font = await storage.getCustomFont(organizationId, fontId);
+      if (!font) {
+        return res.status(404).json({ message: "Font not found" });
+      }
+      
+      await storage.deleteCustomFontVariant(variantId);
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting custom font variant:", error);
+      res.status(500).json({ message: "Failed to delete font variant" });
+    }
+  });
+
+  // Public endpoint to get custom fonts CSS for an event
+  app.get('/api/public/events/:slug/fonts.css', async (req, res) => {
+    try {
+      const { slug } = req.params;
+      const event = await storage.getEventByPublicSlug(slug);
+      
+      if (!event) {
+        return res.status(404).send('/* Event not found */');
+      }
+      
+      const fonts = await storage.getCustomFonts(event.organizationId);
+      
+      if (fonts.length === 0) {
+        return res.type('text/css').send('/* No custom fonts configured */');
+      }
+      
+      // Generate @font-face declarations
+      let css = '/* Custom fonts */\n';
+      
+      for (const font of fonts) {
+        const variants = await storage.getCustomFontVariants(font.id);
+        
+        for (const variant of variants) {
+          const formatMap: { [key: string]: string } = {
+            'woff2': 'woff2',
+            'woff': 'woff',
+            'truetype': 'truetype',
+            'opentype': 'opentype',
+          };
+          
+          css += `@font-face {
+  font-family: '${font.name}';
+  src: url('${variant.fileUrl}') format('${formatMap[variant.format] || variant.format}');
+  font-weight: ${variant.weight || 400};
+  font-style: ${variant.style || 'normal'};
+  font-display: swap;
+}\n`;
+        }
+      }
+      
+      res.type('text/css').send(css);
+    } catch (error) {
+      logError("Error generating fonts CSS:", error);
+      res.status(500).send('/* Error generating fonts CSS */');
+    }
+  });
+
   // Onboarding routes
   app.get('/api/onboarding/status', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {

@@ -188,6 +188,12 @@ import {
   teamInvitations,
   type TeamInvitation,
   type InsertTeamInvitation,
+  customFonts,
+  customFontVariants,
+  type CustomFont,
+  type InsertCustomFont,
+  type CustomFontVariant,
+  type InsertCustomFontVariant,
 } from "@shared/schema";
 import crypto from "crypto";
 import { encrypt, decrypt } from "./encryption";
@@ -664,6 +670,19 @@ export interface IStorage {
   // Document Activity operations
   createDocumentActivity(activity: InsertDocumentActivity): Promise<DocumentActivity>;
   getDocumentActivity(organizationId: string, documentId: string): Promise<DocumentActivity[]>;
+
+  // Custom Font operations
+  getCustomFonts(organizationId: string): Promise<CustomFont[]>;
+  getCustomFont(organizationId: string, id: string): Promise<CustomFont | undefined>;
+  getCustomFontByName(organizationId: string, name: string): Promise<CustomFont | undefined>;
+  createCustomFont(font: InsertCustomFont): Promise<CustomFont>;
+  updateCustomFont(id: string, organizationId: string, updates: Partial<InsertCustomFont>): Promise<CustomFont | undefined>;
+  deleteCustomFont(id: string, organizationId: string): Promise<void>;
+
+  // Custom Font Variant operations
+  getCustomFontVariants(customFontId: string): Promise<CustomFontVariant[]>;
+  createCustomFontVariant(variant: InsertCustomFontVariant): Promise<CustomFontVariant>;
+  deleteCustomFontVariant(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3531,6 +3550,73 @@ export class DatabaseStorage implements IStorage {
         eq(documentActivity.documentId, documentId)
       ))
       .orderBy(desc(documentActivity.createdAt));
+  }
+
+  // Custom Font operations
+  async getCustomFonts(organizationId: string): Promise<CustomFont[]> {
+    return db.select().from(customFonts)
+      .where(eq(customFonts.organizationId, organizationId))
+      .orderBy(customFonts.name);
+  }
+
+  async getCustomFont(organizationId: string, id: string): Promise<CustomFont | undefined> {
+    const [font] = await db.select().from(customFonts)
+      .where(and(
+        eq(customFonts.organizationId, organizationId),
+        eq(customFonts.id, id)
+      ));
+    return font;
+  }
+
+  async getCustomFontByName(organizationId: string, name: string): Promise<CustomFont | undefined> {
+    const [font] = await db.select().from(customFonts)
+      .where(and(
+        eq(customFonts.organizationId, organizationId),
+        eq(customFonts.name, name)
+      ));
+    return font;
+  }
+
+  async createCustomFont(font: InsertCustomFont): Promise<CustomFont> {
+    const [newFont] = await db.insert(customFonts).values(font).returning();
+    return newFont;
+  }
+
+  async updateCustomFont(id: string, organizationId: string, updates: Partial<InsertCustomFont>): Promise<CustomFont | undefined> {
+    const [updated] = await db.update(customFonts)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(
+        eq(customFonts.id, id),
+        eq(customFonts.organizationId, organizationId)
+      ))
+      .returning();
+    return updated;
+  }
+
+  async deleteCustomFont(id: string, organizationId: string): Promise<void> {
+    // Delete variants first
+    await db.delete(customFontVariants).where(eq(customFontVariants.customFontId, id));
+    // Delete the font
+    await db.delete(customFonts).where(and(
+      eq(customFonts.id, id),
+      eq(customFonts.organizationId, organizationId)
+    ));
+  }
+
+  // Custom Font Variant operations
+  async getCustomFontVariants(customFontId: string): Promise<CustomFontVariant[]> {
+    return db.select().from(customFontVariants)
+      .where(eq(customFontVariants.customFontId, customFontId))
+      .orderBy(customFontVariants.weight);
+  }
+
+  async createCustomFontVariant(variant: InsertCustomFontVariant): Promise<CustomFontVariant> {
+    const [newVariant] = await db.insert(customFontVariants).values(variant).returning();
+    return newVariant;
+  }
+
+  async deleteCustomFontVariant(id: string): Promise<void> {
+    await db.delete(customFontVariants).where(eq(customFontVariants.id, id));
   }
 }
 
