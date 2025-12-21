@@ -95,9 +95,12 @@ export default function Landing() {
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight mb-6 text-[#ffffff] leading-tight">
               Turn Events Into a Measurable<br />Go-To-Market Channel
             </h1>
-            <p className="text-lg md:text-xl mb-10 max-w-2xl mx-auto text-[#b8b8b8] leading-relaxed">
+            <p className="text-lg md:text-xl mb-6 max-w-2xl mx-auto text-[#b8b8b8] leading-relaxed">
               From acquisition to engagement to revenue — Sandbox connects your events directly to pipeline. 
               Finally, a platform that treats events like the revenue channel they are.
+            </p>
+            <p className="text-lg text-[#ffffff] mb-10 max-w-2xl mx-auto font-medium" data-testid="text-tagline">
+              Sandbox elevates event operations by making execution measurable, intentional, and revenue-aware.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-4">
               <Button size="lg" asChild data-testid="button-request-access">
