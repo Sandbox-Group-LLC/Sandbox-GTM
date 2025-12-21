@@ -914,32 +914,35 @@ export class DatabaseStorage implements IStorage {
       return undefined;
     }
     
+    let memberToReturn: OrganizationMember;
+    
     const existingMember = await this.getOrganizationMember(invitation.organizationId, userId);
     if (existingMember) {
-      return existingMember;
+      memberToReturn = existingMember;
+    } else {
+      const [newMember] = await db.insert(organizationMembers).values({
+        organizationId: invitation.organizationId,
+        userId: userId,
+        role: invitation.role,
+        permissions: invitation.permissions,
+        invitedBy: invitation.invitedBy,
+      }).returning();
+      memberToReturn = newMember;
+      
+      await db.update(teamInvitations)
+        .set({
+          status: 'accepted',
+          acceptedAt: new Date(),
+          acceptedBy: userId,
+        })
+        .where(eq(teamInvitations.id, invitation.id));
     }
     
-    const [newMember] = await db.insert(organizationMembers).values({
-      organizationId: invitation.organizationId,
-      userId: userId,
-      role: invitation.role,
-      permissions: invitation.permissions,
-      invitedBy: invitation.invitedBy,
-    }).returning();
-    
-    await db.update(teamInvitations)
-      .set({
-        status: 'accepted',
-        acceptedAt: new Date(),
-        acceptedBy: userId,
-      })
-      .where(eq(teamInvitations.id, invitation.id));
-    
     // Clean up auto-created default organization if user was its sole member
-    // This happens when a new user logs in before accepting their team invitation
+    // This runs ALWAYS (even for existing members) to ensure cleanup happens
     const userMemberships = await this.getUserOrganizations(userId);
     for (const membership of userMemberships) {
-      // Skip the organization they just joined
+      // Skip the organization they just joined/belong to
       if (membership.organizationId === invitation.organizationId) {
         continue;
       }
@@ -955,7 +958,7 @@ export class DatabaseStorage implements IStorage {
       }
     }
     
-    return newMember;
+    return memberToReturn;
   }
 
   async revokeTeamInvitation(organizationId: string, id: string): Promise<void> {
