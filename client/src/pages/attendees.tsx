@@ -1330,7 +1330,7 @@ export default function Attendees() {
                 </>
               )}
 
-              {/* Preview Portal Button */}
+              {/* Preview As Attendee Buttons */}
               {viewingAttendee && eventSlugLookup[viewingAttendee.eventId] && (
                 <>
                   <Separator />
@@ -1338,23 +1338,37 @@ export default function Attendees() {
                   <div className="space-y-4">
                     <div className="flex items-center gap-2">
                       <Eye className="h-4 w-4 text-muted-foreground" />
-                      <h3 className="text-sm font-medium text-muted-foreground">Portal Preview</h3>
+                      <h3 className="text-sm font-medium text-muted-foreground">Preview As Attendee</h3>
                     </div>
                     
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        const slug = eventSlugLookup[viewingAttendee.eventId];
-                        const spoofUrl = `/event/${slug}/portal?spoof=${viewingAttendee.id}&orgId=${organization?.id}`;
-                        window.open(spoofUrl, '_blank');
-                      }}
-                      data-testid="button-preview-portal"
-                    >
-                      <ExternalLink className="h-4 w-4 mr-2" />
-                      Preview Portal As Attendee
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          const slug = eventSlugLookup[viewingAttendee.eventId];
+                          const spoofUrl = `/event/${slug}?spoof=${viewingAttendee.id}&orgId=${organization?.id}`;
+                          window.open(spoofUrl, '_blank');
+                        }}
+                        data-testid="button-preview-landing"
+                      >
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        Landing Page
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          const slug = eventSlugLookup[viewingAttendee.eventId];
+                          const spoofUrl = `/event/${slug}/portal?spoof=${viewingAttendee.id}&orgId=${organization?.id}`;
+                          window.open(spoofUrl, '_blank');
+                        }}
+                        data-testid="button-preview-portal"
+                      >
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        Portal
+                      </Button>
+                    </div>
                     <p className="text-xs text-muted-foreground">
-                      Opens the attendee portal showing exactly what this person would see
+                      Preview pages with visibility conditions applied for this attendee
                     </p>
                   </div>
                 </>

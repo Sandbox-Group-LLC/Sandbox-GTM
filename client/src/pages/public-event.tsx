@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Calendar, MapPin, Clock, Mic, AlertCircle, ArrowRight, ChevronDown, ChevronUp, Quote, Star, Zap, Heart, Check, Award, Target, Users, Mail, Phone, Globe, LogIn, Hotel, ExternalLink, Edit, X, Loader2 } from "lucide-react";
+import { Calendar, MapPin, Clock, Mic, AlertCircle, ArrowRight, ChevronDown, ChevronUp, Quote, Star, Zap, Heart, Check, Award, Target, Users, Mail, Phone, Globe, LogIn, Hotel, ExternalLink, Edit, X, Loader2, Eye } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect, useMemo } from "react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -192,6 +192,102 @@ export interface SectionStyles {
   customClass?: string;
   hideOnMobile?: boolean;
   hideOnDesktop?: boolean;
+  visibilityCondition?: VisibilityCondition;
+}
+
+interface SingleCondition {
+  property: 'attendeeType' | 'registrationStatus' | 'ticketType' | 'checkedIn' | 'company' | 'jobTitle';
+  operator: 'equals' | 'not_equals' | 'contains' | 'not_contains' | 'is_empty' | 'is_not_empty';
+  value: string;
+}
+
+interface VisibilityCondition {
+  enabled: boolean;
+  logic: 'and' | 'or';
+  conditions: SingleCondition[];
+}
+
+interface SpoofAttendee {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  attendeeType?: string;
+  registrationStatus?: string;
+  ticketType?: string;
+  checkedIn?: boolean;
+  company?: string;
+  jobTitle?: string;
+}
+
+function evaluateSingleCondition(
+  condition: SingleCondition,
+  attendee: SpoofAttendee
+): boolean {
+  const propertyValue = (() => {
+    switch (condition.property) {
+      case 'attendeeType': return attendee.attendeeType || '';
+      case 'registrationStatus': return attendee.registrationStatus || '';
+      case 'ticketType': return attendee.ticketType || '';
+      case 'checkedIn': return attendee.checkedIn ? 'true' : 'false';
+      case 'company': return attendee.company || '';
+      case 'jobTitle': return attendee.jobTitle || '';
+      default: return '';
+    }
+  })();
+
+  const conditionValue = condition.value || '';
+
+  if ((condition.operator === 'contains' || condition.operator === 'not_contains') && !conditionValue.trim()) {
+    return true;
+  }
+
+  switch (condition.operator) {
+    case 'equals':
+      return propertyValue.toLowerCase() === conditionValue.toLowerCase();
+    case 'not_equals':
+      return propertyValue.toLowerCase() !== conditionValue.toLowerCase();
+    case 'contains':
+      return propertyValue.toLowerCase().includes(conditionValue.toLowerCase());
+    case 'not_contains':
+      return !propertyValue.toLowerCase().includes(conditionValue.toLowerCase());
+    case 'is_empty':
+      return !propertyValue || propertyValue.trim() === '';
+    case 'is_not_empty':
+      return !!propertyValue && propertyValue.trim() !== '';
+    default:
+      return true;
+  }
+}
+
+function checkVisibilityCondition(
+  condition: VisibilityCondition | { enabled: boolean; property?: string; operator?: string; value?: string } | undefined,
+  attendee: SpoofAttendee | null | undefined
+): boolean {
+  if (!condition?.enabled) return true;
+  if (!attendee) return true;
+  
+  let conditions: SingleCondition[] = [];
+  let logic: 'and' | 'or' = 'and';
+  
+  if ('conditions' in condition && Array.isArray(condition.conditions)) {
+    conditions = condition.conditions;
+    logic = condition.logic || 'and';
+  } else if ('property' in condition && condition.property) {
+    conditions = [{
+      property: condition.property as SingleCondition['property'],
+      operator: (condition.operator || 'equals') as SingleCondition['operator'],
+      value: condition.value || ''
+    }];
+  }
+  
+  if (conditions.length === 0) return true;
+  
+  if (logic === 'and') {
+    return conditions.every(c => evaluateSingleCondition(c, attendee));
+  } else {
+    return conditions.some(c => evaluateSingleCondition(c, attendee));
+  }
 }
 
 export interface Section {
@@ -214,6 +310,35 @@ interface PublicEventData {
 
 export default function PublicEvent() {
   const { slug } = useParams<{ slug: string }>();
+  
+  // Parse spoof mode query parameters
+  const searchParams = new URLSearchParams(window.location.search);
+  const spoofAttendeeId = searchParams.get('spoof');
+  const spoofOrgId = searchParams.get('orgId');
+  const isSpoof = !!(spoofAttendeeId && spoofOrgId);
+  
+  // Fetch spoofed attendee data when in spoof mode
+  // Security: This endpoint requires authentication and owner role check
+  const { data: spoofData, isLoading: spoofLoading, error: spoofError } = useQuery<{ attendee: SpoofAttendee }>({
+    queryKey: ["/api/organizations", spoofOrgId, "attendees", spoofAttendeeId, "spoof-portal"],
+    queryFn: async () => {
+      const res = await fetch(`/api/organizations/${spoofOrgId}/attendees/${spoofAttendeeId}/spoof-portal`);
+      if (!res.ok) throw new Error("Failed to fetch spoof data");
+      return res.json();
+    },
+    enabled: isSpoof,
+  });
+  
+  const spoofAttendee = isSpoof ? spoofData?.attendee : null;
+  
+  // Helper to exit spoof mode by removing query params
+  const exitSpoofMode = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('spoof');
+    url.searchParams.delete('orgId');
+    window.history.replaceState({}, '', url.toString());
+    window.location.reload();
+  };
 
   const { data, isLoading, error } = useQuery<PublicEventData>({
     queryKey: ["/api/public/event", slug],
@@ -261,9 +386,9 @@ export default function PublicEvent() {
       link.setAttribute('href', href);
     };
     
-    setMeta('description', seo?.description || event.description);
+    setMeta('description', seo?.description || event.description || undefined);
     setMeta('og:title', seo?.title || event.name, true);
-    setMeta('og:description', seo?.description || event.description, true);
+    setMeta('og:description', seo?.description || event.description || undefined, true);
     setMeta('og:image', seo?.ogImage, true);
     setMeta('og:type', 'website', true);
     setMeta('og:url', window.location.href, true);
@@ -311,7 +436,8 @@ export default function PublicEvent() {
     });
   }, [data]);
 
-  if (isLoading) {
+  // Show loading state while main data or spoof data is loading
+  if (isLoading || (isSpoof && spoofLoading)) {
     return (
       <div className="min-h-screen bg-background p-6">
         <div className="max-w-4xl mx-auto space-y-6">
@@ -320,6 +446,12 @@ export default function PublicEvent() {
         </div>
       </div>
     );
+  }
+  
+  // If spoof mode failed (user not authorized), exit spoof mode
+  if (isSpoof && spoofError) {
+    exitSpoofMode();
+    return null;
   }
 
   if (error || !data) {
@@ -337,8 +469,14 @@ export default function PublicEvent() {
   }
 
   const { event, sessions, speakers, sponsors, landingPage, requirePassword } = data;
-  const sections = (landingPage?.sections as Section[]) || [];
-  const hasSiteBuilderContent = sections.length > 0;
+  const allSections = (landingPage?.sections as Section[]) || [];
+  
+  // Filter sections by visibility conditions when in spoof mode
+  const sections = isSpoof && spoofAttendee 
+    ? allSections.filter((section) => checkVisibilityCondition(section.styles?.visibilityCondition, spoofAttendee))
+    : allSections;
+  
+  const hasSiteBuilderContent = allSections.length > 0;
 
   // If site builder has content, use that as the primary page layout
   if (hasSiteBuilderContent) {
@@ -361,6 +499,26 @@ export default function PublicEvent() {
             fontFamily: theme?.bodyFont ? `"${theme.bodyFont}", sans-serif` : undefined,
           }}
         >
+          {isSpoof && spoofAttendee && (
+            <div className="bg-amber-500 dark:bg-amber-600 text-white px-6 py-3">
+              <div className="max-w-4xl mx-auto flex items-center justify-between gap-4 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <Eye className="w-5 h-5" />
+                  <span className="font-medium" data-testid="text-spoof-banner">
+                    Preview Mode: Viewing as {spoofAttendee.firstName} {spoofAttendee.lastName} ({spoofAttendee.attendeeType || 'unknown type'})
+                  </span>
+                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={exitSpoofMode}
+                  data-testid="button-exit-spoof"
+                >
+                  Exit Preview
+                </Button>
+              </div>
+            </div>
+          )}
           <div 
             className={`mx-auto ${theme?.pagePadding === 'none' ? '' : 'px-6 py-12'} pb-24`}
             style={{
