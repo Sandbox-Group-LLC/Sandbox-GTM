@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { Event, EventTranslation } from "@shared/schema";
 
@@ -16,6 +16,34 @@ interface EventLocaleContextValue {
 
 const EventLocaleContext = createContext<EventLocaleContextValue | null>(null);
 
+function getPreferredLocale(supportedLanguages: string[], defaultLanguage: string): string {
+  if (typeof window === "undefined") {
+    return defaultLanguage;
+  }
+  
+  // 1. Check URL params first (highest priority)
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlLang = urlParams.get("lang");
+  if (urlLang && supportedLanguages.includes(urlLang)) {
+    return urlLang;
+  }
+  
+  // 2. Check localStorage for saved preference
+  const savedLang = localStorage.getItem("eventLocale");
+  if (savedLang && supportedLanguages.includes(savedLang)) {
+    return savedLang;
+  }
+  
+  // 3. Check browser language preference
+  const browserLang = navigator.language.split("-")[0];
+  if (supportedLanguages.includes(browserLang)) {
+    return browserLang;
+  }
+  
+  // 4. Fall back to default language
+  return defaultLanguage;
+}
+
 export function EventLocaleProvider({
   children,
   event,
@@ -25,25 +53,35 @@ export function EventLocaleProvider({
 }) {
   const supportedLanguages = event?.supportedLanguages || ["en"];
   const defaultLanguage = event?.defaultLanguage || "en";
+  
+  // Track the event ID to detect when it changes
+  const lastEventIdRef = useRef<string | null>(null);
+  const localeInitializedRef = useRef(false);
 
-  const [currentLocale, setCurrentLocale] = useState(() => {
-    if (typeof window !== "undefined") {
-      const urlParams = new URLSearchParams(window.location.search);
-      const urlLang = urlParams.get("lang");
-      if (urlLang && supportedLanguages.includes(urlLang)) {
-        return urlLang;
-      }
-      const savedLang = localStorage.getItem("eventLocale");
-      if (savedLang && supportedLanguages.includes(savedLang)) {
-        return savedLang;
-      }
-      const browserLang = navigator.language.split("-")[0];
-      if (supportedLanguages.includes(browserLang)) {
-        return browserLang;
-      }
+  // Start with default language, will be re-evaluated when event loads
+  const [currentLocale, setCurrentLocale] = useState(defaultLanguage);
+
+  // Re-evaluate locale when event data becomes available or changes
+  useEffect(() => {
+    if (!event?.id) {
+      return;
     }
-    return defaultLanguage;
-  });
+    
+    // Only re-evaluate if this is a new event or first initialization
+    if (lastEventIdRef.current === event.id && localeInitializedRef.current) {
+      return;
+    }
+    
+    lastEventIdRef.current = event.id;
+    localeInitializedRef.current = true;
+    
+    const preferredLocale = getPreferredLocale(
+      event.supportedLanguages || ["en"],
+      event.defaultLanguage || "en"
+    );
+    
+    setCurrentLocale(preferredLocale);
+  }, [event?.id, event?.supportedLanguages, event?.defaultLanguage]);
 
   const { data: translations = [], isLoading } = useQuery<EventTranslation[]>({
     queryKey: ["/api/events", event?.id, "translations"],
@@ -81,11 +119,12 @@ export function EventLocaleProvider({
     [currentLocale, defaultLanguage, translations]
   );
 
+  // Ensure locale is valid for current event
   useEffect(() => {
-    if (!supportedLanguages.includes(currentLocale)) {
+    if (event?.id && !supportedLanguages.includes(currentLocale)) {
       setCurrentLocale(defaultLanguage);
     }
-  }, [supportedLanguages, currentLocale, defaultLanguage]);
+  }, [supportedLanguages, currentLocale, defaultLanguage, event?.id]);
 
   return (
     <EventLocaleContext.Provider
