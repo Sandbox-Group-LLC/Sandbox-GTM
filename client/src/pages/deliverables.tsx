@@ -8,7 +8,7 @@ import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -36,7 +36,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { titleCase } from "@/lib/utils";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Plus, CheckSquare, Clock, AlertCircle, CheckCircle, Circle, User } from "lucide-react";
 import { EventSelectField } from "@/components/event-select-field";
@@ -407,72 +406,23 @@ export default function Deliverables() {
               }}
             />
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {columns.map((status) => {
                 const config = statusConfig[status];
                 const StatusIcon = config.icon;
+                const count = groupedDeliverables[status]?.length || 0;
                 return (
-                  <div key={status} className="space-y-3">
-                    <div className="flex items-center gap-2 px-1">
-                      <StatusIcon className={`h-4 w-4 ${config.color}`} />
-                      <h3 className="font-medium">{config.label}</h3>
-                      <Badge variant="secondary" className="ml-auto">
-                        {groupedDeliverables[status]?.length || 0}
-                      </Badge>
-                    </div>
-                    <div className="space-y-2 min-h-[200px] p-2 rounded-lg bg-muted/30">
-                      {groupedDeliverables[status]?.map((item) => {
-                        const assignee = item.assignedTo ? assignees.find(a => a.id === item.assignedTo) : null;
-                        const workstreamLabel = item.workstream ? WORKSTREAM_OPTIONS.find(w => w.value === item.workstream)?.label : null;
-                        return (
-                          <Card
-                            key={item.id}
-                            className="hover-elevate cursor-pointer"
-                            onClick={() => handleEdit(item)}
-                            data-testid={`card-deliverable-${item.id}`}
-                          >
-                            <CardHeader className="p-4 pb-2">
-                              <div className="flex items-start justify-between gap-2">
-                                <CardTitle className="text-sm font-medium">{item.title}</CardTitle>
-                                {assignee && (
-                                  <Avatar className="h-6 w-6 flex-shrink-0" title={`${assignee.firstName} ${assignee.lastName}`}>
-                                    <AvatarImage src={assignee.profileImageUrl || undefined} />
-                                    <AvatarFallback className="text-xs">
-                                      {(assignee.firstName?.[0] || assignee.email?.[0] || '?').toUpperCase()}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                )}
-                              </div>
-                            </CardHeader>
-                            <CardContent className="p-4 pt-0 space-y-2">
-                              {item.description && (
-                                <CardDescription className="text-xs line-clamp-2">
-                                  {item.description}
-                                </CardDescription>
-                              )}
-                              <div className="flex items-center justify-between gap-2 flex-wrap">
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <Badge variant={priorityColors[item.priority || "medium"]} className="text-xs">
-                                    {titleCase(item.priority || "medium")}
-                                  </Badge>
-                                  {workstreamLabel && (
-                                    <Badge variant="outline" className="text-xs">
-                                      {workstreamLabel}
-                                    </Badge>
-                                  )}
-                                </div>
-                                {item.dueDate && (
-                                  <span className="text-xs text-muted-foreground">
-                                    {new Date(item.dueDate).toLocaleDateString()}
-                                  </span>
-                                )}
-                              </div>
-                            </CardContent>
-                          </Card>
-                        );
-                      })}
-                    </div>
-                  </div>
+                  <Card key={status} data-testid={`card-stage-${status}`}>
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center gap-2">
+                        <StatusIcon className={`h-5 w-5 ${config.color}`} />
+                        <CardTitle className="text-sm font-medium">{config.label}</CardTitle>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-3xl font-bold" data-testid={`text-count-${status}`}>{count}</p>
+                    </CardContent>
+                  </Card>
                 );
               })}
             </div>
