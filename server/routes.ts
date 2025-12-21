@@ -454,6 +454,44 @@ export async function registerRoutes(
     }
   });
 
+  // GET /api/auth/membership - Get current user's membership including role and permissions
+  app.get('/api/auth/membership', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const member = await storage.getOrganizationMember(organizationId, userId);
+      
+      if (!member) {
+        // User doesn't have an explicit membership, they might be the org creator
+        // Return owner-level access
+        return res.json({
+          role: 'owner',
+          permissions: FEATURE_PERMISSIONS as unknown as string[],
+          organizationId,
+        });
+      }
+      
+      // For owners, return all permissions
+      if (member.role === 'owner') {
+        return res.json({
+          role: member.role,
+          permissions: FEATURE_PERMISSIONS as unknown as string[],
+          organizationId,
+        });
+      }
+      
+      // For members, return their specific permissions
+      res.json({
+        role: member.role || 'member',
+        permissions: member.permissions || [],
+        organizationId,
+      });
+    } catch (error) {
+      logError("Error fetching membership:", error);
+      res.status(500).json({ message: "Failed to fetch membership" });
+    }
+  });
+
   app.patch('/api/auth/organization', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
