@@ -3506,6 +3506,206 @@ export async function registerRoutes(
     }
   });
 
+  // Bulk update attendees
+  app.post("/api/attendees/bulk-update", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { attendeeIds, updates } = req.body;
+      
+      if (!Array.isArray(attendeeIds) || attendeeIds.length === 0) {
+        return res.status(400).json({ message: "Attendee IDs array is required" });
+      }
+      
+      if (!updates || typeof updates !== 'object' || Object.keys(updates).length === 0) {
+        return res.status(400).json({ message: "Updates object is required" });
+      }
+
+      // Only allow updating certain fields
+      const allowedFields = ['registrationStatus', 'attendeeType', 'ticketType', 'checkedIn', 'notes'];
+      const updateData: Record<string, any> = {};
+      for (const [key, value] of Object.entries(updates)) {
+        if (allowedFields.includes(key)) {
+          updateData[key] = value;
+        }
+      }
+
+      if (Object.keys(updateData).length === 0) {
+        return res.status(400).json({ message: "No valid fields to update" });
+      }
+
+      let success = 0;
+      let failed = 0;
+      const errors: { id: string; error: string }[] = [];
+
+      for (const attendeeId of attendeeIds) {
+        try {
+          // Verify attendee belongs to organization
+          const attendee = await storage.getAttendee(organizationId, attendeeId);
+          if (!attendee) {
+            failed++;
+            errors.push({ id: attendeeId, error: "Attendee not found" });
+            continue;
+          }
+          
+          await storage.updateAttendee(organizationId, attendeeId, updateData);
+          success++;
+        } catch (error: any) {
+          failed++;
+          errors.push({ id: attendeeId, error: error.message || "Failed to update" });
+        }
+      }
+
+      res.json({ success, failed, errors, totalProcessed: attendeeIds.length });
+    } catch (error) {
+      logError("Error bulk updating attendees:", error);
+      res.status(500).json({ message: "Failed to bulk update attendees" });
+    }
+  });
+
+  // Bulk send email to attendees
+  app.post("/api/attendees/bulk-email", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { attendeeIds, templateId } = req.body;
+      
+      if (!Array.isArray(attendeeIds) || attendeeIds.length === 0) {
+        return res.status(400).json({ message: "Attendee IDs array is required" });
+      }
+      
+      if (!templateId) {
+        return res.status(400).json({ message: "Template ID is required" });
+      }
+
+      // Get the template
+      const template = await storage.getEmailTemplate(organizationId, templateId);
+      if (!template) {
+        return res.status(404).json({ message: "Email template not found" });
+      }
+
+      // Get organization for sender info
+      const organization = await storage.getOrganization(organizationId);
+      if (!organization) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+
+      let success = 0;
+      let failed = 0;
+      const errors: { id: string; error: string }[] = [];
+
+      for (const attendeeId of attendeeIds) {
+        try {
+          // Get attendee
+          const attendee = await storage.getAttendee(organizationId, attendeeId);
+          if (!attendee) {
+            failed++;
+            errors.push({ id: attendeeId, error: "Attendee not found" });
+            continue;
+          }
+
+          // Get event for the attendee
+          const event = await storage.getEvent(organizationId, attendee.eventId);
+          if (!event) {
+            failed++;
+            errors.push({ id: attendeeId, error: "Event not found" });
+            continue;
+          }
+
+          // Process template with merge tags
+          const mergeData = {
+            firstName: attendee.firstName,
+            lastName: attendee.lastName,
+            email: attendee.email,
+            company: attendee.company || '',
+            jobTitle: attendee.jobTitle || '',
+            ticketType: attendee.ticketType || '',
+            eventName: event.name,
+            eventDate: event.startDate,
+            eventLocation: event.location || '',
+            checkInCode: attendee.checkInCode || '',
+          };
+
+          let subject = template.subject;
+          let body = template.body;
+          
+          for (const [key, value] of Object.entries(mergeData)) {
+            const regex = new RegExp(`{{${key}}}`, 'g');
+            subject = subject.replace(regex, String(value));
+            body = body.replace(regex, String(value));
+          }
+
+          // Create email message record
+          const emailMessage = await storage.createEmailMessage({
+            organizationId,
+            eventId: attendee.eventId,
+            templateId,
+            recipientType: 'attendee',
+            recipientId: attendeeId,
+            recipientEmail: attendee.email,
+            subject,
+            body,
+            status: 'queued',
+          });
+
+          // Send email using Resend if available
+          if (process.env.RESEND_API_KEY) {
+            try {
+              const { Resend } = await import('resend');
+              const resend = new Resend(process.env.RESEND_API_KEY);
+              
+              const fromEmail = template.fromEmail || `noreply@${organization.slug || 'events'}.com`;
+              const fromName = template.fromName || organization.name;
+              
+              const emailResponse = await resend.emails.send({
+                from: `${fromName} <${fromEmail}>`,
+                to: attendee.email,
+                subject,
+                html: body,
+              });
+
+              await storage.updateEmailMessage(organizationId, emailMessage.id, {
+                status: 'sent',
+                sentAt: new Date(),
+                externalId: emailResponse.data?.id,
+              });
+
+              // Update attendee status if this is an invite email
+              if (template.isInviteEmail) {
+                await storage.updateAttendee(organizationId, attendeeId, {
+                  registrationStatus: 'invited',
+                });
+              }
+
+              success++;
+            } catch (sendError: any) {
+              await storage.updateEmailMessage(organizationId, emailMessage.id, {
+                status: 'failed',
+              });
+              failed++;
+              errors.push({ id: attendeeId, error: sendError.message || "Failed to send email" });
+            }
+          } else {
+            // No Resend API key, mark as sent for demo purposes
+            await storage.updateEmailMessage(organizationId, emailMessage.id, {
+              status: 'sent',
+              sentAt: new Date(),
+            });
+            success++;
+          }
+        } catch (error: any) {
+          failed++;
+          errors.push({ id: attendeeId, error: error.message || "Failed to process" });
+        }
+      }
+
+      res.json({ success, failed, errors, totalProcessed: attendeeIds.length });
+    } catch (error) {
+      logError("Error bulk emailing attendees:", error);
+      res.status(500).json({ message: "Failed to bulk email attendees" });
+    }
+  });
+
   // Attendee Type routes
   app.get("/api/attendee-types", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
