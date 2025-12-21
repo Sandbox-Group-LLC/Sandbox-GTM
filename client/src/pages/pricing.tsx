@@ -106,11 +106,11 @@ export default function Pricing() {
                     <p className="text-[#b8b8b8] mt-1">per month</p>
                   </div>
                   <div className="hidden md:block w-px h-16 bg-border" />
-                  <div className="text-center relative">
-                    <Badge className="absolute -top-6 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground">
-                      Preferred
-                    </Badge>
-                    <div className="text-4xl md:text-5xl font-bold text-primary">$36,000</div>
+                  <div className="text-center">
+                    <div className="flex items-center justify-center gap-3 mb-1">
+                      <div className="text-4xl md:text-5xl font-bold text-primary">$36,000</div>
+                      <Badge className="bg-primary text-primary-foreground">Preferred</Badge>
+                    </div>
                     <p className="text-[#b8b8b8] mt-1">per year (annual prepay)</p>
                   </div>
                 </div>
