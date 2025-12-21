@@ -26,6 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -98,6 +99,13 @@ type PageType = "landing" | "registration" | "portal" | "confirmation";
 
 type SectionType = "hero" | "text" | "cta" | "features" | "countdown" | "speakers" | "agenda" | "faq" | "testimonials" | "gallery" | "html" | "sponsors" | "map" | "video" | "footer" | "navigation" | "columns" | "columns-flex" | "registration-form" | "housing" | "attendee-profile" | "attendee-qrcode";
 
+interface VisibilityCondition {
+  enabled: boolean;
+  property: string;
+  operator: 'equals' | 'not_equals' | 'contains' | 'not_contains' | 'is_empty' | 'is_not_empty';
+  value: string;
+}
+
 interface SectionStyles {
   backgroundColor?: string;
   textColor?: string;
@@ -108,6 +116,7 @@ interface SectionStyles {
   customClass?: string;
   hideOnMobile?: boolean;
   hideOnDesktop?: boolean;
+  visibilityCondition?: VisibilityCondition;
 }
 
 interface Section {
@@ -1508,7 +1517,7 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId }: S
     onConfigChange?.(newConfig, styles);
   };
 
-  const updateStyles = (key: keyof SectionStyles, value: string | boolean | undefined) => {
+  const updateStyles = (key: keyof SectionStyles, value: string | boolean | undefined | VisibilityCondition) => {
     const newStyles = { ...styles, [key]: value };
     setStyles(newStyles);
     onConfigChange?.(config, newStyles);
@@ -3466,6 +3475,137 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId }: S
                   onCheckedChange={(checked) => updateStyles("hideOnDesktop", checked)}
                   data-testid="switch-hide-desktop"
                 />
+              </div>
+              
+              <Separator className="my-4" />
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="visibility-condition">Conditional Visibility</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Show section only when attendee matches criteria
+                    </p>
+                  </div>
+                  <Switch
+                    id="visibility-condition"
+                    checked={styles.visibilityCondition?.enabled || false}
+                    onCheckedChange={(checked) => {
+                      const current = styles.visibilityCondition || { enabled: false, property: '', operator: 'equals' as const, value: '' };
+                      updateStyles("visibilityCondition", { ...current, enabled: checked });
+                    }}
+                    data-testid="switch-visibility-condition"
+                  />
+                </div>
+                
+                {styles.visibilityCondition?.enabled && (
+                  <div className="space-y-3 p-3 rounded-md bg-muted/50 border">
+                    <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      If Attendee Property...
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="visibility-property">Property</Label>
+                      <Select
+                        value={styles.visibilityCondition?.property || ""}
+                        onValueChange={(value) => {
+                          const current = styles.visibilityCondition || { enabled: true, property: '', operator: 'equals' as const, value: '' };
+                          updateStyles("visibilityCondition", { ...current, property: value });
+                        }}
+                      >
+                        <SelectTrigger data-testid="select-visibility-property">
+                          <SelectValue placeholder="Select property" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="attendeeType">Attendee Type</SelectItem>
+                          <SelectItem value="registrationStatus">Registration Status</SelectItem>
+                          <SelectItem value="ticketType">Ticket Type</SelectItem>
+                          <SelectItem value="checkedIn">Checked In</SelectItem>
+                          <SelectItem value="company">Company</SelectItem>
+                          <SelectItem value="jobTitle">Job Title</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="visibility-operator">Condition</Label>
+                      <Select
+                        value={styles.visibilityCondition?.operator || "equals"}
+                        onValueChange={(value) => {
+                          const current = styles.visibilityCondition || { enabled: true, property: '', operator: 'equals' as const, value: '' };
+                          updateStyles("visibilityCondition", { ...current, operator: value as VisibilityCondition['operator'] });
+                        }}
+                      >
+                        <SelectTrigger data-testid="select-visibility-operator">
+                          <SelectValue placeholder="Select condition" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="equals">Equals</SelectItem>
+                          <SelectItem value="not_equals">Does Not Equal</SelectItem>
+                          <SelectItem value="contains">Contains</SelectItem>
+                          <SelectItem value="not_contains">Does Not Contain</SelectItem>
+                          <SelectItem value="is_empty">Is Empty</SelectItem>
+                          <SelectItem value="is_not_empty">Is Not Empty</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {styles.visibilityCondition?.operator !== 'is_empty' && styles.visibilityCondition?.operator !== 'is_not_empty' && (
+                      <div className="space-y-2">
+                        <Label htmlFor="visibility-value">Value</Label>
+                        {styles.visibilityCondition?.property === 'checkedIn' ? (
+                          <Select
+                            value={styles.visibilityCondition?.value || ""}
+                            onValueChange={(value) => {
+                              const current = styles.visibilityCondition || { enabled: true, property: '', operator: 'equals' as const, value: '' };
+                              updateStyles("visibilityCondition", { ...current, value });
+                            }}
+                          >
+                            <SelectTrigger data-testid="select-visibility-value-bool">
+                              <SelectValue placeholder="Select value" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="true">Yes (Checked In)</SelectItem>
+                              <SelectItem value="false">No (Not Checked In)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : styles.visibilityCondition?.property === 'registrationStatus' ? (
+                          <Select
+                            value={styles.visibilityCondition?.value || ""}
+                            onValueChange={(value) => {
+                              const current = styles.visibilityCondition || { enabled: true, property: '', operator: 'equals' as const, value: '' };
+                              updateStyles("visibilityCondition", { ...current, value });
+                            }}
+                          >
+                            <SelectTrigger data-testid="select-visibility-value-status">
+                              <SelectValue placeholder="Select status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="pending">Pending</SelectItem>
+                              <SelectItem value="invited">Invited</SelectItem>
+                              <SelectItem value="registered">Registered</SelectItem>
+                              <SelectItem value="confirmed">Confirmed</SelectItem>
+                              <SelectItem value="waitlisted">Waitlisted</SelectItem>
+                              <SelectItem value="cancelled">Cancelled</SelectItem>
+                              <SelectItem value="declined">Declined</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input
+                            id="visibility-value"
+                            value={styles.visibilityCondition?.value || ""}
+                            onChange={(e) => {
+                              const current = styles.visibilityCondition || { enabled: true, property: '', operator: 'equals' as const, value: '' };
+                              updateStyles("visibilityCondition", { ...current, value: e.target.value });
+                            }}
+                            placeholder="Enter value to match"
+                            data-testid="input-visibility-value"
+                          />
+                        )}
+                      </div>
+                    )}
+                    <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
+                      This section will only be visible to attendees where <strong>{styles.visibilityCondition?.property || 'property'}</strong> {styles.visibilityCondition?.operator?.replace('_', ' ') || 'equals'} {styles.visibilityCondition?.operator !== 'is_empty' && styles.visibilityCondition?.operator !== 'is_not_empty' ? <strong>{styles.visibilityCondition?.value || 'value'}</strong> : null}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </AccordionContent>

@@ -61,6 +61,13 @@ interface PortalPageData {
   landingTheme?: EventPageTheme | null;
 }
 
+interface VisibilityCondition {
+  enabled: boolean;
+  property: string;
+  operator: 'equals' | 'not_equals' | 'contains' | 'not_contains' | 'is_empty' | 'is_not_empty';
+  value: string;
+}
+
 interface Section {
   id: string;
   type: string;
@@ -69,8 +76,11 @@ interface Section {
   styles?: {
     backgroundColor?: string;
     textColor?: string;
-    paddingTop?: string;
-    paddingBottom?: string;
+    paddingTop?: 'none' | 'small' | 'medium' | 'large';
+    paddingBottom?: 'none' | 'small' | 'medium' | 'large';
+    hideOnMobile?: boolean;
+    hideOnDesktop?: boolean;
+    visibilityCondition?: VisibilityCondition;
   };
 }
 
@@ -83,6 +93,56 @@ const profileSchema = z.object({
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
+
+function checkVisibilityCondition(
+  condition: VisibilityCondition | undefined,
+  attendee: Omit<Attendee, 'passwordHash'> | null | undefined
+): boolean {
+  // If no condition or condition not enabled, show the section
+  if (!condition?.enabled) return true;
+  
+  // If no attendee data available, show all sections (safe fallback)
+  if (!attendee) return true;
+  
+  // Validate required condition properties
+  if (!condition.property || !condition.operator) return true;
+  
+  const propertyValue = (() => {
+    switch (condition.property) {
+      case 'attendeeType': return attendee.attendeeType || '';
+      case 'registrationStatus': return attendee.registrationStatus || '';
+      case 'ticketType': return attendee.ticketType || '';
+      case 'checkedIn': return attendee.checkedIn ? 'true' : 'false';
+      case 'company': return attendee.company || '';
+      case 'jobTitle': return attendee.jobTitle || '';
+      default: return '';
+    }
+  })();
+
+  const conditionValue = condition.value || '';
+
+  // For contains/not_contains, skip if value is empty (no meaningful match)
+  if ((condition.operator === 'contains' || condition.operator === 'not_contains') && !conditionValue.trim()) {
+    return true;
+  }
+
+  switch (condition.operator) {
+    case 'equals':
+      return propertyValue.toLowerCase() === conditionValue.toLowerCase();
+    case 'not_equals':
+      return propertyValue.toLowerCase() !== conditionValue.toLowerCase();
+    case 'contains':
+      return propertyValue.toLowerCase().includes(conditionValue.toLowerCase());
+    case 'not_contains':
+      return !propertyValue.toLowerCase().includes(conditionValue.toLowerCase());
+    case 'is_empty':
+      return !propertyValue || propertyValue.trim() === '';
+    case 'is_not_empty':
+      return !!propertyValue && propertyValue.trim() !== '';
+    default:
+      return true;
+  }
+}
 
 function QRCodeDisplay({ code }: { code: string }) {
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(code)}`;
@@ -659,6 +719,7 @@ export default function AttendeePortal() {
           {hasSections ? (
             <div className="space-y-6">
               {sections
+                .filter((section) => checkVisibilityCondition(section.styles?.visibilityCondition, attendee))
                 .sort((a, b) => a.order - b.order)
                 .map((section) => (
                   <SectionRenderer

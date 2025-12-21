@@ -397,6 +397,14 @@ export const eventPages = pgTable("event_pages", {
       paddingTop?: 'none' | 'small' | 'medium' | 'large';
       paddingBottom?: 'none' | 'small' | 'medium' | 'large';
       customClass?: string;
+      hideOnMobile?: boolean;
+      hideOnDesktop?: boolean;
+      visibilityCondition?: {
+        enabled: boolean;
+        property: string;
+        operator: 'equals' | 'not_equals' | 'contains' | 'not_contains' | 'is_empty' | 'is_not_empty';
+        value: string;
+      };
     };
   }>>(),
   createdAt: timestamp("created_at").defaultNow(),
@@ -423,6 +431,14 @@ export const pageVersions = pgTable("page_versions", {
       paddingTop?: 'none' | 'small' | 'medium' | 'large';
       paddingBottom?: 'none' | 'small' | 'medium' | 'large';
       customClass?: string;
+      hideOnMobile?: boolean;
+      hideOnDesktop?: boolean;
+      visibilityCondition?: {
+        enabled: boolean;
+        property: string;
+        operator: 'equals' | 'not_equals' | 'contains' | 'not_contains' | 'is_empty' | 'is_not_empty';
+        value: string;
+      };
     };
   }>>(),
   theme: jsonb("theme").$type<{
