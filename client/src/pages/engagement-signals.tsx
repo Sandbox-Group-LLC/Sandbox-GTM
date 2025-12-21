@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Activity, Zap, Flame, Users, RefreshCw } from "lucide-react";
@@ -5,6 +6,14 @@ import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { titleCase } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import type { Event } from "@shared/schema";
 
 interface ActiveVisitor {
   eventId: string;
@@ -14,9 +23,23 @@ interface ActiveVisitor {
 }
 
 export default function EngagementSignals() {
+  const [selectedEventId, setSelectedEventId] = useState<string>("all");
+
+  const { data: events } = useQuery<Event[]>({
+    queryKey: ["/api/events"],
+  });
+
   const { data: activeVisitors, isLoading } = useQuery<ActiveVisitor[]>({
-    queryKey: ["/api/analytics/active-visitors"],
+    queryKey: ["/api/analytics/active-visitors", selectedEventId],
     refetchInterval: 30000, // Refresh every 30 seconds
+    queryFn: async () => {
+      const url = selectedEventId && selectedEventId !== "all"
+        ? `/api/analytics/active-visitors?eventId=${selectedEventId}`
+        : "/api/analytics/active-visitors";
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch active visitors");
+      return res.json();
+    },
   });
 
   // Calculate total active visitors
@@ -27,6 +50,21 @@ export default function EngagementSignals() {
       <PageHeader 
         title="Engagement Signals" 
         breadcrumbs={[{ label: "Performance" }, { label: "Engagement Signals" }]}
+        actions={
+          <Select value={selectedEventId} onValueChange={setSelectedEventId}>
+            <SelectTrigger className="w-[120px] sm:w-[180px]" data-testid="select-event-filter">
+              <SelectValue placeholder="Filter by program" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Programs</SelectItem>
+              {events?.map((event) => (
+                <SelectItem key={event.id} value={event.id}>
+                  {event.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        }
       />
 
       <div className="flex-1 overflow-auto p-6 space-y-6">

@@ -1,11 +1,45 @@
+import { useState } from "react";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { HandshakeIcon, Users, Clock, CheckCircle } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import type { Event } from "@shared/schema";
 
 export default function SalesHandoff() {
+  const [selectedEventId, setSelectedEventId] = useState<string>("all");
+
+  const { data: events } = useQuery<Event[]>({
+    queryKey: ["/api/events"],
+  });
+
   return (
     <div className="flex flex-col h-full">
-      <PageHeader title="Sales Handoff" />
+      <PageHeader 
+        title="Sales Handoff"
+        breadcrumbs={[{ label: "Revenue & ROI" }, { label: "Sales Handoff" }]}
+        actions={
+          <Select value={selectedEventId} onValueChange={setSelectedEventId}>
+            <SelectTrigger className="w-[120px] sm:w-[180px]" data-testid="select-event-filter">
+              <SelectValue placeholder="Filter by program" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Programs</SelectItem>
+              {events?.map((event) => (
+                <SelectItem key={event.id} value={event.id}>
+                  {event.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        }
+      />
 
       <div className="flex-1 overflow-auto p-6">
         <p className="text-muted-foreground text-sm mb-4">Manage the transition of qualified leads from programs to sales teams</p>

@@ -1,11 +1,45 @@
+import { useState } from "react";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Send, Clock, CheckCircle, TrendingUp, Mail } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import type { Event } from "@shared/schema";
 
 export default function FollowUp() {
+  const [selectedEventId, setSelectedEventId] = useState<string>("all");
+
+  const { data: events } = useQuery<Event[]>({
+    queryKey: ["/api/events"],
+  });
+
   return (
     <div className="flex flex-col h-full">
-      <PageHeader title="Follow-Up Performance" />
+      <PageHeader 
+        title="Follow-Up Performance"
+        breadcrumbs={[{ label: "Revenue & ROI" }, { label: "Follow-Up Performance" }]}
+        actions={
+          <Select value={selectedEventId} onValueChange={setSelectedEventId}>
+            <SelectTrigger className="w-[120px] sm:w-[180px]" data-testid="select-event-filter">
+              <SelectValue placeholder="Filter by program" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Programs</SelectItem>
+              {events?.map((event) => (
+                <SelectItem key={event.id} value={event.id}>
+                  {event.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        }
+      />
 
       <div className="flex-1 overflow-auto p-6">
         <p className="text-muted-foreground text-sm mb-4">Track post-program engagement and follow-up effectiveness</p>

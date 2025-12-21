@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, Users, Target, BarChart3, Filter } from "lucide-react";
@@ -5,6 +6,14 @@ import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { titleCase } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import type { Event } from "@shared/schema";
 
 interface AcquisitionMetrics {
   uniqueVisitors: number;
@@ -15,8 +24,22 @@ interface AcquisitionMetrics {
 }
 
 export default function Acquisition() {
+  const [selectedEventId, setSelectedEventId] = useState<string>("all");
+
+  const { data: events } = useQuery<Event[]>({
+    queryKey: ["/api/events"],
+  });
+
   const { data: metrics, isLoading } = useQuery<AcquisitionMetrics>({
-    queryKey: ["/api/analytics/acquisition"],
+    queryKey: ["/api/analytics/acquisition", selectedEventId],
+    queryFn: async () => {
+      const url = selectedEventId && selectedEventId !== "all"
+        ? `/api/analytics/acquisition?eventId=${selectedEventId}`
+        : "/api/analytics/acquisition";
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch acquisition metrics");
+      return res.json();
+    },
   });
 
   return (
@@ -24,6 +47,21 @@ export default function Acquisition() {
       <PageHeader 
         title="Acquisition Health" 
         breadcrumbs={[{ label: "Performance" }, { label: "Acquisition Health" }]}
+        actions={
+          <Select value={selectedEventId} onValueChange={setSelectedEventId}>
+            <SelectTrigger className="w-[120px] sm:w-[180px]" data-testid="select-event-filter">
+              <SelectValue placeholder="Filter by program" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Programs</SelectItem>
+              {events?.map((event) => (
+                <SelectItem key={event.id} value={event.id}>
+                  {event.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        }
       />
       <div className="flex-1 overflow-auto p-6">
         <p className="text-muted-foreground text-sm mb-6">Are we attracting the right audience from the right channels?</p>

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/page-header";
 import { DataTable } from "@/components/data-table";
@@ -24,7 +24,7 @@ import {
   TrendingUp
 } from "lucide-react";
 import { format } from "date-fns";
-import type { EmailCampaign, Organization } from "@shared/schema";
+import type { EmailCampaign, Organization, Event } from "@shared/schema";
 
 interface EmailAnalyticsData {
   totalSent: number;
@@ -59,15 +59,33 @@ const statusColors: Record<string, "default" | "secondary" | "destructive" | "ou
 };
 
 export default function EmailAnalytics() {
+  const [selectedEventId, setSelectedEventId] = useState<string>("all");
   const [selectedCampaignId, setSelectedCampaignId] = useState<string>("");
 
   const { data: organization } = useQuery<Organization>({
     queryKey: ["/api/auth/organization"],
   });
 
-  const { data: campaigns = [], isLoading: campaignsLoading } = useQuery<EmailCampaign[]>({
-    queryKey: ["/api/emails"],
+  const { data: events } = useQuery<Event[]>({
+    queryKey: ["/api/events"],
   });
+
+  const { data: campaigns = [], isLoading: campaignsLoading } = useQuery<EmailCampaign[]>({
+    queryKey: ["/api/emails", selectedEventId],
+    queryFn: async () => {
+      const url = selectedEventId && selectedEventId !== "all"
+        ? `/api/emails?eventId=${selectedEventId}`
+        : "/api/emails";
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch campaigns");
+      return res.json();
+    },
+  });
+
+  // Reset campaign selection when event filter changes
+  useEffect(() => {
+    setSelectedCampaignId("");
+  }, [selectedEventId]);
 
   const { data: analytics, isLoading: analyticsLoading } = useQuery<EmailAnalyticsData>({
     queryKey: ["/api/organizations", organization?.id, "email-campaigns", selectedCampaignId, "analytics"],
@@ -174,6 +192,21 @@ export default function EmailAnalytics() {
           { label: "Marketing", href: "/emails" },
           { label: "Email Analytics" },
         ]}
+        actions={
+          <Select value={selectedEventId} onValueChange={setSelectedEventId}>
+            <SelectTrigger className="w-[120px] sm:w-[180px]" data-testid="select-event-filter">
+              <SelectValue placeholder="Filter by program" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Programs</SelectItem>
+              {events?.map((event) => (
+                <SelectItem key={event.id} value={event.id}>
+                  {event.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        }
       />
 
       <div className="flex-1 overflow-auto p-6">
