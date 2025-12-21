@@ -80,6 +80,7 @@ import {
   AlignRight,
   X,
   BarChart3,
+  Columns3,
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Event, EventPage, EventPageTheme, EventSession, Speaker, EventSponsor, CustomFont } from "@shared/schema";
@@ -99,7 +100,7 @@ import {
 
 type PageType = "landing" | "registration" | "portal" | "confirmation";
 
-type SectionType = "hero" | "text" | "cta" | "features" | "countdown" | "speakers" | "agenda" | "faq" | "testimonials" | "gallery" | "html" | "sponsors" | "map" | "video" | "footer" | "navigation" | "columns" | "columns-flex" | "registration-form" | "housing" | "attendee-profile" | "attendee-qrcode";
+type SectionType = "hero" | "text" | "cta" | "features" | "countdown" | "speakers" | "agenda" | "faq" | "testimonials" | "gallery" | "html" | "sponsors" | "map" | "video" | "footer" | "navigation" | "columns" | "columns-flex" | "layout-columns" | "registration-form" | "housing" | "attendee-profile" | "attendee-qrcode";
 
 interface SingleCondition {
   property: string;
@@ -191,6 +192,7 @@ const SECTION_TYPES: { type: SectionType; label: string; icon: React.ComponentTy
   { type: "navigation", label: "Navigation Bar", icon: Menu, description: "Header navigation with links" },
   { type: "columns", label: "Simple Columns", icon: Columns2, description: "Multi-column layout with text" },
   { type: "columns-flex", label: "Flexible Columns", icon: LayoutGrid, description: "Columns with icons, images, buttons" },
+  { type: "layout-columns", label: "Layout Columns", icon: Columns3, description: "Multi-column layout with nested sections" },
   { type: "registration-form", label: "Registration Form", icon: FileText, description: "Embed the event registration form" },
   { type: "housing", label: "Hotel Housing", icon: Hotel, description: "Hotel booking section for Passkey integration" },
   { type: "attendee-profile", label: "Attendee Profile", icon: User, description: "Display and edit attendee profile information" },
@@ -330,6 +332,17 @@ const getDefaultConfig = (type: SectionType): Record<string, unknown> => {
           { icon: "star", heading: "Feature 1", content: "Description here", imageUrl: "", buttonText: "", buttonLink: "" },
           { icon: "zap", heading: "Feature 2", content: "Description here", imageUrl: "", buttonText: "", buttonLink: "" },
           { icon: "heart", heading: "Feature 3", content: "Description here", imageUrl: "", buttonText: "", buttonLink: "" },
+        ]
+      };
+    case "layout-columns":
+      return {
+        heading: "",
+        columnCount: 2,
+        columnWidths: "equal",
+        gap: "md",
+        columns: [
+          { sections: [] },
+          { sections: [] },
         ]
       };
     case "registration-form":
@@ -700,6 +713,12 @@ export default function SiteBuilder() {
       case "columns-flex":
         const flexColCount = (config.columnCount as number) || 3;
         previewText = `${(config.heading as string) || "Flexible Columns"} (${flexColCount} columns)`;
+        break;
+      case "layout-columns":
+        const layoutColCount = (config.columnCount as number) || 2;
+        const layoutColumns = (config.columns as Array<{ sections: Array<unknown> }>) || [];
+        const totalNestedSections = layoutColumns.reduce((sum, col) => sum + (col.sections?.length || 0), 0);
+        previewText = `Layout (${layoutColCount} columns, ${totalNestedSections} sections)`;
         break;
       case "registration-form":
         previewText = (config.heading as string) || "Registration form";
@@ -1479,6 +1498,250 @@ interface SectionEditorProps {
 }
 
 const AI_SUPPORTED_SECTIONS: SectionType[] = ["hero", "text", "cta", "features", "faq", "testimonials"];
+
+interface NestedSectionEditorProps {
+  section: Section;
+  onUpdate: (config: Record<string, unknown>, styles: SectionStyles) => void;
+  customFonts?: CustomFont[];
+}
+
+function NestedSectionEditor({ section, onUpdate, customFonts = [] }: NestedSectionEditorProps) {
+  const [config, setConfig] = useState<Record<string, unknown>>(section.config);
+  const [styles, setStyles] = useState<SectionStyles>(section.styles || {});
+
+  const updateConfig = (key: string, value: unknown) => {
+    const newConfig = { ...config, [key]: value };
+    setConfig(newConfig);
+    onUpdate(newConfig, styles);
+  };
+
+  const updateStyles = (key: keyof SectionStyles, value: string | boolean | undefined | VisibilityCondition) => {
+    const newStyles = { ...styles, [key]: value };
+    setStyles(newStyles);
+    onUpdate(config, newStyles);
+  };
+
+  const renderNestedFields = () => {
+    switch (section.type) {
+      case "hero":
+        return (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="nested-title">Title</Label>
+              <Input
+                id="nested-title"
+                value={(config.title as string) || ""}
+                onChange={(e) => updateConfig("title", e.target.value)}
+                placeholder="Enter hero title"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="nested-subtitle">Subtitle</Label>
+              <Textarea
+                id="nested-subtitle"
+                value={(config.subtitle as string) || ""}
+                onChange={(e) => updateConfig("subtitle", e.target.value)}
+                placeholder="Enter subtitle text"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="nested-buttonText">Button Text</Label>
+              <Input
+                id="nested-buttonText"
+                value={(config.buttonText as string) || ""}
+                onChange={(e) => updateConfig("buttonText", e.target.value)}
+                placeholder="Register Now"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="nested-buttonLink">Button Link</Label>
+              <Input
+                id="nested-buttonLink"
+                value={(config.buttonLink as string) || ""}
+                onChange={(e) => updateConfig("buttonLink", e.target.value)}
+                placeholder="/register"
+              />
+            </div>
+          </>
+        );
+      case "text":
+        return (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="nested-heading">Heading</Label>
+              <Input
+                id="nested-heading"
+                value={(config.heading as string) || ""}
+                onChange={(e) => updateConfig("heading", e.target.value)}
+                placeholder="Section heading"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="nested-content">Content</Label>
+              <Textarea
+                id="nested-content"
+                value={(config.content as string) || ""}
+                onChange={(e) => updateConfig("content", e.target.value)}
+                placeholder="Enter your text content"
+                rows={5}
+              />
+            </div>
+          </>
+        );
+      case "cta":
+        return (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="nested-cta-heading">Heading</Label>
+              <Input
+                id="nested-cta-heading"
+                value={(config.heading as string) || ""}
+                onChange={(e) => updateConfig("heading", e.target.value)}
+                placeholder="Ready to Join?"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="nested-description">Description</Label>
+              <Textarea
+                id="nested-description"
+                value={(config.description as string) || ""}
+                onChange={(e) => updateConfig("description", e.target.value)}
+                placeholder="Brief description"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="nested-cta-buttonText">Button Text</Label>
+              <Input
+                id="nested-cta-buttonText"
+                value={(config.buttonText as string) || ""}
+                onChange={(e) => updateConfig("buttonText", e.target.value)}
+                placeholder="Get Started"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="nested-cta-buttonLink">Button Link</Label>
+              <Input
+                id="nested-cta-buttonLink"
+                value={(config.buttonLink as string) || ""}
+                onChange={(e) => updateConfig("buttonLink", e.target.value)}
+                placeholder="/register"
+              />
+            </div>
+          </>
+        );
+      case "features":
+        return (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="nested-features-heading">Section Heading</Label>
+              <Input
+                id="nested-features-heading"
+                value={(config.heading as string) || ""}
+                onChange={(e) => updateConfig("heading", e.target.value)}
+                placeholder="What's Included"
+              />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Feature items can be configured after adding to the column
+            </p>
+          </>
+        );
+      case "countdown":
+        return (
+          <div className="space-y-2">
+            <Label htmlFor="nested-countdown-heading">Heading</Label>
+            <Input
+              id="nested-countdown-heading"
+              value={(config.heading as string) || ""}
+              onChange={(e) => updateConfig("heading", e.target.value)}
+              placeholder="Event Starts In"
+            />
+          </div>
+        );
+      case "speakers":
+      case "sponsors":
+      case "agenda":
+        return (
+          <div className="space-y-2">
+            <Label htmlFor="nested-section-heading">Heading</Label>
+            <Input
+              id="nested-section-heading"
+              value={(config.heading as string) || ""}
+              onChange={(e) => updateConfig("heading", e.target.value)}
+              placeholder="Section Heading"
+            />
+          </div>
+        );
+      case "video":
+        return (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="nested-video-heading">Heading (optional)</Label>
+              <Input
+                id="nested-video-heading"
+                value={(config.heading as string) || ""}
+                onChange={(e) => updateConfig("heading", e.target.value)}
+                placeholder="Watch the Video"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="nested-video-url">Video URL</Label>
+              <Input
+                id="nested-video-url"
+                value={(config.videoUrl as string) || ""}
+                onChange={(e) => updateConfig("videoUrl", e.target.value)}
+                placeholder="https://youtube.com/watch?v=..."
+              />
+            </div>
+          </>
+        );
+      case "html":
+        return (
+          <div className="space-y-2">
+            <Label htmlFor="nested-html">Custom HTML</Label>
+            <Textarea
+              id="nested-html"
+              value={(config.html as string) || ""}
+              onChange={(e) => updateConfig("html", e.target.value)}
+              placeholder="<div>Your custom HTML here</div>"
+              rows={8}
+              className="font-mono text-sm"
+            />
+          </div>
+        );
+      default:
+        return (
+          <p className="text-muted-foreground">
+            Basic configuration for this section type. Edit the heading or content as needed.
+          </p>
+        );
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {renderNestedFields()}
+      <div className="space-y-2">
+        <Label htmlFor="nested-bg-color">Background Color (optional)</Label>
+        <div className="flex items-center gap-2">
+          <input
+            type="color"
+            id="nested-bg-color"
+            value={styles.backgroundColor || "#ffffff"}
+            onChange={(e) => updateStyles("backgroundColor", e.target.value)}
+            className="h-9 w-12 rounded border cursor-pointer"
+          />
+          <Input
+            value={styles.backgroundColor || ""}
+            onChange={(e) => updateStyles("backgroundColor", e.target.value || undefined)}
+            placeholder="Default"
+            className="flex-1 font-mono text-sm"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId, customFonts = [] }: SectionEditorProps) {
   const { toast } = useToast();
@@ -3254,6 +3517,239 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId, cus
                         data-testid={`input-flex-column-button-link-${index}`}
                       />
                     </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </>
+        );
+      case "layout-columns":
+        const layoutColCount = (config.columnCount as number) || 2;
+        const layoutColumns = (config.columns as Array<{ sections: Section[] }>) || [];
+        const layoutWidths = (config.columnWidths as string) || "equal";
+        const layoutGap = (config.gap as string) || "md";
+        const nestableSectionTypes = SECTION_TYPES.filter(s => s.type !== "layout-columns");
+        
+        const addNestedSection = (colIndex: number, sectionType: SectionType) => {
+          const newSection: Section = {
+            id: crypto.randomUUID(),
+            type: sectionType,
+            config: getDefaultConfig(sectionType),
+            styles: {}
+          };
+          const newColumns = [...layoutColumns];
+          if (!newColumns[colIndex]) {
+            newColumns[colIndex] = { sections: [] };
+          }
+          newColumns[colIndex] = {
+            ...newColumns[colIndex],
+            sections: [...(newColumns[colIndex].sections || []), newSection]
+          };
+          updateConfig("columns", newColumns);
+        };
+        
+        const removeNestedSection = (colIndex: number, sectionIndex: number) => {
+          const newColumns = [...layoutColumns];
+          newColumns[colIndex] = {
+            ...newColumns[colIndex],
+            sections: newColumns[colIndex].sections.filter((_, i) => i !== sectionIndex)
+          };
+          updateConfig("columns", newColumns);
+        };
+        
+        const updateNestedSection = (colIndex: number, sectionIndex: number, newConfig: Record<string, unknown>, newStyles: SectionStyles) => {
+          const newColumns = [...layoutColumns];
+          const updatedSection = {
+            ...newColumns[colIndex].sections[sectionIndex],
+            config: newConfig,
+            styles: newStyles
+          };
+          newColumns[colIndex] = {
+            ...newColumns[colIndex],
+            sections: newColumns[colIndex].sections.map((s, i) => i === sectionIndex ? updatedSection : s)
+          };
+          updateConfig("columns", newColumns);
+        };
+        
+        const getNestedSectionLabel = (type: SectionType) => {
+          const sectionType = SECTION_TYPES.find((s) => s.type === type);
+          return sectionType?.label || type;
+        };
+        
+        const getNestedSectionIcon = (type: SectionType) => {
+          const sectionType = SECTION_TYPES.find((s) => s.type === type);
+          return sectionType?.icon || Layout;
+        };
+        
+        const widthOptions = [
+          { value: "equal", label: "Equal widths" },
+          { value: "1-2", label: "1:2 ratio" },
+          { value: "2-1", label: "2:1 ratio" },
+          { value: "1-2-1", label: "1:2:1 ratio" },
+          { value: "2-1-1", label: "2:1:1 ratio" },
+          { value: "1-1-2", label: "1:1:2 ratio" },
+        ];
+        
+        const gapOptions = [
+          { value: "none", label: "None" },
+          { value: "sm", label: "Small" },
+          { value: "md", label: "Medium" },
+          { value: "lg", label: "Large" },
+        ];
+        
+        return (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="layout-columns-heading">Section Heading (optional)</Label>
+              <Input
+                id="layout-columns-heading"
+                value={(config.heading as string) || ""}
+                onChange={(e) => updateConfig("heading", e.target.value)}
+                placeholder="Optional section heading"
+                data-testid="input-layout-columns-heading"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Number of Columns</Label>
+                <Select
+                  value={String(layoutColCount)}
+                  onValueChange={(value) => {
+                    const newCount = parseInt(value);
+                    const currentColumns = [...layoutColumns];
+                    while (currentColumns.length < newCount) {
+                      currentColumns.push({ sections: [] });
+                    }
+                    updateConfig("columnCount", newCount);
+                    updateConfig("columns", currentColumns.slice(0, newCount));
+                  }}
+                >
+                  <SelectTrigger data-testid="select-layout-column-count">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="2">2 Columns</SelectItem>
+                    <SelectItem value="3">3 Columns</SelectItem>
+                    <SelectItem value="4">4 Columns</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Column Widths</Label>
+                <Select
+                  value={layoutWidths}
+                  onValueChange={(value) => updateConfig("columnWidths", value)}
+                >
+                  <SelectTrigger data-testid="select-layout-column-widths">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {widthOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Gap Between Columns</Label>
+              <Select
+                value={layoutGap}
+                onValueChange={(value) => updateConfig("gap", value)}
+              >
+                <SelectTrigger data-testid="select-layout-gap">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {gapOptions.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-4">
+              <Label>Column Contents</Label>
+              {layoutColumns.slice(0, layoutColCount).map((col, colIndex) => (
+                <Card key={colIndex} className="p-3">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-medium">Column {colIndex + 1}</span>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm" data-testid={`button-add-nested-section-${colIndex}`}>
+                            <Plus className="h-3 w-3 mr-1" />
+                            Add Section
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="max-h-64 overflow-y-auto">
+                          {nestableSectionTypes.map((sType) => {
+                            const STypeIcon = sType.icon;
+                            return (
+                              <DropdownMenuItem
+                                key={sType.type}
+                                onClick={() => addNestedSection(colIndex, sType.type as SectionType)}
+                                data-testid={`menu-add-${sType.type}-${colIndex}`}
+                              >
+                                <STypeIcon className="h-4 w-4 mr-2" />
+                                {sType.label}
+                              </DropdownMenuItem>
+                            );
+                          })}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                    {(col.sections || []).length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        No sections in this column. Add one above.
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {col.sections.map((nestedSection, sectionIndex) => {
+                          const NestedIcon = getNestedSectionIcon(nestedSection.type as SectionType);
+                          return (
+                            <div
+                              key={nestedSection.id}
+                              className="flex items-center gap-2 p-2 bg-muted rounded-md"
+                              data-testid={`nested-section-${colIndex}-${sectionIndex}`}
+                            >
+                              <NestedIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                              <span className="text-sm flex-1 truncate">
+                                {getNestedSectionLabel(nestedSection.type as SectionType)}
+                              </span>
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    data-testid={`button-edit-nested-${colIndex}-${sectionIndex}`}
+                                  >
+                                    <Edit className="h-3 w-3" />
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                                  <DialogHeader>
+                                    <DialogTitle>Edit {getNestedSectionLabel(nestedSection.type as SectionType)}</DialogTitle>
+                                  </DialogHeader>
+                                  <NestedSectionEditor
+                                    section={nestedSection}
+                                    onUpdate={(newConfig, newStyles) => updateNestedSection(colIndex, sectionIndex, newConfig, newStyles)}
+                                    customFonts={customFonts}
+                                  />
+                                </DialogContent>
+                              </Dialog>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => removeNestedSection(colIndex, sectionIndex)}
+                                data-testid={`button-delete-nested-${colIndex}-${sectionIndex}`}
+                              >
+                                <Trash2 className="h-3 w-3 text-destructive" />
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </Card>
               ))}

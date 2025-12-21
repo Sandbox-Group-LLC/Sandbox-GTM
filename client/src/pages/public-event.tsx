@@ -1448,6 +1448,57 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
         </div>
       );
 
+    case "layout-columns": {
+      const layoutConfig = config as {
+        heading?: string;
+        columnCount?: number;
+        columnWidths?: string;
+        gap?: string;
+        columns?: Array<{ sections: Section[] }>;
+      };
+      const colCount = layoutConfig.columnCount || 2;
+      const layoutCols = layoutConfig.columns || [];
+      const gapClass = { none: "gap-0", sm: "gap-2", md: "gap-4", lg: "gap-8" }[layoutConfig.gap || "md"] || "gap-4";
+      
+      let gridTemplate = "1fr ".repeat(colCount).trim();
+      switch (layoutConfig.columnWidths) {
+        case "1-2": gridTemplate = "1fr 2fr"; break;
+        case "2-1": gridTemplate = "2fr 1fr"; break;
+        case "1-2-1": gridTemplate = "1fr 2fr 1fr"; break;
+        case "2-1-1": gridTemplate = "2fr 1fr 1fr"; break;
+        case "1-1-2": gridTemplate = "1fr 1fr 2fr"; break;
+      }
+      
+      return wrapWithMargins(
+        <div key={section.id} className="space-y-4" data-testid={`section-layout-columns-${section.id}`}>
+          {layoutConfig.heading && (
+            <h2 className="text-2xl font-bold" style={headingStyles}>{layoutConfig.heading}</h2>
+          )}
+          <div 
+            className={`grid ${gapClass}`}
+            style={{ gridTemplateColumns: gridTemplate }}
+          >
+            {layoutCols.map((column, colIdx) => (
+              <div key={colIdx} className="space-y-4" data-testid={`layout-column-${colIdx}`}>
+                {(column.sections || []).map((nestedSection: Section) => (
+                  <SectionRenderer 
+                    key={nestedSection.id}
+                    section={nestedSection}
+                    event={event}
+                    sessions={sessions}
+                    speakers={speakers}
+                    sponsors={sponsors}
+                    theme={theme}
+                    isPreview={isPreview}
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
     case "sponsors":
       const sponsorsDataSource = config.dataSource as string || "dynamic";
       const sponsorsDynamicFilters = config.dynamicFilters as { limit?: number; filterByTier?: string; sortOrder?: string } || {};
