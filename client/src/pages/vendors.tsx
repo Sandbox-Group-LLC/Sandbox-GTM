@@ -77,6 +77,7 @@ export default function Vendors() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/vendors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/budget"] });
       toast({ title: "Vendor removed" });
     },
     onError: () => {
