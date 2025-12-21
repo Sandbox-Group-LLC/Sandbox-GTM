@@ -38,16 +38,40 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { titleCase } from "@/lib/utils";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Plus, CheckSquare, Clock, AlertCircle, CheckCircle, Circle } from "lucide-react";
+import { Plus, CheckSquare, Clock, AlertCircle, CheckCircle, Circle, User } from "lucide-react";
 import { EventSelectField } from "@/components/event-select-field";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { Deliverable } from "@shared/schema";
+
+type Assignee = {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  profileImageUrl: string | null;
+};
+
+const WORKSTREAM_OPTIONS = [
+  { value: "marketing", label: "Marketing" },
+  { value: "logistics", label: "Logistics" },
+  { value: "content", label: "Content" },
+  { value: "speakers", label: "Speakers" },
+  { value: "sponsorship", label: "Sponsorship" },
+  { value: "registration", label: "Registration" },
+  { value: "production", label: "Production" },
+  { value: "creative", label: "Creative" },
+  { value: "operations", label: "Operations" },
+  { value: "other", label: "Other" },
+];
 
 const deliverableFormSchema = z.object({
   eventId: z.string().min(1, "Event is required"),
   title: z.string().min(1, "Title is required"),
   description: z.string().optional(),
+  workstream: z.string().optional(),
   status: z.string().default("todo"),
   priority: z.string().default("medium"),
+  assignedTo: z.string().optional(),
   dueDate: z.string().optional(),
 });
 
@@ -76,14 +100,20 @@ export default function Deliverables() {
     queryKey: ["/api/deliverables"],
   });
 
+  const { data: assignees = [] } = useQuery<Assignee[]>({
+    queryKey: ["/api/organization/assignees"],
+  });
+
   const form = useForm<DeliverableFormData>({
     resolver: zodResolver(deliverableFormSchema),
     defaultValues: {
       eventId: "",
       title: "",
       description: "",
+      workstream: "",
       status: "todo",
       priority: "medium",
+      assignedTo: "",
       dueDate: "",
     },
   });
@@ -145,8 +175,10 @@ export default function Deliverables() {
       eventId: item.eventId,
       title: item.title,
       description: item.description || "",
+      workstream: item.workstream || "",
       status: item.status || "todo",
       priority: item.priority || "medium",
+      assignedTo: item.assignedTo || "",
       dueDate: item.dueDate || "",
     });
     setIsDialogOpen(true);
@@ -213,6 +245,64 @@ export default function Deliverables() {
                       </FormItem>
                     )}
                   />
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="workstream"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Workstream</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value || ""}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-workstream">
+                                <SelectValue placeholder="Select workstream" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {WORKSTREAM_OPTIONS.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="assignedTo"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Assigned To</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value || ""}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-assignee">
+                                <SelectValue placeholder="Select team member" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {assignees.map((assignee) => (
+                                <SelectItem key={assignee.id} value={assignee.id}>
+                                  <div className="flex items-center gap-2">
+                                    <Avatar className="h-5 w-5">
+                                      <AvatarImage src={assignee.profileImageUrl || undefined} />
+                                      <AvatarFallback className="text-xs">
+                                        {(assignee.firstName?.[0] || assignee.email?.[0] || '?').toUpperCase()}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <span>{assignee.firstName} {assignee.lastName}</span>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
@@ -331,35 +421,56 @@ export default function Deliverables() {
                       </Badge>
                     </div>
                     <div className="space-y-2 min-h-[200px] p-2 rounded-lg bg-muted/30">
-                      {groupedDeliverables[status]?.map((item) => (
-                        <Card
-                          key={item.id}
-                          className="hover-elevate cursor-pointer"
-                          onClick={() => handleEdit(item)}
-                          data-testid={`card-deliverable-${item.id}`}
-                        >
-                          <CardHeader className="p-4 pb-2">
-                            <CardTitle className="text-sm font-medium">{item.title}</CardTitle>
-                          </CardHeader>
-                          <CardContent className="p-4 pt-0 space-y-2">
-                            {item.description && (
-                              <CardDescription className="text-xs line-clamp-2">
-                                {item.description}
-                              </CardDescription>
-                            )}
-                            <div className="flex items-center justify-between gap-2 flex-wrap">
-                              <Badge variant={priorityColors[item.priority || "medium"]} className="text-xs">
-                                {titleCase(item.priority || "medium")}
-                              </Badge>
-                              {item.dueDate && (
-                                <span className="text-xs text-muted-foreground">
-                                  {new Date(item.dueDate).toLocaleDateString()}
-                                </span>
+                      {groupedDeliverables[status]?.map((item) => {
+                        const assignee = item.assignedTo ? assignees.find(a => a.id === item.assignedTo) : null;
+                        const workstreamLabel = item.workstream ? WORKSTREAM_OPTIONS.find(w => w.value === item.workstream)?.label : null;
+                        return (
+                          <Card
+                            key={item.id}
+                            className="hover-elevate cursor-pointer"
+                            onClick={() => handleEdit(item)}
+                            data-testid={`card-deliverable-${item.id}`}
+                          >
+                            <CardHeader className="p-4 pb-2">
+                              <div className="flex items-start justify-between gap-2">
+                                <CardTitle className="text-sm font-medium">{item.title}</CardTitle>
+                                {assignee && (
+                                  <Avatar className="h-6 w-6 flex-shrink-0" title={`${assignee.firstName} ${assignee.lastName}`}>
+                                    <AvatarImage src={assignee.profileImageUrl || undefined} />
+                                    <AvatarFallback className="text-xs">
+                                      {(assignee.firstName?.[0] || assignee.email?.[0] || '?').toUpperCase()}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                )}
+                              </div>
+                            </CardHeader>
+                            <CardContent className="p-4 pt-0 space-y-2">
+                              {item.description && (
+                                <CardDescription className="text-xs line-clamp-2">
+                                  {item.description}
+                                </CardDescription>
                               )}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
+                              <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <Badge variant={priorityColors[item.priority || "medium"]} className="text-xs">
+                                    {titleCase(item.priority || "medium")}
+                                  </Badge>
+                                  {workstreamLabel && (
+                                    <Badge variant="outline" className="text-xs">
+                                      {workstreamLabel}
+                                    </Badge>
+                                  )}
+                                </div>
+                                {item.dueDate && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {new Date(item.dueDate).toLocaleDateString()}
+                                  </span>
+                                )}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
                     </div>
                   </div>
                 );

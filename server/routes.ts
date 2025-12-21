@@ -662,6 +662,28 @@ export async function registerRoutes(
     }
   });
 
+  // GET /api/organization/assignees - Get list of team members for assignment purposes (all members can access)
+  app.get('/api/organization/assignees', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      
+      const members = await storage.getOrganizationMembers(organizationId);
+      // Return simplified data for assignment dropdowns
+      const assignees = members.map(m => ({
+        id: m.user.id,
+        firstName: m.user.firstName,
+        lastName: m.user.lastName,
+        email: m.user.email,
+        profileImageUrl: m.user.profileImageUrl,
+      }));
+      res.json(assignees);
+    } catch (error) {
+      logError("Error fetching organization assignees:", error);
+      res.status(500).json({ message: "Failed to fetch assignees" });
+    }
+  });
+
   // POST /api/organization/invitations - Create a new team invitation
   app.post('/api/organization/invitations', isAuthenticated, async (req: any, res) => {
     try {
