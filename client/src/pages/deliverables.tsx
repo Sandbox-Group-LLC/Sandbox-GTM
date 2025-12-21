@@ -558,7 +558,7 @@ export default function Deliverables() {
                     <TableHeader>
                       <TableRow>
                         <TableHead 
-                          className="cursor-pointer hover-elevate" 
+                          className="cursor-pointer" 
                           onClick={() => handleSort("title")}
                           data-testid="th-title"
                         >
@@ -568,7 +568,7 @@ export default function Deliverables() {
                           </div>
                         </TableHead>
                         <TableHead 
-                          className="cursor-pointer hover-elevate" 
+                          className="cursor-pointer" 
                           onClick={() => handleSort("event")}
                           data-testid="th-event"
                         >
@@ -578,7 +578,7 @@ export default function Deliverables() {
                           </div>
                         </TableHead>
                         <TableHead 
-                          className="cursor-pointer hover-elevate" 
+                          className="cursor-pointer" 
                           onClick={() => handleSort("status")}
                           data-testid="th-status"
                         >
@@ -588,7 +588,7 @@ export default function Deliverables() {
                           </div>
                         </TableHead>
                         <TableHead 
-                          className="cursor-pointer hover-elevate" 
+                          className="cursor-pointer" 
                           onClick={() => handleSort("priority")}
                           data-testid="th-priority"
                         >
@@ -598,7 +598,7 @@ export default function Deliverables() {
                           </div>
                         </TableHead>
                         <TableHead 
-                          className="cursor-pointer hover-elevate" 
+                          className="cursor-pointer" 
                           onClick={() => handleSort("workstream")}
                           data-testid="th-workstream"
                         >
@@ -608,7 +608,7 @@ export default function Deliverables() {
                           </div>
                         </TableHead>
                         <TableHead 
-                          className="cursor-pointer hover-elevate" 
+                          className="cursor-pointer" 
                           onClick={() => handleSort("assignedTo")}
                           data-testid="th-assignee"
                         >
@@ -618,7 +618,7 @@ export default function Deliverables() {
                           </div>
                         </TableHead>
                         <TableHead 
-                          className="cursor-pointer hover-elevate" 
+                          className="cursor-pointer" 
                           onClick={() => handleSort("dueDate")}
                           data-testid="th-due-date"
                         >
@@ -638,7 +638,7 @@ export default function Deliverables() {
                         return (
                           <TableRow 
                             key={item.id} 
-                            className="cursor-pointer hover-elevate"
+                            className="cursor-pointer"
                             onClick={() => handleEdit(item)}
                             data-testid={`row-deliverable-${item.id}`}
                           >
