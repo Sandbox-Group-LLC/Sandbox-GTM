@@ -44,7 +44,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { FEATURE_PERMISSIONS, type FeaturePermission } from "@shared/schema";
-import { Users, UserPlus, Mail, Trash2, Edit, Shield, Loader2, Send } from "lucide-react";
+import { Users, UserPlus, Mail, Trash2, Edit, Shield, Loader2, Send, CheckCircle2 } from "lucide-react";
 
 interface Member {
   id: string;
@@ -559,6 +559,23 @@ function InvitationRow({ invitation, isOwner }: { invitation: Invitation; isOwne
     },
   });
 
+  const completeMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", `/api/invitations/${invitation.id}/complete`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/organization/invitations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/organization/members"] });
+      toast({ 
+        title: "Invitation completed", 
+        description: "The user has been added as a team member." 
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "N/A";
     return new Date(dateStr).toLocaleDateString();
@@ -613,6 +630,20 @@ function InvitationRow({ invitation, isOwner }: { invitation: Invitation; isOwne
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Send className="h-4 w-4" />
+            )}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => completeMutation.mutate()}
+            disabled={completeMutation.isPending}
+            data-testid={`button-complete-invitation-${invitation.id}`}
+            title="Manually complete invitation (if user already signed up)"
+          >
+            {completeMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
             )}
           </Button>
           <EditInvitationDialog invitation={invitation} onSuccess={() => {}} />

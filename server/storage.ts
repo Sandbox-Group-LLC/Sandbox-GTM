@@ -197,6 +197,7 @@ import { eq, desc, and, ilike, or, isNull, sql, count, inArray, gt } from "drizz
 export interface IStorage {
   // User operations (MANDATORY for Replit Auth)
   getUser(id: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
 
   // Organization operations
@@ -218,6 +219,7 @@ export interface IStorage {
   // Team Invitation operations
   createTeamInvitation(invitation: Omit<InsertTeamInvitation, 'inviteCode'>): Promise<TeamInvitation>;
   getTeamInvitations(organizationId: string): Promise<TeamInvitation[]>;
+  getTeamInvitation(organizationId: string, id: string): Promise<TeamInvitation | undefined>;
   getTeamInvitationsForEmail(email: string): Promise<TeamInvitation[]>;
   getTeamInvitationByCode(inviteCode: string): Promise<TeamInvitation | undefined>;
   updateTeamInvitation(id: string, updates: Partial<InsertTeamInvitation>): Promise<TeamInvitation | undefined>;
@@ -670,6 +672,11 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(ilike(users.email, email));
+    return user;
+  }
+
   async upsertUser(userData: UpsertUser): Promise<User> {
     const adminEmails = ['brian@makemysandbox.com'];
     const isAdmin = userData.email ? adminEmails.includes(userData.email.toLowerCase()) : false;
@@ -880,6 +887,12 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(teamInvitations)
       .where(eq(teamInvitations.organizationId, organizationId))
       .orderBy(desc(teamInvitations.invitedAt));
+  }
+
+  async getTeamInvitation(organizationId: string, id: string): Promise<TeamInvitation | undefined> {
+    const [invitation] = await db.select().from(teamInvitations)
+      .where(and(eq(teamInvitations.organizationId, organizationId), eq(teamInvitations.id, id)));
+    return invitation;
   }
 
   async getTeamInvitationsForEmail(email: string): Promise<TeamInvitation[]> {

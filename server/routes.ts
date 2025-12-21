@@ -998,6 +998,65 @@ export async function registerRoutes(
     }
   });
 
+  // POST /api/invitations/:id/complete - Manually complete a pending invitation (creates member if needed)
+  app.post('/api/invitations/:id/complete', isAuthenticated, async (req: any, res) => {
+    try {
+      const currentUserId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(currentUserId, req.session);
+      const { id: invitationId } = req.params;
+      
+      if (!await isOrganizationOwner(currentUserId, organizationId)) {
+        return res.status(403).json({ message: "Only organization owners can complete invitations" });
+      }
+      
+      const invitation = await storage.getTeamInvitation(organizationId, invitationId);
+      if (!invitation) {
+        return res.status(404).json({ message: "Invitation not found" });
+      }
+      
+      // Find the user by email
+      const user = await storage.getUserByEmail(invitation.email);
+      if (!user) {
+        return res.status(400).json({ 
+          message: "Cannot complete invitation - the invited user has not signed up yet" 
+        });
+      }
+      
+      // Check if member already exists
+      const existingMember = await storage.getOrganizationMember(organizationId, user.id);
+      
+      let member;
+      if (existingMember) {
+        member = existingMember;
+        logInfo(`Member already exists for user ${user.id} in org ${organizationId}`, 'TeamInvitation');
+      } else {
+        // Create the member record
+        member = await storage.addOrganizationMember({
+          organizationId: organizationId,
+          userId: user.id,
+          role: invitation.role || 'member',
+          permissions: invitation.permissions || [],
+          invitedBy: invitation.invitedBy,
+        });
+        logInfo(`Created member for user ${user.id} in org ${organizationId}`, 'TeamInvitation');
+      }
+      
+      // Update invitation status to accepted
+      await storage.updateTeamInvitation(invitationId, {
+        status: 'accepted',
+        acceptedAt: new Date(),
+        acceptedBy: user.id,
+      });
+      
+      logInfo(`Invitation ${invitationId} marked as accepted for user ${user.id}`, 'TeamInvitation');
+      
+      res.json({ message: "Invitation completed successfully", member });
+    } catch (error) {
+      logError("Error completing invitation:", error);
+      res.status(500).json({ message: "Failed to complete invitation" });
+    }
+  });
+
   // DELETE /api/organization/members/:userId - Remove a member from organization
   app.delete('/api/organization/members/:userId', isAuthenticated, async (req: any, res) => {
     try {
