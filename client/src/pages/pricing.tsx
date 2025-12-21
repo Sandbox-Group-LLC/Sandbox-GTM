@@ -234,6 +234,9 @@ export default function Pricing() {
             <h2 className="text-3xl font-semibold text-[#ffffff] mb-4">
               Ready to Get Started?
             </h2>
+            <p className="text-lg text-[#ffffff] mb-4 max-w-2xl mx-auto font-medium" data-testid="text-tagline">
+              Sandbox elevates event operations by making execution measurable, intentional, and revenue-aware.
+            </p>
             <p className="text-[#b8b8b8] mb-8 max-w-xl mx-auto">
               See how Sandbox transforms events from cost centers into measurable revenue channels.
             </p>
