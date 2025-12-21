@@ -263,13 +263,20 @@ export async function registerRoutes(
   };
 
   // Helper function to get user's organization (creates default if none exists)
-  // Prioritizes invited organizations over auto-created "My Organization"
+  // Prioritizes invited organizations (member/admin role) over auto-created ones (owner role)
   async function getOrganizationId(userId: string): Promise<string> {
     const memberships = await storage.getUserOrganizations(userId);
     if (memberships.length > 0) {
-      // If user has multiple organizations, prefer ones that aren't the default "My Organization"
-      // This ensures invited users are routed to the organization they were invited to
+      // If user has multiple organizations, prefer ones where they were invited (member/admin)
+      // over ones they created themselves (owner)
       if (memberships.length > 1) {
+        // First, try to find an org where user is NOT the owner (likely invited)
+        for (const membership of memberships) {
+          if (membership.role !== 'owner') {
+            return membership.organizationId;
+          }
+        }
+        // If all are owner, prefer ones that aren't "My Organization"
         for (const membership of memberships) {
           const org = await storage.getOrganization(membership.organizationId);
           if (org && org.name !== 'My Organization') {
