@@ -855,6 +855,7 @@ export interface AttendeeContext {
 }
 
 export function SectionRenderer({ section, event, sessions, speakers, sponsors, theme, isHighlighted, isPreview, attendeeContext }: { section: Section; event: Event; sessions?: EventSession[]; speakers?: Speaker[]; sponsors?: EventSponsor[]; theme?: EventPageTheme | null; isHighlighted?: boolean; isPreview?: boolean; attendeeContext?: AttendeeContext }) {
+  const { t } = useEventLocale();
   const config = section.config;
   const styles = section.styles;
   const isFullWidth = theme?.containerWidth === "full";
@@ -1261,7 +1262,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
                 <TabsList className="flex flex-wrap gap-2 h-auto p-1" data-testid="tabs-agenda-days">
                   {allDays.map((day) => (
                     <TabsTrigger key={day} value={day} className="px-4" data-testid={`tab-day-${day}`}>
-                      {day === "All" ? "All Days" : formatEventDate(day, 'tabLabel')}
+                      {day === "All" ? t.allDays : formatEventDate(day, 'tabLabel')}
                     </TabsTrigger>
                   ))}
                 </TabsList>
@@ -1276,7 +1277,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
                       onClick={() => setActiveTrack(track)}
                       data-testid={`filter-track-${track}`}
                     >
-                      {track === "All" ? "All Tracks" : titleCase(track)}
+                      {track === "All" ? t.allTracks : titleCase(track)}
                     </Button>
                   ))}
                 </div>
@@ -1305,7 +1306,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
               <TabsList className="flex flex-wrap gap-2 h-auto p-1" data-testid="tabs-agenda-days">
                 {allDays.map((day) => (
                   <TabsTrigger key={day} value={day} className="px-4" data-testid={`tab-day-${day}`}>
-                    {day === "All" ? "All Days" : formatEventDate(day, 'tabLabel')}
+                    {day === "All" ? t.allDays : formatEventDate(day, 'tabLabel')}
                   </TabsTrigger>
                 ))}
               </TabsList>
@@ -1332,7 +1333,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
               <TabsList className="flex flex-wrap gap-2 h-auto p-1" data-testid="tabs-agenda-tracks">
                 {allTracks.map((track) => (
                   <TabsTrigger key={track} value={track} className="px-4" data-testid={`tab-track-${track}`}>
-                    {track === "All" ? "All Tracks" : titleCase(track)}
+                    {track === "All" ? t.allTracks : titleCase(track)}
                   </TabsTrigger>
                 ))}
               </TabsList>
@@ -1742,7 +1743,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {showContactInfo && (footerEmail || footerPhone || footerAddress) && (
                 <div>
-                  <h4 className="font-semibold mb-3" style={headingStyles}>Contact</h4>
+                  <h4 className="font-semibold mb-3" style={headingStyles}>{t.contactUs}</h4>
                   <div className="space-y-2 text-sm" style={secondaryTextStyles}>
                     {footerEmail && (
                       <p data-testid="footer-email">
@@ -1780,7 +1781,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
               )}
               {showSocialIcons && (facebookUrl || twitterUrl || linkedinUrl || instagramUrl) && (
                 <div>
-                  <h4 className="font-semibold mb-3" style={headingStyles}>Follow Us</h4>
+                  <h4 className="font-semibold mb-3" style={headingStyles}>{t.followUs}</h4>
                   <div className="flex gap-3">
                     {facebookUrl && (
                       <a href={facebookUrl} target="_blank" rel="noopener noreferrer" data-testid="social-facebook" className="hover:opacity-80">
@@ -1893,7 +1894,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-sm font-medium" style={{ color: styles?.textColor || theme?.textColor || "#1f2937" }}>
-                      First Name<span className="text-destructive ml-1">*</span>
+                      {t.firstName}<span className="text-destructive ml-1">*</span>
                     </label>
                     <input 
                       type="text" 
@@ -1905,7 +1906,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium" style={{ color: styles?.textColor || theme?.textColor || "#1f2937" }}>
-                      Last Name<span className="text-destructive ml-1">*</span>
+                      {t.lastName}<span className="text-destructive ml-1">*</span>
                     </label>
                     <input 
                       type="text" 
@@ -1918,7 +1919,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium" style={{ color: styles?.textColor || theme?.textColor || "#1f2937" }}>
-                    Email<span className="text-destructive ml-1">*</span>
+                    {t.email}<span className="text-destructive ml-1">*</span>
                   </label>
                   <input 
                     type="email" 
@@ -1930,7 +1931,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium" style={{ color: styles?.textColor || theme?.textColor || "#1f2937" }}>
-                    Company
+                    {t.company}
                   </label>
                   <input 
                     type="text" 
