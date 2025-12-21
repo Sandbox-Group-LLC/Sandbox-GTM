@@ -56,6 +56,7 @@ import {
   activationLinks,
   activationLinkClicks,
   pageViews,
+  marketingLeads,
   type User,
   type UpsertUser,
   type Event,
@@ -194,6 +195,8 @@ import {
   type InsertCustomFont,
   type CustomFontVariant,
   type InsertCustomFontVariant,
+  type MarketingLead,
+  type InsertMarketingLead,
 } from "@shared/schema";
 import crypto from "crypto";
 import { encrypt, decrypt } from "./encryption";
@@ -3617,6 +3620,12 @@ export class DatabaseStorage implements IStorage {
 
   async deleteCustomFontVariant(id: string): Promise<void> {
     await db.delete(customFontVariants).where(eq(customFontVariants.id, id));
+  }
+
+  // Marketing Lead operations
+  async createMarketingLead(lead: InsertMarketingLead): Promise<MarketingLead> {
+    const [newLead] = await db.insert(marketingLeads).values(lead).returning();
+    return newLead;
   }
 }
 

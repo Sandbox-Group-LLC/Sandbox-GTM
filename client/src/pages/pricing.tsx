@@ -15,6 +15,7 @@ import {
   XCircle
 } from "lucide-react";
 import logoImage from "@assets/Orange_bug_-_no_background_1765765097769.png";
+import { LeadFormDialog } from "@/components/lead-form-dialog";
 
 const includedFeatures = [
   { icon: Layers, text: "Unlimited programs and events" },
@@ -149,9 +150,11 @@ export default function Pricing() {
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </a>
                   </Button>
-                  <Button size="lg" variant="outline" asChild data-testid="button-talk-to-us">
-                    <a href="/signup">Talk to Us</a>
-                  </Button>
+                  <LeadFormDialog source="pricing-page">
+                    <Button size="lg" variant="outline" data-testid="button-talk-to-us">
+                      Talk to Us
+                    </Button>
+                  </LeadFormDialog>
                 </div>
               </CardContent>
             </Card>

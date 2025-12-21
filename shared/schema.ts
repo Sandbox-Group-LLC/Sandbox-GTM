@@ -1136,6 +1136,26 @@ export const passkeyReservations = pgTable("passkey_reservations", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Marketing Leads - Public lead generation submissions (no organization scope)
+export const marketingLeads = pgTable("marketing_leads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  firstName: varchar("first_name", { length: 100 }).notNull(),
+  lastName: varchar("last_name", { length: 100 }).notNull(),
+  email: varchar("email", { length: 255 }).notNull(),
+  company: varchar("company", { length: 255 }),
+  jobTitle: varchar("job_title", { length: 255 }),
+  phone: varchar("phone", { length: 50 }),
+  message: text("message"),
+  source: varchar("source", { length: 100 }).default("pricing-page"), // Where the lead came from
+  status: varchar("status", { length: 50 }).default("new"), // 'new', 'contacted', 'qualified', 'converted'
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertMarketingLeadSchema = createInsertSchema(marketingLeads).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Custom Fonts - Organization-scoped custom font families
 export const customFonts = pgTable("custom_fonts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1784,3 +1804,5 @@ export type InsertCustomFont = z.infer<typeof insertCustomFontSchema>;
 export type CustomFont = typeof customFonts.$inferSelect;
 export type InsertCustomFontVariant = z.infer<typeof insertCustomFontVariantSchema>;
 export type CustomFontVariant = typeof customFontVariants.$inferSelect;
+export type InsertMarketingLead = z.infer<typeof insertMarketingLeadSchema>;
+export type MarketingLead = typeof marketingLeads.$inferSelect;

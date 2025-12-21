@@ -221,6 +221,39 @@ export function registerPublicTrackingRoute(app: Express) {
       res.status(500).json({ message: "Failed to record page view" });
     }
   });
+
+  // Submit marketing lead (pricing page contact form)
+  app.post("/api/public/lead", async (req: any, res) => {
+    try {
+      const { firstName, lastName, email, company, jobTitle, phone, message, source } = req.body;
+      
+      if (!firstName || !lastName || !email) {
+        return res.status(400).json({ message: "First name, last name, and email are required" });
+      }
+      
+      // Basic email validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({ message: "Invalid email format" });
+      }
+      
+      const lead = await storage.createMarketingLead({
+        firstName,
+        lastName,
+        email,
+        company: company || null,
+        jobTitle: jobTitle || null,
+        phone: phone || null,
+        message: message || null,
+        source: source || "pricing-page",
+      });
+      
+      res.json({ success: true, id: lead.id });
+    } catch (error) {
+      logError("Error submitting lead:", error);
+      res.status(500).json({ message: "Failed to submit lead" });
+    }
+  });
 }
 
 export async function registerRoutes(
