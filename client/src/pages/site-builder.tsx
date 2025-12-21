@@ -2212,6 +2212,28 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId, cus
               />
               <Label htmlFor="showTrack">Show track badges</Label>
             </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="tabsByTrack"
+                checked={(config.tabsByTrack as boolean) ?? false}
+                onChange={(e) => updateConfig("tabsByTrack", e.target.checked)}
+                className="h-4 w-4"
+                data-testid="checkbox-tabs-by-track"
+              />
+              <Label htmlFor="tabsByTrack">Show tabs by content pillar/track</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="tabsByDay"
+                checked={(config.tabsByDay as boolean) ?? false}
+                onChange={(e) => updateConfig("tabsByDay", e.target.checked)}
+                className="h-4 w-4"
+                data-testid="checkbox-tabs-by-day"
+              />
+              <Label htmlFor="tabsByDay">Show tabs by day</Label>
+            </div>
             <div className="space-y-2">
               <Label>Data Source</Label>
               <Select

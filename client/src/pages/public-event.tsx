@@ -8,6 +8,7 @@ import { Calendar, MapPin, Clock, Mic, AlertCircle, ArrowRight, ChevronDown, Che
 import { Input } from "@/components/ui/input";
 import { useState, useEffect, useMemo } from "react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Event, EventSession, Speaker, EventPage, EventPageTheme, EventSponsor } from "@shared/schema";
 import { replaceMergeTags, type MergeTagContext } from "@shared/mergeTags";
 import { titleCase } from "@/lib/utils";
@@ -1083,6 +1084,8 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
     case "agenda":
       const showRoom = config.showRoom !== false;
       const showTrack = config.showTrack !== false;
+      const tabsByTrack = config.tabsByTrack === true;
+      const tabsByDay = config.tabsByDay === true;
       const agendaDataSource = config.dataSource as string || "dynamic";
       const agendaDynamicFilters = config.dynamicFilters as { limit?: number; filterByTrack?: string; filterByDay?: string } || {};
       
@@ -1092,44 +1095,166 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
           displaySessions = displaySessions.filter((s: EventSession) => s.track === agendaDynamicFilters.filterByTrack);
         }
         if (agendaDynamicFilters.filterByDay) {
-          displaySessions = displaySessions.filter((s: EventSession) => s.day === agendaDynamicFilters.filterByDay);
+          displaySessions = displaySessions.filter((s: EventSession) => s.sessionDate === agendaDynamicFilters.filterByDay);
         }
         if (agendaDynamicFilters.limit && agendaDynamicFilters.limit > 0) {
           displaySessions = displaySessions.slice(0, agendaDynamicFilters.limit);
         }
       }
+
+      // Helper to render a list of sessions with configurable metadata visibility
+      const renderSessionList = (sessionList: EventSession[], options?: { hideTrack?: boolean; hideDate?: boolean }) => (
+        <div className="space-y-3">
+          {sessionList.map((session) => (
+            <Card key={session.id} style={cardStyles}>
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h4 className="font-medium" style={headingStyles}>{session.title}</h4>
+                    {session.description && (
+                      <p className="text-sm mt-1" style={secondaryTextStyles}>{session.description}</p>
+                    )}
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {showTrack && !options?.hideTrack && session.track && <Badge variant="outline">{titleCase(session.track)}</Badge>}
+                      {session.sessionType && <Badge variant="secondary">{titleCase(session.sessionType)}</Badge>}
+                    </div>
+                  </div>
+                  <div className="text-right text-sm whitespace-nowrap" style={secondaryTextStyles}>
+                    <p>{session.startTime} - {session.endTime}</p>
+                    {showRoom && session.room && <p className="text-xs">{session.room}</p>}
+                    {!options?.hideDate && session.sessionDate && <p className="text-xs">{session.sessionDate}</p>}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      );
+
+      // Extract unique tracks and days for tab generation
+      const uniqueTracks = Array.from(new Set(displaySessions.filter(s => s.track).map(s => s.track as string))).sort();
+      const uniqueDays = Array.from(new Set(displaySessions.filter(s => s.sessionDate).map(s => s.sessionDate as string))).sort();
+
+      // Agenda content with tabs - uses a wrapper component for state management
+      const AgendaWithTabs = () => {
+        const [activeDay, setActiveDay] = useState<string>("All");
+        const [activeTrack, setActiveTrack] = useState<string>("All");
+
+        if (displaySessions.length === 0) {
+          return <p className="text-center" style={secondaryTextStyles}>Schedule will appear here</p>;
+        }
+
+        // Both tabs enabled: days as primary tabs, tracks as secondary filter buttons
+        if (tabsByDay && tabsByTrack && uniqueDays.length > 0) {
+          const allDays = ["All", ...uniqueDays];
+          const daySessions = activeDay === "All" 
+            ? displaySessions 
+            : displaySessions.filter(s => s.sessionDate === activeDay);
+          const dayTracks = ["All", ...Array.from(new Set(daySessions.filter(s => s.track).map(s => s.track as string))).sort()];
+          const filteredSessions = activeTrack === "All" 
+            ? daySessions 
+            : daySessions.filter(s => s.track === activeTrack);
+
+          return (
+            <div className="space-y-4">
+              <Tabs value={activeDay} onValueChange={(v) => { setActiveDay(v); setActiveTrack("All"); }} className="w-full">
+                <TabsList className="flex flex-wrap gap-1 h-auto mb-4" data-testid="tabs-agenda-days">
+                  {allDays.map((day) => (
+                    <TabsTrigger key={day} value={day} data-testid={`tab-day-${day}`}>
+                      {day === "All" ? "All Days" : day}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+              {dayTracks.length > 1 && (
+                <div className="flex flex-wrap gap-2" data-testid="filter-agenda-tracks">
+                  {dayTracks.map((track) => (
+                    <Button
+                      key={track}
+                      variant={activeTrack === track ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setActiveTrack(track)}
+                      data-testid={`filter-track-${track}`}
+                    >
+                      {track === "All" ? "All Tracks" : titleCase(track)}
+                    </Button>
+                  ))}
+                </div>
+              )}
+              {filteredSessions.length > 0 ? (
+                renderSessionList(filteredSessions, { 
+                  hideTrack: activeTrack !== "All", 
+                  hideDate: activeDay !== "All" 
+                })
+              ) : (
+                <p className="text-center py-4" style={secondaryTextStyles}>No sessions match the selected filters</p>
+              )}
+            </div>
+          );
+        }
+
+        // Only day tabs enabled
+        if (tabsByDay && uniqueDays.length > 0) {
+          const allDays = ["All", ...uniqueDays];
+          const filteredSessions = activeDay === "All" 
+            ? displaySessions 
+            : displaySessions.filter(s => s.sessionDate === activeDay);
+
+          return (
+            <Tabs value={activeDay} onValueChange={setActiveDay} className="w-full">
+              <TabsList className="flex flex-wrap gap-1 h-auto mb-4" data-testid="tabs-agenda-days">
+                {allDays.map((day) => (
+                  <TabsTrigger key={day} value={day} data-testid={`tab-day-${day}`}>
+                    {day === "All" ? "All Days" : day}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              <TabsContent value={activeDay} forceMount>
+                {filteredSessions.length > 0 ? (
+                  renderSessionList(filteredSessions, { hideDate: activeDay !== "All" })
+                ) : (
+                  <p className="text-center py-4" style={secondaryTextStyles}>No sessions for this day</p>
+                )}
+              </TabsContent>
+            </Tabs>
+          );
+        }
+
+        // Only track tabs enabled
+        if (tabsByTrack && uniqueTracks.length > 0) {
+          const allTracks = ["All", ...uniqueTracks];
+          const filteredSessions = activeTrack === "All" 
+            ? displaySessions 
+            : displaySessions.filter(s => s.track === activeTrack);
+
+          return (
+            <Tabs value={activeTrack} onValueChange={setActiveTrack} className="w-full">
+              <TabsList className="flex flex-wrap gap-1 h-auto mb-4" data-testid="tabs-agenda-tracks">
+                {allTracks.map((track) => (
+                  <TabsTrigger key={track} value={track} data-testid={`tab-track-${track}`}>
+                    {track === "All" ? "All Tracks" : titleCase(track)}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              <TabsContent value={activeTrack} forceMount>
+                {filteredSessions.length > 0 ? (
+                  renderSessionList(filteredSessions, { hideTrack: activeTrack !== "All" })
+                ) : (
+                  <p className="text-center py-4" style={secondaryTextStyles}>No sessions for this track</p>
+                )}
+              </TabsContent>
+            </Tabs>
+          );
+        }
+
+        // No tabs - render all sessions
+        return renderSessionList(displaySessions);
+      };
       
       return wrapWithMargins(
         <div data-testid={`section-agenda-${section.id}`}>
           {heading && <h3 className="text-2xl font-semibold mb-6 text-center" style={headingStyles}>{heading}</h3>}
-          {displaySessions.length > 0 ? (
-            <div className="space-y-3">
-              {displaySessions.map((session) => (
-                <Card key={session.id} style={cardStyles}>
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <h4 className="font-medium" style={headingStyles}>{session.title}</h4>
-                        {session.description && (
-                          <p className="text-sm mt-1" style={secondaryTextStyles}>{session.description}</p>
-                        )}
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          {showTrack && session.track && <Badge variant="outline">{titleCase(session.track)}</Badge>}
-                          {session.sessionType && <Badge variant="secondary">{titleCase(session.sessionType)}</Badge>}
-                        </div>
-                      </div>
-                      <div className="text-right text-sm whitespace-nowrap" style={secondaryTextStyles}>
-                        <p>{session.startTime} - {session.endTime}</p>
-                        {showRoom && session.room && <p className="text-xs">{session.room}</p>}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <p className="text-center" style={secondaryTextStyles}>Schedule will appear here</p>
-          )}
+          <AgendaWithTabs />
         </div>
       );
 
