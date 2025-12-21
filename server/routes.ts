@@ -454,6 +454,75 @@ export async function registerRoutes(
     }
   });
 
+  // GET /api/auth/organizations - List all organizations user belongs to
+  app.get('/api/auth/organizations', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const memberships = await storage.getUserOrganizations(userId);
+      
+      // Get organization details for each membership
+      const organizations = [];
+      for (const membership of memberships) {
+        const org = await storage.getOrganization(membership.organizationId);
+        if (org && !org.isArchived) {
+          organizations.push({
+            id: org.id,
+            name: org.name,
+            slug: org.slug,
+            role: membership.role,
+          });
+        }
+      }
+      
+      res.json(organizations);
+    } catch (error) {
+      logError("Error fetching user organizations:", error);
+      res.status(500).json({ message: "Failed to fetch organizations" });
+    }
+  });
+
+  // POST /api/auth/organization/switch - Switch to a different organization
+  app.post('/api/auth/organization/switch', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { organizationId } = req.body;
+      
+      if (!organizationId) {
+        return res.status(400).json({ message: "Organization ID is required" });
+      }
+      
+      // Verify user is a member of the organization
+      const memberships = await storage.getUserOrganizations(userId);
+      const membership = memberships.find(m => m.organizationId === organizationId);
+      
+      if (!membership) {
+        return res.status(403).json({ message: "You are not a member of this organization" });
+      }
+      
+      // Check org is not archived
+      const org = await storage.getOrganization(organizationId);
+      if (!org || org.isArchived) {
+        return res.status(404).json({ message: "Organization not found or archived" });
+      }
+      
+      // Store preferred organization in session
+      req.session.preferredOrganizationId = organizationId;
+      
+      await new Promise<void>((resolve, reject) => {
+        req.session.save((err: any) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+      
+      logInfo(`User ${userId} switched to organization ${organizationId}`, 'OrgRouting');
+      res.json({ success: true, organization: sanitizeOrganization(org) });
+    } catch (error) {
+      logError("Error switching organization:", error);
+      res.status(500).json({ message: "Failed to switch organization" });
+    }
+  });
+
   // GET /api/auth/membership - Get current user's membership including role and permissions
   app.get('/api/auth/membership', isAuthenticated, async (req: any, res) => {
     try {

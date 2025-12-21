@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import {
   LayoutDashboard,
   Users,
@@ -17,6 +19,7 @@ import {
   BarChart3,
   UserCheck,
   ChevronRight,
+  ChevronDown,
   Building2,
   Shield,
   ClipboardList,
@@ -36,7 +39,14 @@ import {
   ListTodo,
   Truck,
   Wallet,
+  Check,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import logoImage from "@assets/Orange_bug_-_no_background_1765765097769.png";
 import { OnboardingChecklist } from "./onboarding-checklist";
 import { OnboardingWizard } from "./onboarding-wizard";
@@ -121,10 +131,36 @@ const myTasksItems = [
   { title: "Reviewer Portal", icon: ClipboardList, path: "/reviewer/portal" },
 ];
 
+interface UserOrganization {
+  id: string;
+  name: string;
+  slug: string;
+  role: string;
+}
+
 export function AppSidebar() {
   const [location] = useLocation();
   const { user, organization, hasPermission, isOwner } = useAuth();
   const [wizardOpen, setWizardOpen] = useState(false);
+
+  // Fetch all organizations user belongs to
+  const { data: userOrganizations = [] } = useQuery<UserOrganization[]>({
+    queryKey: ["/api/auth/organizations"],
+  });
+
+  // Mutation to switch organizations
+  const switchOrgMutation = useMutation({
+    mutationFn: async (organizationId: string) => {
+      const res = await apiRequest("POST", "/api/auth/organization/switch", { organizationId });
+      return res.json();
+    },
+    onSuccess: () => {
+      // Invalidate all queries to refresh data for new org
+      queryClient.invalidateQueries();
+      // Force page reload to ensure all data is refreshed
+      window.location.reload();
+    },
+  });
 
   const isPerformanceActive = location === "/" || location === "/acquisition" || location === "/engagement-signals" || location === "/revenue-snapshot";
   const isGtmActive = location === "/attendees" || location === "/import-attendees" || location === "/attendee-types" || location === "/invite-codes" || location === "/activation-links" || location === "/packages" || location === "/emails" || location === "/email-analytics" || location === "/social";
@@ -162,11 +198,51 @@ export function AppSidebar() {
           <span className="font-semibold text-lg">Sandbox</span>
         </div>
         {organization && (
-          <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-            <Building2 className="h-3.5 w-3.5" />
-            <span className="truncate" title={organization.name} data-testid="text-organization-name">
-              {organization.name}
-            </span>
+          <div className="mt-2">
+            {userOrganizations.length > 1 ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="flex items-center gap-2 text-sm text-muted-foreground hover-elevate rounded-md px-1 py-0.5 -mx-1 w-full"
+                    data-testid="button-organization-switcher"
+                  >
+                    <Building2 className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate flex-1 text-left" title={organization.name}>
+                      {organization.name}
+                    </span>
+                    <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-56">
+                  {userOrganizations.map((org) => (
+                    <DropdownMenuItem
+                      key={org.id}
+                      onClick={() => {
+                        if (org.id !== organization.id) {
+                          switchOrgMutation.mutate(org.id);
+                        }
+                      }}
+                      disabled={switchOrgMutation.isPending}
+                      className="flex items-center gap-2"
+                      data-testid={`dropdown-org-${org.id}`}
+                    >
+                      <Building2 className="h-4 w-4 shrink-0" />
+                      <span className="truncate flex-1">{org.name}</span>
+                      {org.id === organization.id && (
+                        <Check className="h-4 w-4 shrink-0 text-primary" />
+                      )}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Building2 className="h-3.5 w-3.5" />
+                <span className="truncate" title={organization.name} data-testid="text-organization-name">
+                  {organization.name}
+                </span>
+              </div>
+            )}
           </div>
         )}
       </SidebarHeader>
