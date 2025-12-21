@@ -146,6 +146,8 @@ Public-facing endpoints are protected against abuse:
 | Payment Verification | 20 requests | 1 minute |
 | Public Registration | 5 requests | 1 minute |
 | Invite Code Validation | 30 requests | 1 minute |
+| Lead Form Submission | 5 requests | 1 minute |
+| Email Tracking Endpoints | 100 requests | 1 minute |
 
 Rate limit responses return a generic error message to prevent information disclosure.
 
@@ -172,6 +174,47 @@ Our logging system implements security-first practices:
 - **Generic Public Errors**: Public-facing endpoints return non-descriptive error messages
 - **No Stack Traces**: Error details never exposed to end users
 - **Secure Error Logging**: Internal errors logged with sensitive data redacted
+
+### Email Tracking Security
+
+Our email analytics system implements secure tracking mechanisms:
+
+**Signed Tracking Tokens:**
+- All tracking URLs use HMAC-SHA256 signed tokens
+- Tokens include attendee ID, campaign ID, and expiration timestamp
+- Invalid or expired tokens are rejected without revealing error details
+
+**Privacy-Compliant Implementation:**
+- Open tracking uses transparent 1x1 pixel images
+- Click tracking wraps destination URLs with signed redirects
+- Unsubscribe links use secure tokens to prevent unauthorized modifications
+
+### Marketing Attribution Security
+
+Activation links for campaign tracking implement privacy-first principles:
+
+- **Visitor Hashing**: Visitor identifiers are one-way hashed, not reversible to personal information
+- **UTM Parameter Handling**: Campaign parameters validated and sanitized before storage
+- **No Cross-Site Tracking**: Attribution data is scoped to platform interactions only
+
+### Document Workspace Security
+
+The document collaboration feature implements comprehensive file security:
+
+**Upload Validation:**
+- MIME type verification against allowed file types (PDF, Office documents, images, ZIP)
+- File size limits enforced (maximum 50MB per file)
+- Filename sanitization to prevent path traversal attacks
+
+**Access Control:**
+- Permission-based sharing (view, download, edit levels)
+- Role-based access (user, role, or link-based sharing)
+- All document operations are organization-scoped
+
+**Storage Security:**
+- Files stored via Replit Object Storage with ACL policies
+- Comprehensive activity logging for audit trails
+- Approval workflows with full change tracking
 
 ---
 
@@ -295,6 +338,9 @@ We carefully evaluate third-party services:
 | Stripe | Payments | PCI DSS Level 1 certified |
 | Replit | Hosting | SOC 2 compliant infrastructure |
 | PostgreSQL | Database | Industry-standard security |
+| Resend | Email Delivery | SOC 2 Type II certified; webhook signature verification |
+| Mailchimp | Email Marketing | API keys encrypted with AES-256-GCM; one-way data sync |
+| Passkey (Cvent) | Housing Integration | Credentials encrypted with AES-256-GCM; checkInCode authentication |
 
 ---
 
@@ -357,6 +403,7 @@ The following table maps PCI DSS requirements to our platform controls:
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0 | December 2025 | Initial release |
+| 1.1 | December 2025 | Added email tracking security, document workspace security, marketing attribution, and third-party integration updates |
 
 ---
 
