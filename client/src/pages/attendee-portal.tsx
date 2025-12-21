@@ -61,11 +61,16 @@ interface PortalPageData {
   landingTheme?: EventPageTheme | null;
 }
 
-interface VisibilityCondition {
-  enabled: boolean;
+interface SingleCondition {
   property: string;
   operator: 'equals' | 'not_equals' | 'contains' | 'not_contains' | 'is_empty' | 'is_not_empty';
   value: string;
+}
+
+interface VisibilityCondition {
+  enabled: boolean;
+  logic: 'and' | 'or';
+  conditions: SingleCondition[];
 }
 
 interface Section {
@@ -94,19 +99,10 @@ const profileSchema = z.object({
 
 type ProfileFormData = z.infer<typeof profileSchema>;
 
-function checkVisibilityCondition(
-  condition: VisibilityCondition | undefined,
-  attendee: Omit<Attendee, 'passwordHash'> | null | undefined
+function evaluateSingleCondition(
+  condition: SingleCondition,
+  attendee: Omit<Attendee, 'passwordHash'>
 ): boolean {
-  // If no condition or condition not enabled, show the section
-  if (!condition?.enabled) return true;
-  
-  // If no attendee data available, show all sections (safe fallback)
-  if (!attendee) return true;
-  
-  // Validate required condition properties
-  if (!condition.property || !condition.operator) return true;
-  
   const propertyValue = (() => {
     switch (condition.property) {
       case 'attendeeType': return attendee.attendeeType || '';
@@ -141,6 +137,30 @@ function checkVisibilityCondition(
       return !!propertyValue && propertyValue.trim() !== '';
     default:
       return true;
+  }
+}
+
+function checkVisibilityCondition(
+  condition: VisibilityCondition | undefined,
+  attendee: Omit<Attendee, 'passwordHash'> | null | undefined
+): boolean {
+  // If no condition or condition not enabled, show the section
+  if (!condition?.enabled) return true;
+  
+  // If no attendee data available, show all sections (safe fallback)
+  if (!attendee) return true;
+  
+  // If no conditions array or empty, show the section
+  if (!condition.conditions || condition.conditions.length === 0) return true;
+  
+  const logic = condition.logic || 'and';
+  
+  if (logic === 'and') {
+    // All conditions must be true
+    return condition.conditions.every(c => evaluateSingleCondition(c, attendee));
+  } else {
+    // At least one condition must be true
+    return condition.conditions.some(c => evaluateSingleCondition(c, attendee));
   }
 }
 

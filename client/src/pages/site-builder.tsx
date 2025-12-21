@@ -78,6 +78,7 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
+  X,
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Event, EventPage, EventPageTheme, EventSession, Speaker, EventSponsor } from "@shared/schema";
@@ -99,11 +100,16 @@ type PageType = "landing" | "registration" | "portal" | "confirmation";
 
 type SectionType = "hero" | "text" | "cta" | "features" | "countdown" | "speakers" | "agenda" | "faq" | "testimonials" | "gallery" | "html" | "sponsors" | "map" | "video" | "footer" | "navigation" | "columns" | "columns-flex" | "registration-form" | "housing" | "attendee-profile" | "attendee-qrcode";
 
-interface VisibilityCondition {
-  enabled: boolean;
+interface SingleCondition {
   property: string;
   operator: 'equals' | 'not_equals' | 'contains' | 'not_contains' | 'is_empty' | 'is_not_empty';
   value: string;
+}
+
+interface VisibilityCondition {
+  enabled: boolean;
+  logic: 'and' | 'or';
+  conditions: SingleCondition[];
 }
 
 interface SectionStyles {
@@ -3491,7 +3497,7 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId }: S
                     id="visibility-condition"
                     checked={styles.visibilityCondition?.enabled || false}
                     onCheckedChange={(checked) => {
-                      const current = styles.visibilityCondition || { enabled: false, property: '', operator: 'equals' as const, value: '' };
+                      const current = styles.visibilityCondition || { enabled: false, logic: 'and' as const, conditions: [] };
                       updateStyles("visibilityCondition", { ...current, enabled: checked });
                     }}
                     data-testid="switch-visibility-condition"
@@ -3500,110 +3506,175 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId }: S
                 
                 {styles.visibilityCondition?.enabled && (
                   <div className="space-y-3 p-3 rounded-md bg-muted/50 border">
-                    <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                      If Attendee Property...
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="visibility-property">Property</Label>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        Show when
+                      </div>
                       <Select
-                        value={styles.visibilityCondition?.property || ""}
+                        value={styles.visibilityCondition?.logic || "and"}
                         onValueChange={(value) => {
-                          const current = styles.visibilityCondition || { enabled: true, property: '', operator: 'equals' as const, value: '' };
-                          updateStyles("visibilityCondition", { ...current, property: value });
+                          const current = styles.visibilityCondition || { enabled: true, logic: 'and' as const, conditions: [] };
+                          updateStyles("visibilityCondition", { ...current, logic: value as 'and' | 'or' });
                         }}
                       >
-                        <SelectTrigger data-testid="select-visibility-property">
-                          <SelectValue placeholder="Select property" />
+                        <SelectTrigger className="w-24" data-testid="select-visibility-logic">
+                          <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="attendeeType">Attendee Type</SelectItem>
-                          <SelectItem value="registrationStatus">Registration Status</SelectItem>
-                          <SelectItem value="ticketType">Ticket Type</SelectItem>
-                          <SelectItem value="checkedIn">Checked In</SelectItem>
-                          <SelectItem value="company">Company</SelectItem>
-                          <SelectItem value="jobTitle">Job Title</SelectItem>
+                          <SelectItem value="and">ALL</SelectItem>
+                          <SelectItem value="or">ANY</SelectItem>
                         </SelectContent>
                       </Select>
+                      <span className="text-xs text-muted-foreground">conditions match</span>
                     </div>
+                    
                     <div className="space-y-2">
-                      <Label htmlFor="visibility-operator">Condition</Label>
-                      <Select
-                        value={styles.visibilityCondition?.operator || "equals"}
-                        onValueChange={(value) => {
-                          const current = styles.visibilityCondition || { enabled: true, property: '', operator: 'equals' as const, value: '' };
-                          updateStyles("visibilityCondition", { ...current, operator: value as VisibilityCondition['operator'] });
-                        }}
-                      >
-                        <SelectTrigger data-testid="select-visibility-operator">
-                          <SelectValue placeholder="Select condition" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="equals">Equals</SelectItem>
-                          <SelectItem value="not_equals">Does Not Equal</SelectItem>
-                          <SelectItem value="contains">Contains</SelectItem>
-                          <SelectItem value="not_contains">Does Not Contain</SelectItem>
-                          <SelectItem value="is_empty">Is Empty</SelectItem>
-                          <SelectItem value="is_not_empty">Is Not Empty</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      {(styles.visibilityCondition?.conditions || []).map((condition, index) => (
+                        <div key={index} className="flex flex-col gap-2 p-2 bg-background rounded border">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-medium">Condition {index + 1}</span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => {
+                                const current = styles.visibilityCondition || { enabled: true, logic: 'and' as const, conditions: [] };
+                                const newConditions = [...current.conditions];
+                                newConditions.splice(index, 1);
+                                updateStyles("visibilityCondition", { ...current, conditions: newConditions });
+                              }}
+                              data-testid={`button-remove-condition-${index}`}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                          <Select
+                            value={condition.property || ""}
+                            onValueChange={(value) => {
+                              const current = styles.visibilityCondition || { enabled: true, logic: 'and' as const, conditions: [] };
+                              const newConditions = [...current.conditions];
+                              newConditions[index] = { ...newConditions[index], property: value };
+                              updateStyles("visibilityCondition", { ...current, conditions: newConditions });
+                            }}
+                          >
+                            <SelectTrigger data-testid={`select-condition-property-${index}`}>
+                              <SelectValue placeholder="Select property" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="attendeeType">Attendee Type</SelectItem>
+                              <SelectItem value="registrationStatus">Registration Status</SelectItem>
+                              <SelectItem value="ticketType">Ticket Type</SelectItem>
+                              <SelectItem value="checkedIn">Checked In</SelectItem>
+                              <SelectItem value="company">Company</SelectItem>
+                              <SelectItem value="jobTitle">Job Title</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Select
+                            value={condition.operator || "equals"}
+                            onValueChange={(value) => {
+                              const current = styles.visibilityCondition || { enabled: true, logic: 'and' as const, conditions: [] };
+                              const newConditions = [...current.conditions];
+                              newConditions[index] = { ...newConditions[index], operator: value as SingleCondition['operator'] };
+                              updateStyles("visibilityCondition", { ...current, conditions: newConditions });
+                            }}
+                          >
+                            <SelectTrigger data-testid={`select-condition-operator-${index}`}>
+                              <SelectValue placeholder="Select condition" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="equals">Equals</SelectItem>
+                              <SelectItem value="not_equals">Does Not Equal</SelectItem>
+                              <SelectItem value="contains">Contains</SelectItem>
+                              <SelectItem value="not_contains">Does Not Contain</SelectItem>
+                              <SelectItem value="is_empty">Is Empty</SelectItem>
+                              <SelectItem value="is_not_empty">Is Not Empty</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          {condition.operator !== 'is_empty' && condition.operator !== 'is_not_empty' && (
+                            <>
+                              {condition.property === 'checkedIn' ? (
+                                <Select
+                                  value={condition.value || ""}
+                                  onValueChange={(value) => {
+                                    const current = styles.visibilityCondition || { enabled: true, logic: 'and' as const, conditions: [] };
+                                    const newConditions = [...current.conditions];
+                                    newConditions[index] = { ...newConditions[index], value };
+                                    updateStyles("visibilityCondition", { ...current, conditions: newConditions });
+                                  }}
+                                >
+                                  <SelectTrigger data-testid={`select-condition-value-bool-${index}`}>
+                                    <SelectValue placeholder="Select value" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="true">Yes (Checked In)</SelectItem>
+                                    <SelectItem value="false">No (Not Checked In)</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              ) : condition.property === 'registrationStatus' ? (
+                                <Select
+                                  value={condition.value || ""}
+                                  onValueChange={(value) => {
+                                    const current = styles.visibilityCondition || { enabled: true, logic: 'and' as const, conditions: [] };
+                                    const newConditions = [...current.conditions];
+                                    newConditions[index] = { ...newConditions[index], value };
+                                    updateStyles("visibilityCondition", { ...current, conditions: newConditions });
+                                  }}
+                                >
+                                  <SelectTrigger data-testid={`select-condition-value-status-${index}`}>
+                                    <SelectValue placeholder="Select status" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="pending">Pending</SelectItem>
+                                    <SelectItem value="invited">Invited</SelectItem>
+                                    <SelectItem value="registered">Registered</SelectItem>
+                                    <SelectItem value="confirmed">Confirmed</SelectItem>
+                                    <SelectItem value="waitlisted">Waitlisted</SelectItem>
+                                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                                    <SelectItem value="declined">Declined</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <Input
+                                  value={condition.value || ""}
+                                  onChange={(e) => {
+                                    const current = styles.visibilityCondition || { enabled: true, logic: 'and' as const, conditions: [] };
+                                    const newConditions = [...current.conditions];
+                                    newConditions[index] = { ...newConditions[index], value: e.target.value };
+                                    updateStyles("visibilityCondition", { ...current, conditions: newConditions });
+                                  }}
+                                  placeholder="Enter value to match"
+                                  data-testid={`input-condition-value-${index}`}
+                                />
+                              )}
+                            </>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                    {styles.visibilityCondition?.operator !== 'is_empty' && styles.visibilityCondition?.operator !== 'is_not_empty' && (
-                      <div className="space-y-2">
-                        <Label htmlFor="visibility-value">Value</Label>
-                        {styles.visibilityCondition?.property === 'checkedIn' ? (
-                          <Select
-                            value={styles.visibilityCondition?.value || ""}
-                            onValueChange={(value) => {
-                              const current = styles.visibilityCondition || { enabled: true, property: '', operator: 'equals' as const, value: '' };
-                              updateStyles("visibilityCondition", { ...current, value });
-                            }}
-                          >
-                            <SelectTrigger data-testid="select-visibility-value-bool">
-                              <SelectValue placeholder="Select value" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="true">Yes (Checked In)</SelectItem>
-                              <SelectItem value="false">No (Not Checked In)</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        ) : styles.visibilityCondition?.property === 'registrationStatus' ? (
-                          <Select
-                            value={styles.visibilityCondition?.value || ""}
-                            onValueChange={(value) => {
-                              const current = styles.visibilityCondition || { enabled: true, property: '', operator: 'equals' as const, value: '' };
-                              updateStyles("visibilityCondition", { ...current, value });
-                            }}
-                          >
-                            <SelectTrigger data-testid="select-visibility-value-status">
-                              <SelectValue placeholder="Select status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="pending">Pending</SelectItem>
-                              <SelectItem value="invited">Invited</SelectItem>
-                              <SelectItem value="registered">Registered</SelectItem>
-                              <SelectItem value="confirmed">Confirmed</SelectItem>
-                              <SelectItem value="waitlisted">Waitlisted</SelectItem>
-                              <SelectItem value="cancelled">Cancelled</SelectItem>
-                              <SelectItem value="declined">Declined</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          <Input
-                            id="visibility-value"
-                            value={styles.visibilityCondition?.value || ""}
-                            onChange={(e) => {
-                              const current = styles.visibilityCondition || { enabled: true, property: '', operator: 'equals' as const, value: '' };
-                              updateStyles("visibilityCondition", { ...current, value: e.target.value });
-                            }}
-                            placeholder="Enter value to match"
-                            data-testid="input-visibility-value"
-                          />
-                        )}
+                    
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const current = styles.visibilityCondition || { enabled: true, logic: 'and' as const, conditions: [] };
+                        const newCondition: SingleCondition = { property: '', operator: 'equals', value: '' };
+                        updateStyles("visibilityCondition", { ...current, conditions: [...current.conditions, newCondition] });
+                      }}
+                      data-testid="button-add-condition"
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      Add Condition
+                    </Button>
+                    
+                    {(styles.visibilityCondition?.conditions || []).length > 0 && (
+                      <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
+                        This section will only be visible when{' '}
+                        <strong>{styles.visibilityCondition?.logic === 'or' ? 'any' : 'all'}</strong>{' '}
+                        of the {styles.visibilityCondition?.conditions?.length || 0} condition(s) match.
                       </div>
                     )}
-                    <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
-                      This section will only be visible to attendees where <strong>{styles.visibilityCondition?.property || 'property'}</strong> {styles.visibilityCondition?.operator?.replace('_', ' ') || 'equals'} {styles.visibilityCondition?.operator !== 'is_empty' && styles.visibilityCondition?.operator !== 'is_not_empty' ? <strong>{styles.visibilityCondition?.value || 'value'}</strong> : null}
-                    </div>
                   </div>
                 )}
               </div>

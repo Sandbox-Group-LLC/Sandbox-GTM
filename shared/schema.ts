@@ -401,9 +401,12 @@ export const eventPages = pgTable("event_pages", {
       hideOnDesktop?: boolean;
       visibilityCondition?: {
         enabled: boolean;
-        property: string;
-        operator: 'equals' | 'not_equals' | 'contains' | 'not_contains' | 'is_empty' | 'is_not_empty';
-        value: string;
+        logic: 'and' | 'or';
+        conditions: Array<{
+          property: string;
+          operator: 'equals' | 'not_equals' | 'contains' | 'not_contains' | 'is_empty' | 'is_not_empty';
+          value: string;
+        }>;
       };
     };
   }>>(),
@@ -435,9 +438,12 @@ export const pageVersions = pgTable("page_versions", {
       hideOnDesktop?: boolean;
       visibilityCondition?: {
         enabled: boolean;
-        property: string;
-        operator: 'equals' | 'not_equals' | 'contains' | 'not_contains' | 'is_empty' | 'is_not_empty';
-        value: string;
+        logic: 'and' | 'or';
+        conditions: Array<{
+          property: string;
+          operator: 'equals' | 'not_equals' | 'contains' | 'not_contains' | 'is_empty' | 'is_not_empty';
+          value: string;
+        }>;
       };
     };
   }>>(),
