@@ -31,7 +31,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Building2, Users, Calendar as CalendarIcon, UserCheck, Plus, Copy, Trash2, Ticket } from "lucide-react";
+import { Building2, Users, Calendar as CalendarIcon, UserCheck, Plus, Copy, Trash2, Ticket, Database, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -153,6 +153,28 @@ export default function AdminOrganizations() {
     },
     onError: (error: Error) => {
       toast({ title: "Failed to update Revenue & ROI feature", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const seedDemoMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/demo/seed-ai-gtm-summit");
+      return response.json();
+    },
+    onSuccess: (data: { eventId: string; message: string }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/organizations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      toast({ 
+        title: "Demo data seeded successfully", 
+        description: data.message,
+      });
+    },
+    onError: (error: Error) => {
+      toast({ 
+        title: "Failed to seed demo data", 
+        description: error.message, 
+        variant: "destructive" 
+      });
     },
   });
 
@@ -382,6 +404,27 @@ export default function AdminOrganizations() {
               />
             </>
           )}
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <h2 className="text-xl font-semibold">Demo Data</h2>
+              <p className="text-sm text-muted-foreground">Seed your organization with sample event data for testing and demonstration</p>
+            </div>
+            <Button 
+              onClick={() => seedDemoMutation.mutate()}
+              disabled={seedDemoMutation.isPending}
+              data-testid="button-seed-demo"
+            >
+              {seedDemoMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Database className="h-4 w-4 mr-2" />
+              )}
+              Seed AI GTM Summit
+            </Button>
+          </div>
         </div>
 
         {isLoading ? (
