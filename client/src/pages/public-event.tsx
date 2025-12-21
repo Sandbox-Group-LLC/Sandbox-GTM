@@ -157,27 +157,38 @@ export function GoogleAnalyticsLoader({ googleTagId }: { googleTagId?: string })
   useEffect(() => {
     if (!googleTagId) return;
     
+    // Validate Google Tag ID format (GA4: G-XXXXXXXXXX, UA: UA-XXXXX-X)
+    const ga4Pattern = /^G-[A-Z0-9]{10,}$/i;
+    const uaPattern = /^UA-\d+-\d+$/;
+    if (!ga4Pattern.test(googleTagId) && !uaPattern.test(googleTagId)) {
+      console.warn('Invalid Google Analytics Measurement ID format');
+      return;
+    }
+    
     // Prevent duplicate scripts
-    if (document.querySelector(`script[src*="${googleTagId}"]`)) return;
+    const existingScript = document.querySelector(`script[data-ga-id="${googleTagId}"]`);
+    if (existingScript) return;
     
     // Add Google Analytics script
     const script1 = document.createElement('script');
     script1.async = true;
-    script1.src = `https://www.googletagmanager.com/gtag/js?id=${googleTagId}`;
+    script1.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(googleTagId)}`;
+    script1.setAttribute('data-ga-id', googleTagId);
     document.head.appendChild(script1);
 
-    // Initialize gtag
+    // Initialize gtag using safe JavaScript API (no string interpolation)
     const script2 = document.createElement('script');
+    script2.setAttribute('data-ga-init', googleTagId);
+    const safeTagId = JSON.stringify(googleTagId);
     script2.textContent = `
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
-      gtag('config', '${googleTagId}');
+      gtag('config', ${safeTagId});
     `;
     document.head.appendChild(script2);
     
     return () => {
-      // Cleanup on unmount
       script1.remove();
       script2.remove();
     };
