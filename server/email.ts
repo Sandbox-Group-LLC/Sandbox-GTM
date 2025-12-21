@@ -620,6 +620,89 @@ export async function sendNewOrganizationAlert(organizationName: string, organiz
   }
 }
 
+// Send notification when a new marketing lead is submitted
+export async function sendNewLeadNotification(lead: {
+  firstName: string;
+  lastName: string;
+  email: string;
+  company?: string | null;
+  jobTitle?: string | null;
+  phone?: string | null;
+  message?: string | null;
+  source?: string | null;
+}): Promise<void> {
+  if (!resend) {
+    logWarn('Resend not configured - skipping new lead notification', 'Email');
+    return;
+  }
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: ADMIN_EMAIL,
+      subject: `New Lead: ${lead.firstName} ${lead.lastName} from ${lead.company || 'Unknown Company'}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">New Lead Submitted</h2>
+          <p>A new lead has been submitted from the pricing page:</p>
+          <table style="border-collapse: collapse; width: 100%; margin: 20px 0;">
+            <tr>
+              <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold; width: 140px;">Name</td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${lead.firstName} ${lead.lastName}</td>
+            </tr>
+            <tr>
+              <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Email</td>
+              <td style="padding: 10px; border: 1px solid #ddd;"><a href="mailto:${lead.email}">${lead.email}</a></td>
+            </tr>
+            ${lead.company ? `
+            <tr>
+              <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Company</td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${lead.company}</td>
+            </tr>
+            ` : ''}
+            ${lead.jobTitle ? `
+            <tr>
+              <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Job Title</td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${lead.jobTitle}</td>
+            </tr>
+            ` : ''}
+            ${lead.phone ? `
+            <tr>
+              <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Phone</td>
+              <td style="padding: 10px; border: 1px solid #ddd;"><a href="tel:${lead.phone}">${lead.phone}</a></td>
+            </tr>
+            ` : ''}
+            <tr>
+              <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Source</td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${lead.source || 'pricing-page'}</td>
+            </tr>
+            ${lead.message ? `
+            <tr>
+              <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Message</td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${lead.message}</td>
+            </tr>
+            ` : ''}
+            <tr>
+              <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Submitted At</td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${new Date().toLocaleString()}</td>
+            </tr>
+          </table>
+          <p><a href="${getBaseUrl()}/admin/leads" style="display: inline-block; padding: 10px 20px; background-color: #0066cc; color: white; text-decoration: none; border-radius: 5px;">View All Leads</a></p>
+          <p style="color: #666; font-size: 12px; margin-top: 30px;">This is an automated notification from Sandbox.</p>
+        </div>
+      `,
+    });
+
+    if (error) {
+      logError(`Failed to send new lead notification: ${error.message || 'Unknown error'}`, 'Email');
+    } else {
+      logInfo(`New lead notification sent successfully: ${data?.id}`, 'Email');
+    }
+  } catch (err) {
+    logError(`Error sending new lead notification: ${err}`, 'Email');
+  }
+}
+
 // Send acceptance notification to CFP submitter
 export async function sendSubmissionAcceptanceEmail(params: {
   authorEmail: string;

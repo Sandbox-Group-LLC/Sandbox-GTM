@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { sendNewOrganizationAlert, sendCampaignEmails, sendTestEmail, validateTrackingToken, verifyResendWebhookSignature, isValidRedirectUrl, sendReviewerNotificationEmail, sendSubmissionAcceptanceEmail, sendTeamInvitationEmail } from "./email";
+import { sendNewOrganizationAlert, sendCampaignEmails, sendTestEmail, validateTrackingToken, verifyResendWebhookSignature, isValidRedirectUrl, sendReviewerNotificationEmail, sendSubmissionAcceptanceEmail, sendTeamInvitationEmail, sendNewLeadNotification } from "./email";
 import { createPaymentIntent, getPaymentIntent, calculateFinalPrice } from "./stripe";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
@@ -246,6 +246,11 @@ export function registerPublicTrackingRoute(app: Express) {
         phone: phone || null,
         message: message || null,
         source: source || "pricing-page",
+      });
+      
+      // Send notification email (don't await - fire and forget)
+      sendNewLeadNotification(lead).catch(err => {
+        logError("Failed to send lead notification:", err);
       });
       
       res.json({ success: true, id: lead.id });
