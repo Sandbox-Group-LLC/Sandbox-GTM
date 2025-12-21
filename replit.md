@@ -52,7 +52,7 @@ Data is isolated by `organizationId` across all tables. New users automatically 
 - **Badge/Tag Title Case Convention**: All dynamic badge and tag content uses `titleCase()` utility.
 - **Breadcrumb Styling**: `Home > Parent Menu > Current Page` format with consistent `text-foreground` styling.
 - **Event-Specific Package Overrides**: Global packages can be overridden per event with specific prices, features, and enabled status.
-- **Site Builder**: Visual page builder for custom public-facing event pages (Landing, Registration, Portal) with configurable sections and publish workflow.
+- **Site Builder**: Visual page builder for custom public-facing event pages (Landing, Registration, Portal) with configurable sections and publish workflow. Includes "Layout Columns" section type that allows nesting other sections inside 2-4 columns with customizable widths (equal, 1:2, 2:1, 1:2:1, etc.) and gaps.
 - **Invite Codes**: Support for invite codes that unlock packages and apply percentage or fixed discounts.
 - **Package Visibility**: Packages can be set as "Public" or "Code-Only" for controlled access during registration.
 - **Email Templates**: Reusable templates with merge tags, header images, and test email functionality.
