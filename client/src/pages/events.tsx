@@ -88,7 +88,12 @@ export default function Events() {
 
   // Fetch sessions for selected event
   const { data: eventSessionsData, isLoading: sessionsLoading } = useQuery<EventSession[]>({
-    queryKey: ["/api/sessions", { eventId: selectedEvent?.id }],
+    queryKey: ["/api/sessions", selectedEvent?.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/sessions?eventId=${selectedEvent?.id}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch sessions");
+      return res.json();
+    },
     enabled: !!selectedEvent,
   });
 
