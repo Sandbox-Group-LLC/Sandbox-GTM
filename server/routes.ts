@@ -461,29 +461,41 @@ export async function registerRoutes(
       const organizationId = await getOrganizationId(userId, req.session);
       const member = await storage.getOrganizationMember(organizationId, userId);
       
+      // Cast FEATURE_PERMISSIONS to string array for response
+      const allPermissions: string[] = [...FEATURE_PERMISSIONS];
+      
       if (!member) {
         // User doesn't have an explicit membership, they might be the org creator
-        // Return owner-level access
+        // Check if they are the org owner
+        const org = await storage.getOrganization(organizationId);
+        if (org?.ownerId === userId) {
+          return res.json({
+            role: 'owner',
+            permissions: allPermissions,
+            organizationId,
+          });
+        }
+        // Otherwise return empty permissions as a safety fallback
         return res.json({
-          role: 'owner',
-          permissions: FEATURE_PERMISSIONS as unknown as string[],
+          role: 'member',
+          permissions: [],
           organizationId,
         });
       }
       
-      // For owners, return all permissions
+      // For owners, always return all permissions
       if (member.role === 'owner') {
         return res.json({
-          role: member.role,
-          permissions: FEATURE_PERMISSIONS as unknown as string[],
+          role: 'owner',
+          permissions: allPermissions,
           organizationId,
         });
       }
       
-      // For members, return their specific permissions
+      // For members, return their specific permissions (default to empty array if null)
       res.json({
         role: member.role || 'member',
-        permissions: member.permissions || [],
+        permissions: Array.isArray(member.permissions) ? member.permissions : [],
         organizationId,
       });
     } catch (error) {
@@ -917,6 +929,19 @@ export async function registerRoutes(
       if (req.session) {
         req.session.preferredOrganizationId = invitation.organizationId;
         logInfo(`Set preferred organization ID in session: ${invitation.organizationId}`, 'TeamInvitation');
+        
+        // Await session save to ensure it's persisted before responding
+        await new Promise<void>((resolve, reject) => {
+          req.session.save((err: any) => {
+            if (err) {
+              logError("Error saving session after invitation acceptance:", err);
+              reject(err);
+            } else {
+              logInfo(`Session saved with preferredOrganizationId: ${invitation.organizationId}`, 'TeamInvitation');
+              resolve();
+            }
+          });
+        });
       }
       
       res.json({ message: "Invitation accepted successfully", member });
@@ -1060,6 +1085,25 @@ export async function registerRoutes(
       
       if (!newMember) {
         return res.status(400).json({ message: "Failed to accept invitation" });
+      }
+      
+      // Store the invited organization ID in the session for routing
+      if (req.session) {
+        req.session.preferredOrganizationId = invitation.organizationId;
+        logInfo(`Set preferred organization ID in session: ${invitation.organizationId}`, 'TeamInvitation');
+        
+        // Await session save to ensure it's persisted before responding
+        await new Promise<void>((resolve, reject) => {
+          req.session.save((err: any) => {
+            if (err) {
+              logError("Error saving session after invitation acceptance:", err);
+              reject(err);
+            } else {
+              logInfo(`Session saved with preferredOrganizationId: ${invitation.organizationId}`, 'TeamInvitation');
+              resolve();
+            }
+          });
+        });
       }
       
       res.json(newMember);

@@ -31,9 +31,13 @@ export function useAuth() {
   const isOwner = membership?.role === 'owner';
   
   const hasPermission = (permission: FeaturePermission): boolean => {
+    // While membership is loading, don't show any sections (return false)
     if (!membership) return false;
+    // Owners always have all permissions
     if (isOwner) return true;
-    return membership.permissions.includes(permission);
+    // Defensively default to empty array if permissions is null/undefined
+    const permissions = Array.isArray(membership.permissions) ? membership.permissions : [];
+    return permissions.includes(permission);
   };
 
   return {
