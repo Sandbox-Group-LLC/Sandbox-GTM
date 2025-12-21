@@ -84,20 +84,6 @@ export default function MyDeliverables() {
   });
 
   const isLoading = authLoading || deliverablesLoading;
-  
-  // Debug logging to trace the issue - will show in browser console
-  console.log('[My Deliverables Debug]', {
-    userId: user?.id,
-    totalDeliverables: allDeliverables.length,
-    deliverables: allDeliverables.map(d => ({
-      id: d.id,
-      title: d.title,
-      assignedTo: d.assignedTo,
-      organizationId: d.organizationId,
-      matches: d.assignedTo === user?.id,
-    })),
-  });
-  
   const myDeliverables = user ? allDeliverables.filter(d => d.assignedTo === user.id) : [];
 
   const form = useForm<StatusUpdateData>({
