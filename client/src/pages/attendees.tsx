@@ -157,6 +157,12 @@ export default function Attendees() {
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [eventFilter, setEventFilter] = useState<string>("all");
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkEditDialogOpen, setIsBulkEditDialogOpen] = useState(false);
+  const [isBulkEmailDialogOpen, setIsBulkEmailDialogOpen] = useState(false);
+  const [bulkEditField, setBulkEditField] = useState<string>("");
+  const [bulkEditValue, setBulkEditValue] = useState<string>("");
+  const [bulkEmailTemplateId, setBulkEmailTemplateId] = useState<string>("");
 
   const { data: attendees = [], isLoading } = useQuery<Attendee[]>({
     queryKey: ["/api/attendees"],
@@ -201,7 +207,6 @@ export default function Attendees() {
 
   const { data: emailTemplates = [] } = useQuery<EmailTemplate[]>({
     queryKey: ["/api/email-templates"],
-    enabled: !!viewingAttendee,
   });
 
   const sendEmailMutation = useMutation({
@@ -227,6 +232,112 @@ export default function Attendees() {
       });
     },
   });
+
+  const bulkUpdateMutation = useMutation({
+    mutationFn: async ({ attendeeIds, updates }: { attendeeIds: string[]; updates: Record<string, unknown> }) => {
+      return await apiRequest("POST", "/api/attendees/bulk-update", { attendeeIds, updates });
+    },
+    onSuccess: (data: { success: number; failed: number }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/attendees"] });
+      toast({ 
+        title: "Bulk update completed",
+        description: `${data.success} updated, ${data.failed} failed`
+      });
+      setSelectedIds(new Set());
+      setIsBulkEditDialogOpen(false);
+      setBulkEditField("");
+      setBulkEditValue("");
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({ title: "Unauthorized", description: "You are logged out. Logging in again...", variant: "destructive" });
+        setTimeout(() => { window.location.href = "/api/login"; }, 500);
+        return;
+      }
+      toast({ title: "Failed to update", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const bulkEmailMutation = useMutation({
+    mutationFn: async ({ attendeeIds, templateId }: { attendeeIds: string[]; templateId: string }) => {
+      return await apiRequest("POST", "/api/attendees/bulk-email", { attendeeIds, templateId });
+    },
+    onSuccess: (data: { success: number; failed: number }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/attendees"] });
+      toast({ 
+        title: "Bulk email completed",
+        description: `${data.success} sent, ${data.failed} failed`
+      });
+      setSelectedIds(new Set());
+      setIsBulkEmailDialogOpen(false);
+      setBulkEmailTemplateId("");
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({ title: "Unauthorized", description: "You are logged out. Logging in again...", variant: "destructive" });
+        setTimeout(() => { window.location.href = "/api/login"; }, 500);
+        return;
+      }
+      toast({ title: "Failed to send emails", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const toggleSelectAll = () => {
+    const allFilteredIds = new Set(processedAttendees.map(a => a.id));
+    const allSelected = processedAttendees.every(a => selectedIds.has(a.id));
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(allFilteredIds);
+    }
+  };
+
+  const toggleSelectOne = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+  };
+
+  const handleBulkEdit = () => {
+    if (!bulkEditField || selectedIds.size === 0) return;
+    
+    let updates: Record<string, unknown> = {};
+    
+    switch (bulkEditField) {
+      case "status":
+        updates = { registrationStatus: bulkEditValue };
+        break;
+      case "type":
+        updates = { attendeeType: bulkEditValue };
+        break;
+      case "ticketType":
+        updates = { ticketType: bulkEditValue };
+        break;
+      case "checkedIn":
+        updates = { checkedIn: bulkEditValue === "true" };
+        break;
+      case "notes":
+        updates = { notes: bulkEditValue };
+        break;
+    }
+    
+    bulkUpdateMutation.mutate({ attendeeIds: Array.from(selectedIds), updates });
+  };
+
+  const handleBulkEmail = () => {
+    if (!bulkEmailTemplateId || selectedIds.size === 0) return;
+    bulkEmailMutation.mutate({ attendeeIds: Array.from(selectedIds), templateId: bulkEmailTemplateId });
+  };
 
   const activeCustomFields = useMemo(() => {
     return customFields
@@ -506,8 +617,35 @@ export default function Attendees() {
   const columns = useMemo(() => {
     const visibleColumnConfigs = ALL_COLUMNS.filter((col) => visibleColumns.includes(col.key));
     
-    const dynamicColumns = visibleColumnConfigs.map((colConfig) => {
-      const baseColumn = {
+    const allFilteredSelected = processedAttendees.length > 0 && processedAttendees.every(a => selectedIds.has(a.id));
+    const someSelected = processedAttendees.some(a => selectedIds.has(a.id));
+    
+    const dynamicColumns: Array<{ key: string; header: React.ReactNode; cell: (attendee: Attendee) => React.ReactNode }> = [];
+    
+    dynamicColumns.push({
+      key: "select",
+      header: (
+        <Checkbox
+          checked={allFilteredSelected}
+          onCheckedChange={toggleSelectAll}
+          aria-label="Select all"
+          data-testid="checkbox-select-all"
+          className={someSelected && !allFilteredSelected ? "opacity-50" : ""}
+        />
+      ),
+      cell: (attendee: Attendee) => (
+        <Checkbox
+          checked={selectedIds.has(attendee.id)}
+          onCheckedChange={() => toggleSelectOne(attendee.id)}
+          onClick={(e) => e.stopPropagation()}
+          aria-label={`Select ${attendee.firstName} ${attendee.lastName}`}
+          data-testid={`checkbox-select-${attendee.id}`}
+        />
+      ),
+    });
+    
+    visibleColumnConfigs.forEach((colConfig) => {
+      dynamicColumns.push({
         key: colConfig.key,
         header: colConfig.sortable ? (
           <button
@@ -556,8 +694,7 @@ export default function Attendees() {
               return value || "-";
           }
         },
-      };
-      return baseColumn;
+      });
     });
 
     // Add custom field columns
@@ -630,7 +767,7 @@ export default function Attendees() {
     });
 
     return dynamicColumns;
-  }, [visibleColumns, sortConfig, eventLookup, inviteCodeLookup, packageLookup, activeCustomFields]);
+  }, [visibleColumns, sortConfig, eventLookup, inviteCodeLookup, packageLookup, activeCustomFields, selectedIds, processedAttendees]);
 
   return (
     <div className="flex flex-col h-full">
@@ -1129,6 +1266,47 @@ export default function Attendees() {
             </Button>
           </div>
 
+          {selectedIds.size > 0 && (
+            <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-md border" data-testid="bulk-action-toolbar">
+              <div className="flex items-center gap-2">
+                <Checkbox checked={true} disabled className="pointer-events-none" />
+                <span className="text-sm font-medium" data-testid="text-selected-count">
+                  {selectedIds.size} selected
+                </span>
+              </div>
+              <Separator orientation="vertical" className="h-6" />
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsBulkEditDialogOpen(true)}
+                  data-testid="button-bulk-edit"
+                >
+                  <Settings2 className="h-4 w-4 mr-2" />
+                  Edit Selected
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsBulkEmailDialogOpen(true)}
+                  data-testid="button-bulk-email"
+                >
+                  <Mail className="h-4 w-4 mr-2" />
+                  Email Selected
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearSelection}
+                  data-testid="button-clear-selection"
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Clear Selection
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Results count */}
           {!isLoading && attendees.length > 0 && (
             <div className="text-sm text-muted-foreground">
@@ -1510,6 +1688,173 @@ export default function Attendees() {
           )}
         </SheetContent>
       </Sheet>
+
+      <Dialog open={isBulkEditDialogOpen} onOpenChange={setIsBulkEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit {selectedIds.size} Attendees</DialogTitle>
+            <DialogDescription>
+              Update a field for all selected audience members
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Field to Update</label>
+              <Select value={bulkEditField} onValueChange={(value) => { setBulkEditField(value); setBulkEditValue(""); }}>
+                <SelectTrigger data-testid="select-bulk-edit-field">
+                  <SelectValue placeholder="Select a field" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="status">Status</SelectItem>
+                  <SelectItem value="type">Type</SelectItem>
+                  <SelectItem value="ticketType">Ticket Type</SelectItem>
+                  <SelectItem value="checkedIn">Checked In</SelectItem>
+                  <SelectItem value="notes">Notes</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {bulkEditField && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">New Value</label>
+                {bulkEditField === "status" && (
+                  <Select value={bulkEditValue} onValueChange={setBulkEditValue}>
+                    <SelectTrigger data-testid="select-bulk-edit-value">
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {STATUS_OPTIONS.map((status) => (
+                        <SelectItem key={status.value} value={status.value}>
+                          {status.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {bulkEditField === "type" && (
+                  <Select value={bulkEditValue} onValueChange={setBulkEditValue}>
+                    <SelectTrigger data-testid="select-bulk-edit-value">
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ATTENDEE_TYPE_OPTIONS.map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          {type.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {bulkEditField === "ticketType" && (
+                  <Input
+                    value={bulkEditValue}
+                    onChange={(e) => setBulkEditValue(e.target.value)}
+                    placeholder="Enter ticket type"
+                    data-testid="input-bulk-edit-value"
+                  />
+                )}
+                {bulkEditField === "checkedIn" && (
+                  <Select value={bulkEditValue} onValueChange={setBulkEditValue}>
+                    <SelectTrigger data-testid="select-bulk-edit-value">
+                      <SelectValue placeholder="Select check-in status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="true">Yes</SelectItem>
+                      <SelectItem value="false">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+                {bulkEditField === "notes" && (
+                  <Textarea
+                    value={bulkEditValue}
+                    onChange={(e) => setBulkEditValue(e.target.value)}
+                    placeholder="Enter notes"
+                    data-testid="textarea-bulk-edit-value"
+                  />
+                )}
+              </div>
+            )}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setIsBulkEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleBulkEdit}
+              disabled={!bulkEditField || !bulkEditValue || bulkUpdateMutation.isPending}
+              data-testid="button-submit-bulk-edit"
+            >
+              {bulkUpdateMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                `Update ${selectedIds.size} Attendees`
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isBulkEmailDialogOpen} onOpenChange={setIsBulkEmailDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Email {selectedIds.size} Attendees</DialogTitle>
+            <DialogDescription>
+              Send an email to all selected audience members
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Email Template</label>
+              <Select value={bulkEmailTemplateId} onValueChange={setBulkEmailTemplateId}>
+                <SelectTrigger data-testid="select-bulk-email-template">
+                  <SelectValue placeholder="Select a template" />
+                </SelectTrigger>
+                <SelectContent>
+                  {emailTemplates.length === 0 ? (
+                    <div className="px-2 py-4 text-sm text-muted-foreground text-center">
+                      No email templates available
+                    </div>
+                  ) : (
+                    emailTemplates.map((template) => (
+                      <SelectItem key={template.id} value={template.id}>
+                        {template.name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              This will send the selected email template to {selectedIds.size} audience members.
+            </p>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setIsBulkEmailDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleBulkEmail}
+              disabled={!bulkEmailTemplateId || bulkEmailMutation.isPending}
+              data-testid="button-submit-bulk-email"
+            >
+              {bulkEmailMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  Send to {selectedIds.size} Attendees
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
