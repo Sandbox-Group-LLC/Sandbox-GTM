@@ -923,17 +923,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   async acceptTeamInvitation(inviteCode: string, userId: string): Promise<OrganizationMember | undefined> {
+    console.log(`[TeamInvitation] acceptTeamInvitation called - inviteCode: ${inviteCode}, userId: ${userId}`);
+    
     const invitation = await this.getTeamInvitationByCode(inviteCode);
     
     if (!invitation) {
+      console.log(`[TeamInvitation] No invitation found for code: ${inviteCode}`);
       return undefined;
     }
     
+    console.log(`[TeamInvitation] Found invitation: id=${invitation.id}, email=${invitation.email}, status=${invitation.status}, orgId=${invitation.organizationId}`);
+    
     if (invitation.status !== 'pending') {
+      console.log(`[TeamInvitation] Invitation status is not pending: ${invitation.status}`);
       return undefined;
     }
     
     if (invitation.expiresAt && new Date() > invitation.expiresAt) {
+      console.log(`[TeamInvitation] Invitation has expired: ${invitation.expiresAt}`);
       await db.update(teamInvitations)
         .set({ status: 'expired' })
         .where(eq(teamInvitations.id, invitation.id));
@@ -944,8 +951,10 @@ export class DatabaseStorage implements IStorage {
     
     const existingMember = await this.getOrganizationMember(invitation.organizationId, userId);
     if (existingMember) {
+      console.log(`[TeamInvitation] User already a member of org, using existing membership`);
       memberToReturn = existingMember;
     } else {
+      console.log(`[TeamInvitation] Creating new organization membership for user ${userId} in org ${invitation.organizationId}`);
       const [newMember] = await db.insert(organizationMembers).values({
         organizationId: invitation.organizationId,
         userId: userId,
@@ -954,16 +963,20 @@ export class DatabaseStorage implements IStorage {
         invitedBy: invitation.invitedBy,
       }).returning();
       memberToReturn = newMember;
+      console.log(`[TeamInvitation] Created membership: ${JSON.stringify(newMember)}`);
     }
     
     // Always update invitation status to accepted (regardless of whether member existed)
-    await db.update(teamInvitations)
+    console.log(`[TeamInvitation] Updating invitation ${invitation.id} status to 'accepted'`);
+    const updateResult = await db.update(teamInvitations)
       .set({
         status: 'accepted',
         acceptedAt: new Date(),
         acceptedBy: userId,
       })
-      .where(eq(teamInvitations.id, invitation.id));
+      .where(eq(teamInvitations.id, invitation.id))
+      .returning();
+    console.log(`[TeamInvitation] Update result: ${JSON.stringify(updateResult)}`);
     
     // Clean up auto-created default organization if user was its sole member
     // This runs ALWAYS (even for existing members) to ensure cleanup happens
