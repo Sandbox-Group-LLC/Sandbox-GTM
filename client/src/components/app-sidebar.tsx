@@ -116,7 +116,8 @@ const programSubItems = [
   { title: "Sponsor Tasks", path: "/sponsor-tasks" },
 ];
 
-const myReviewsItems = [
+const myTasksItems = [
+  { title: "My Deliverables", icon: CheckSquare, path: "/my-deliverables" },
   { title: "Reviewer Portal", icon: ClipboardList, path: "/reviewer/portal" },
 ];
 
@@ -508,10 +509,10 @@ export function AppSidebar() {
         )}
 
         <SidebarGroup>
-          <SidebarGroupLabel>My Reviews</SidebarGroupLabel>
+          <SidebarGroupLabel>My Tasks</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {myReviewsItems.map((item) => (
+              {myTasksItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
