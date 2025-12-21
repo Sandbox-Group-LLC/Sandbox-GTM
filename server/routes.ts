@@ -15,6 +15,7 @@ import {
 } from "./rateLimit";
 import { scrypt, randomBytes, timingSafeEqual, createHash } from "crypto";
 import { promisify } from "util";
+import { resolveTxt } from "dns/promises";
 
 const scryptAsync = promisify(scrypt);
 
@@ -37,6 +38,7 @@ function isSuperAdmin(email: string | null | undefined, isAdmin?: boolean): bool
   return email?.toLowerCase().endsWith("@makemysandbox.com") ?? false;
 }
 import {
+  type Event,
   insertEventSchema,
   insertAttendeeSchema,
   insertAttendeeTypeSchema,
@@ -267,6 +269,52 @@ export async function registerRoutes(
 ): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
+
+  // Host-based tenant resolution middleware for custom domains
+  // Resolves organization from custom domain for public-facing pages
+  app.use(async (req: any, res, next) => {
+    try {
+      const host = req.headers.host;
+      if (!host) {
+        return next();
+      }
+      
+      // Extract hostname without port
+      const hostname = host.split(':')[0];
+      
+      // Skip resolution for main app domains (Replit domains, localhost, etc.)
+      const mainAppPatterns = [
+        /\.replit\.dev$/i,
+        /\.replit\.app$/i,
+        /\.repl\.co$/i,
+        /^localhost$/i,
+        /^127\.0\.0\.1$/i,
+        /^0\.0\.0\.0$/i,
+      ];
+      
+      const isMainAppDomain = mainAppPatterns.some(pattern => pattern.test(hostname));
+      if (isMainAppDomain) {
+        return next();
+      }
+      
+      // Try to find an organization with this verified custom domain
+      const org = await storage.getOrganizationByCustomDomain(hostname);
+      if (org && org.customDomainVerified) {
+        req.resolvedOrganization = {
+          id: org.id,
+          name: org.name,
+          slug: org.slug,
+          customDomain: org.customDomain,
+        };
+        logInfo(`Resolved organization ${org.id} from custom domain ${hostname}`, 'custom-domain');
+      }
+      
+      next();
+    } catch (error) {
+      logError("Error in host-based tenant resolution:", error);
+      next();
+    }
+  });
 
   // Middleware to require signup invite code redemption
   // Super admins bypass this check
@@ -754,6 +802,9 @@ export async function registerRoutes(
       
       const { customDomain } = req.body;
       
+      // Get current org to check if domain is changing
+      const currentOrg = await storage.getOrganization(organizationId);
+      
       // Validate domain format if provided
       if (customDomain !== null && customDomain !== undefined && customDomain !== '') {
         // Basic domain validation - should not contain protocol or paths
@@ -763,9 +814,26 @@ export async function registerRoutes(
         }
       }
       
-      const updated = await storage.updateOrganization(organizationId, {
+      // Prepare update data
+      const updateData: {
+        customDomain: string | null;
+        customDomainVerified?: boolean;
+        customDomainVerificationToken?: string | null;
+      } = {
         customDomain: customDomain || null,
-      });
+      };
+      
+      // If domain is changing or being set, reset verification and generate new token
+      if (customDomain && customDomain !== currentOrg?.customDomain) {
+        updateData.customDomainVerified = false;
+        updateData.customDomainVerificationToken = randomBytes(16).toString('hex');
+      } else if (!customDomain) {
+        // If domain is being cleared, clear verification status and token
+        updateData.customDomainVerified = false;
+        updateData.customDomainVerificationToken = null;
+      }
+      
+      const updated = await storage.updateOrganization(organizationId, updateData);
       
       if (!updated) {
         return res.status(404).json({ message: "Organization not found" });
@@ -775,6 +843,170 @@ export async function registerRoutes(
     } catch (error) {
       logError("Error updating custom domain:", error);
       res.status(500).json({ message: "Failed to update custom domain" });
+    }
+  });
+
+  // POST /api/organization/verify-domain - Verify domain ownership via DNS TXT record
+  app.post('/api/organization/verify-domain', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      
+      // Issue 2: Restrict verification to org owners only
+      const membership = await storage.getOrganizationMember(organizationId, userId);
+      if (!membership || membership.role !== 'owner') {
+        return res.status(403).json({ message: "Only organization owners can verify domains" });
+      }
+      
+      const org = await storage.getOrganization(organizationId);
+      if (!org) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+      
+      if (!org.customDomain) {
+        return res.status(400).json({ message: "No custom domain configured" });
+      }
+      
+      // Issue 3: Generate and persist token if not exists
+      let verificationToken = org.customDomainVerificationToken;
+      if (!verificationToken) {
+        verificationToken = randomBytes(16).toString('hex');
+        await storage.updateOrganization(organizationId, {
+          customDomainVerificationToken: verificationToken,
+        });
+        logInfo(`Generated new verification token for org ${organizationId}`, 'domain-verification');
+      }
+      
+      // Issue 4: Normalize domain for DNS lookup (handle www prefix)
+      let domainToCheck = org.customDomain;
+      // If domain starts with www., also check without it for TXT record
+      const isWwwDomain = domainToCheck.toLowerCase().startsWith('www.');
+      const baseDomain = isWwwDomain ? domainToCheck.substring(4) : domainToCheck;
+      
+      // Check for TXT record at _eventgtm.{domain}
+      const txtRecordHost = `_eventgtm.${domainToCheck}`;
+      const altTxtRecordHost = isWwwDomain ? `_eventgtm.${baseDomain}` : null;
+      const expectedValue = `eventgtm-verify=${verificationToken}`;
+      
+      let verified = false;
+      let txtRecords: string[][] = [];
+      let checkedHosts: string[] = [txtRecordHost];
+      
+      // Try primary domain first
+      try {
+        txtRecords = await resolveTxt(txtRecordHost);
+        for (const record of txtRecords) {
+          const recordValue = record.join('');
+          if (recordValue === expectedValue) {
+            verified = true;
+            break;
+          }
+        }
+      } catch (dnsError: any) {
+        logInfo(`DNS lookup failed for ${txtRecordHost}: ${dnsError.code || dnsError.message}`, 'domain-verification');
+      }
+      
+      // If not verified and this is a www domain, try without www prefix
+      if (!verified && altTxtRecordHost) {
+        checkedHosts.push(altTxtRecordHost);
+        try {
+          const altTxtRecords = await resolveTxt(altTxtRecordHost);
+          for (const record of altTxtRecords) {
+            const recordValue = record.join('');
+            if (recordValue === expectedValue) {
+              verified = true;
+              txtRecords = altTxtRecords;
+              break;
+            }
+          }
+        } catch (dnsError: any) {
+          logInfo(`DNS lookup failed for ${altTxtRecordHost}: ${dnsError.code || dnsError.message}`, 'domain-verification');
+        }
+      }
+      
+      if (verified) {
+        await storage.updateOrganization(organizationId, {
+          customDomainVerified: true,
+        });
+        
+        return res.json({
+          verified: true,
+          message: "Domain verified successfully!",
+          domain: org.customDomain,
+        });
+      } else {
+        return res.json({
+          verified: false,
+          message: "Verification failed. Please ensure the TXT record is configured correctly.",
+          domain: org.customDomain,
+          txtRecordHost,
+          expectedValue,
+          foundRecords: txtRecords.map(r => r.join('')),
+          checkedHosts,
+          instructions: {
+            step1: `Add a CNAME record pointing ${org.customDomain} to your app origin`,
+            step2: `Add a TXT record at ${txtRecordHost} with value: ${expectedValue}`,
+          },
+        });
+      }
+    } catch (error) {
+      logError("Error verifying domain:", error);
+      res.status(500).json({ message: "Failed to verify domain" });
+    }
+  });
+
+  // GET /api/organization/domain-status - Get current domain and verification status
+  app.get('/api/organization/domain-status', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      
+      const org = await storage.getOrganization(organizationId);
+      if (!org) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+      
+      // Generate token if domain is set but token doesn't exist
+      let verificationToken = org.customDomainVerificationToken;
+      if (org.customDomain && !verificationToken) {
+        verificationToken = randomBytes(16).toString('hex');
+        await storage.updateOrganization(organizationId, {
+          customDomainVerificationToken: verificationToken,
+        });
+      }
+      
+      const protocol = req.headers["x-forwarded-proto"] || "https";
+      const host = req.headers.host;
+      const appOrigin = `${protocol}://${host}`;
+      
+      const response: {
+        customDomain: string | null;
+        customDomainVerified: boolean;
+        verificationToken: string | null;
+        instructions: {
+          step1: string;
+          step2: string;
+          cloudflareNote: string;
+        } | null;
+      } = {
+        customDomain: org.customDomain,
+        customDomainVerified: org.customDomainVerified || false,
+        verificationToken: org.customDomain ? verificationToken : null,
+        instructions: null,
+      };
+      
+      if (org.customDomain && verificationToken) {
+        response.instructions = {
+          step1: `Add a CNAME record pointing ${org.customDomain} to ${host}`,
+          step2: `Add a TXT record at _eventgtm.${org.customDomain} with value: eventgtm-verify=${verificationToken}`,
+          cloudflareNote: "In Cloudflare, set the CNAME record to 'Proxied' (orange cloud) for SSL support.",
+        };
+      }
+      
+      res.json(response);
+    } catch (error) {
+      logError("Error fetching domain status:", error);
+      res.status(500).json({ message: "Failed to fetch domain status" });
     }
   });
 
@@ -6049,11 +6281,22 @@ ${urls.map(u => `  <url>
     }
   });
 
+  // Helper function to resolve event by slug with custom domain scoping
+  async function resolveEventBySlug(req: any, slug: string): Promise<Event | undefined> {
+    // If request came via custom domain, scope to that organization
+    if (req.resolvedOrganization?.id) {
+      logInfo(`[Public Event] Resolving event via custom domain for org: ${req.resolvedOrganization.id}`, 'custom-domain');
+      return storage.getEventBySlugAndOrganization(slug, req.resolvedOrganization.id);
+    }
+    // Otherwise, do global slug lookup
+    return storage.getEventBySlug(slug);
+  }
+
   // Public event registration routes (no auth required)
-  app.get("/api/public/event/:slug", async (req, res) => {
+  app.get("/api/public/event/:slug", async (req: any, res) => {
     try {
       logInfo(`[Public Event] Fetching event with slug: ${req.params.slug}`);
-      const event = await storage.getEventBySlug(req.params.slug);
+      const event = await resolveEventBySlug(req, req.params.slug);
       
       if (!event) {
         logInfo(`[Public Event] No event found for slug: ${req.params.slug}`);
@@ -6088,9 +6331,9 @@ ${urls.map(u => `  <url>
     }
   });
 
-  app.get("/api/public/event/:slug/registration", async (req, res) => {
+  app.get("/api/public/event/:slug/registration", async (req: any, res) => {
     try {
-      const event = await storage.getEventBySlug(req.params.slug);
+      const event = await resolveEventBySlug(req, req.params.slug);
       if (!event || (!event.isPublic && event.status !== 'published')) {
         return res.status(404).json({ message: "Event not found" });
       }
@@ -6122,9 +6365,9 @@ ${urls.map(u => `  <url>
     }
   });
 
-  app.get("/api/public/event/:slug/portal", async (req, res) => {
+  app.get("/api/public/event/:slug/portal", async (req: any, res) => {
     try {
-      const event = await storage.getEventBySlug(req.params.slug);
+      const event = await resolveEventBySlug(req, req.params.slug);
       if (!event || (!event.isPublic && event.status !== 'published')) {
         return res.status(404).json({ message: "Event not found" });
       }
@@ -6151,9 +6394,9 @@ ${urls.map(u => `  <url>
   });
 
   // Get housing status for public event page
-  app.get("/api/public/event/:slug/housing-status", async (req, res) => {
+  app.get("/api/public/event/:slug/housing-status", async (req: any, res) => {
     try {
-      const event = await storage.getEventBySlug(req.params.slug);
+      const event = await resolveEventBySlug(req, req.params.slug);
       if (!event || (!event.isPublic && event.status !== 'published')) {
         return res.status(404).json({ message: "Event not found" });
       }
@@ -6180,9 +6423,9 @@ ${urls.map(u => `  <url>
   });
 
   // Get public packages for an event (public ones + any unlocked by invite code)
-  app.get("/api/public/event/:slug/packages", async (req, res) => {
+  app.get("/api/public/event/:slug/packages", async (req: any, res) => {
     try {
-      const event = await storage.getEventBySlug(req.params.slug);
+      const event = await resolveEventBySlug(req, req.params.slug);
       if (!event || (!event.isPublic && event.status !== 'published')) {
         return res.status(404).json({ message: "Event not found" });
       }
@@ -6220,9 +6463,9 @@ ${urls.map(u => `  <url>
   });
 
   // Validate invite code and return unlocked package if any
-  app.post("/api/public/validate-invite-code/:slug", validateInviteCodeLimiter, async (req, res) => {
+  app.post("/api/public/validate-invite-code/:slug", validateInviteCodeLimiter, async (req: any, res) => {
     try {
-      const event = await storage.getEventBySlug(req.params.slug);
+      const event = await resolveEventBySlug(req, req.params.slug);
       if (!event || (!event.isPublic && event.status !== 'published')) {
         return res.status(404).json({ message: "Event not found" });
       }
@@ -6301,9 +6544,9 @@ ${urls.map(u => `  <url>
     }
   });
 
-  app.post("/api/public/register/:slug", publicRegistrationLimiter, async (req, res) => {
+  app.post("/api/public/register/:slug", publicRegistrationLimiter, async (req: any, res) => {
     try {
-      const event = await storage.getEventBySlug(req.params.slug);
+      const event = await resolveEventBySlug(req, req.params.slug);
       if (!event || (!event.isPublic && event.status !== 'published') || !event.registrationOpen) {
         return res.status(404).json({ message: "Registration not available" });
       }
@@ -6560,7 +6803,7 @@ ${urls.map(u => `  <url>
   });
 
   // Attendee Authentication Endpoints
-  app.post("/api/public/attendee/login", publicRegistrationLimiter, async (req, res) => {
+  app.post("/api/public/attendee/login", publicRegistrationLimiter, async (req: any, res) => {
     try {
       const { email, password, eventSlug } = req.body;
       
@@ -6568,7 +6811,7 @@ ${urls.map(u => `  <url>
         return res.status(400).json({ message: "Email, password, and event slug are required" });
       }
       
-      const event = await storage.getEventBySlug(eventSlug);
+      const event = await resolveEventBySlug(req, eventSlug);
       if (!event) {
         return res.status(404).json({ message: "Event not found" });
       }
@@ -7636,9 +7879,9 @@ ${urls.map(u => `  <url>
   });
 
   // Payment endpoints for public registration
-  app.get("/api/public/event/:slug/payment-config", async (req, res) => {
+  app.get("/api/public/event/:slug/payment-config", async (req: any, res) => {
     try {
-      const event = await storage.getEventBySlug(req.params.slug);
+      const event = await resolveEventBySlug(req, req.params.slug);
       if (!event || (!event.isPublic && event.status !== 'published')) {
         return res.status(404).json({ message: "Event not found" });
       }
@@ -7658,9 +7901,9 @@ ${urls.map(u => `  <url>
     }
   });
 
-  app.post("/api/public/event/:slug/create-payment-intent", createPaymentIntentLimiter, async (req, res) => {
+  app.post("/api/public/event/:slug/create-payment-intent", createPaymentIntentLimiter, async (req: any, res) => {
     try {
-      const event = await storage.getEventBySlug(req.params.slug);
+      const event = await resolveEventBySlug(req, req.params.slug);
       if (!event || (!event.isPublic && event.status !== 'published') || !event.registrationOpen) {
         return res.status(404).json({ message: "Registration not available" });
       }
@@ -7740,9 +7983,9 @@ ${urls.map(u => `  <url>
     }
   });
 
-  app.post("/api/public/event/:slug/verify-payment", verifyPaymentLimiter, async (req, res) => {
+  app.post("/api/public/event/:slug/verify-payment", verifyPaymentLimiter, async (req: any, res) => {
     try {
-      const event = await storage.getEventBySlug(req.params.slug);
+      const event = await resolveEventBySlug(req, req.params.slug);
       if (!event || (!event.isPublic && event.status !== 'published')) {
         return res.status(404).json({ message: "Event not found" });
       }
@@ -7776,7 +8019,7 @@ ${urls.map(u => `  <url>
 
   // Public housing/booking link endpoint (for post-registration flow)
   // Requires checkInCode as a secret to verify the request is from the attendee
-  app.get("/api/public/event/:slug/housing/:attendeeId", async (req, res) => {
+  app.get("/api/public/event/:slug/housing/:attendeeId", async (req: any, res) => {
     try {
       const { slug, attendeeId } = req.params;
       const { code } = req.query;
@@ -7786,7 +8029,7 @@ ${urls.map(u => `  <url>
         return res.status(400).json({ message: "Check-in code is required" });
       }
       
-      const event = await storage.getEventBySlug(slug);
+      const event = await resolveEventBySlug(req, slug);
       if (!event || (!event.isPublic && event.status !== 'published')) {
         return res.status(404).json({ message: "Event not found" });
       }

@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { LogOut, User, Shield, Bell, Palette, FileText, Plug, Building2, Globe, Loader2 } from "lucide-react";
+import { LogOut, User, Shield, Bell, Palette, FileText, Plug, Building2, Globe, Loader2, CheckCircle2, Copy, RefreshCw, AlertCircle } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -73,6 +73,7 @@ export default function Settings() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/organization"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/organization/domain-status"] });
       toast({
         title: "Custom Domain Updated",
         description: "Your organization's custom domain has been saved.",
@@ -87,6 +88,63 @@ export default function Settings() {
       });
     },
   });
+
+  // Fetch domain verification status
+  const { data: domainStatus } = useQuery<{
+    customDomain: string | null;
+    customDomainVerified: boolean;
+    verificationToken: string | null;
+    instructions: {
+      step1: string;
+      step2: string;
+      cloudflareNote: string;
+    } | null;
+  }>({
+    queryKey: ["/api/organization/domain-status"],
+    enabled: !!orgData,
+  });
+
+  // Verify domain mutation
+  const verifyDomainMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", "/api/organization/verify-domain", {});
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/organization"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/organization/domain-status"] });
+      if (data.verified) {
+        toast({
+          title: "Domain Verified",
+          description: "Your custom domain has been successfully verified!",
+        });
+      } else {
+        toast({
+          title: "Verification Pending",
+          description: data.message || "DNS records not found. Please check your configuration.",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Verification Failed",
+        description: error.message || "Failed to verify domain",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Copy token to clipboard
+  const copyToken = () => {
+    if (domainStatus?.verificationToken) {
+      const fullValue = `eventgtm-verify=${domainStatus.verificationToken}`;
+      navigator.clipboard.writeText(fullValue);
+      toast({
+        title: "Copied",
+        description: "Verification token copied to clipboard.",
+      });
+    }
+  };
 
   const getInitials = () => {
     if (user?.firstName && user?.lastName) {
@@ -240,21 +298,35 @@ export default function Settings() {
               
               <Separator />
               
-              <div className="space-y-2">
+              <div className="space-y-4">
                 <div className="flex items-center gap-2">
                   <Globe className="h-4 w-4 text-muted-foreground" />
                   <p className="font-medium">Custom Domain</p>
+                  {domainStatus?.customDomain && (
+                    domainStatus.customDomainVerified ? (
+                      <Badge variant="default" className="ml-2" data-testid="badge-domain-verified">
+                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                        Verified
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="ml-2" data-testid="badge-domain-pending">
+                        <AlertCircle className="h-3 w-3 mr-1" />
+                        Pending Verification
+                      </Badge>
+                    )
+                  )}
                 </div>
-                <p className="text-sm text-muted-foreground mb-2">
+                <p className="text-sm text-muted-foreground">
                   Set your custom domain for invitation links and public URLs (e.g., www.example.com)
                 </p>
                 
                 {isEditingDomain ? (
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <Input
                       placeholder="www.example.com"
                       value={customDomain}
                       onChange={(e) => setCustomDomain(e.target.value)}
+                      className="flex-1 min-w-[200px]"
                       data-testid="input-custom-domain"
                     />
                     <Button
@@ -280,7 +352,7 @@ export default function Settings() {
                     </Button>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-sm">
                       {orgData?.customDomain ? (
                         <span className="font-mono bg-muted px-2 py-1 rounded">{orgData.customDomain}</span>
@@ -299,6 +371,78 @@ export default function Settings() {
                     >
                       {orgData?.customDomain ? "Edit" : "Configure"}
                     </Button>
+                  </div>
+                )}
+
+                {domainStatus?.customDomain && !domainStatus.customDomainVerified && domainStatus.instructions && (
+                  <div className="mt-4 space-y-4">
+                    <div className="bg-muted/50 rounded-md p-4 space-y-3">
+                      <p className="font-medium text-sm">DNS Configuration Instructions</p>
+                      <p className="text-sm text-muted-foreground">
+                        Complete the following steps in your DNS provider (e.g., Cloudflare) to verify ownership of your domain:
+                      </p>
+                      
+                      <div className="space-y-3">
+                        <div className="flex gap-2">
+                          <span className="text-xs font-medium bg-muted rounded-full w-5 h-5 flex items-center justify-center flex-shrink-0">1</span>
+                          <div className="text-sm">
+                            <p className="font-medium">Add CNAME Record</p>
+                            <p className="text-muted-foreground">{domainStatus.instructions.step1}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex gap-2">
+                          <span className="text-xs font-medium bg-muted rounded-full w-5 h-5 flex items-center justify-center flex-shrink-0">2</span>
+                          <div className="text-sm flex-1">
+                            <p className="font-medium">Add TXT Record for Verification</p>
+                            <p className="text-muted-foreground">{domainStatus.instructions.step2}</p>
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                              <code className="bg-muted px-2 py-1 rounded text-xs font-mono break-all" data-testid="text-verification-token">
+                                eventgtm-verify={domainStatus.verificationToken}
+                              </code>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={copyToken}
+                                data-testid="button-copy-token"
+                              >
+                                <Copy className="h-3 w-3 mr-1" />
+                                Copy
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <p className="text-xs text-muted-foreground mt-2">
+                        {domainStatus.instructions.cloudflareNote}
+                      </p>
+                    </div>
+                    
+                    <Button
+                      onClick={() => verifyDomainMutation.mutate()}
+                      disabled={verifyDomainMutation.isPending}
+                      data-testid="button-verify-domain"
+                    >
+                      {verifyDomainMutation.isPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Verifying...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          Verify Domain
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+
+                {domainStatus?.customDomain && domainStatus.customDomainVerified && (
+                  <div className="mt-2 flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span>Your custom domain is verified and active.</span>
                   </div>
                 )}
               </div>

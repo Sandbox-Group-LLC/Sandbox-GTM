@@ -213,6 +213,7 @@ export interface IStorage {
   // Organization operations
   getOrganization(id: string): Promise<Organization | undefined>;
   getOrganizationBySlug(slug: string): Promise<Organization | undefined>;
+  getOrganizationByCustomDomain(domain: string): Promise<Organization | undefined>;
   createOrganization(org: InsertOrganization): Promise<Organization>;
   updateOrganization(id: string, org: Partial<InsertOrganization>): Promise<Organization | undefined>;
   getUserOrganizations(userId: string): Promise<OrganizationMember[]>;
@@ -473,6 +474,7 @@ export interface IStorage {
 
   // Public event operations (public access - no organizationId needed)
   getEventBySlug(slug: string): Promise<Event | undefined>;
+  getEventBySlugAndOrganization(slug: string, organizationId: string): Promise<Event | undefined>;
 
   // Social connection operations (user-scoped - no organizationId needed)
   getSocialConnections(userId: string): Promise<SocialConnection[]>;
@@ -745,6 +747,11 @@ export class DatabaseStorage implements IStorage {
 
   async getOrganizationBySlug(slug: string): Promise<Organization | undefined> {
     const [org] = await db.select().from(organizations).where(eq(organizations.slug, slug));
+    return org;
+  }
+
+  async getOrganizationByCustomDomain(domain: string): Promise<Organization | undefined> {
+    const [org] = await db.select().from(organizations).where(eq(organizations.customDomain, domain));
     return org;
   }
 
@@ -2159,6 +2166,18 @@ export class DatabaseStorage implements IStorage {
     // Trim whitespace and use case-insensitive comparison for slug matching
     const trimmedSlug = slug.trim();
     const [event] = await db.select().from(events).where(ilike(events.publicSlug, trimmedSlug));
+    return event;
+  }
+
+  async getEventBySlugAndOrganization(slug: string, organizationId: string): Promise<Event | undefined> {
+    // Get event by slug scoped to a specific organization (for custom domain resolution)
+    const trimmedSlug = slug.trim();
+    const [event] = await db.select().from(events).where(
+      and(
+        ilike(events.publicSlug, trimmedSlug),
+        eq(events.organizationId, organizationId)
+      )
+    );
     return event;
   }
 

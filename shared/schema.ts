@@ -62,6 +62,8 @@ export const organizations = pgTable("organizations", {
   isArchived: boolean("is_archived").default(false),
   enableRevenueRoi: boolean("enable_revenue_roi").default(false),
   customDomain: varchar("custom_domain", { length: 500 }), // Custom domain for generating links (e.g., www.example.com)
+  customDomainVerified: boolean("custom_domain_verified").default(false), // Whether domain ownership has been verified
+  customDomainVerificationToken: varchar("custom_domain_verification_token", { length: 64 }), // Token for DNS verification
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
