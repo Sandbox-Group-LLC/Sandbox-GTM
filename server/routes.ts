@@ -322,6 +322,7 @@ export async function registerRoutes(
     }
     
     // Create default org for user if none exists AND no pending invitations
+    logInfo(`Creating default 'My Organization' for user ${userId} (email: ${user?.email || 'unknown'}) - no existing memberships and no pending invitations found`, 'OrgRouting');
     const org = await storage.createOrganization({
       name: 'My Organization',
       slug: `org-${userId.slice(0, 8)}-${Date.now()}`

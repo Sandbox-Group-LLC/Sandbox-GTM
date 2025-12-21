@@ -897,9 +897,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTeamInvitationsForEmail(email: string): Promise<TeamInvitation[]> {
+    // Use case-insensitive comparison since invitations are stored lowercase
+    // but user emails from OIDC may have different casing
     return db.select().from(teamInvitations)
       .where(and(
-        eq(teamInvitations.email, email),
+        sql`lower(${teamInvitations.email}) = lower(${email})`,
         eq(teamInvitations.status, 'pending')
       ))
       .orderBy(desc(teamInvitations.invitedAt));
