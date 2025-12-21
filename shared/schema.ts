@@ -384,6 +384,7 @@ export const eventPages = pgTable("event_pages", {
     pagePadding?: 'standard' | 'none';
     textDecoration?: 'none' | 'underline' | 'uppercase' | 'capitalize';
     customCss?: string;
+    googleTagId?: string;
   }>(),
   seo: jsonb("seo").$type<{ title?: string; description?: string; ogImage?: string }>(),
   sections: jsonb("sections").$type<Array<{
@@ -468,6 +469,7 @@ export const pageVersions = pgTable("page_versions", {
     pagePadding?: 'standard' | 'none';
     textDecoration?: 'none' | 'underline' | 'uppercase' | 'capitalize';
     customCss?: string;
+    googleTagId?: string;
   }>(),
   seo: jsonb("seo").$type<{ title?: string; description?: string; ogImage?: string }>(),
   createdAt: timestamp("created_at").defaultNow(),
