@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
-import { Plus, X, Globe, Calendar, Pencil, Trash2, ArrowLeft, Users, Presentation, Package, Hotel, Loader2, CheckCircle, XCircle, ExternalLink } from "lucide-react";
+import { Plus, X, Globe, Calendar, Pencil, Trash2, ArrowLeft, Users, Presentation, Package, Hotel, Loader2, CheckCircle, XCircle, ExternalLink, Languages } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { titleCase } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,10 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { EventFormFields, eventFormSchema, type EventFormValues } from "@/components/event-form-fields";
-import type { Event, Attendee, EventSession } from "@shared/schema";
+import { SUPPORTED_LANGUAGES, type Event, type Attendee, type EventSession, type EventTranslation } from "@shared/schema";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 function normalizeDate(dateValue: string | Date | null | undefined): string {
   if (!dateValue) return "";
@@ -117,6 +120,15 @@ export default function Events() {
   // State for Passkey Event ID input
   const [passkeyEventId, setPasskeyEventId] = useState("");
   const [housingEnabled, setHousingEnabled] = useState(false);
+
+  // State for language translations
+  const [translationEdits, setTranslationEdits] = useState<Record<string, { name: string; description: string; location: string }>>({});
+
+  // Fetch translations for selected event
+  const { data: eventTranslations, isLoading: translationsLoading } = useQuery<EventTranslation[]>({
+    queryKey: ["/api/events", selectedEvent?.id, "translations"],
+    enabled: !!selectedEvent,
+  });
 
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventFormSchema),
@@ -215,6 +227,39 @@ export default function Events() {
       }
       setPasskeyEventId("");
       setHousingEnabled(false);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Mutation to update event languages
+  const updateEventLanguagesMutation = useMutation({
+    mutationFn: async ({ eventId, supportedLanguages, defaultLanguage }: { eventId: string; supportedLanguages: string[]; defaultLanguage: string }) => {
+      const res = await apiRequest("PATCH", `/api/events/${eventId}`, { supportedLanguages, defaultLanguage });
+      return res.json();
+    },
+    onSuccess: (updatedEvent) => {
+      toast({ title: "Language settings updated" });
+      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      setSelectedEvent(updatedEvent);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Mutation to save a translation
+  const saveTranslationMutation = useMutation({
+    mutationFn: async ({ eventId, languageCode, data }: { eventId: string; languageCode: string; data: { name?: string; description?: string; location?: string } }) => {
+      const res = await apiRequest("PUT", `/api/events/${eventId}/translations/${languageCode}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Translation saved" });
+      if (selectedEvent) {
+        queryClient.invalidateQueries({ queryKey: ["/api/events", selectedEvent.id, "translations"] });
+      }
     },
     onError: (error: Error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -482,6 +527,13 @@ export default function Events() {
                       Access Packages
                     </TabsTrigger>
                     <TabsTrigger 
+                      value="languages" 
+                      className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
+                      data-testid="tab-languages"
+                    >
+                      Languages
+                    </TabsTrigger>
+                    <TabsTrigger 
                       value="housing" 
                       className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
                       data-testid="tab-housing"
@@ -723,6 +775,212 @@ export default function Events() {
                         <p className="text-sm text-muted-foreground max-w-xs">
                           Access packages for this program will be shown here.
                         </p>
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="languages" className="flex-1 overflow-auto p-4 mt-0" data-testid="content-languages">
+                    {translationsLoading ? (
+                      <div className="flex items-center justify-center py-12">
+                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        <div className="flex items-center gap-2">
+                          <Languages className="h-5 w-5" />
+                          <h3 className="font-semibold">Multi-Language Support</h3>
+                        </div>
+
+                        <p className="text-sm text-muted-foreground">
+                          Configure supported languages for this event. Translations allow attendees to view event content in their preferred language.
+                        </p>
+
+                        <Separator />
+
+                        <div className="space-y-4">
+                          <div>
+                            <Label className="text-sm font-medium">Supported Languages</Label>
+                            <p className="text-sm text-muted-foreground mb-3">
+                              Select which languages this event will support.
+                            </p>
+                            <div className="grid grid-cols-2 gap-2">
+                              {SUPPORTED_LANGUAGES.map((lang) => {
+                                const isSelected = selectedEvent?.supportedLanguages?.includes(lang.code) ?? (lang.code === "en");
+                                const isDefault = selectedEvent?.defaultLanguage === lang.code || (!selectedEvent?.defaultLanguage && lang.code === "en");
+                                return (
+                                  <div key={lang.code} className="flex items-center space-x-2">
+                                    <Checkbox
+                                      id={`lang-${lang.code}`}
+                                      checked={isSelected}
+                                      disabled={isDefault}
+                                      onCheckedChange={(checked) => {
+                                        const currentLanguages = selectedEvent?.supportedLanguages || ["en"];
+                                        let newLanguages: string[];
+                                        if (checked) {
+                                          newLanguages = [...currentLanguages, lang.code];
+                                        } else {
+                                          newLanguages = currentLanguages.filter(l => l !== lang.code);
+                                        }
+                                        if (newLanguages.length === 0) newLanguages = ["en"];
+                                        updateEventLanguagesMutation.mutate({
+                                          eventId: selectedEvent!.id,
+                                          supportedLanguages: newLanguages,
+                                          defaultLanguage: selectedEvent?.defaultLanguage || "en",
+                                        });
+                                      }}
+                                      data-testid={`checkbox-lang-${lang.code}`}
+                                    />
+                                    <Label htmlFor={`lang-${lang.code}`} className="text-sm font-normal cursor-pointer">
+                                      {lang.name}
+                                      {isDefault && <Badge variant="secondary" className="ml-2">Default</Badge>}
+                                    </Label>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          <Separator />
+
+                          <div>
+                            <Label className="text-sm font-medium">Default Language</Label>
+                            <p className="text-sm text-muted-foreground mb-3">
+                              The primary language for this event. Content in this language will be used as fallback.
+                            </p>
+                            <Select
+                              value={selectedEvent?.defaultLanguage || "en"}
+                              onValueChange={(value) => {
+                                const currentLanguages = selectedEvent?.supportedLanguages || ["en"];
+                                let newLanguages = currentLanguages.includes(value) 
+                                  ? currentLanguages 
+                                  : [...currentLanguages, value];
+                                updateEventLanguagesMutation.mutate({
+                                  eventId: selectedEvent!.id,
+                                  supportedLanguages: newLanguages,
+                                  defaultLanguage: value,
+                                });
+                              }}
+                            >
+                              <SelectTrigger className="w-full" data-testid="select-default-language">
+                                <SelectValue placeholder="Select default language" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {SUPPORTED_LANGUAGES.filter(lang => 
+                                  selectedEvent?.supportedLanguages?.includes(lang.code) || lang.code === "en"
+                                ).map((lang) => (
+                                  <SelectItem key={lang.code} value={lang.code} data-testid={`option-default-lang-${lang.code}`}>
+                                    {lang.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {(selectedEvent?.supportedLanguages?.length ?? 0) > 1 && (
+                            <>
+                              <Separator />
+
+                              <div>
+                                <Label className="text-sm font-medium">Translations</Label>
+                                <p className="text-sm text-muted-foreground mb-3">
+                                  Add translated content for each supported language (except the default).
+                                </p>
+                                <div className="space-y-4">
+                                  {selectedEvent?.supportedLanguages
+                                    ?.filter(code => code !== (selectedEvent?.defaultLanguage || "en"))
+                                    .map((langCode) => {
+                                      const langInfo = SUPPORTED_LANGUAGES.find(l => l.code === langCode);
+                                      const existingTranslation = eventTranslations?.find(t => t.languageCode === langCode);
+                                      const editState = translationEdits[langCode] || {
+                                        name: existingTranslation?.name || "",
+                                        description: existingTranslation?.description || "",
+                                        location: existingTranslation?.location || "",
+                                      };
+                                      
+                                      return (
+                                        <Card key={langCode} data-testid={`card-translation-${langCode}`}>
+                                          <CardHeader className="pb-2">
+                                            <CardTitle className="text-base flex items-center gap-2">
+                                              {langInfo?.name || langCode}
+                                              {existingTranslation && (
+                                                <Badge variant="outline" className="text-xs">
+                                                  <CheckCircle className="h-3 w-3 mr-1" />
+                                                  Saved
+                                                </Badge>
+                                              )}
+                                            </CardTitle>
+                                          </CardHeader>
+                                          <CardContent className="space-y-4">
+                                            <div>
+                                              <Label htmlFor={`trans-name-${langCode}`}>Event Name</Label>
+                                              <Input
+                                                id={`trans-name-${langCode}`}
+                                                placeholder={`Event name in ${langInfo?.name}`}
+                                                value={editState.name}
+                                                onChange={(e) => setTranslationEdits(prev => ({
+                                                  ...prev,
+                                                  [langCode]: { ...editState, name: e.target.value }
+                                                }))}
+                                                className="mt-1"
+                                                data-testid={`input-trans-name-${langCode}`}
+                                              />
+                                            </div>
+                                            <div>
+                                              <Label htmlFor={`trans-desc-${langCode}`}>Description</Label>
+                                              <Textarea
+                                                id={`trans-desc-${langCode}`}
+                                                placeholder={`Description in ${langInfo?.name}`}
+                                                value={editState.description}
+                                                onChange={(e) => setTranslationEdits(prev => ({
+                                                  ...prev,
+                                                  [langCode]: { ...editState, description: e.target.value }
+                                                }))}
+                                                className="mt-1"
+                                                rows={3}
+                                                data-testid={`input-trans-desc-${langCode}`}
+                                              />
+                                            </div>
+                                            <div>
+                                              <Label htmlFor={`trans-loc-${langCode}`}>Location</Label>
+                                              <Input
+                                                id={`trans-loc-${langCode}`}
+                                                placeholder={`Location in ${langInfo?.name}`}
+                                                value={editState.location}
+                                                onChange={(e) => setTranslationEdits(prev => ({
+                                                  ...prev,
+                                                  [langCode]: { ...editState, location: e.target.value }
+                                                }))}
+                                                className="mt-1"
+                                                data-testid={`input-trans-loc-${langCode}`}
+                                              />
+                                            </div>
+                                            <Button
+                                              size="sm"
+                                              onClick={() => {
+                                                saveTranslationMutation.mutate({
+                                                  eventId: selectedEvent!.id,
+                                                  languageCode: langCode,
+                                                  data: {
+                                                    name: editState.name || undefined,
+                                                    description: editState.description || undefined,
+                                                    location: editState.location || undefined,
+                                                  },
+                                                });
+                                              }}
+                                              disabled={saveTranslationMutation.isPending}
+                                              data-testid={`button-save-trans-${langCode}`}
+                                            >
+                                              {saveTranslationMutation.isPending ? "Saving..." : "Save Translation"}
+                                            </Button>
+                                          </CardContent>
+                                        </Card>
+                                      );
+                                    })}
+                                </div>
+                              </div>
+                            </>
+                          )}
+                        </div>
                       </div>
                     )}
                   </TabsContent>
