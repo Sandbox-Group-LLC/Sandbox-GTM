@@ -32,7 +32,7 @@ import {
   FormMessage,
   FormDescription,
 } from "@/components/ui/form";
-import { Calendar, MapPin, CheckCircle, AlertCircle, ArrowLeft, ArrowRight, Tag, Check, Loader2, CreditCard, Hotel, ExternalLink } from "lucide-react";
+import { Calendar, MapPin, CheckCircle, AlertCircle, ArrowLeft, ArrowRight, Tag, Check, Loader2, CreditCard, Hotel, ExternalLink, Eye } from "lucide-react";
 import type { Event, Attendee, EventPage, EventPageTheme, CustomField, Package } from "@shared/schema";
 
 interface PackageWithEffectivePrice extends Package {
@@ -75,6 +75,113 @@ interface HousingInfo {
   housingEnabled: boolean;
   bookingUrl?: string | null;
   passkeyEventName?: string | null;
+}
+
+export interface SectionStyles {
+  backgroundColor?: string;
+  textColor?: string;
+  textAlign?: 'left' | 'center' | 'right';
+  gridJustify?: 'start' | 'center';
+  paddingTop?: 'none' | 'small' | 'medium' | 'large';
+  paddingBottom?: 'none' | 'small' | 'medium' | 'large';
+  customClass?: string;
+  hideOnMobile?: boolean;
+  hideOnDesktop?: boolean;
+  visibilityCondition?: VisibilityCondition;
+}
+
+interface SingleCondition {
+  property: 'attendeeType' | 'registrationStatus' | 'ticketType' | 'checkedIn' | 'company' | 'jobTitle';
+  operator: 'equals' | 'not_equals' | 'contains' | 'not_contains' | 'is_empty' | 'is_not_empty';
+  value: string;
+}
+
+interface VisibilityCondition {
+  enabled: boolean;
+  logic: 'and' | 'or';
+  conditions: SingleCondition[];
+}
+
+interface SpoofAttendee {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  attendeeType?: string;
+  registrationStatus?: string;
+  ticketType?: string;
+  checkedIn?: boolean;
+  company?: string;
+  jobTitle?: string;
+}
+
+function evaluateSingleCondition(
+  condition: SingleCondition,
+  attendee: SpoofAttendee
+): boolean {
+  const propertyValue = (() => {
+    switch (condition.property) {
+      case 'attendeeType': return attendee.attendeeType || '';
+      case 'registrationStatus': return attendee.registrationStatus || '';
+      case 'ticketType': return attendee.ticketType || '';
+      case 'checkedIn': return attendee.checkedIn ? 'true' : 'false';
+      case 'company': return attendee.company || '';
+      case 'jobTitle': return attendee.jobTitle || '';
+      default: return '';
+    }
+  })();
+
+  const conditionValue = condition.value || '';
+
+  if ((condition.operator === 'contains' || condition.operator === 'not_contains') && !conditionValue.trim()) {
+    return true;
+  }
+
+  switch (condition.operator) {
+    case 'equals':
+      return propertyValue.toLowerCase() === conditionValue.toLowerCase();
+    case 'not_equals':
+      return propertyValue.toLowerCase() !== conditionValue.toLowerCase();
+    case 'contains':
+      return propertyValue.toLowerCase().includes(conditionValue.toLowerCase());
+    case 'not_contains':
+      return !propertyValue.toLowerCase().includes(conditionValue.toLowerCase());
+    case 'is_empty':
+      return !propertyValue || propertyValue.trim() === '';
+    case 'is_not_empty':
+      return !!propertyValue && propertyValue.trim() !== '';
+    default: return true;
+  }
+}
+
+function checkVisibilityCondition(
+  condition: VisibilityCondition | { enabled: boolean; property?: string; operator?: string; value?: string } | undefined,
+  attendee: SpoofAttendee | null | undefined
+): boolean {
+  if (!condition?.enabled) return true;
+  if (!attendee) return true;
+  
+  let conditions: SingleCondition[] = [];
+  let logic: 'and' | 'or' = 'and';
+  
+  if ('conditions' in condition && Array.isArray(condition.conditions)) {
+    conditions = condition.conditions;
+    logic = condition.logic || 'and';
+  } else if ('property' in condition && condition.property) {
+    conditions = [{
+      property: condition.property as SingleCondition['property'],
+      operator: (condition.operator || 'equals') as SingleCondition['operator'],
+      value: condition.value || ''
+    }];
+  }
+  
+  if (conditions.length === 0) return true;
+  
+  if (logic === 'and') {
+    return conditions.every(c => evaluateSingleCondition(c, attendee));
+  } else {
+    return conditions.some(c => evaluateSingleCondition(c, attendee));
+  }
 }
 
 const calculateDiscount = (price: number, discountType: string | null, discountValue: string | null): number => {
@@ -160,6 +267,7 @@ interface Section {
   type: string;
   order: number;
   config: Record<string, unknown>;
+  styles?: SectionStyles;
 }
 
 interface Step1Config {
@@ -453,6 +561,35 @@ export default function PublicRegistration() {
   const [isCreatingPaymentIntent, setIsCreatingPaymentIntent] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [urlCodeAttempted, setUrlCodeAttempted] = useState<string | null>(null);
+
+  // Parse spoof mode query parameters
+  const searchParams = new URLSearchParams(window.location.search);
+  const spoofAttendeeId = searchParams.get('spoof');
+  const spoofOrgId = searchParams.get('orgId');
+  const isSpoof = !!(spoofAttendeeId && spoofOrgId);
+
+  // Fetch spoofed attendee data when in spoof mode
+  // Security: This endpoint requires authentication and owner role check
+  const { data: spoofData, isLoading: spoofLoading, error: spoofError } = useQuery<{ attendee: SpoofAttendee }>({
+    queryKey: ["/api/organizations", spoofOrgId, "attendees", spoofAttendeeId, "spoof-portal"],
+    queryFn: async () => {
+      const res = await fetch(`/api/organizations/${spoofOrgId}/attendees/${spoofAttendeeId}/spoof-portal`);
+      if (!res.ok) throw new Error("Failed to fetch spoof data");
+      return res.json();
+    },
+    enabled: isSpoof,
+  });
+
+  const spoofAttendee = isSpoof ? spoofData?.attendee : null;
+
+  // Helper to exit spoof mode by removing query params
+  const exitSpoofMode = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('spoof');
+    url.searchParams.delete('orgId');
+    window.history.replaceState({}, '', url.toString());
+    window.location.reload();
+  };
 
   // Parse URL query parameters (e.g., ?attendeeType=speaker&code=SPEAKER-123-ABCD)
   const search = useSearch();
@@ -777,7 +914,7 @@ export default function PublicRegistration() {
     return basePrice;
   };
 
-  if (isLoading) {
+  if (isLoading || (isSpoof && spoofLoading)) {
     return (
       <div className="min-h-screen bg-background p-6">
         <div className="max-w-2xl mx-auto space-y-6">
@@ -786,6 +923,12 @@ export default function PublicRegistration() {
         </div>
       </div>
     );
+  }
+
+  // If spoof mode failed (user not authorized), exit spoof mode
+  if (isSpoof && spoofError) {
+    exitSpoofMode();
+    return null;
   }
 
   if (error || !data) {
@@ -809,7 +952,13 @@ export default function PublicRegistration() {
   }
 
   const { event, registrationPage, landingTheme } = data;
-  const sections = (registrationPage?.sections as Section[]) || [];
+  const rawSections = (registrationPage?.sections as Section[]) || [];
+  
+  // Filter sections by visibility conditions if in spoof mode
+  const sections = isSpoof 
+    ? rawSections.filter(section => checkVisibilityCondition(section.styles?.visibilityCondition, spoofAttendee))
+    : rawSections;
+
   const theme = registrationPage?.theme || landingTheme;
   const themeStyles = getThemeStyles(theme);
   const fontsToLoad = [theme?.headingFont, theme?.bodyFont].filter(Boolean) as string[];
@@ -935,6 +1084,26 @@ export default function PublicRegistration() {
   return (
     <>
       <GoogleFontsLoader fonts={fontsToLoad} />
+      {isSpoof && spoofAttendee && (
+        <div className="bg-primary/10 border-b border-primary/20 py-2 px-4 flex items-center justify-between sticky top-0 z-50 backdrop-blur-sm">
+          <div className="flex items-center gap-2 text-sm font-medium text-primary">
+            <Eye className="w-4 h-4" />
+            <span>
+              Preview Mode: Viewing as {spoofAttendee.firstName} {spoofAttendee.lastName} 
+              {spoofAttendee.attendeeType && ` (${titleCase(spoofAttendee.attendeeType)})`}
+            </span>
+          </div>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={exitSpoofMode}
+            className="h-8 text-xs"
+            data-testid="button-exit-preview"
+          >
+            Exit Preview
+          </Button>
+        </div>
+      )}
       <div 
         className="min-h-screen bg-background"
         style={{
@@ -1128,7 +1297,7 @@ export default function PublicRegistration() {
                           <Button
                             type="button"
                             variant={validatedCode ? "secondary" : "outline"}
-                            onClick={validateInviteCode}
+                            onClick={() => validateInviteCode()}
                             disabled={!inviteCodeInput.trim() || isValidatingCode || !!validatedCode}
                             data-testid="button-validate-code"
                           >

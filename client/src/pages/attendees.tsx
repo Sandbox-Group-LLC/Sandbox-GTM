@@ -1358,6 +1358,18 @@ export default function Attendees() {
                         variant="outline"
                         onClick={() => {
                           const slug = eventSlugLookup[viewingAttendee.eventId];
+                          const spoofUrl = `/event/${slug}/register?spoof=${viewingAttendee.id}&orgId=${organization?.id}`;
+                          window.open(spoofUrl, '_blank');
+                        }}
+                        data-testid="button-preview-registration"
+                      >
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        Registration
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          const slug = eventSlugLookup[viewingAttendee.eventId];
                           const spoofUrl = `/event/${slug}/portal?spoof=${viewingAttendee.id}&orgId=${organization?.id}`;
                           window.open(spoofUrl, '_blank');
                         }}
