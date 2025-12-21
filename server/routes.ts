@@ -232,6 +232,7 @@ export async function registerRoutes(
 
   // Middleware to require signup invite code redemption
   // Super admins bypass this check
+  // Team members who accepted invitations also bypass this check
   const requireInviteRedemption = async (req: any, res: any, next: any) => {
     try {
       const userId = req.user?.claims?.sub;
@@ -248,14 +249,20 @@ export async function registerRoutes(
       
       // Check if user has redeemed an invite code
       const redemption = await storage.getSignupRedemptionForUser(userId);
-      if (!redemption) {
-        return res.status(403).json({ 
-          message: "Invite code required. Please redeem a valid invite code to access this feature.",
-          code: "INVITE_REQUIRED"
-        });
+      if (redemption) {
+        return next();
       }
       
-      return next();
+      // Also allow users who are members of an organization (accepted team invitation)
+      const memberships = await storage.getUserOrganizations(userId);
+      if (memberships && memberships.length > 0) {
+        return next();
+      }
+      
+      return res.status(403).json({ 
+        message: "Invite code required. Please redeem a valid invite code to access this feature.",
+        code: "INVITE_REQUIRED"
+      });
     } catch (error) {
       logError("Error checking invite redemption:", error);
       return res.status(500).json({ message: "Failed to verify access" });
