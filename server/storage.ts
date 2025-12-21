@@ -2529,7 +2529,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteVendor(organizationId: string, id: string): Promise<void> {
+    // First get the vendor to find any associated budget item
+    const vendor = await this.getVendor(organizationId, id);
+    
+    // Delete the vendor
     await db.delete(vendors).where(and(eq(vendors.organizationId, organizationId), eq(vendors.id, id)));
+    
+    // If vendor had an associated budget item, delete it as well
+    if (vendor?.budgetItemId) {
+      await db.delete(budgetItems).where(and(eq(budgetItems.organizationId, organizationId), eq(budgetItems.id, vendor.budgetItemId)));
+    }
   }
 
   // CFP Config operations
