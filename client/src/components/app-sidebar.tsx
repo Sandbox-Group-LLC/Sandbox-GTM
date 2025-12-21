@@ -701,26 +701,46 @@ export function AppSidebar() {
               </CollapsibleContent>
             </SidebarMenuItem>
           </Collapsible>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              isActive={location === "/integrations"}
-              data-testid="nav-integrations"
-            >
-              <Link href="/integrations">
-                <Plug className="h-4 w-4" />
-                <span>Integrations</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild data-testid="nav-settings">
-              <Link href="/settings">
-                <Settings className="h-4 w-4" />
-                <span>Settings</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+          <Collapsible defaultOpen={location === "/settings" || location === "/integrations"} className="group/collapsible">
+            <SidebarMenuItem>
+              <CollapsibleTrigger asChild>
+                <SidebarMenuButton
+                  isActive={location === "/settings" || location === "/integrations"}
+                  data-testid="nav-settings"
+                >
+                  <Settings className="h-4 w-4" />
+                  <span>Settings</span>
+                  <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                </SidebarMenuButton>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <SidebarMenuSub>
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton
+                      asChild
+                      isActive={location === "/settings"}
+                      data-testid="nav-settings-general"
+                    >
+                      <Link href="/settings">
+                        <span>General</span>
+                      </Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton
+                      asChild
+                      isActive={location === "/integrations"}
+                      data-testid="nav-integrations"
+                    >
+                      <Link href="/integrations">
+                        <span>Integrations</span>
+                      </Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                </SidebarMenuSub>
+              </CollapsibleContent>
+            </SidebarMenuItem>
+          </Collapsible>
           <SidebarMenuItem>
             <SidebarMenuButton asChild data-testid="button-logout">
               <a href="/api/logout">
