@@ -141,7 +141,7 @@ function evaluateSingleCondition(
 }
 
 function checkVisibilityCondition(
-  condition: VisibilityCondition | undefined,
+  condition: VisibilityCondition | { enabled: boolean; property?: string; operator?: string; value?: string } | undefined,
   attendee: Omit<Attendee, 'passwordHash'> | null | undefined
 ): boolean {
   // If no condition or condition not enabled, show the section
@@ -150,17 +150,32 @@ function checkVisibilityCondition(
   // If no attendee data available, show all sections (safe fallback)
   if (!attendee) return true;
   
-  // If no conditions array or empty, show the section
-  if (!condition.conditions || condition.conditions.length === 0) return true;
+  // Handle old format (property/operator/value directly on object) - migrate to new format
+  let conditions: SingleCondition[] = [];
+  let logic: 'and' | 'or' = 'and';
   
-  const logic = condition.logic || 'and';
+  if ('conditions' in condition && Array.isArray(condition.conditions)) {
+    // New format
+    conditions = condition.conditions;
+    logic = condition.logic || 'and';
+  } else if ('property' in condition && condition.property) {
+    // Old format - convert to single condition
+    conditions = [{
+      property: condition.property,
+      operator: (condition.operator || 'equals') as SingleCondition['operator'],
+      value: condition.value || ''
+    }];
+  }
+  
+  // If no conditions, show the section
+  if (conditions.length === 0) return true;
   
   if (logic === 'and') {
     // All conditions must be true
-    return condition.conditions.every(c => evaluateSingleCondition(c, attendee));
+    return conditions.every(c => evaluateSingleCondition(c, attendee));
   } else {
     // At least one condition must be true
-    return condition.conditions.some(c => evaluateSingleCondition(c, attendee));
+    return conditions.some(c => evaluateSingleCondition(c, attendee));
   }
 }
 

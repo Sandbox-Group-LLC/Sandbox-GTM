@@ -125,6 +125,37 @@ interface SectionStyles {
   visibilityCondition?: VisibilityCondition;
 }
 
+// Helper to normalize old visibility condition format to new format
+function normalizeVisibilityCondition(
+  raw: VisibilityCondition | { enabled: boolean; property: string; operator: string; value: string } | undefined
+): VisibilityCondition {
+  if (!raw) {
+    return { enabled: false, logic: 'and', conditions: [] };
+  }
+  // Check if this is the new format (has conditions array)
+  if ('conditions' in raw && Array.isArray(raw.conditions)) {
+    return {
+      enabled: raw.enabled,
+      logic: raw.logic || 'and',
+      conditions: raw.conditions
+    };
+  }
+  // Migrate old format (property/operator/value directly on object)
+  const oldFormat = raw as { enabled: boolean; property?: string; operator?: string; value?: string };
+  if (oldFormat.property) {
+    return {
+      enabled: oldFormat.enabled,
+      logic: 'and',
+      conditions: [{
+        property: oldFormat.property,
+        operator: (oldFormat.operator || 'equals') as SingleCondition['operator'],
+        value: oldFormat.value || ''
+      }]
+    };
+  }
+  return { enabled: raw.enabled, logic: 'and', conditions: [] };
+}
+
 interface Section {
   id: string;
   type: SectionType;
@@ -3485,6 +3516,9 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId }: S
               
               <Separator className="my-4" />
               
+              {(() => {
+                const normalized = normalizeVisibilityCondition(styles.visibilityCondition as VisibilityCondition | { enabled: boolean; property: string; operator: string; value: string } | undefined);
+                return (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
@@ -3495,26 +3529,24 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId }: S
                   </div>
                   <Switch
                     id="visibility-condition"
-                    checked={styles.visibilityCondition?.enabled || false}
+                    checked={normalized.enabled}
                     onCheckedChange={(checked) => {
-                      const current = styles.visibilityCondition || { enabled: false, logic: 'and' as const, conditions: [] };
-                      updateStyles("visibilityCondition", { ...current, enabled: checked });
+                      updateStyles("visibilityCondition", { ...normalized, enabled: checked });
                     }}
                     data-testid="switch-visibility-condition"
                   />
                 </div>
                 
-                {styles.visibilityCondition?.enabled && (
+                {normalized.enabled && (
                   <div className="space-y-3 p-3 rounded-md bg-muted/50 border">
                     <div className="flex items-center justify-between gap-2">
                       <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                         Show when
                       </div>
                       <Select
-                        value={styles.visibilityCondition?.logic || "and"}
+                        value={normalized.logic}
                         onValueChange={(value) => {
-                          const current = styles.visibilityCondition || { enabled: true, logic: 'and' as const, conditions: [] };
-                          updateStyles("visibilityCondition", { ...current, logic: value as 'and' | 'or' });
+                          updateStyles("visibilityCondition", { ...normalized, logic: value as 'and' | 'or' });
                         }}
                       >
                         <SelectTrigger className="w-24" data-testid="select-visibility-logic">
@@ -3529,7 +3561,7 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId }: S
                     </div>
                     
                     <div className="space-y-2">
-                      {(styles.visibilityCondition?.conditions || []).map((condition, index) => (
+                      {normalized.conditions.map((condition, index) => (
                         <div key={index} className="flex flex-col gap-2 p-2 bg-background rounded border">
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-medium">Condition {index + 1}</span>
@@ -3539,10 +3571,9 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId }: S
                               size="icon"
                               className="h-6 w-6"
                               onClick={() => {
-                                const current = styles.visibilityCondition || { enabled: true, logic: 'and' as const, conditions: [] };
-                                const newConditions = [...current.conditions];
+                                const newConditions = [...normalized.conditions];
                                 newConditions.splice(index, 1);
-                                updateStyles("visibilityCondition", { ...current, conditions: newConditions });
+                                updateStyles("visibilityCondition", { ...normalized, conditions: newConditions });
                               }}
                               data-testid={`button-remove-condition-${index}`}
                             >
@@ -3552,10 +3583,9 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId }: S
                           <Select
                             value={condition.property || ""}
                             onValueChange={(value) => {
-                              const current = styles.visibilityCondition || { enabled: true, logic: 'and' as const, conditions: [] };
-                              const newConditions = [...current.conditions];
+                              const newConditions = [...normalized.conditions];
                               newConditions[index] = { ...newConditions[index], property: value };
-                              updateStyles("visibilityCondition", { ...current, conditions: newConditions });
+                              updateStyles("visibilityCondition", { ...normalized, conditions: newConditions });
                             }}
                           >
                             <SelectTrigger data-testid={`select-condition-property-${index}`}>
@@ -3573,10 +3603,9 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId }: S
                           <Select
                             value={condition.operator || "equals"}
                             onValueChange={(value) => {
-                              const current = styles.visibilityCondition || { enabled: true, logic: 'and' as const, conditions: [] };
-                              const newConditions = [...current.conditions];
+                              const newConditions = [...normalized.conditions];
                               newConditions[index] = { ...newConditions[index], operator: value as SingleCondition['operator'] };
-                              updateStyles("visibilityCondition", { ...current, conditions: newConditions });
+                              updateStyles("visibilityCondition", { ...normalized, conditions: newConditions });
                             }}
                           >
                             <SelectTrigger data-testid={`select-condition-operator-${index}`}>
@@ -3597,10 +3626,9 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId }: S
                                 <Select
                                   value={condition.value || ""}
                                   onValueChange={(value) => {
-                                    const current = styles.visibilityCondition || { enabled: true, logic: 'and' as const, conditions: [] };
-                                    const newConditions = [...current.conditions];
+                                    const newConditions = [...normalized.conditions];
                                     newConditions[index] = { ...newConditions[index], value };
-                                    updateStyles("visibilityCondition", { ...current, conditions: newConditions });
+                                    updateStyles("visibilityCondition", { ...normalized, conditions: newConditions });
                                   }}
                                 >
                                   <SelectTrigger data-testid={`select-condition-value-bool-${index}`}>
@@ -3615,10 +3643,9 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId }: S
                                 <Select
                                   value={condition.value || ""}
                                   onValueChange={(value) => {
-                                    const current = styles.visibilityCondition || { enabled: true, logic: 'and' as const, conditions: [] };
-                                    const newConditions = [...current.conditions];
+                                    const newConditions = [...normalized.conditions];
                                     newConditions[index] = { ...newConditions[index], value };
-                                    updateStyles("visibilityCondition", { ...current, conditions: newConditions });
+                                    updateStyles("visibilityCondition", { ...normalized, conditions: newConditions });
                                   }}
                                 >
                                   <SelectTrigger data-testid={`select-condition-value-status-${index}`}>
@@ -3638,10 +3665,9 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId }: S
                                 <Input
                                   value={condition.value || ""}
                                   onChange={(e) => {
-                                    const current = styles.visibilityCondition || { enabled: true, logic: 'and' as const, conditions: [] };
-                                    const newConditions = [...current.conditions];
+                                    const newConditions = [...normalized.conditions];
                                     newConditions[index] = { ...newConditions[index], value: e.target.value };
-                                    updateStyles("visibilityCondition", { ...current, conditions: newConditions });
+                                    updateStyles("visibilityCondition", { ...normalized, conditions: newConditions });
                                   }}
                                   placeholder="Enter value to match"
                                   data-testid={`input-condition-value-${index}`}
@@ -3658,9 +3684,8 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId }: S
                       variant="outline"
                       size="sm"
                       onClick={() => {
-                        const current = styles.visibilityCondition || { enabled: true, logic: 'and' as const, conditions: [] };
                         const newCondition: SingleCondition = { property: '', operator: 'equals', value: '' };
-                        updateStyles("visibilityCondition", { ...current, conditions: [...current.conditions, newCondition] });
+                        updateStyles("visibilityCondition", { ...normalized, conditions: [...normalized.conditions, newCondition] });
                       }}
                       data-testid="button-add-condition"
                     >
@@ -3668,16 +3693,18 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId }: S
                       Add Condition
                     </Button>
                     
-                    {(styles.visibilityCondition?.conditions || []).length > 0 && (
+                    {normalized.conditions.length > 0 && (
                       <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
                         This section will only be visible when{' '}
-                        <strong>{styles.visibilityCondition?.logic === 'or' ? 'any' : 'all'}</strong>{' '}
-                        of the {styles.visibilityCondition?.conditions?.length || 0} condition(s) match.
+                        <strong>{normalized.logic === 'or' ? 'any' : 'all'}</strong>{' '}
+                        of the {normalized.conditions.length} condition(s) match.
                       </div>
                     )}
                   </div>
                 )}
               </div>
+                );
+              })()}
             </div>
           </AccordionContent>
         </AccordionItem>
