@@ -1,6 +1,7 @@
-import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { Event, EventTranslation } from "@shared/schema";
+import { getUITranslations, type UITranslations } from "@shared/ui-translations";
 
 interface EventLocaleContextValue {
   currentLocale: string;
@@ -12,6 +13,8 @@ interface EventLocaleContextValue {
   ) => T;
   translations: EventTranslation[];
   isLoading: boolean;
+  // UI translations for static text
+  t: UITranslations;
 }
 
 const EventLocaleContext = createContext<EventLocaleContextValue | null>(null);
@@ -126,6 +129,9 @@ export function EventLocaleProvider({
     }
   }, [supportedLanguages, currentLocale, defaultLanguage, event?.id]);
 
+  // Get UI translations for current locale
+  const uiTranslations = useMemo(() => getUITranslations(currentLocale), [currentLocale]);
+
   return (
     <EventLocaleContext.Provider
       value={{
@@ -136,6 +142,7 @@ export function EventLocaleProvider({
         getLocalizedContent,
         translations,
         isLoading,
+        t: uiTranslations,
       }}
     >
       {children}
