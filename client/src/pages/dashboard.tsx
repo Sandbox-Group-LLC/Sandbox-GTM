@@ -68,6 +68,7 @@ interface AnalyticsData {
   budget: {
     totalPlanned: number;
     totalSpent: number;
+    budgetCap: number;
     budgetRemaining: number;
     utilizationRate: number;
   };

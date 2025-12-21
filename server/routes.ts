@@ -6373,8 +6373,9 @@ ${urls.map(u => `  <url>
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId, req.session);
+      const eventId = req.query.eventId as string | undefined;
       
-      const [attendees, sessions, speakers, budgetItems, deliverables, milestones, emailCampaigns, socialPosts] = await Promise.all([
+      const [allAttendees, allSessions, allSpeakers, allBudgetItems, allDeliverables, allMilestones, allEmailCampaigns, allSocialPosts, events] = await Promise.all([
         storage.getAttendees(organizationId),
         storage.getSessions(organizationId),
         storage.getSpeakers(organizationId),
@@ -6383,7 +6384,31 @@ ${urls.map(u => `  <url>
         storage.getMilestones(organizationId),
         storage.getEmailCampaigns(organizationId),
         storage.getSocialPosts(organizationId),
+        storage.getEvents(organizationId),
       ]);
+
+      // Filter by eventId if provided
+      const attendees = eventId ? allAttendees.filter(a => a.eventId === eventId) : allAttendees;
+      const sessions = eventId ? allSessions.filter(s => s.eventId === eventId) : allSessions;
+      const speakers = eventId ? allSpeakers.filter(s => s.eventId === eventId) : allSpeakers;
+      const budgetItems = eventId ? allBudgetItems.filter(b => b.eventId === eventId) : allBudgetItems;
+      const deliverables = eventId ? allDeliverables.filter(d => d.eventId === eventId) : allDeliverables;
+      const milestones = eventId ? allMilestones.filter(m => m.eventId === eventId) : allMilestones;
+      const emailCampaigns = eventId ? allEmailCampaigns.filter(e => e.eventId === eventId) : allEmailCampaigns;
+      const socialPosts = eventId ? allSocialPosts.filter(p => p.eventId === eventId) : allSocialPosts;
+
+      // Get budget caps from event budget settings
+      let totalBudgetCap = 0;
+      if (eventId) {
+        // Single event - get its budget cap
+        const settings = await storage.getEventBudgetSettings(eventId);
+        totalBudgetCap = parseFloat(settings?.budgetCap || "0");
+      } else {
+        // All events - sum up all budget caps
+        const settingsPromises = events.map(e => storage.getEventBudgetSettings(e.id));
+        const allSettings = await Promise.all(settingsPromises);
+        totalBudgetCap = allSettings.reduce((sum, s) => sum + parseFloat(s?.budgetCap || "0"), 0);
+      }
 
       // Registration trends by date
       const registrationsByDate = attendees.reduce((acc: Record<string, number>, a) => {
@@ -6407,7 +6432,10 @@ ${urls.map(u => `  <url>
       const totalPlanned = budgetItems.reduce((sum, item) => sum + parseFloat(item.plannedAmount || "0"), 0);
       const totalForecast = budgetItems.reduce((sum, item) => sum + parseFloat(item.forecastAmount || "0"), 0);
       const totalSpent = totalForecast; // Program Spend shows committed/forecast amounts
-      const budgetRemaining = totalPlanned - totalSpent;
+      const budgetRemaining = totalBudgetCap - totalSpent;
+      
+      // Calculate utilization rate as forecast total vs budget cap
+      const utilizationRate = totalBudgetCap > 0 ? Math.round((totalForecast / totalBudgetCap) * 100) : 0;
 
       // Project progress
       const completedDeliverables = deliverables.filter(d => d.status === "done").length;
@@ -6435,8 +6463,9 @@ ${urls.map(u => `  <url>
         budget: {
           totalPlanned,
           totalSpent,
+          budgetCap: totalBudgetCap,
           budgetRemaining,
-          utilizationRate: totalPlanned > 0 ? Math.round((totalSpent / totalPlanned) * 100) : 0,
+          utilizationRate,
         },
         project: {
           deliverables: deliverables.length,
