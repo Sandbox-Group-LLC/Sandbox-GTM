@@ -11,7 +11,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Event, EventSession, Speaker, EventPage, EventPageTheme, EventSponsor } from "@shared/schema";
 import { replaceMergeTags, type MergeTagContext } from "@shared/mergeTags";
-import { titleCase } from "@/lib/utils";
+import { titleCase, formatEventDate } from "@/lib/utils";
 import { sanitizeCustomCss } from "@shared/css-sanitizer";
 
 export { sanitizeCustomCss };
@@ -1122,7 +1122,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
                   <div className="text-right text-sm whitespace-nowrap" style={secondaryTextStyles}>
                     <p>{session.startTime} - {session.endTime}</p>
                     {showRoom && session.room && <p className="text-xs">{session.room}</p>}
-                    {!options?.hideDate && session.sessionDate && <p className="text-xs">{session.sessionDate}</p>}
+                    {!options?.hideDate && session.sessionDate && <p className="text-xs">{formatEventDate(session.sessionDate, 'short')}</p>}
                   </div>
                 </div>
               </CardContent>
@@ -1158,10 +1158,10 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
           return (
             <div className="space-y-4">
               <Tabs value={activeDay} onValueChange={(v) => { setActiveDay(v); setActiveTrack("All"); }} className="w-full">
-                <TabsList className="flex flex-wrap gap-1 h-auto mb-4" data-testid="tabs-agenda-days">
+                <TabsList className="flex flex-wrap gap-2 h-auto p-1" data-testid="tabs-agenda-days">
                   {allDays.map((day) => (
-                    <TabsTrigger key={day} value={day} data-testid={`tab-day-${day}`}>
-                      {day === "All" ? "All Days" : day}
+                    <TabsTrigger key={day} value={day} className="px-4" data-testid={`tab-day-${day}`}>
+                      {day === "All" ? "All Days" : formatEventDate(day, 'tabLabel')}
                     </TabsTrigger>
                   ))}
                 </TabsList>
@@ -1202,14 +1202,14 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
 
           return (
             <Tabs value={activeDay} onValueChange={setActiveDay} className="w-full">
-              <TabsList className="flex flex-wrap gap-1 h-auto mb-4" data-testid="tabs-agenda-days">
+              <TabsList className="flex flex-wrap gap-2 h-auto p-1" data-testid="tabs-agenda-days">
                 {allDays.map((day) => (
-                  <TabsTrigger key={day} value={day} data-testid={`tab-day-${day}`}>
-                    {day === "All" ? "All Days" : day}
+                  <TabsTrigger key={day} value={day} className="px-4" data-testid={`tab-day-${day}`}>
+                    {day === "All" ? "All Days" : formatEventDate(day, 'tabLabel')}
                   </TabsTrigger>
                 ))}
               </TabsList>
-              <TabsContent value={activeDay} forceMount>
+              <TabsContent value={activeDay} forceMount className="mt-4">
                 {filteredSessions.length > 0 ? (
                   renderSessionList(filteredSessions, { hideDate: activeDay !== "All" })
                 ) : (
@@ -1229,14 +1229,14 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
 
           return (
             <Tabs value={activeTrack} onValueChange={setActiveTrack} className="w-full">
-              <TabsList className="flex flex-wrap gap-1 h-auto mb-4" data-testid="tabs-agenda-tracks">
+              <TabsList className="flex flex-wrap gap-2 h-auto p-1" data-testid="tabs-agenda-tracks">
                 {allTracks.map((track) => (
-                  <TabsTrigger key={track} value={track} data-testid={`tab-track-${track}`}>
+                  <TabsTrigger key={track} value={track} className="px-4" data-testid={`tab-track-${track}`}>
                     {track === "All" ? "All Tracks" : titleCase(track)}
                   </TabsTrigger>
                 ))}
               </TabsList>
-              <TabsContent value={activeTrack} forceMount>
+              <TabsContent value={activeTrack} forceMount className="mt-4">
                 {filteredSessions.length > 0 ? (
                   renderSessionList(filteredSessions, { hideTrack: activeTrack !== "All" })
                 ) : (
