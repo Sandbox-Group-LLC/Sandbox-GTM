@@ -32,10 +32,7 @@ app.get("/api/public/test", (_req, res) => {
   res.status(200).json({ message: "public test works", env: process.env.NODE_ENV });
 });
 
-// Register public tracking route early (before async initialization)
-// This ensures activation links work even if auth/session initialization has issues
-registerPublicTrackingRoute(app);
-
+// Parse JSON bodies early so all routes can access req.body
 app.use(
   express.json({
     verify: (req, _res, buf) => {
@@ -45,6 +42,10 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false }));
+
+// Register public tracking route early (before async initialization)
+// This ensures activation links work even if auth/session initialization has issues
+registerPublicTrackingRoute(app);
 
 app.use((req, res, next) => {
   const start = Date.now();
