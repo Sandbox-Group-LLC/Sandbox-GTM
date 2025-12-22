@@ -8,12 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import logoImage from "@assets/Orange_bug_-_no_background_1765765097769.png";
 
 const benefits = [
-  "Manage unlimited events",
-  "Custom registration forms with payment processing",
-  "Speaker and session management",
-  "Email campaigns with analytics",
-  "Call for Papers workflow",
-  "Budget tracking and deliverables",
+  "Run unlimited programs and events",
+  "Capture and convert audiences with flexible registration flows",
+  "Design sessions and experiences that drive engagement",
+  "Launch event campaigns with built-in performance analytics",
+  "Manage speakers, contributors, and content workflows",
+  "Track investment, execution, and program outcomes",
 ];
 
 export default function Signup() {

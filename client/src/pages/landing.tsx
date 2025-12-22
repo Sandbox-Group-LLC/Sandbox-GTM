@@ -78,9 +78,6 @@ export default function Landing() {
             <span className="font-semibold text-lg text-[#ffffff]">Sandbox</span>
           </div>
           <div className="flex items-center gap-4">
-            <Button variant="ghost" asChild data-testid="link-pricing">
-              <a href="/pricing" className="text-[#b8b8b8]">Pricing</a>
-            </Button>
             <Button asChild data-testid="button-login-header">
               <a href="/api/login">Sign In</a>
             </Button>
