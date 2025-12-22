@@ -1018,6 +1018,20 @@ export default function PublicRegistration() {
   const themeStyles = getThemeStyles(theme);
   const fontsToLoad = [theme?.headingFont, theme?.bodyFont].filter(Boolean) as string[];
 
+  // Input styling based on theme - matches site builder preview
+  const borderRadiusMap: Record<string, string> = {
+    none: "0px", small: "4px", medium: "8px", large: "16px", pill: "9999px",
+  };
+  const inputStyles: React.CSSProperties = {
+    backgroundColor: theme?.backgroundColor || "#ffffff",
+    borderColor: theme?.borderColor || "#e5e7eb",
+    borderRadius: borderRadiusMap[theme?.borderRadius || "medium"],
+    color: theme?.textColor || "#1f2937",
+  };
+  const labelStyles: React.CSSProperties = {
+    color: theme?.textColor || "#1f2937",
+  };
+
   const stepTitles = ["Personal Info", "Select Access Package", "Payment", "Confirmation"];
   const totalSteps = requiresPayment ? 4 : 3;
 
@@ -1219,7 +1233,7 @@ export default function PublicRegistration() {
                                 First Name{requiredFields.firstName && <span className="text-destructive ml-1">*</span>}
                               </FormLabel>
                               <FormControl>
-                                <Input data-testid="input-first-name" {...field} />
+                                <Input data-testid="input-first-name" style={inputStyles} {...field} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -1234,7 +1248,7 @@ export default function PublicRegistration() {
                                 Last Name{requiredFields.lastName && <span className="text-destructive ml-1">*</span>}
                               </FormLabel>
                               <FormControl>
-                                <Input data-testid="input-last-name" {...field} />
+                                <Input data-testid="input-last-name" style={inputStyles} {...field} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -1251,7 +1265,7 @@ export default function PublicRegistration() {
                               Email{requiredFields.email && <span className="text-destructive ml-1">*</span>}
                             </FormLabel>
                             <FormControl>
-                              <Input type="email" data-testid="input-email" {...field} />
+                              <Input type="email" data-testid="input-email" style={inputStyles} {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -1269,7 +1283,7 @@ export default function PublicRegistration() {
                                   Password<span className="text-destructive ml-1">*</span>
                                 </FormLabel>
                                 <FormControl>
-                                  <Input type="password" data-testid="input-password" {...field} />
+                                  <Input type="password" data-testid="input-password" style={inputStyles} {...field} />
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
@@ -1284,7 +1298,7 @@ export default function PublicRegistration() {
                                   Confirm Password<span className="text-destructive ml-1">*</span>
                                 </FormLabel>
                                 <FormControl>
-                                  <Input type="password" data-testid="input-confirm-password" {...field} />
+                                  <Input type="password" data-testid="input-confirm-password" style={inputStyles} {...field} />
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
@@ -1302,7 +1316,7 @@ export default function PublicRegistration() {
                               Phone{requiredFields.phone ? <span className="text-destructive ml-1">*</span> : " (optional)"}
                             </FormLabel>
                             <FormControl>
-                              <Input data-testid="input-phone" {...field} />
+                              <Input data-testid="input-phone" style={inputStyles} {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -1318,7 +1332,7 @@ export default function PublicRegistration() {
                               Company{requiredFields.company ? <span className="text-destructive ml-1">*</span> : " (optional)"}
                             </FormLabel>
                             <FormControl>
-                              <Input data-testid="input-company" {...field} />
+                              <Input data-testid="input-company" style={inputStyles} {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -1334,7 +1348,7 @@ export default function PublicRegistration() {
                               Job Title{requiredFields.jobTitle ? <span className="text-destructive ml-1">*</span> : " (optional)"}
                             </FormLabel>
                             <FormControl>
-                              <Input data-testid="input-job-title" {...field} />
+                              <Input data-testid="input-job-title" style={inputStyles} {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -1349,6 +1363,7 @@ export default function PublicRegistration() {
                             value={inviteCodeInput}
                             onChange={(e) => setInviteCodeInput(e.target.value)}
                             disabled={!!validatedCode}
+                            style={inputStyles}
                             data-testid="input-invite-code"
                           />
                           <Button
@@ -1472,6 +1487,7 @@ export default function PublicRegistration() {
                               key={customField.id}
                               customField={customField}
                               control={form.control}
+                              inputStyles={inputStyles}
                             />
                           ))}
                         </div>
@@ -1736,7 +1752,7 @@ function SectionRenderer({ section, event, slug, theme }: { section: Section; ev
   }
 }
 
-function CustomFieldRenderer({ customField, control }: { customField: CustomField; control: any }) {
+function CustomFieldRenderer({ customField, control, inputStyles }: { customField: CustomField; control: any; inputStyles?: React.CSSProperties }) {
   const fieldName = `customData.${customField.name}` as const;
   const labelText = customField.required ? customField.label : `${customField.label} (optional)`;
 
@@ -1753,6 +1769,7 @@ function CustomFieldRenderer({ customField, control }: { customField: CustomFiel
                 <Input 
                   {...field} 
                   value={field.value as string || ""}
+                  style={inputStyles}
                   data-testid={`input-custom-${customField.name}`} 
                 />
               </FormControl>
@@ -1774,6 +1791,7 @@ function CustomFieldRenderer({ customField, control }: { customField: CustomFiel
                 <Textarea 
                   {...field} 
                   value={field.value as string || ""}
+                  style={inputStyles}
                   data-testid={`textarea-custom-${customField.name}`} 
                 />
               </FormControl>
@@ -1796,6 +1814,7 @@ function CustomFieldRenderer({ customField, control }: { customField: CustomFiel
                   type="number" 
                   {...field} 
                   value={field.value as string || ""}
+                  style={inputStyles}
                   data-testid={`input-custom-${customField.name}`} 
                 />
               </FormControl>
@@ -1816,7 +1835,7 @@ function CustomFieldRenderer({ customField, control }: { customField: CustomFiel
               <FormLabel>{labelText}</FormLabel>
               <Select onValueChange={field.onChange} value={field.value as string || ""}>
                 <FormControl>
-                  <SelectTrigger data-testid={`select-custom-${customField.name}`}>
+                  <SelectTrigger style={inputStyles} data-testid={`select-custom-${customField.name}`}>
                     <SelectValue placeholder={`Select ${customField.label.toLowerCase()}`} />
                   </SelectTrigger>
                 </FormControl>
@@ -1868,6 +1887,7 @@ function CustomFieldRenderer({ customField, control }: { customField: CustomFiel
                 <Input 
                   {...field} 
                   value={field.value as string || ""}
+                  style={inputStyles}
                   data-testid={`input-custom-${customField.name}`} 
                 />
               </FormControl>
