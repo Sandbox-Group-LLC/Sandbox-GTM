@@ -737,6 +737,7 @@ export interface IStorage {
 
   // Event Feedback operations
   getEventFeedback(organizationId: string, eventId: string): Promise<EventFeedback[]>;
+  getAllEventFeedback(organizationId: string, eventId?: string): Promise<EventFeedback[]>;
   getAttendeeEventFeedback(attendeeId: string, eventId: string): Promise<EventFeedback | undefined>;
   createEventFeedback(data: InsertEventFeedback): Promise<EventFeedback>;
 
@@ -4136,6 +4137,15 @@ export class DatabaseStorage implements IStorage {
         eq(eventFeedback.organizationId, organizationId),
         eq(eventFeedback.eventId, eventId)
       ))
+      .orderBy(desc(eventFeedback.createdAt));
+  }
+
+  async getAllEventFeedback(organizationId: string, eventId?: string): Promise<EventFeedback[]> {
+    if (eventId) {
+      return this.getEventFeedback(organizationId, eventId);
+    }
+    return db.select().from(eventFeedback)
+      .where(eq(eventFeedback.organizationId, organizationId))
       .orderBy(desc(eventFeedback.createdAt));
   }
 

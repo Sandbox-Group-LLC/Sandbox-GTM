@@ -7954,7 +7954,7 @@ ${urls.map(u => `  <url>
       const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.query.eventId as string | undefined;
       
-      const [allAttendees, allSessions, allSpeakers, allBudgetItems, allDeliverables, allMilestones, allEmailCampaigns, allSocialPosts, events] = await Promise.all([
+      const [allAttendees, allSessions, allSpeakers, allBudgetItems, allDeliverables, allMilestones, allEmailCampaigns, allSocialPosts, events, allEventFeedback] = await Promise.all([
         storage.getAttendees(organizationId),
         storage.getSessions(organizationId),
         storage.getSpeakers(organizationId),
@@ -7964,6 +7964,7 @@ ${urls.map(u => `  <url>
         storage.getEmailCampaigns(organizationId),
         storage.getSocialPosts(organizationId),
         storage.getEvents(organizationId),
+        storage.getAllEventFeedback(organizationId, eventId),
       ]);
 
       // Filter by eventId if provided
@@ -8027,6 +8028,33 @@ ${urls.map(u => `  <url>
       const publishedPosts = socialPosts.filter(p => p.status === "published").length;
       const scheduledPosts = socialPosts.filter(p => p.status === "scheduled").length;
 
+      // NPS (Net Promoter Score) calculation from event feedback
+      // Use recommendationScore (0-10) or fall back to wouldRecommend boolean
+      const feedbackWithScores = allEventFeedback.filter(f => f.recommendationScore !== null || f.wouldRecommend !== null);
+      let promoters = 0;
+      let passives = 0;
+      let detractors = 0;
+      
+      feedbackWithScores.forEach(f => {
+        // Prefer recommendationScore if available, otherwise convert boolean
+        const score = f.recommendationScore !== null 
+          ? f.recommendationScore 
+          : (f.wouldRecommend ? 10 : 0); // true = 10 (promoter), false = 0 (detractor)
+        
+        if (score >= 9) {
+          promoters++;
+        } else if (score >= 7) {
+          passives++;
+        } else {
+          detractors++;
+        }
+      });
+      
+      const totalResponses = feedbackWithScores.length;
+      const npsScore = totalResponses > 0 
+        ? Math.round(((promoters / totalResponses) - (detractors / totalResponses)) * 100)
+        : null;
+
       res.json({
         attendance: {
           total: attendees.length,
@@ -8060,6 +8088,15 @@ ${urls.map(u => `  <url>
           totalPosts: socialPosts.length,
           publishedPosts,
           scheduledPosts,
+        },
+        nps: {
+          score: npsScore,
+          totalResponses,
+          promoters,
+          passives,
+          detractors,
+          promoterRate: totalResponses > 0 ? Math.round((promoters / totalResponses) * 100) : 0,
+          detractorRate: totalResponses > 0 ? Math.round((detractors / totalResponses) * 100) : 0,
         },
       });
     } catch (error) {
