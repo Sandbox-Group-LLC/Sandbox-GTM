@@ -1192,12 +1192,24 @@ export class DatabaseStorage implements IStorage {
     await db.delete(eventTranslations).where(eq(eventTranslations.eventId, id));
     await db.delete(feedbackConfigs).where(eq(feedbackConfigs.eventId, id));
     
-    // Delete document workspace items
-    await db.delete(documentWorkspaceFiles).where(eq(documentWorkspaceFiles.eventId, id));
-    await db.delete(documentWorkspaceFolders).where(eq(documentWorkspaceFolders.eventId, id));
+    // Delete document workspace items (must delete in order due to FK constraints)
+    await db.delete(documentApprovals).where(
+      sql`document_id IN (SELECT id FROM documents WHERE event_id = ${id})`
+    );
+    await db.delete(documentComments).where(
+      sql`document_id IN (SELECT id FROM documents WHERE event_id = ${id})`
+    );
+    await db.delete(documentActivity).where(
+      sql`document_id IN (SELECT id FROM documents WHERE event_id = ${id})`
+    );
+    await db.delete(documentShares).where(
+      sql`document_id IN (SELECT id FROM documents WHERE event_id = ${id})`
+    );
+    await db.delete(documents).where(eq(documents.eventId, id));
+    await db.delete(documentFolders).where(eq(documentFolders.eventId, id));
     
-    // Delete passkey housing mappings
-    await db.delete(passkeyHousingMappings).where(eq(passkeyHousingMappings.eventId, id));
+    // Delete passkey event mappings
+    await db.delete(passkeyEventMappings).where(eq(passkeyEventMappings.eventId, id));
     
     // Now delete the event itself
     await db.delete(events).where(and(eq(events.organizationId, organizationId), eq(events.id, id)));
