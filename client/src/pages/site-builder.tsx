@@ -99,6 +99,7 @@ import { format } from "date-fns";
 import type { Event, EventPage, EventPageTheme, EventSession, Speaker, EventSponsor, CustomFont } from "@shared/schema";
 import { MergeTagPicker } from "@/components/merge-tag-picker";
 import { SectionRenderer, GoogleFontsLoader, getThemeStyles, scopeCustomCss, sanitizeCustomCss } from "@/pages/public-event";
+import { EventLocaleProvider } from "@/hooks/use-event-locale";
 import { eventTemplates, TEMPLATE_CATEGORIES, type EventTemplate, type TemplateCategory } from "@/lib/site-templates";
 import {
   AlertDialog,
@@ -1116,48 +1117,50 @@ export default function SiteBuilder() {
               </div>
             </div>
             <ScrollArea className="h-[calc(100%-48px)]">
-              <div 
-                className={`event-page-custom ${previewTheme?.pagePadding === 'none' ? '' : 'p-4'} mx-auto`}
-                style={{
-                  ...getThemeStyles(previewTheme),
-                  backgroundColor: previewTheme?.backgroundColor || undefined,
-                  color: previewTheme?.textColor || undefined,
-                  fontFamily: previewTheme?.bodyFont ? `"${previewTheme.bodyFont}", sans-serif` : undefined,
-                  gap: "1.5rem",
-                  display: "flex",
-                  flexDirection: "column",
-                  width: previewDevice === 'desktop' ? '100%' : previewDevice === 'tablet' ? '768px' : '375px',
-                  maxWidth: '100%',
-                  transition: 'width 0.2s ease-in-out',
-                }}
-              >
-                <GoogleFontsLoader fonts={[previewTheme?.headingFont, previewTheme?.bodyFont].filter(Boolean) as string[]} />
-                {previewTheme?.customCss && (
-                  <style dangerouslySetInnerHTML={{ __html: scopeCustomCss(sanitizeCustomCss(previewTheme.customCss)) }} />
-                )}
-                {previewSections.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">Add sections to see preview</div>
-                ) : (
-                  previewSections
-                    .filter((section) => {
-                      const isMobilePreview = previewDevice === 'mobile';
-                      const isDesktopPreview = previewDevice === 'desktop' || previewDevice === 'tablet';
-                      if (isMobilePreview && section.styles?.hideOnMobile) return false;
-                      if (isDesktopPreview && section.styles?.hideOnDesktop) return false;
-                      return true;
-                    })
-                    .sort((a, b) => a.order - b.order)
-                    .map((section) => (
-                      <div
-                        key={section.id}
-                        data-testid={`preview-section-${section.id}`}
-                        className={editingSection?.id === section.id ? "ring-2 ring-primary ring-offset-2 rounded-md" : ""}
-                      >
-                        <SectionRenderer section={section} event={previewEvent} sessions={sessions} speakers={speakers} sponsors={sponsors} theme={previewTheme} isHighlighted={editingSection?.id === section.id} isPreview={true} />
-                      </div>
-                    ))
-                )}
-              </div>
+              <EventLocaleProvider event={previewEvent}>
+                <div 
+                  className={`event-page-custom ${previewTheme?.pagePadding === 'none' ? '' : 'p-4'} mx-auto`}
+                  style={{
+                    ...getThemeStyles(previewTheme),
+                    backgroundColor: previewTheme?.backgroundColor || undefined,
+                    color: previewTheme?.textColor || undefined,
+                    fontFamily: previewTheme?.bodyFont ? `"${previewTheme.bodyFont}", sans-serif` : undefined,
+                    gap: "1.5rem",
+                    display: "flex",
+                    flexDirection: "column",
+                    width: previewDevice === 'desktop' ? '100%' : previewDevice === 'tablet' ? '768px' : '375px',
+                    maxWidth: '100%',
+                    transition: 'width 0.2s ease-in-out',
+                  }}
+                >
+                  <GoogleFontsLoader fonts={[previewTheme?.headingFont, previewTheme?.bodyFont].filter(Boolean) as string[]} />
+                  {previewTheme?.customCss && (
+                    <style dangerouslySetInnerHTML={{ __html: scopeCustomCss(sanitizeCustomCss(previewTheme.customCss)) }} />
+                  )}
+                  {previewSections.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground">Add sections to see preview</div>
+                  ) : (
+                    previewSections
+                      .filter((section) => {
+                        const isMobilePreview = previewDevice === 'mobile';
+                        const isDesktopPreview = previewDevice === 'desktop' || previewDevice === 'tablet';
+                        if (isMobilePreview && section.styles?.hideOnMobile) return false;
+                        if (isDesktopPreview && section.styles?.hideOnDesktop) return false;
+                        return true;
+                      })
+                      .sort((a, b) => a.order - b.order)
+                      .map((section) => (
+                        <div
+                          key={section.id}
+                          data-testid={`preview-section-${section.id}`}
+                          className={editingSection?.id === section.id ? "ring-2 ring-primary ring-offset-2 rounded-md" : ""}
+                        >
+                          <SectionRenderer section={section} event={previewEvent} sessions={sessions} speakers={speakers} sponsors={sponsors} theme={previewTheme} isHighlighted={editingSection?.id === section.id} isPreview={true} />
+                        </div>
+                      ))
+                  )}
+                </div>
+              </EventLocaleProvider>
             </ScrollArea>
           </div>
         )}
