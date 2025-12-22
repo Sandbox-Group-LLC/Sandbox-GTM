@@ -819,6 +819,7 @@ export const eventFeedback = pgTable("event_feedback", {
   networkingRating: integer("networking_rating"),
   organizationRating: integer("organization_rating"),
   wouldRecommend: boolean("would_recommend"),
+  recommendationScore: integer("recommendation_score"), // NPS score 0-10 (9-10: Promoter, 7-8: Passive, 0-6: Detractor)
   highlights: text("highlights"),
   improvements: text("improvements"),
   additionalComments: text("additional_comments"),
