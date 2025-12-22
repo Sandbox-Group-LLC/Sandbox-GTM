@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -38,8 +39,18 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { titleCase } from "@/lib/utils";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Plus, Settings2, Trash2 } from "lucide-react";
+import { Plus, Settings2, Trash2, Lock } from "lucide-react";
 import type { CustomField } from "@shared/schema";
+
+// System properties that are built into the attendee profile
+const SYSTEM_PROPERTIES = [
+  { name: "firstName", label: "First Name", fieldType: "text", required: true, description: "Attendee's first name" },
+  { name: "lastName", label: "Last Name", fieldType: "text", required: true, description: "Attendee's last name" },
+  { name: "email", label: "Email", fieldType: "text", required: true, description: "Attendee's email address" },
+  { name: "phone", label: "Phone", fieldType: "text", required: false, description: "Attendee's phone number" },
+  { name: "company", label: "Company", fieldType: "text", required: false, description: "Attendee's company or organization" },
+  { name: "jobTitle", label: "Job Title", fieldType: "text", required: false, description: "Attendee's job title or role" },
+];
 
 const customFieldFormSchema = z.object({
   name: z.string().min(1, "Name is required").regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/, "Name must be a valid identifier (letters, numbers, underscores, starting with letter or underscore)"),
@@ -275,7 +286,7 @@ export default function CustomFields() {
         actions={
           <Button onClick={() => setIsDialogOpen(true)} data-testid="button-add-custom-field">
             <Plus className="h-4 w-4 mr-2" />
-            Add Field
+            Add Property
           </Button>
         }
       />
@@ -447,24 +458,82 @@ export default function CustomFields() {
           </DialogContent>
         </Dialog>
 
-      <div className="flex-1 overflow-auto p-6">
-        {customFields.length === 0 ? (
-          <EmptyState
-            icon={Settings2}
-            title="No custom fields"
-            description="Create custom fields to collect additional information from attendees during registration."
-            action={{
-              label: "Add Field",
-              onClick: () => setIsDialogOpen(true),
-            }}
-          />
-        ) : (
-          <DataTable
-            data={customFields}
-            columns={columns}
-            getRowKey={(field) => field.id}
-          />
-        )}
+      <div className="flex-1 overflow-auto p-6 space-y-6">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Lock className="h-4 w-4 text-muted-foreground" />
+              System Properties
+            </CardTitle>
+            <CardDescription>
+              Built-in properties that are automatically collected for every attendee
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/50">
+                    <th className="text-left p-3 font-medium">Name</th>
+                    <th className="text-left p-3 font-medium">Label</th>
+                    <th className="text-left p-3 font-medium">Type</th>
+                    <th className="text-left p-3 font-medium">Required</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {SYSTEM_PROPERTIES.map((prop) => (
+                    <tr key={prop.name} className="border-b last:border-0" data-testid={`row-system-property-${prop.name}`}>
+                      <td className="p-3">
+                        <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{prop.name}</code>
+                      </td>
+                      <td className="p-3">{prop.label}</td>
+                      <td className="p-3">
+                        <Badge variant="secondary" className="text-xs">
+                          {fieldTypeLabels[prop.fieldType] || titleCase(prop.fieldType)}
+                        </Badge>
+                      </td>
+                      <td className="p-3">
+                        {prop.required ? (
+                          <Badge variant="default" className="text-xs">Required</Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">Optional</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-base font-semibold">Custom Properties</h3>
+              <p className="text-sm text-muted-foreground">
+                Additional properties you can configure for attendee registration
+              </p>
+            </div>
+          </div>
+          {customFields.length === 0 ? (
+            <EmptyState
+              icon={Settings2}
+              title="No custom properties"
+              description="Create custom properties to collect additional information from attendees during registration."
+              action={{
+                label: "Add Property",
+                onClick: () => setIsDialogOpen(true),
+              }}
+            />
+          ) : (
+            <DataTable
+              data={customFields}
+              columns={columns}
+              getRowKey={(field) => field.id}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
