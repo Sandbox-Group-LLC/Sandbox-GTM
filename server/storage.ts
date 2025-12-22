@@ -3911,6 +3911,86 @@ export class DatabaseStorage implements IStorage {
     
     return { devices, browsers, countries, returningVisitors, botVsHuman };
   }
+
+  async getActivationLinkClickBreakdowns(organizationId: string): Promise<{
+    devices: Array<{ type: string; count: number }>;
+    browsers: Array<{ browser: string; count: number }>;
+    countries: Array<{ country: string; countryCode: string | null; count: number }>;
+    returningVisitors: { new: number; returning: number };
+    botVsHuman: { human: number; bot: number };
+  }> {
+    // Get all activation link IDs for this organization
+    const orgLinks = await db.select({ id: activationLinks.id })
+      .from(activationLinks)
+      .where(eq(activationLinks.organizationId, organizationId));
+    
+    const linkIds = orgLinks.map(l => l.id);
+    
+    if (linkIds.length === 0) {
+      return {
+        devices: [],
+        browsers: [],
+        countries: [],
+        returningVisitors: { new: 0, returning: 0 },
+        botVsHuman: { human: 0, bot: 0 },
+      };
+    }
+    
+    // Get clicks for those links
+    const clicks = await db.select()
+      .from(activationLinkClicks)
+      .where(inArray(activationLinkClicks.activationLinkId, linkIds));
+    
+    // Device type breakdown
+    const deviceCounts: Record<string, number> = {};
+    clicks.forEach(c => {
+      const type = c.deviceType || 'unknown';
+      deviceCounts[type] = (deviceCounts[type] || 0) + 1;
+    });
+    const devices = Object.entries(deviceCounts)
+      .map(([type, count]) => ({ type, count }))
+      .sort((a, b) => b.count - a.count);
+    
+    // Browser breakdown
+    const browserCounts: Record<string, number> = {};
+    clicks.forEach(c => {
+      const browser = c.browser || 'Unknown';
+      browserCounts[browser] = (browserCounts[browser] || 0) + 1;
+    });
+    const browsers = Object.entries(browserCounts)
+      .map(([browser, count]) => ({ browser, count }))
+      .sort((a, b) => b.count - a.count);
+    
+    // Country breakdown
+    const countryCounts: Record<string, { count: number; countryCode: string | null }> = {};
+    clicks.forEach(c => {
+      const country = c.country || 'Unknown';
+      if (!countryCounts[country]) {
+        countryCounts[country] = { count: 0, countryCode: c.countryCode || null };
+      }
+      countryCounts[country].count++;
+    });
+    const countries = Object.entries(countryCounts)
+      .map(([country, data]) => ({ country, countryCode: data.countryCode, count: data.count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+    
+    // Returning vs new visitors
+    const returningCount = clicks.filter(c => c.isReturningVisitor).length;
+    const returningVisitors = {
+      new: clicks.length - returningCount,
+      returning: returningCount,
+    };
+    
+    // Bot vs human
+    const botCount = clicks.filter(c => c.isBot).length;
+    const botVsHuman = {
+      human: clicks.length - botCount,
+      bot: botCount,
+    };
+    
+    return { devices, browsers, countries, returningVisitors, botVsHuman };
+  }
 }
 
 export const storage = new DatabaseStorage();

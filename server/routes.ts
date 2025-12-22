@@ -4365,6 +4365,19 @@ export async function registerRoutes(
     }
   });
 
+  // Organization-scoped activation link analytics breakdowns
+  app.get("/api/activation-links-breakdowns", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const breakdowns = await storage.getActivationLinkClickBreakdowns(organizationId);
+      res.json(breakdowns);
+    } catch (error) {
+      logError("Error getting activation link breakdowns:", error);
+      res.status(500).json({ message: "Failed to get analytics breakdowns" });
+    }
+  });
+
   // Public activation link tracking (no auth required)
   app.get("/api/public/track/:shortCode", async (req: any, res) => {
     try {
