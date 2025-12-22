@@ -199,17 +199,7 @@ function Sidebar({
             <SheetTitle>Sidebar</SheetTitle>
             <SheetDescription>Displays the mobile sidebar.</SheetDescription>
           </SheetHeader>
-          <div className="flex h-full w-full flex-col relative">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 absolute right-2 top-2 z-10"
-              onClick={() => setOpenMobile(false)}
-              data-testid="button-close-mobile-sidebar"
-            >
-              <X className="h-4 w-4" />
-              <span className="sr-only">Close sidebar</span>
-            </Button>
+          <div className="flex h-full w-full flex-col">
             {children}
           </div>
         </SheetContent>

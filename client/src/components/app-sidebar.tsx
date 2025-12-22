@@ -40,7 +40,9 @@ import {
   Truck,
   Wallet,
   Check,
+  X,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -64,6 +66,7 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import {
   Collapsible,
@@ -143,6 +146,7 @@ export function AppSidebar() {
   const [location] = useLocation();
   const { user, organization, hasPermission, isOwner } = useAuth();
   const [wizardOpen, setWizardOpen] = useState(false);
+  const { isMobile, setOpenMobile } = useSidebar();
 
   // Fetch all organizations user belongs to
   const { data: userOrganizations = [] } = useQuery<UserOrganization[]>({
@@ -194,9 +198,23 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="p-4 border-b border-sidebar-border">
-        <div className="flex items-center gap-2">
-          <img src={logoImage} alt="Sandbox" className="h-6 w-6" />
-          <span className="font-semibold text-lg">Sandbox</span>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <img src={logoImage} alt="Sandbox" className="h-6 w-6" />
+            <span className="font-semibold text-lg">Sandbox</span>
+          </div>
+          {isMobile && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setOpenMobile(false)}
+              data-testid="button-close-mobile-sidebar"
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close sidebar</span>
+            </Button>
+          )}
         </div>
         {organization && (
           <div className="mt-2">
