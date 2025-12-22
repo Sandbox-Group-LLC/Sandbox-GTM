@@ -1186,10 +1186,11 @@ export default function PublicRegistration() {
         </div>
       )}
       <div 
-        className="min-h-screen bg-background pb-8"
+        className="min-h-full pb-8"
         style={{
           ...themeStyles,
-          backgroundColor: theme?.backgroundColor || undefined,
+          minHeight: '100vh',
+          backgroundColor: theme?.backgroundColor || '#ffffff',
           color: theme?.textColor || undefined,
           fontFamily: theme?.bodyFont ? `"${theme.bodyFont}", sans-serif` : undefined,
         }}
