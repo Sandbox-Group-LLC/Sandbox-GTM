@@ -145,6 +145,25 @@ function Router() {
     return <RequireInviteCode />;
   }
 
+  // Public event pages should render outside of AuthenticatedLayout
+  // to avoid layout conflicts with sidebar/admin chrome
+  const [location] = useLocation();
+  const isPublicEventPage = location.startsWith('/event/') || location === '/sponsor-portal';
+
+  if (isPublicEventPage) {
+    return (
+      <Switch>
+        <Route path="/event/:slug/register" component={PublicRegistration} />
+        <Route path="/event/:slug/portal" component={AttendeePortal} />
+        <Route path="/event/:slug/login" component={AttendeeLogin} />
+        <Route path="/event/:slug/cfp" component={PublicCfp} />
+        <Route path="/event/:slug" component={PublicEvent} />
+        <Route path="/sponsor-portal" component={SponsorPortal} />
+        <Route component={NotFound} />
+      </Switch>
+    );
+  }
+
   return (
     <AuthenticatedLayout>
       <Switch>
@@ -185,12 +204,6 @@ function Router() {
         <Route path="/admin/leads" component={AdminLeads} />
         <Route path="/admin/marketing" component={AdminMarketing} />
         <Route path="/privacy-policy" component={PrivacyPolicy} />
-        <Route path="/event/:slug/register" component={PublicRegistration} />
-        <Route path="/event/:slug/portal" component={AttendeePortal} />
-        <Route path="/event/:slug/login" component={AttendeeLogin} />
-        <Route path="/event/:slug/cfp" component={PublicCfp} />
-        <Route path="/event/:slug" component={PublicEvent} />
-        <Route path="/sponsor-portal" component={SponsorPortal} />
         <Route path="/accept-invitation" component={AcceptInvitation} />
         <Route path="/acquisition" component={Acquisition} />
         <Route path="/audience-targeting" component={AudienceTargeting} />
