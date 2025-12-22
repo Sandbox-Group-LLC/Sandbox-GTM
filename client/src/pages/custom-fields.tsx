@@ -50,6 +50,7 @@ const SYSTEM_PROPERTIES = [
   { name: "phone", label: "Phone", fieldType: "text", required: false, description: "Attendee's phone number" },
   { name: "company", label: "Company", fieldType: "text", required: false, description: "Attendee's company or organization" },
   { name: "jobTitle", label: "Job Title", fieldType: "text", required: false, description: "Attendee's job title or role" },
+  { name: "attendeeType", label: "Audience Type", fieldType: "select", required: false, description: "Categorization of the attendee" },
 ];
 
 const customFieldFormSchema = z.object({
