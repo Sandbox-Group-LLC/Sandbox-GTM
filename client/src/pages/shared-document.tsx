@@ -78,8 +78,8 @@ export default function SharedDocument() {
     <div className="min-h-screen bg-background flex flex-col">
       <header className="border-b border-border">
         <div className="container mx-auto px-6 py-4 flex items-center gap-2">
-          <img src={logoImage} alt="Sandbox" className="h-6 w-6" />
-          <span className="font-semibold text-lg">Sandbox</span>
+          <img src={logoImage} alt="sandbox" className="h-6 w-6" />
+          <span className="text-lg" style={{ fontFamily: 'Urbanist, sans-serif', fontWeight: 800 }}>sandbox</span>
           <span className="text-muted-foreground">Shared Document</span>
         </div>
       </header>
