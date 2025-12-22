@@ -282,9 +282,6 @@ function SectionRenderer({ section, event, slug, theme }: { section: Section; ev
   const isHtmlSection = section.type === "html";
 
   const wrapWithMargins = (content: React.ReactNode) => {
-    if (isFullWidth && !isHtmlSection) {
-      return <div style={{ marginLeft: "10%", marginRight: "10%" }}>{content}</div>;
-    }
     return content;
   };
 

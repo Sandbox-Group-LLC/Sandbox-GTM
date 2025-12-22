@@ -4768,8 +4768,8 @@ function StylesEditor({ theme, onUpdateTheme, isPending, seo, onUpdateSeo, custo
               </SelectContent>
             </Select>
             {theme.containerWidth === "full" && (
-              <p className="text-xs text-muted-foreground">
-                Full Width applies only to HTML sections. All other section blocks retain 10% left and right margins.
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                Warning: This will remove all horizontal margins for all content.
               </p>
             )}
           </div>

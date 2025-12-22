@@ -875,9 +875,6 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
   
   const wrapWithMargins = (content: React.ReactNode) => {
     let wrapped = content;
-    if (isFullWidth && !isHtmlSection) {
-      wrapped = <div style={{ marginLeft: "10%", marginRight: "10%" }}>{wrapped}</div>;
-    }
     
     // Build visibility classes based on hideOnMobile/hideOnDesktop settings
     // Skip in preview mode - filtering is handled by site-builder.tsx based on simulated device width
