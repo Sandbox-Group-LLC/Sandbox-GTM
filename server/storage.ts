@@ -1135,6 +1135,31 @@ export class DatabaseStorage implements IStorage {
 
   async deleteEvent(organizationId: string, id: string): Promise<void> {
     // Delete all related records first (cascade delete)
+    // Order matters - delete child records before parent records they reference
+    
+    // Delete activation link clicks first (references activation_links)
+    await db.delete(activationLinkClicks).where(
+      sql`${activationLinkClicks.activationLinkId} IN (SELECT id FROM activation_links WHERE event_id = ${id})`
+    );
+    // Delete activation links before invite_codes (activation_links references invite_codes)
+    await db.delete(activationLinks).where(eq(activationLinks.eventId, id));
+    
+    // Delete feedback records (references attendees and sessions)
+    await db.delete(eventFeedback).where(eq(eventFeedback.eventId, id));
+    await db.delete(sessionFeedback).where(eq(sessionFeedback.eventId, id));
+    await db.delete(attendeeSavedSessions).where(
+      sql`attendee_id IN (SELECT id FROM attendees WHERE event_id = ${id})`
+    );
+    await db.delete(attendeeInterests).where(
+      sql`attendee_id IN (SELECT id FROM attendees WHERE event_id = ${id})`
+    );
+    
+    // Delete session speakers (references sessions and speakers)
+    await db.delete(sessionSpeakers).where(
+      sql`session_id IN (SELECT id FROM event_sessions WHERE event_id = ${id})`
+    );
+    
+    // Now delete main records
     await db.delete(attendees).where(eq(attendees.eventId, id));
     await db.delete(attendeeTypes).where(eq(attendeeTypes.eventId, id));
     await db.delete(eventPackages).where(eq(eventPackages.eventId, id));
@@ -1155,6 +1180,7 @@ export class DatabaseStorage implements IStorage {
     await db.delete(eventPages).where(eq(eventPages.eventId, id));
     await db.delete(registrationConfigs).where(eq(registrationConfigs.eventId, id));
     await db.delete(eventTranslations).where(eq(eventTranslations.eventId, id));
+    await db.delete(feedbackConfigs).where(eq(feedbackConfigs.eventId, id));
     
     // Now delete the event itself
     await db.delete(events).where(and(eq(events.organizationId, organizationId), eq(events.id, id)));
