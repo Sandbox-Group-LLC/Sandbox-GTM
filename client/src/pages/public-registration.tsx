@@ -1710,6 +1710,27 @@ function SectionRenderer({ section, event, slug, theme }: { section: Section; ev
         </div>
       );
 
+    case "registration-form":
+      const regHeading = config.heading as string || "";
+      const regDescription = config.description as string || "";
+      const showRegHeading = config.showHeading !== false;
+      
+      // Only render heading and description - the actual form is rendered separately
+      if (!showRegHeading || (!regHeading && !regDescription)) {
+        return null;
+      }
+      
+      return wrapWithMargins(
+        <div data-testid={`section-registration-form-${section.id}`} className="text-center">
+          {regHeading && (
+            <h2 className="text-3xl font-bold mb-4" style={headingStyles}>{regHeading}</h2>
+          )}
+          {regDescription && (
+            <p className="text-lg mb-2" style={secondaryTextStyles}>{regDescription}</p>
+          )}
+        </div>
+      );
+
     default:
       return null;
   }
