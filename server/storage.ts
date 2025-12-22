@@ -1182,10 +1182,22 @@ export class DatabaseStorage implements IStorage {
     await db.delete(emailCampaigns).where(eq(emailCampaigns.eventId, id));
     await db.delete(socialPosts).where(eq(socialPosts.eventId, id));
     await db.delete(emailTemplates).where(eq(emailTemplates.eventId, id));
+    
+    // Delete page_versions before event_pages (page_versions references event_pages)
+    await db.delete(pageVersions).where(
+      sql`event_page_id IN (SELECT id FROM event_pages WHERE event_id = ${id})`
+    );
     await db.delete(eventPages).where(eq(eventPages.eventId, id));
     await db.delete(registrationConfigs).where(eq(registrationConfigs.eventId, id));
     await db.delete(eventTranslations).where(eq(eventTranslations.eventId, id));
     await db.delete(feedbackConfigs).where(eq(feedbackConfigs.eventId, id));
+    
+    // Delete document workspace items
+    await db.delete(documentWorkspaceFiles).where(eq(documentWorkspaceFiles.eventId, id));
+    await db.delete(documentWorkspaceFolders).where(eq(documentWorkspaceFolders.eventId, id));
+    
+    // Delete passkey housing mappings
+    await db.delete(passkeyHousingMappings).where(eq(passkeyHousingMappings.eventId, id));
     
     // Now delete the event itself
     await db.delete(events).where(and(eq(events.organizationId, organizationId), eq(events.id, id)));
