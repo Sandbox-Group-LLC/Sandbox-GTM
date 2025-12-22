@@ -1144,7 +1144,10 @@ export default function PublicRegistration() {
               >
                 {isCompleted ? <Check className="w-4 h-4" /> : stepNum}
               </div>
-              <span className={`text-sm hidden sm:inline ${isActive ? "font-medium" : "text-muted-foreground"}`}>
+              <span 
+                className={`text-sm hidden sm:inline ${isActive ? "font-medium" : ""}`}
+                style={{ color: isActive ? sectionFontColor : undefined }}
+              >
                 {title}
               </span>
               {index < displaySteps.length - 1 && (
@@ -1207,7 +1210,7 @@ export default function PublicRegistration() {
           borderRadius: theme?.borderRadius ? ({ none: "0px", small: "4px", medium: "8px", large: "16px", pill: "9999px" }[theme.borderRadius]) : undefined,
         }}>
           <CardHeader>
-            <CardTitle style={{ fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined }}>
+            <CardTitle style={{ fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined, color: sectionFontColor }}>
               {currentStep === 1 && "Personal Information"}
               {currentStep === 2 && "Select Your Access Package"}
               {currentStep === 3 && "Complete Payment"}
