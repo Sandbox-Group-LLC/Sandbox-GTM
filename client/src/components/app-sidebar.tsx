@@ -103,6 +103,7 @@ const contentSubItems = [
   { title: "Contributors", path: "/speakers" },
   { title: "Content Pillars", path: "/tracks" },
   { title: "Rooms", path: "/rooms" },
+  { title: "Call for Papers", path: "/call-for-papers" },
 ];
 
 const revenueSubItems = [
@@ -173,7 +174,7 @@ export function AppSidebar() {
   const isRevenueActive = location === "/pipeline" || location === "/sales-handoff" || location === "/follow-up" || location === "/roi";
   const isExecutionActive = location === "/run-of-show" || location === "/deliverables" || location === "/vendors" || location === "/budget";
   const isProgramActive = location === "/events" || location === "/registration" || location === "/check-in" || location === "/site-builder" || location === "/custom-fields" || location === "/sponsors" || location === "/sponsor-tasks";
-  const isContentActive = location === "/content" || location === "/documents" || location === "/call-for-papers";
+  const isContentActive = location === "/content" || location === "/documents";
   
   const isSuperAdmin = user?.email?.toLowerCase().endsWith("@makemysandbox.com") ?? false;
   
@@ -340,17 +341,7 @@ export function AppSidebar() {
                           </Link>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
-                      <SidebarMenuSubItem>
-                        <SidebarMenuSubButton
-                          asChild
-                          isActive={location === "/call-for-papers"}
-                        >
-                          <Link href="/call-for-papers" data-testid="nav-call-for-papers">
-                            <span>Call for Papers</span>
-                          </Link>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    </SidebarMenuSub>
+                      </SidebarMenuSub>
                   </CollapsibleContent>
                 </SidebarMenuItem>
               </Collapsible>
@@ -484,11 +475,11 @@ export function AppSidebar() {
           <SidebarGroupLabel>Engagement</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              <Collapsible defaultOpen={location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/rooms"} className="group/collapsible">
+              <Collapsible defaultOpen={location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/rooms" || location === "/call-for-papers"} className="group/collapsible">
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton
-                      isActive={location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/rooms"}
+                      isActive={location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/rooms" || location === "/call-for-papers"}
                       data-testid="nav-content-experiences"
                     >
                       <Presentation className="h-4 w-4" />
