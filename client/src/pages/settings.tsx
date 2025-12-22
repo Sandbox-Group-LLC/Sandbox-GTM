@@ -98,6 +98,18 @@ export default function Settings() {
       step1: string;
       step2: string;
       cloudflareNote: string;
+      cnameRecord?: {
+        type: string;
+        host: string;
+        value: string;
+        description: string;
+      };
+      txtRecord?: {
+        type: string;
+        host: string;
+        value: string;
+        description: string;
+      };
     } | null;
   }>({
     queryKey: ["/api/organization/domain-status"],
@@ -376,47 +388,97 @@ export default function Settings() {
 
                 {orgData?.customDomain && !orgData.customDomainVerified && !domainStatus?.customDomainVerified && domainStatus?.instructions && (
                   <div className="mt-4 space-y-4">
-                    <div className="bg-muted/50 rounded-md p-4 space-y-3">
+                    <div className="bg-muted/50 rounded-md p-4 space-y-4">
                       <p className="font-medium text-sm">DNS Configuration Instructions</p>
                       <p className="text-sm text-muted-foreground">
-                        Complete the following steps in your DNS provider (e.g., Cloudflare) to verify ownership of your domain:
+                        Add the following DNS records in your domain provider (e.g., Cloudflare, GoDaddy, Namecheap):
                       </p>
                       
-                      <div className="space-y-3">
-                        <div className="flex gap-2">
-                          <span className="text-xs font-medium bg-muted rounded-full w-5 h-5 flex items-center justify-center flex-shrink-0">1</span>
-                          <div className="text-sm">
-                            <p className="font-medium">Add CNAME Record</p>
-                            <p className="text-muted-foreground">{domainStatus.instructions.step1}</p>
-                          </div>
-                        </div>
-                        
-                        <div className="flex gap-2">
-                          <span className="text-xs font-medium bg-muted rounded-full w-5 h-5 flex items-center justify-center flex-shrink-0">2</span>
-                          <div className="text-sm flex-1">
-                            <p className="font-medium">Add TXT Record for Verification</p>
-                            <p className="text-muted-foreground">{domainStatus.instructions.step2}</p>
-                            <div className="mt-2 flex flex-wrap items-center gap-2">
-                              <code className="bg-muted px-2 py-1 rounded text-xs font-mono break-all" data-testid="text-verification-token">
-                                eventgtm-verify={domainStatus.verificationToken}
-                              </code>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={copyToken}
-                                data-testid="button-copy-token"
-                              >
-                                <Copy className="h-3 w-3 mr-1" />
-                                Copy
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
+                      {/* DNS Records Table */}
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm border-collapse">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-left py-2 px-2 font-medium text-muted-foreground">Type</th>
+                              <th className="text-left py-2 px-2 font-medium text-muted-foreground">Host / Name</th>
+                              <th className="text-left py-2 px-2 font-medium text-muted-foreground">Value / Target</th>
+                              <th className="text-left py-2 px-2 font-medium text-muted-foreground sr-only">Copy</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {/* CNAME Record */}
+                            <tr className="border-b">
+                              <td className="py-2 px-2">
+                                <code className="bg-muted px-1.5 py-0.5 rounded text-xs">CNAME</code>
+                              </td>
+                              <td className="py-2 px-2">
+                                <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono" data-testid="text-cname-host">
+                                  {domainStatus.instructions.cnameRecord?.host || orgData.customDomain.split('.')[0]}
+                                </code>
+                              </td>
+                              <td className="py-2 px-2">
+                                <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono break-all" data-testid="text-cname-value">
+                                  {domainStatus.instructions.cnameRecord?.value || window.location.host}
+                                </code>
+                              </td>
+                              <td className="py-2 px-2">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(domainStatus?.instructions?.cnameRecord?.value || window.location.host);
+                                    toast({ title: "Copied!", description: "CNAME value copied to clipboard" });
+                                  }}
+                                  data-testid="button-copy-cname"
+                                >
+                                  <Copy className="h-3 w-3" />
+                                </Button>
+                              </td>
+                            </tr>
+                            {/* TXT Record */}
+                            <tr>
+                              <td className="py-2 px-2">
+                                <code className="bg-muted px-1.5 py-0.5 rounded text-xs">TXT</code>
+                              </td>
+                              <td className="py-2 px-2">
+                                <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono" data-testid="text-txt-host">
+                                  {domainStatus.instructions.txtRecord?.host || '_eventgtm'}
+                                </code>
+                              </td>
+                              <td className="py-2 px-2">
+                                <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono break-all" data-testid="text-txt-value">
+                                  {domainStatus.instructions.txtRecord?.value || `eventgtm-verify=${domainStatus.verificationToken}`}
+                                </code>
+                              </td>
+                              <td className="py-2 px-2">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={copyToken}
+                                  data-testid="button-copy-token"
+                                >
+                                  <Copy className="h-3 w-3" />
+                                </Button>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
                       </div>
                       
-                      <p className="text-xs text-muted-foreground mt-2">
-                        {domainStatus.instructions.cloudflareNote}
-                      </p>
+                      {/* Additional notes */}
+                      <div className="space-y-2 text-xs text-muted-foreground">
+                        {domainStatus.instructions.cnameRecord?.host === '@' && (
+                          <p className="text-amber-600 dark:text-amber-400">
+                            Note: Root domains (@) cannot use CNAME records per DNS standards. Use a subdomain like "events" instead, or use ALIAS/ANAME if your provider supports it.
+                          </p>
+                        )}
+                        <p>
+                          <strong>Cloudflare users:</strong> {domainStatus.instructions.cloudflareNote}
+                        </p>
+                        <p>
+                          DNS changes may take up to 48 hours to propagate, though typically much faster.
+                        </p>
+                      </div>
                     </div>
                     
                     <Button

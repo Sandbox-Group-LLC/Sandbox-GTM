@@ -996,10 +996,30 @@ export async function registerRoutes(
       };
       
       if (org.customDomain && verificationToken) {
+        // Parse subdomain from custom domain (e.g., "events" from "events.company.com")
+        const domainParts = org.customDomain.split('.');
+        const subdomain = domainParts.length > 2 ? domainParts[0] : '@';
+        const rootDomain = domainParts.length > 2 ? domainParts.slice(1).join('.') : org.customDomain;
+        
         response.instructions = {
           step1: `Add a CNAME record pointing ${org.customDomain} to ${host}`,
           step2: `Add a TXT record at _eventgtm.${org.customDomain} with value: eventgtm-verify=${verificationToken}`,
           cloudflareNote: "In Cloudflare, set the CNAME record to 'Proxied' (orange cloud) for SSL support.",
+          // Structured data for table display
+          cnameRecord: {
+            type: 'CNAME',
+            host: subdomain,
+            value: host || '',
+            description: subdomain === '@' 
+              ? 'For root domain, use ALIAS/ANAME if your provider supports it, or use a subdomain instead.'
+              : `Enter "${subdomain}" in the Host/Name field`
+          },
+          txtRecord: {
+            type: 'TXT',
+            host: `_eventgtm`,
+            value: `eventgtm-verify=${verificationToken}`,
+            description: `Enter "_eventgtm" in the Host/Name field (creates record at _eventgtm.${rootDomain})`
+          }
         };
       }
       
