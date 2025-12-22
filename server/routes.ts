@@ -81,6 +81,10 @@ import {
   insertDocumentActivitySchema,
   insertDocumentCommentSchema,
   insertDocumentApprovalSchema,
+  insertSessionFeedbackSchema,
+  insertEventFeedbackSchema,
+  insertFeedbackConfigSchema,
+  insertAttendeeInterestsSchema,
   pageVersions,
   eventPages,
   emailPlatformConnections,
@@ -7472,6 +7476,474 @@ ${urls.map(u => `  <url>
     } catch (error) {
       logError("Error updating attendee profile:", error);
       res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
+
+  // ===== ATTENDEE PORTAL ROUTES =====
+  // These routes require attendee authentication via session
+
+  // Helper to get attendee from session and validate event access
+  const getPortalAttendee = async (req: any, eventId: string) => {
+    const attendeeSession = (req.session as any).attendee;
+    if (!attendeeSession || !attendeeSession.id) {
+      return null;
+    }
+    const attendee = await storage.getAttendee(attendeeSession.organizationId, attendeeSession.id);
+    if (!attendee || attendee.eventId !== eventId) {
+      return null;
+    }
+    return attendee;
+  };
+
+  // --- ATTENDEE SAVED SESSIONS ---
+
+  // Get saved sessions for logged-in attendee
+  app.get("/api/portal/:eventId/saved-sessions", async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+      const attendee = await getPortalAttendee(req, eventId);
+      if (!attendee) {
+        return res.status(401).json({ message: "Not authenticated or invalid event" });
+      }
+      
+      const savedSessions = await storage.getAttendeeSavedSessions(attendee.id);
+      res.json(savedSessions);
+    } catch (error) {
+      logError("Error fetching saved sessions:", error);
+      res.status(500).json({ message: "Failed to fetch saved sessions" });
+    }
+  });
+
+  // Save a session to personal schedule
+  app.post("/api/portal/:eventId/sessions/:sessionId/save", async (req: any, res) => {
+    try {
+      const { eventId, sessionId } = req.params;
+      const attendee = await getPortalAttendee(req, eventId);
+      if (!attendee) {
+        return res.status(401).json({ message: "Not authenticated or invalid event" });
+      }
+      
+      const savedSession = await storage.saveSession(attendee.id, sessionId);
+      res.status(201).json(savedSession);
+    } catch (error) {
+      logError("Error saving session:", error);
+      res.status(500).json({ message: "Failed to save session" });
+    }
+  });
+
+  // Remove saved session from personal schedule
+  app.delete("/api/portal/:eventId/sessions/:sessionId/save", async (req: any, res) => {
+    try {
+      const { eventId, sessionId } = req.params;
+      const attendee = await getPortalAttendee(req, eventId);
+      if (!attendee) {
+        return res.status(401).json({ message: "Not authenticated or invalid event" });
+      }
+      
+      await storage.unsaveSession(attendee.id, sessionId);
+      res.status(204).send();
+    } catch (error) {
+      logError("Error removing saved session:", error);
+      res.status(500).json({ message: "Failed to remove saved session" });
+    }
+  });
+
+  // Check if session is saved
+  app.get("/api/portal/:eventId/sessions/:sessionId/is-saved", async (req: any, res) => {
+    try {
+      const { eventId, sessionId } = req.params;
+      const attendee = await getPortalAttendee(req, eventId);
+      if (!attendee) {
+        return res.status(401).json({ message: "Not authenticated or invalid event" });
+      }
+      
+      const isSaved = await storage.isSessionSaved(attendee.id, sessionId);
+      res.json({ isSaved });
+    } catch (error) {
+      logError("Error checking if session is saved:", error);
+      res.status(500).json({ message: "Failed to check saved status" });
+    }
+  });
+
+  // --- ATTENDEE INTERESTS ---
+
+  // Get attendee's interests
+  app.get("/api/portal/:eventId/interests", async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+      const attendee = await getPortalAttendee(req, eventId);
+      if (!attendee) {
+        return res.status(401).json({ message: "Not authenticated or invalid event" });
+      }
+      
+      const interests = await storage.getAttendeeInterests(attendee.id);
+      res.json(interests || { attendeeId: attendee.id, interests: [], preferredSessionTypes: [], preferredTracks: [] });
+    } catch (error) {
+      logError("Error fetching attendee interests:", error);
+      res.status(500).json({ message: "Failed to fetch interests" });
+    }
+  });
+
+  // Update attendee interests (upsert)
+  app.put("/api/portal/:eventId/interests", async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+      const attendee = await getPortalAttendee(req, eventId);
+      if (!attendee) {
+        return res.status(401).json({ message: "Not authenticated or invalid event" });
+      }
+      
+      const data = insertAttendeeInterestsSchema.parse({
+        ...req.body,
+        attendeeId: attendee.id,
+      });
+      
+      const interests = await storage.upsertAttendeeInterests(attendee.id, data);
+      res.json(interests);
+    } catch (error: any) {
+      logError("Error updating attendee interests:", error);
+      res.status(400).json({ message: error.message || "Failed to update interests" });
+    }
+  });
+
+  // --- SESSION FEEDBACK ---
+
+  // Get my feedback for a session
+  app.get("/api/portal/:eventId/sessions/:sessionId/feedback", async (req: any, res) => {
+    try {
+      const { eventId, sessionId } = req.params;
+      const attendee = await getPortalAttendee(req, eventId);
+      if (!attendee) {
+        return res.status(401).json({ message: "Not authenticated or invalid event" });
+      }
+      
+      const feedback = await storage.getAttendeeSessionFeedback(attendee.id, sessionId);
+      res.json(feedback || null);
+    } catch (error) {
+      logError("Error fetching session feedback:", error);
+      res.status(500).json({ message: "Failed to fetch session feedback" });
+    }
+  });
+
+  // Submit feedback for a session
+  app.post("/api/portal/:eventId/sessions/:sessionId/feedback", async (req: any, res) => {
+    try {
+      const { eventId, sessionId } = req.params;
+      const attendee = await getPortalAttendee(req, eventId);
+      if (!attendee) {
+        return res.status(401).json({ message: "Not authenticated or invalid event" });
+      }
+      
+      // Check if feedback already exists
+      const existing = await storage.getAttendeeSessionFeedback(attendee.id, sessionId);
+      if (existing) {
+        return res.status(400).json({ message: "Feedback already submitted for this session" });
+      }
+      
+      const data = insertSessionFeedbackSchema.parse({
+        ...req.body,
+        attendeeId: attendee.id,
+        sessionId,
+        organizationId: attendee.organizationId,
+      });
+      
+      const feedback = await storage.createSessionFeedback(data);
+      res.status(201).json(feedback);
+    } catch (error: any) {
+      logError("Error submitting session feedback:", error);
+      res.status(400).json({ message: error.message || "Failed to submit feedback" });
+    }
+  });
+
+  // --- EVENT FEEDBACK ---
+
+  // Get my event feedback
+  app.get("/api/portal/:eventId/feedback", async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+      const attendee = await getPortalAttendee(req, eventId);
+      if (!attendee) {
+        return res.status(401).json({ message: "Not authenticated or invalid event" });
+      }
+      
+      const feedback = await storage.getAttendeeEventFeedback(attendee.id, eventId);
+      res.json(feedback || null);
+    } catch (error) {
+      logError("Error fetching event feedback:", error);
+      res.status(500).json({ message: "Failed to fetch event feedback" });
+    }
+  });
+
+  // Submit event feedback
+  app.post("/api/portal/:eventId/feedback", async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+      const attendee = await getPortalAttendee(req, eventId);
+      if (!attendee) {
+        return res.status(401).json({ message: "Not authenticated or invalid event" });
+      }
+      
+      // Check if feedback already exists
+      const existing = await storage.getAttendeeEventFeedback(attendee.id, eventId);
+      if (existing) {
+        return res.status(400).json({ message: "Feedback already submitted for this event" });
+      }
+      
+      const data = insertEventFeedbackSchema.parse({
+        ...req.body,
+        attendeeId: attendee.id,
+        eventId,
+        organizationId: attendee.organizationId,
+      });
+      
+      const feedback = await storage.createEventFeedback(data);
+      res.status(201).json(feedback);
+    } catch (error: any) {
+      logError("Error submitting event feedback:", error);
+      res.status(400).json({ message: error.message || "Failed to submit feedback" });
+    }
+  });
+
+  // --- RECOMMENDATIONS ---
+
+  // Get recommended sessions based on interests
+  app.get("/api/portal/:eventId/recommendations", async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+      const attendee = await getPortalAttendee(req, eventId);
+      if (!attendee) {
+        return res.status(401).json({ message: "Not authenticated or invalid event" });
+      }
+      
+      // Get attendee interests
+      const interests = await storage.getAttendeeInterests(attendee.id);
+      
+      // Get all sessions for the event
+      const sessions = await storage.getSessions(attendee.organizationId, eventId);
+      
+      // Get saved sessions to exclude them from recommendations
+      const savedSessions = await storage.getAttendeeSavedSessions(attendee.id);
+      const savedSessionIds = new Set(savedSessions.map(s => s.sessionId));
+      
+      // Get tracks for the event
+      const tracks = await storage.getSessionTracks(attendee.organizationId, eventId);
+      const trackMap = new Map(tracks.map(t => [t.id, t]));
+      
+      // Score sessions based on matching interests
+      const scoredSessions = sessions
+        .filter(session => !savedSessionIds.has(session.id)) // Exclude already saved
+        .map(session => {
+          let score = 0;
+          
+          if (interests) {
+            // Match by track
+            if (session.trackId && interests.preferredTracks?.includes(session.trackId)) {
+              score += 3;
+            }
+            
+            // Match by session type
+            if (session.sessionType && interests.preferredSessionTypes?.includes(session.sessionType)) {
+              score += 2;
+            }
+            
+            // Match by interests (keywords in title or description)
+            if (interests.interests && Array.isArray(interests.interests)) {
+              for (const interest of interests.interests) {
+                const lowerInterest = interest.toLowerCase();
+                if (session.title?.toLowerCase().includes(lowerInterest)) {
+                  score += 2;
+                }
+                if (session.description?.toLowerCase().includes(lowerInterest)) {
+                  score += 1;
+                }
+              }
+            }
+          }
+          
+          // Add track info
+          const track = session.trackId ? trackMap.get(session.trackId) : null;
+          
+          return {
+            ...session,
+            track: track ? { id: track.id, name: track.name, color: track.color } : null,
+            recommendationScore: score
+          };
+        })
+        .filter(session => session.recommendationScore > 0) // Only include sessions with some match
+        .sort((a, b) => b.recommendationScore - a.recommendationScore) // Sort by score descending
+        .slice(0, 10); // Return top 10
+      
+      res.json(scoredSessions);
+    } catch (error) {
+      logError("Error fetching recommendations:", error);
+      res.status(500).json({ message: "Failed to fetch recommendations" });
+    }
+  });
+
+  // ===== ADMIN FEEDBACK ROUTES =====
+  // These routes require organization admin authentication
+
+  // Get all session feedback for an event
+  app.get("/api/organizations/:orgId/events/:eventId/session-feedback", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orgId, eventId } = req.params;
+      
+      // Verify user has access to this organization
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === orgId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      // Verify event belongs to organization
+      const event = await storage.getEvent(orgId, eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      // Get all sessions for the event to aggregate feedback
+      const sessions = await storage.getSessions(orgId, eventId);
+      const feedbackBySession = await Promise.all(
+        sessions.map(async (session) => {
+          const feedback = await storage.getSessionFeedback(orgId, session.id);
+          const saveCount = await storage.getSessionSaveCount(session.id);
+          return {
+            session: { id: session.id, title: session.title },
+            feedback,
+            saveCount,
+            averageRating: feedback.length > 0 
+              ? feedback.reduce((sum, f) => sum + (f.rating || 0), 0) / feedback.length 
+              : null,
+            feedbackCount: feedback.length
+          };
+        })
+      );
+      
+      res.json(feedbackBySession);
+    } catch (error) {
+      logError("Error fetching session feedback:", error);
+      res.status(500).json({ message: "Failed to fetch session feedback" });
+    }
+  });
+
+  // Get feedback for a specific session
+  app.get("/api/organizations/:orgId/events/:eventId/session-feedback/:sessionId", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orgId, eventId, sessionId } = req.params;
+      
+      // Verify user has access to this organization
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === orgId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const feedback = await storage.getSessionFeedback(orgId, sessionId);
+      const saveCount = await storage.getSessionSaveCount(sessionId);
+      
+      res.json({ feedback, saveCount });
+    } catch (error) {
+      logError("Error fetching session feedback:", error);
+      res.status(500).json({ message: "Failed to fetch session feedback" });
+    }
+  });
+
+  // Get all event feedback
+  app.get("/api/organizations/:orgId/events/:eventId/event-feedback", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orgId, eventId } = req.params;
+      
+      // Verify user has access to this organization
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === orgId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      // Verify event belongs to organization
+      const event = await storage.getEvent(orgId, eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      const feedback = await storage.getEventFeedback(orgId, eventId);
+      
+      // Calculate aggregate stats
+      const stats = {
+        totalResponses: feedback.length,
+        averageOverallRating: feedback.length > 0 
+          ? feedback.reduce((sum, f) => sum + (f.overallRating || 0), 0) / feedback.length 
+          : null,
+        npsScore: feedback.length > 0
+          ? (() => {
+              const promoters = feedback.filter(f => (f.recommendScore || 0) >= 9).length;
+              const detractors = feedback.filter(f => (f.recommendScore || 0) <= 6).length;
+              return Math.round(((promoters - detractors) / feedback.length) * 100);
+            })()
+          : null
+      };
+      
+      res.json({ feedback, stats });
+    } catch (error) {
+      logError("Error fetching event feedback:", error);
+      res.status(500).json({ message: "Failed to fetch event feedback" });
+    }
+  });
+
+  // Get feedback configuration
+  app.get("/api/organizations/:orgId/events/:eventId/feedback-config", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orgId, eventId } = req.params;
+      
+      // Verify user has access to this organization
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === orgId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const config = await storage.getFeedbackConfig(eventId);
+      res.json(config || { eventId, isEnabled: false });
+    } catch (error) {
+      logError("Error fetching feedback config:", error);
+      res.status(500).json({ message: "Failed to fetch feedback config" });
+    }
+  });
+
+  // Update feedback configuration
+  app.put("/api/organizations/:orgId/events/:eventId/feedback-config", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orgId, eventId } = req.params;
+      
+      // Verify user has access to this organization
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === orgId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      // Verify event belongs to organization
+      const event = await storage.getEvent(orgId, eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      const data = insertFeedbackConfigSchema.parse({
+        ...req.body,
+        eventId,
+        organizationId: orgId,
+      });
+      
+      const config = await storage.upsertFeedbackConfig(data);
+      res.json(config);
+    } catch (error: any) {
+      logError("Error updating feedback config:", error);
+      res.status(400).json({ message: error.message || "Failed to update feedback config" });
     }
   });
 
