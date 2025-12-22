@@ -129,6 +129,8 @@ interface SectionStyles {
   gridJustify?: 'start' | 'center';
   paddingTop?: 'none' | 'small' | 'medium' | 'large';
   paddingBottom?: 'none' | 'small' | 'medium' | 'large';
+  paddingLeft?: 'none' | 'small' | 'medium' | 'large';
+  paddingRight?: 'none' | 'small' | 'medium' | 'large';
   customClass?: string;
   hideOnMobile?: boolean;
   hideOnDesktop?: boolean;
@@ -4016,6 +4018,44 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId, cus
                     onValueChange={(value) => updateStyles("paddingBottom", value as SectionStyles["paddingBottom"])}
                   >
                     <SelectTrigger data-testid="select-section-padding-bottom">
+                      <SelectValue placeholder="Select padding" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PADDING_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="padding-left">Padding Left</Label>
+                  <Select
+                    value={styles.paddingLeft || "medium"}
+                    onValueChange={(value) => updateStyles("paddingLeft", value as SectionStyles["paddingLeft"])}
+                  >
+                    <SelectTrigger data-testid="select-section-padding-left">
+                      <SelectValue placeholder="Select padding" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PADDING_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="padding-right">Padding Right</Label>
+                  <Select
+                    value={styles.paddingRight || "medium"}
+                    onValueChange={(value) => updateStyles("paddingRight", value as SectionStyles["paddingRight"])}
+                  >
+                    <SelectTrigger data-testid="select-section-padding-right">
                       <SelectValue placeholder="Select padding" />
                     </SelectTrigger>
                     <SelectContent>

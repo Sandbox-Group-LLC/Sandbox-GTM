@@ -247,6 +247,8 @@ export interface SectionStyles {
   gridJustify?: 'start' | 'center';
   paddingTop?: 'none' | 'small' | 'medium' | 'large';
   paddingBottom?: 'none' | 'small' | 'medium' | 'large';
+  paddingLeft?: 'none' | 'small' | 'medium' | 'large';
+  paddingRight?: 'none' | 'small' | 'medium' | 'large';
   customClass?: string;
   hideOnMobile?: boolean;
   hideOnDesktop?: boolean;
@@ -867,6 +869,8 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
     textAlign: styles?.textAlign || undefined,
     paddingTop: SECTION_PADDING_MAP[styles?.paddingTop || "none"] || undefined,
     paddingBottom: SECTION_PADDING_MAP[styles?.paddingBottom || "none"] || undefined,
+    paddingLeft: SECTION_PADDING_MAP[styles?.paddingLeft || "none"] || undefined,
+    paddingRight: SECTION_PADDING_MAP[styles?.paddingRight || "none"] || undefined,
   };
   
   const wrapWithMargins = (content: React.ReactNode) => {
