@@ -56,6 +56,7 @@ export default function AudienceTargeting() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/events", selectedEventId] });
       queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/icp-match"] });
       toast({ title: "Audience targeting saved successfully" });
     },
     onError: (error: Error) => {
