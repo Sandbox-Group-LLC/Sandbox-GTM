@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Target, BarChart3, Users, Zap, Link2, ArrowRight, TrendingUp, Layers, DollarSign, Send, Hotel, CheckCircle2, XCircle } from "lucide-react";
 import { SiLinkedin, SiMailchimp, SiStripe, SiSalesforce, SiHubspot, SiOpenai, SiX, SiInstagram, SiFacebook } from "react-icons/si";
 import logoImage from "@assets/Orange_bug_-_no_background_1765765097769.png";
+import { LeadFormDialog } from "@/components/lead-form-dialog";
 
 const gtmIntegrations = [
   { icon: SiStripe, name: "Stripe", color: "#635BFF" },
@@ -100,12 +101,12 @@ export default function Landing() {
               Sandbox elevates event operations by making execution measurable, intentional, and revenue-aware.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-4">
-              <Button size="lg" asChild data-testid="button-request-access">
-                <a href="/signup">
+              <LeadFormDialog source="landing-hero">
+                <Button size="lg" data-testid="button-request-access">
                   Request Access
                   <ArrowRight className="ml-2 h-4 w-4" />
-                </a>
-              </Button>
+                </Button>
+              </LeadFormDialog>
               <Button size="lg" variant="secondary" asChild data-testid="button-see-how">
                 <a href="#capabilities">See How It Works</a>
               </Button>
@@ -354,12 +355,12 @@ export default function Landing() {
               See how Sandbox turns your event investment into measurable pipeline.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-4">
-              <Button size="lg" asChild data-testid="button-request-access-footer">
-                <a href="/signup">
+              <LeadFormDialog source="landing-footer">
+                <Button size="lg" data-testid="button-request-access-footer">
                   Request Access
                   <ArrowRight className="ml-2 h-4 w-4" />
-                </a>
-              </Button>
+                </Button>
+              </LeadFormDialog>
             </div>
           </div>
         </section>
