@@ -89,3 +89,45 @@ Data is isolated by `organizationId` across all tables. New users automatically 
 - Replit-specific plugins
 - ESBuild
 - TSX
+
+## Deployment Strategy
+
+### Multi-Tenant vs. Dedicated Instances
+
+This platform supports a hybrid deployment approach combining multi-tenant and dedicated instance models.
+
+#### Multi-Tenant (Default)
+The primary deployment uses multi-tenant architecture where all customers share one deployment but their data is completely isolated:
+- **Data isolation**: All tables are scoped by `organizationId`
+- **Custom domains**: Each organization can configure their own domain (e.g., events.company.com)
+- **Feature flags**: Per-organization feature toggles (e.g., `enableRevenueRoi`)
+- **Branding**: Organization-specific theming possible
+- **Benefits**: Single codebase to maintain, lower infrastructure costs, instant updates for all customers
+
+#### Dedicated Instances (Enterprise Customers)
+For customers requiring complete physical isolation (compliance, security, or contractual requirements):
+- **Setup**: Clone this project to create a separate Replit project
+- **Database**: Each instance gets its own PostgreSQL database
+- **Deployment**: Independent deployment with separate custom domain
+- **Isolation**: Complete physical separation of code, data, and infrastructure
+
+#### Hybrid Approach (Recommended)
+- Use **multi-tenant** for most customers (default)
+- Spin up **dedicated instances** only for enterprise clients with specific isolation requirements
+- Maintain code in the main project, sync changes to dedicated instances after testing
+
+#### Syncing Code to Dedicated Instances
+When updating features:
+1. Develop and test changes in the main (multi-tenant) project
+2. Once verified, manually copy changes to dedicated instance(s)
+3. Run database migrations on each instance separately
+4. Test on dedicated instance before notifying customer
+
+#### Considerations for Dedicated Instances
+| Aspect | Multi-Tenant | Dedicated |
+|--------|--------------|-----------|
+| Maintenance | Update once | Update each separately |
+| Cost | Shared infrastructure | Per-customer resources |
+| Isolation | Logical (database-level) | Physical (separate everything) |
+| Customization | Feature flags | Full code customization possible |
+| Best for | Standard customers | Enterprise/compliance-heavy clients |
