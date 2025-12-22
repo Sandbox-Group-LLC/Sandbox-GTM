@@ -1160,6 +1160,15 @@ export default function PublicRegistration() {
     );
   };
 
+  // Set body background color to match theme to prevent dark mode bleed-through
+  useEffect(() => {
+    const bgColor = theme?.backgroundColor || '#ffffff';
+    document.body.style.backgroundColor = bgColor;
+    return () => {
+      document.body.style.backgroundColor = '';
+    };
+  }, [theme?.backgroundColor]);
+
   return (
     <>
       <GoogleFontsLoader fonts={fontsToLoad} />
@@ -1186,10 +1195,9 @@ export default function PublicRegistration() {
         </div>
       )}
       <div 
-        className="min-h-full pb-8"
+        className="min-h-screen pb-8"
         style={{
           ...themeStyles,
-          minHeight: '100vh',
           backgroundColor: theme?.backgroundColor || '#ffffff',
           color: theme?.textColor || undefined,
           fontFamily: theme?.bodyFont ? `"${theme.bodyFont}", sans-serif` : undefined,
