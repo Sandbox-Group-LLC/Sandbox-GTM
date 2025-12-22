@@ -1211,6 +1211,9 @@ export class DatabaseStorage implements IStorage {
     // Delete passkey event mappings
     await db.delete(passkeyEventMappings).where(eq(passkeyEventMappings.eventId, id));
     
+    // Delete page views
+    await db.delete(pageViews).where(eq(pageViews.eventId, id));
+    
     // Now delete the event itself
     await db.delete(events).where(and(eq(events.organizationId, organizationId), eq(events.id, id)));
   }
