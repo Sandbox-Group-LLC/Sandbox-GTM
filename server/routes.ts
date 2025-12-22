@@ -7596,6 +7596,150 @@ ${urls.map(u => `  <url>
     }
   });
 
+  // ICP Match Rate endpoint
+  app.get("/api/analytics/icp-match", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const eventId = req.query.eventId as string | undefined;
+
+      // Get attendees (filtered by eventId if provided)
+      const allAttendees = await storage.getAttendees(organizationId, eventId);
+      
+      // Get audience targeting configuration
+      let audienceTargeting = {
+        companyTypes: ['open'] as string[],
+        roles: ['open'] as string[],
+        functions: ['open'] as string[],
+        accountFocus: 'open' as string,
+      };
+      
+      if (eventId) {
+        const event = await storage.getEvent(organizationId, eventId);
+        if (event?.audienceTargeting) {
+          audienceTargeting = event.audienceTargeting as typeof audienceTargeting;
+        }
+      }
+
+      // Helper function to infer role from job title
+      const inferRole = (jobTitle: string | null | undefined): string | null => {
+        if (!jobTitle) return null;
+        const title = jobTitle.toLowerCase();
+        if (title.includes('ceo') || title.includes('cto') || title.includes('cmo') || 
+            title.includes('cfo') || title.includes('coo') || title.includes('president') ||
+            title.includes('chief')) {
+          return 'executive';
+        }
+        if (title.includes('vp') || title.includes('vice president')) {
+          return 'vp';
+        }
+        if (title.includes('director')) {
+          return 'director';
+        }
+        if (title.includes('manager')) {
+          return 'manager';
+        }
+        return null;
+      };
+
+      // Helper function to infer function from job title
+      const inferFunction = (jobTitle: string | null | undefined): string | null => {
+        if (!jobTitle) return null;
+        const title = jobTitle.toLowerCase();
+        if (title.includes('marketing') || title.includes('brand') || title.includes('content') ||
+            title.includes('demand gen') || title.includes('communications')) {
+          return 'marketing';
+        }
+        if (title.includes('sales') || title.includes('revenue') || title.includes('account executive') ||
+            title.includes('business development') || title.includes('bdr') || title.includes('sdr')) {
+          return 'sales';
+        }
+        if (title.includes('product') && !title.includes('production')) {
+          return 'product';
+        }
+        if (title.includes('engineer') || title.includes('software') || title.includes('developer') ||
+            title.includes('technical') || title.includes('architect')) {
+          return 'engineering';
+        }
+        if (title.includes('operations') || title.includes('ops') || title.includes('supply chain') ||
+            title.includes('logistics')) {
+          return 'operations';
+        }
+        return null;
+      };
+
+      // Helper function to infer company type from company name
+      const inferCompanyType = (company: string | null | undefined): string | null => {
+        if (!company) return null;
+        const name = company.toLowerCase();
+        // Enterprise indicators: large company suffixes and long formal names
+        if (name.includes('inc') || name.includes('corp') || name.includes('llc') ||
+            name.includes('ltd') || name.includes('group') || name.includes('holdings') ||
+            name.includes('international') || company.length > 30) {
+          return 'enterprise';
+        }
+        // Mid-market: medium-length names, typical B2B indicators
+        if (company.length > 15 || name.includes('solutions') || name.includes('technologies') ||
+            name.includes('systems')) {
+          return 'mid-market';
+        }
+        // SMB: shorter names, less formal
+        return 'smb';
+      };
+
+      let companyTypeMatches = 0;
+      let roleMatches = 0;
+      let functionMatches = 0;
+      let overallMatches = 0;
+
+      const isOpen = (arr: string[]) => arr.includes('open');
+
+      for (const attendee of allAttendees) {
+        const inferredRole = inferRole(attendee.jobTitle);
+        const inferredFunction = inferFunction(attendee.jobTitle);
+        const inferredCompanyType = inferCompanyType(attendee.company);
+
+        // Check company type match
+        const companyTypeMatch = isOpen(audienceTargeting.companyTypes) || 
+          (inferredCompanyType !== null && audienceTargeting.companyTypes.includes(inferredCompanyType));
+        
+        // Check role match
+        const roleMatch = isOpen(audienceTargeting.roles) || 
+          (inferredRole !== null && audienceTargeting.roles.includes(inferredRole));
+        
+        // Check function match
+        const functionMatch = isOpen(audienceTargeting.functions) || 
+          (inferredFunction !== null && audienceTargeting.functions.includes(inferredFunction));
+
+        if (companyTypeMatch) companyTypeMatches++;
+        if (roleMatch) roleMatches++;
+        if (functionMatch) functionMatches++;
+
+        // Overall match requires all criteria to match
+        if (companyTypeMatch && roleMatch && functionMatch) {
+          overallMatches++;
+        }
+      }
+
+      const totalAttendees = allAttendees.length;
+      const icpMatchRate = totalAttendees > 0 ? Math.round((overallMatches / totalAttendees) * 1000) / 10 : 0;
+
+      res.json({
+        icpMatchRate,
+        totalAttendees,
+        matchedAttendees: overallMatches,
+        breakdown: {
+          companyTypeMatch: totalAttendees > 0 ? Math.round((companyTypeMatches / totalAttendees) * 100) : 0,
+          roleMatch: totalAttendees > 0 ? Math.round((roleMatches / totalAttendees) * 100) : 0,
+          functionMatch: totalAttendees > 0 ? Math.round((functionMatches / totalAttendees) * 100) : 0,
+        },
+      });
+    } catch (error) {
+      logError("Error calculating ICP match rate:", error);
+      res.status(500).json({ message: "Failed to calculate ICP match rate" });
+    }
+  });
+
   // Social connections routes (user-scoped - no organizationId needed)
   app.get("/api/social-connections", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
