@@ -89,6 +89,11 @@ import {
   BarChart3,
   Columns3,
   Edit,
+  Star,
+  MessageSquare,
+  Bookmark,
+  Lightbulb,
+  Heart,
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Event, EventPage, EventPageTheme, EventSession, Speaker, EventSponsor, CustomFont } from "@shared/schema";
@@ -108,7 +113,7 @@ import {
 
 type PageType = "landing" | "registration" | "portal" | "confirmation";
 
-type SectionType = "hero" | "text" | "cta" | "features" | "countdown" | "speakers" | "agenda" | "faq" | "testimonials" | "gallery" | "html" | "sponsors" | "map" | "video" | "footer" | "navigation" | "columns" | "columns-flex" | "layout-columns" | "registration-form" | "housing" | "attendee-profile" | "attendee-qrcode";
+type SectionType = "hero" | "text" | "cta" | "features" | "countdown" | "speakers" | "agenda" | "faq" | "testimonials" | "gallery" | "html" | "sponsors" | "map" | "video" | "footer" | "navigation" | "columns" | "columns-flex" | "layout-columns" | "registration-form" | "housing" | "attendee-profile" | "attendee-qrcode" | "personal-schedule" | "recommendations" | "attendee-interests" | "session-feedback" | "event-feedback";
 
 interface SingleCondition {
   property: string;
@@ -207,6 +212,11 @@ const SECTION_TYPES: { type: SectionType; label: string; icon: React.ComponentTy
   { type: "housing", label: "Hotel Housing", icon: Hotel, description: "Hotel booking section for Passkey integration" },
   { type: "attendee-profile", label: "Attendee Profile", icon: User, description: "Display and edit attendee profile information" },
   { type: "attendee-qrcode", label: "Check-in QR Code", icon: QrCode, description: "Display attendee check-in QR code" },
+  { type: "personal-schedule", label: "Personal Schedule", icon: Bookmark, description: "Show attendee's bookmarked sessions" },
+  { type: "recommendations", label: "Session Recommendations", icon: Lightbulb, description: "AI-powered session suggestions based on interests" },
+  { type: "attendee-interests", label: "Attendee Interests", icon: Heart, description: "Let attendees set their preferences" },
+  { type: "session-feedback", label: "Session Feedback", icon: Star, description: "Collect ratings and feedback on sessions" },
+  { type: "event-feedback", label: "Event Feedback", icon: MessageSquare, description: "Collect overall event experience feedback" },
 ];
 
 const GOOGLE_FONTS = [
@@ -378,6 +388,34 @@ const getDefaultConfig = (type: SectionType): Record<string, unknown> => {
       return {
         heading: "Check-In Code",
         description: "Show this code at the event check-in",
+      };
+    case "personal-schedule":
+      return {
+        heading: "My Schedule",
+        emptyMessage: "You haven't saved any sessions yet. Browse the agenda to add sessions to your personal schedule.",
+      };
+    case "recommendations":
+      return {
+        heading: "Recommended For You",
+        emptyMessage: "Set your interests to get personalized session recommendations.",
+        limit: 10,
+      };
+    case "attendee-interests":
+      return {
+        heading: "Your Interests",
+        description: "Help us personalize your experience by selecting your interests.",
+      };
+    case "session-feedback":
+      return {
+        heading: "Session Feedback",
+        sessionId: "",
+        successMessage: "Thank you for your feedback!",
+      };
+    case "event-feedback":
+      return {
+        heading: "Share Your Experience",
+        description: "We'd love to hear about your overall event experience.",
+        successMessage: "Thank you for your feedback! Your input helps us improve future events.",
       };
     default:
       return {};
