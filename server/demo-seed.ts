@@ -1,7 +1,8 @@
 import { db } from "./db";
 import { 
   events, packages, eventPackages, inviteCodes, activationLinks, activationLinkClicks,
-  speakers, eventSessions, sessionSpeakers, attendees, emailTemplates, emailCampaigns
+  speakers, eventSessions, sessionSpeakers, attendees, emailTemplates, emailCampaigns,
+  eventFeedback
 } from "@shared/schema";
 import { sql } from "drizzle-orm";
 
@@ -577,10 +578,71 @@ export async function seedAIGTMSummit(organizationId: string, createdBy: string)
 
   console.log(`Created ${clickData.length} activation link clicks`);
 
+  // 13. Create event feedback with NPS scores for analytics
+  const createdAttendees = await db.select().from(attendees)
+    .where(sql`${attendees.eventId} = ${eventId} AND ${attendees.registrationStatus} = 'checked_in'`)
+    .limit(50);
+  
+  const feedbackData = [];
+  // NPS distribution: ~30% Promoters (9-10), ~40% Passives (7-8), ~30% Detractors (0-6)
+  const npsDistribution = [
+    { scores: [9, 10], weight: 0.30 },        // Promoters
+    { scores: [7, 8], weight: 0.40 },          // Passives  
+    { scores: [0, 1, 2, 3, 4, 5, 6], weight: 0.30 }, // Detractors
+  ];
+
+  for (const attendee of createdAttendees) {
+    const rand = Math.random();
+    let recommendationScore = 5;
+    let cumWeight = 0;
+    
+    for (const dist of npsDistribution) {
+      cumWeight += dist.weight;
+      if (rand < cumWeight) {
+        recommendationScore = randomElement(dist.scores);
+        break;
+      }
+    }
+
+    feedbackData.push({
+      organizationId,
+      eventId,
+      attendeeId: attendee.id,
+      overallRating: Math.floor(Math.random() * 2) + 4, // 4-5 stars
+      venueRating: Math.floor(Math.random() * 2) + 4,
+      contentRating: Math.floor(Math.random() * 2) + 4,
+      networkingRating: Math.floor(Math.random() * 3) + 3, // 3-5 stars
+      organizationRating: Math.floor(Math.random() * 2) + 4,
+      recommendationScore,
+      wouldRecommend: recommendationScore >= 7,
+      highlights: randomElement([
+        "Great networking opportunities",
+        "Excellent keynote speakers",
+        "Valuable AI insights",
+        "Well-organized sessions",
+        "Innovative content",
+      ]),
+      improvements: randomElement([
+        "More hands-on workshops",
+        "Better food options",
+        "Longer break times",
+        "More seating in main hall",
+        null,
+      ]),
+      isAnonymous: Math.random() < 0.2, // 20% anonymous
+    });
+  }
+
+  if (feedbackData.length > 0) {
+    await db.insert(eventFeedback).values(feedbackData);
+  }
+  
+  console.log(`Created ${feedbackData.length} event feedback responses`);
+
   console.log("AI GTM Summit demo data seed completed successfully!");
 
   return {
     eventId,
-    message: `Successfully created AI GTM Summit with ${attendeeCount} attendees, ${createdSessions.length} sessions, ${createdSpeakers.length} speakers, and 4 activation links.`
+    message: `Successfully created AI GTM Summit with ${attendeeCount} attendees, ${createdSessions.length} sessions, ${createdSpeakers.length} speakers, 4 activation links, and ${feedbackData.length} feedback responses.`
   };
 }
