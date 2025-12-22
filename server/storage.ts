@@ -3769,6 +3769,18 @@ export class DatabaseStorage implements IStorage {
       .where(eq(marketingActivationLinks.id, id));
   }
 
+  async getVisitorClickHistory(visitorHash: string): Promise<{ isReturning: boolean; previousCount: number }> {
+    const clicks = await db.select({ count: sql<number>`count(*)` })
+      .from(marketingLinkClicks)
+      .where(eq(marketingLinkClicks.visitorHash, visitorHash));
+    
+    const count = Number(clicks[0]?.count || 0);
+    return {
+      isReturning: count > 0,
+      previousCount: count,
+    };
+  }
+
   // Marketing Link Click operations
   async getMarketingLinkClicks(marketingLinkId: string): Promise<MarketingLinkClick[]> {
     return db.select().from(marketingLinkClicks)

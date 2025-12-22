@@ -16,6 +16,7 @@ import {
 import { scrypt, randomBytes, timingSafeEqual, createHash } from "crypto";
 import { promisify } from "util";
 import { resolveTxt } from "dns/promises";
+import { parseUserAgent, isBot, getTimeContext, getGeoFromIP, extractRealIP } from "./tracking-utils";
 
 const scryptAsync = promisify(scrypt);
 
@@ -279,13 +280,32 @@ export function registerPublicTrackingRoute(app: Express) {
         return res.status(404).json({ message: "Link is not active", status: link.status });
       }
 
-      // Create visitor hash from IP + User-Agent
-      const ip = req.headers["x-forwarded-for"] || req.connection?.remoteAddress || "";
+      // Extract visitor information
+      const ip = extractRealIP(req);
       const userAgent = req.headers["user-agent"] || "";
       const visitorHash = createHash("sha256").update(`${ip}:${userAgent}`).digest("hex").substring(0, 32);
       const ipHash = createHash("sha256").update(String(ip)).digest("hex").substring(0, 32);
 
-      // Record the click
+      // Parse User-Agent for device/browser/OS info
+      const uaInfo = parseUserAgent(userAgent);
+      
+      // Detect if this is a bot
+      const isBotVisitor = isBot(userAgent);
+      
+      // Get time context
+      const now = new Date();
+      const timeContext = getTimeContext(now);
+      
+      // Check if returning visitor (don't await - do in parallel with geo)
+      const visitorHistoryPromise = storage.getVisitorClickHistory(visitorHash);
+      
+      // Get geographic data from IP (non-blocking, can fail gracefully)
+      const geoPromise = getGeoFromIP(ip).catch(() => null);
+      
+      // Wait for both in parallel
+      const [visitorHistory, geoData] = await Promise.all([visitorHistoryPromise, geoPromise]);
+
+      // Record the click with all enriched data
       await storage.createMarketingLinkClick({
         marketingLinkId: link.id,
         visitorHash,
@@ -293,6 +313,24 @@ export function registerPublicTrackingRoute(app: Express) {
         userAgent: userAgent.substring(0, 500),
         referrer: (req.headers.referer || req.headers.referrer || "").substring(0, 1000),
         queryParams: req.query as Record<string, string>,
+        // Device & Browser info
+        deviceType: uaInfo.deviceType,
+        browser: uaInfo.browser,
+        os: uaInfo.os,
+        // Geographic data
+        country: geoData?.country || null,
+        countryCode: geoData?.countryCode || null,
+        region: geoData?.region || null,
+        city: geoData?.city || null,
+        timezone: geoData?.timezone || null,
+        // Visitor behavior
+        isReturningVisitor: visitorHistory.isReturning,
+        previousVisitCount: visitorHistory.previousCount,
+        // Time context
+        dayOfWeek: timeContext.dayOfWeek,
+        hourOfDay: timeContext.hourOfDay,
+        // Bot detection
+        isBot: isBotVisitor,
       });
 
       // Increment click count

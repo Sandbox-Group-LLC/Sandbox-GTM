@@ -1230,6 +1230,24 @@ export const marketingLinkClicks = pgTable("marketing_link_clicks", {
   referrer: text("referrer"),
   // Query params snapshot
   queryParams: jsonb("query_params").$type<Record<string, string>>(),
+  // Device & Browser (parsed from User-Agent)
+  deviceType: varchar("device_type", { length: 20 }), // 'desktop', 'mobile', 'tablet'
+  browser: varchar("browser", { length: 50 }), // 'Chrome', 'Firefox', 'Safari', etc.
+  os: varchar("os", { length: 50 }), // 'Windows', 'macOS', 'iOS', 'Android', 'Linux'
+  // Geographic data (from IP geolocation)
+  country: varchar("country", { length: 100 }),
+  countryCode: varchar("country_code", { length: 3 }),
+  region: varchar("region", { length: 100 }),
+  city: varchar("city", { length: 100 }),
+  timezone: varchar("timezone", { length: 50 }),
+  // Visitor behavior
+  isReturningVisitor: boolean("is_returning_visitor").default(false),
+  previousVisitCount: integer("previous_visit_count").default(0),
+  // Time context
+  dayOfWeek: integer("day_of_week"), // 0=Sunday, 6=Saturday
+  hourOfDay: integer("hour_of_day"), // 0-23
+  // Bot detection
+  isBot: boolean("is_bot").default(false),
   // Conversion tracking (linked to marketing lead if converted)
   convertedToLeadId: varchar("converted_to_lead_id").references(() => marketingLeads.id),
   convertedAt: timestamp("converted_at"),
@@ -1238,6 +1256,8 @@ export const marketingLinkClicks = pgTable("marketing_link_clicks", {
 }, (table) => [
   index("IDX_marketing_click_link").on(table.marketingLinkId),
   index("IDX_marketing_click_time").on(table.clickedAt),
+  index("IDX_marketing_click_country").on(table.country),
+  index("IDX_marketing_click_device").on(table.deviceType),
 ]);
 
 export const insertMarketingActivationLinkSchema = createInsertSchema(marketingActivationLinks).omit({
