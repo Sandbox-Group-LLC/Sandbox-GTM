@@ -91,7 +91,10 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
   const { requiresInvite, userIsSuperAdmin, redemption, isLoading: signupStatusLoading } = useSignupStatus();
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
+  
+  // Determine if this is a public event page (should render outside sidebar layout)
+  const isPublicEventPage = location.startsWith('/event/') || location === '/sponsor-portal';
 
   // Check for pending invite code after authentication and redirect to accept-invitation page
   useEffect(() => {
@@ -147,9 +150,6 @@ function Router() {
 
   // Public event pages should render outside of AuthenticatedLayout
   // to avoid layout conflicts with sidebar/admin chrome
-  const [location] = useLocation();
-  const isPublicEventPage = location.startsWith('/event/') || location === '/sponsor-portal';
-
   if (isPublicEventPage) {
     return (
       <Switch>
