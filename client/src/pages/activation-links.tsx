@@ -40,18 +40,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Plus, Link2, Trash2, ChevronDown, ChevronRight, Calendar, Copy, MousePointerClick, Users, Monitor, Smartphone, Tablet, Globe, UserCheck, Bot } from "lucide-react";
+import { Plus, Link2, Trash2, ChevronDown, ChevronRight, Copy, MousePointerClick, Users, Monitor, Smartphone, Tablet, Globe, UserCheck, Bot, TrendingUp, Pencil } from "lucide-react";
 import { titleCase } from "@/lib/utils";
 import type { ActivationLink, Event, InviteCode } from "@shared/schema";
 
@@ -71,17 +63,11 @@ const activationLinkFormSchema = z.object({
 
 type ActivationLinkFormData = z.infer<typeof activationLinkFormSchema>;
 
-interface GroupedActivationLinks {
-  eventId: string;
-  eventName: string;
-  links: ActivationLink[];
-}
-
 export default function ActivationLinks() {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLink, setEditingLink] = useState<ActivationLink | null>(null);
-  const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
+  const [expandedLinks, setExpandedLinks] = useState<Set<string>>(new Set());
   const [selectedEventId, setSelectedEventId] = useState<string>("");
 
   const { data: events = [] } = useQuery<Event[]>({
@@ -138,7 +124,6 @@ export default function ActivationLinks() {
     botVsHuman: { human: number; bot: number };
   }
 
-  // Breakdowns follow the event filter dropdown selection
   const { data: breakdowns } = useQuery<ClickBreakdowns>({
     queryKey: ["/api/activation-links-breakdowns", selectedEventId],
     queryFn: async () => {
@@ -160,44 +145,37 @@ export default function ActivationLinks() {
     }
   };
 
-  const groupedData = useMemo(() => {
-    const eventMap = new Map<string, GroupedActivationLinks>();
-    
-    activationLinks.forEach((link) => {
-      if (!eventMap.has(link.eventId)) {
-        const event = events.find((e) => e.id === link.eventId);
-        eventMap.set(link.eventId, {
-          eventId: link.eventId,
-          eventName: event?.name || "Unknown Event",
-          links: [],
-        });
-      }
-      eventMap.get(link.eventId)!.links.push(link);
-    });
-    
-    return Array.from(eventMap.values()).sort((a, b) => 
-      a.eventName.localeCompare(b.eventName)
-    );
-  }, [activationLinks, events]);
+  const kpiData = useMemo(() => {
+    const totalLinks = activationLinks.length;
+    const totalClicks = activationLinks.reduce((sum, link) => sum + (link.clickCount ?? 0), 0);
+    const totalConversions = activationLinks.reduce((sum, link) => sum + (link.conversionCount ?? 0), 0);
+    const conversionRate = totalClicks > 0 ? ((totalConversions / totalClicks) * 100).toFixed(1) : "0.0";
+    return { totalLinks, totalClicks, totalConversions, conversionRate };
+  }, [activationLinks]);
 
-  const toggleEventExpanded = (eventId: string) => {
-    setExpandedEvents((prev) => {
+  const getEventName = (eventId: string) => {
+    const event = events.find((e) => e.id === eventId);
+    return event?.name || "Unknown Event";
+  };
+
+  const toggleLinkExpanded = (linkId: string) => {
+    setExpandedLinks((prev) => {
       const next = new Set(prev);
-      if (next.has(eventId)) {
-        next.delete(eventId);
+      if (next.has(linkId)) {
+        next.delete(linkId);
       } else {
-        next.add(eventId);
+        next.add(linkId);
       }
       return next;
     });
   };
 
   const expandAll = () => {
-    setExpandedEvents(new Set(groupedData.map((g) => g.eventId)));
+    setExpandedLinks(new Set(activationLinks.map((link) => link.id)));
   };
 
   const collapseAll = () => {
-    setExpandedEvents(new Set());
+    setExpandedLinks(new Set());
   };
 
   const createMutation = useMutation({
@@ -209,11 +187,6 @@ export default function ActivationLinks() {
       toast({ title: "Activation link created successfully" });
       setIsDialogOpen(false);
       form.reset();
-      setExpandedEvents((prev) => {
-        const next = new Set(prev);
-        next.add(variables.eventId);
-        return next;
-      });
     },
     onError: (error: Error) => {
       if (isUnauthorizedError(error)) {
@@ -315,14 +288,17 @@ export default function ActivationLinks() {
       toast({ title: "No tracking URL available", variant: "destructive" });
       return;
     }
-    // Use VITE_APP_URL if available (production), otherwise fall back to current origin
     const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
     const trackingUrl = `${baseUrl}/api/public/track/${shortCode}`;
     navigator.clipboard.writeText(trackingUrl);
     toast({ title: "Tracking URL copied to clipboard" });
   };
 
-  const isActive = form.watch("status") === "active";
+  const getInviteCodeName = (inviteCodeId: string | null) => {
+    if (!inviteCodeId) return null;
+    const code = inviteCodes.find((c) => c.id === inviteCodeId);
+    return code?.code || null;
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -344,7 +320,7 @@ export default function ActivationLinks() {
                 ))}
               </SelectContent>
             </Select>
-            {groupedData.length > 1 && (
+            {activationLinks.length > 1 && (
               <div className="hidden md:flex items-center gap-2">
                 <Button variant="outline" size="sm" onClick={expandAll} data-testid="button-expand-all">
                   Expand All
@@ -606,6 +582,49 @@ export default function ActivationLinks() {
 
       <div className="flex-1 p-6 overflow-auto">
         <div className="max-w-7xl mx-auto space-y-6">
+          {/* KPI Summary Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Links</CardTitle>
+                <Link2 className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold" data-testid="kpi-total-links">{kpiData.totalLinks}</div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Clicks</CardTitle>
+                <MousePointerClick className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold" data-testid="kpi-total-clicks">{kpiData.totalClicks.toLocaleString()}</div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Conversions</CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold" data-testid="kpi-total-conversions">{kpiData.totalConversions.toLocaleString()}</div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Conversion Rate</CardTitle>
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold" data-testid="kpi-conversion-rate">{kpiData.conversionRate}%</div>
+              </CardContent>
+            </Card>
+          </div>
+
           {/* Analytics Breakdowns */}
           {breakdowns && (breakdowns.devices?.length > 0 || breakdowns.browsers?.length > 0 || breakdowns.countries?.length > 0) && (() => {
             const deviceTotal = breakdowns.devices?.reduce((a, b) => a + b.count, 0) || 0;
@@ -740,6 +759,7 @@ export default function ActivationLinks() {
             );
           })()}
 
+          {/* Activation Links List */}
           {isLoading ? (
             <div className="flex items-center justify-center h-64">
               <div className="animate-pulse text-muted-foreground">Loading...</div>
@@ -755,114 +775,132 @@ export default function ActivationLinks() {
               }}
             />
           ) : (
-            <div className="space-y-4">
-              {groupedData.map((group) => {
-                const isExpanded = expandedEvents.has(group.eventId);
+            <div className="space-y-3">
+              {activationLinks.map((link) => {
+                const isExpanded = expandedLinks.has(link.id);
+                const eventName = getEventName(link.eventId);
                 return (
-                  <Card key={group.eventId} data-testid={`card-event-group-${group.eventId}`}>
-                    <Collapsible open={isExpanded} onOpenChange={() => toggleEventExpanded(group.eventId)}>
+                  <Card key={link.id} data-testid={`card-activation-link-${link.id}`}>
+                    <Collapsible open={isExpanded} onOpenChange={() => toggleLinkExpanded(link.id)}>
                       <CollapsibleTrigger asChild>
                         <CardHeader className="cursor-pointer hover-elevate py-3">
                           <div className="flex items-center justify-between gap-4">
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
                               {isExpanded ? (
-                                <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                                <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                               ) : (
-                                <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                                <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                               )}
-                              <Calendar className="h-5 w-5 text-muted-foreground" />
-                              <CardTitle className="text-base" data-testid={`text-event-name-${group.eventId}`}>
-                                {group.eventName}
-                              </CardTitle>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-medium truncate" data-testid={`text-link-name-${link.id}`}>
+                                    {link.name}
+                                  </span>
+                                  <Badge variant="outline" className="text-xs flex-shrink-0" data-testid={`badge-event-${link.id}`}>
+                                    {eventName}
+                                  </Badge>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1 flex-wrap">
+                                  <span data-testid={`text-source-medium-${link.id}`}>
+                                    {link.utmSource} / {link.utmMedium}
+                                  </span>
+                                </div>
+                              </div>
                             </div>
-                            <span className="text-sm text-muted-foreground" data-testid={`text-link-count-${group.eventId}`}>
-                              {group.links.length} {group.links.length === 1 ? "link" : "links"}
-                            </span>
+                            <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+                              <Badge variant="outline" className="gap-1" data-testid={`badge-clicks-${link.id}`}>
+                                <MousePointerClick className="h-3 w-3" />
+                                {link.clickCount ?? 0}
+                              </Badge>
+                              <Badge variant="outline" className="gap-1" data-testid={`badge-conversions-${link.id}`}>
+                                <Users className="h-3 w-3" />
+                                {link.conversionCount ?? 0}
+                              </Badge>
+                              <Badge 
+                                variant={link.status === "active" ? "default" : "secondary"} 
+                                data-testid={`badge-status-${link.id}`}
+                              >
+                                {link.status === "active" ? "Active" : "Paused"}
+                              </Badge>
+                              <div className="flex items-center gap-1 ml-2">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    copyTrackingUrl(link.shortCode);
+                                  }}
+                                  data-testid={`button-copy-${link.id}`}
+                                >
+                                  <Copy className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEdit(link);
+                                  }}
+                                  data-testid={`button-edit-${link.id}`}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDelete(link.id);
+                                  }}
+                                  data-testid={`button-delete-${link.id}`}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </div>
+                            </div>
                           </div>
                         </CardHeader>
                       </CollapsibleTrigger>
                       <CollapsibleContent>
-                        <CardContent className="pt-0">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Source / Medium</TableHead>
-                                <TableHead>Campaign</TableHead>
-                                <TableHead>Clicks</TableHead>
-                                <TableHead>Conversions</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead className="w-40"></TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {group.links.map((link) => (
-                                <TableRow key={link.id} data-testid={`row-activation-link-${link.id}`}>
-                                  <TableCell>
-                                    <span className="font-medium" data-testid={`text-name-${link.id}`}>
-                                      {link.name}
-                                    </span>
-                                  </TableCell>
-                                  <TableCell data-testid={`text-source-medium-${link.id}`}>
-                                    <span className="text-muted-foreground">
-                                      {link.utmSource} / {link.utmMedium}
-                                    </span>
-                                  </TableCell>
-                                  <TableCell data-testid={`text-campaign-${link.id}`}>
-                                    {link.utmCampaign}
-                                  </TableCell>
-                                  <TableCell>
-                                    <Badge variant="outline" className="gap-1" data-testid={`badge-clicks-${link.id}`}>
-                                      <MousePointerClick className="h-3 w-3" />
-                                      {link.clickCount ?? 0}
-                                    </Badge>
-                                  </TableCell>
-                                  <TableCell>
-                                    <Badge variant="outline" className="gap-1" data-testid={`badge-conversions-${link.id}`}>
-                                      <Users className="h-3 w-3" />
-                                      {link.conversionCount ?? 0}
-                                    </Badge>
-                                  </TableCell>
-                                  <TableCell>
-                                    <Badge 
-                                      variant={link.status === "active" ? "default" : "secondary"} 
-                                      data-testid={`badge-status-${link.id}`}
-                                    >
-                                      {link.status === "active" ? "Active" : "Paused"}
-                                    </Badge>
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="flex items-center gap-2">
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={() => copyTrackingUrl(link.shortCode)}
-                                        data-testid={`button-copy-${link.id}`}
-                                      >
-                                        <Copy className="h-4 w-4" />
-                                      </Button>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => handleEdit(link)}
-                                        data-testid={`button-edit-${link.id}`}
-                                      >
-                                        Edit
-                                      </Button>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={() => handleDelete(link.id)}
-                                        data-testid={`button-delete-${link.id}`}
-                                      >
-                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                      </Button>
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
+                        <CardContent className="pt-0 pb-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                            <div>
+                              <div className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Campaign</div>
+                              <div className="text-sm" data-testid={`text-campaign-${link.id}`}>{link.utmCampaign}</div>
+                            </div>
+                            {link.utmContent && (
+                              <div>
+                                <div className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Content</div>
+                                <div className="text-sm" data-testid={`text-content-${link.id}`}>{link.utmContent}</div>
+                              </div>
+                            )}
+                            {link.utmTerm && (
+                              <div>
+                                <div className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Term</div>
+                                <div className="text-sm" data-testid={`text-term-${link.id}`}>{link.utmTerm}</div>
+                              </div>
+                            )}
+                            {link.inviteCodeId && (
+                              <div>
+                                <div className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Activation Key</div>
+                                <div className="text-sm" data-testid={`text-invite-code-${link.id}`}>
+                                  {getInviteCodeName(link.inviteCodeId) || "Unknown"}
+                                </div>
+                              </div>
+                            )}
+                            {link.baseUrl && (
+                              <div className="md:col-span-2">
+                                <div className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Base URL</div>
+                                <div className="text-sm truncate" data-testid={`text-base-url-${link.id}`}>{link.baseUrl}</div>
+                              </div>
+                            )}
+                            {link.description && (
+                              <div className="md:col-span-2 lg:col-span-3">
+                                <div className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Description</div>
+                                <div className="text-sm" data-testid={`text-description-${link.id}`}>{link.description}</div>
+                              </div>
+                            )}
+                          </div>
                         </CardContent>
                       </CollapsibleContent>
                     </Collapsible>
