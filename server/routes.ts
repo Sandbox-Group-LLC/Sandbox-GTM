@@ -4370,7 +4370,8 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId, req.session);
-      const breakdowns = await storage.getActivationLinkClickBreakdowns(organizationId);
+      const eventId = req.query.eventId as string | undefined;
+      const breakdowns = await storage.getActivationLinkClickBreakdowns(organizationId, eventId);
       res.json(breakdowns);
     } catch (error) {
       logError("Error getting activation link breakdowns:", error);

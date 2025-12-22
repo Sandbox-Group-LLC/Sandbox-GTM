@@ -3912,17 +3912,21 @@ export class DatabaseStorage implements IStorage {
     return { devices, browsers, countries, returningVisitors, botVsHuman };
   }
 
-  async getActivationLinkClickBreakdowns(organizationId: string): Promise<{
+  async getActivationLinkClickBreakdowns(organizationId: string, eventId?: string): Promise<{
     devices: Array<{ type: string; count: number }>;
     browsers: Array<{ browser: string; count: number }>;
     countries: Array<{ country: string; countryCode: string | null; count: number }>;
     returningVisitors: { new: number; returning: number };
     botVsHuman: { human: number; bot: number };
   }> {
-    // Get all activation link IDs for this organization
+    // Get activation link IDs for this organization, optionally filtered by event
+    const conditions = [eq(activationLinks.organizationId, organizationId)];
+    if (eventId) {
+      conditions.push(eq(activationLinks.eventId, eventId));
+    }
     const orgLinks = await db.select({ id: activationLinks.id })
       .from(activationLinks)
-      .where(eq(activationLinks.organizationId, organizationId));
+      .where(and(...conditions));
     
     const linkIds = orgLinks.map(l => l.id);
     

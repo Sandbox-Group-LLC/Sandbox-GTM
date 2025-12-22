@@ -138,8 +138,22 @@ export default function ActivationLinks() {
     botVsHuman: { human: number; bot: number };
   }
 
+  // Get the first expanded event for breakdowns, or null if none expanded
+  const breakdownEventId = useMemo(() => {
+    const expandedArr = Array.from(expandedEvents);
+    return expandedArr.length > 0 ? expandedArr[0] : null;
+  }, [expandedEvents]);
+
   const { data: breakdowns } = useQuery<ClickBreakdowns>({
-    queryKey: ["/api/activation-links-breakdowns"],
+    queryKey: ["/api/activation-links-breakdowns", breakdownEventId],
+    queryFn: async () => {
+      const url = breakdownEventId 
+        ? `/api/activation-links-breakdowns?eventId=${breakdownEventId}`
+        : `/api/activation-links-breakdowns`;
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch breakdowns");
+      return res.json();
+    },
   });
 
   const getDeviceIcon = (type: string) => {
