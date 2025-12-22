@@ -791,6 +791,55 @@ export const attendeeInterests = pgTable("attendee_interests", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Session Feedback - feedback on individual sessions
+export const sessionFeedback = pgTable("session_feedback", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id).notNull(),
+  sessionId: varchar("session_id").references(() => eventSessions.id).notNull(),
+  attendeeId: varchar("attendee_id").references(() => attendees.id).notNull(),
+  overallRating: integer("overall_rating").notNull(),
+  contentRating: integer("content_rating"),
+  speakerRating: integer("speaker_rating"),
+  relevanceRating: integer("relevance_rating"),
+  comment: text("comment"),
+  isAnonymous: boolean("is_anonymous").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Event Feedback - overall event experience feedback
+export const eventFeedback = pgTable("event_feedback", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id).notNull(),
+  attendeeId: varchar("attendee_id").references(() => attendees.id).notNull(),
+  overallRating: integer("overall_rating").notNull(),
+  venueRating: integer("venue_rating"),
+  contentRating: integer("content_rating"),
+  networkingRating: integer("networking_rating"),
+  organizationRating: integer("organization_rating"),
+  wouldRecommend: boolean("would_recommend"),
+  highlights: text("highlights"),
+  improvements: text("improvements"),
+  additionalComments: text("additional_comments"),
+  isAnonymous: boolean("is_anonymous").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Feedback Configuration - settings for feedback forms per event
+export const feedbackConfigs = pgTable("feedback_configs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id).notNull().unique(),
+  sessionFeedbackEnabled: boolean("session_feedback_enabled").default(true),
+  eventFeedbackEnabled: boolean("event_feedback_enabled").default(true),
+  allowAnonymous: boolean("allow_anonymous").default(true),
+  sessionFeedbackFields: jsonb("session_feedback_fields").$type<string[]>(),
+  eventFeedbackFields: jsonb("event_feedback_fields").$type<string[]>(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Content catalog table
 export const contentItems = pgTable("content_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1776,6 +1825,9 @@ export const insertSessionTrackSchema = createInsertSchema(sessionTracks).omit({
 export const insertSessionRoomSchema = createInsertSchema(sessionRooms).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertAttendeeSavedSessionSchema = createInsertSchema(attendeeSavedSessions).omit({ id: true, createdAt: true });
 export const insertAttendeeInterestsSchema = createInsertSchema(attendeeInterests).omit({ id: true, updatedAt: true });
+export const insertSessionFeedbackSchema = createInsertSchema(sessionFeedback).omit({ id: true, createdAt: true });
+export const insertEventFeedbackSchema = createInsertSchema(eventFeedback).omit({ id: true, createdAt: true });
+export const insertFeedbackConfigSchema = createInsertSchema(feedbackConfigs).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertContentItemSchema = createInsertSchema(contentItems).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertBudgetItemSchema = createInsertSchema(budgetItems).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertBudgetCategorySchema = createInsertSchema(budgetCategories).omit({ id: true });
@@ -1864,6 +1916,12 @@ export type InsertAttendeeSavedSession = z.infer<typeof insertAttendeeSavedSessi
 export type AttendeeSavedSession = typeof attendeeSavedSessions.$inferSelect;
 export type InsertAttendeeInterests = z.infer<typeof insertAttendeeInterestsSchema>;
 export type AttendeeInterests = typeof attendeeInterests.$inferSelect;
+export type InsertSessionFeedback = z.infer<typeof insertSessionFeedbackSchema>;
+export type SessionFeedback = typeof sessionFeedback.$inferSelect;
+export type InsertEventFeedback = z.infer<typeof insertEventFeedbackSchema>;
+export type EventFeedback = typeof eventFeedback.$inferSelect;
+export type InsertFeedbackConfig = z.infer<typeof insertFeedbackConfigSchema>;
+export type FeedbackConfig = typeof feedbackConfigs.$inferSelect;
 export type InsertContentItem = z.infer<typeof insertContentItemSchema>;
 export type ContentItem = typeof contentItems.$inferSelect;
 export type InsertBudgetItem = z.infer<typeof insertBudgetItemSchema>;
