@@ -20,6 +20,7 @@ import { SessionFeedbackSection } from "@/components/sections/session-feedback-s
 import { EventFeedbackSection } from "@/components/sections/event-feedback-section";
 import { RecommendationsSection } from "@/components/sections/recommendations-section";
 import { AttendeeInterestsSection } from "@/components/sections/attendee-interests-section";
+import { BookmarkSessionButton } from "@/components/bookmark-session-button";
 
 export { sanitizeCustomCss };
 
@@ -1216,7 +1217,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
             <Card key={session.id} style={cardStyles}>
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-4">
-                  <div>
+                  <div className="flex-1">
                     <h4 className="font-medium" style={headingStyles}>{session.title}</h4>
                     {session.description && (
                       <p className="text-sm mt-1" style={secondaryTextStyles}>{session.description}</p>
@@ -1226,10 +1227,20 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
                       {session.sessionType && <Badge variant="secondary">{titleCase(session.sessionType)}</Badge>}
                     </div>
                   </div>
-                  <div className="text-right text-sm whitespace-nowrap" style={secondaryTextStyles}>
-                    <p>{session.startTime} - {session.endTime}</p>
-                    {showRoom && session.room && <p className="text-xs">{session.room}</p>}
-                    {!options?.hideDate && session.sessionDate && <p className="text-xs">{formatEventDate(session.sessionDate, 'short')}</p>}
+                  <div className="flex items-start gap-3">
+                    <div className="text-right text-sm whitespace-nowrap" style={secondaryTextStyles}>
+                      <p>{session.startTime} - {session.endTime}</p>
+                      {showRoom && session.room && <p className="text-xs">{session.room}</p>}
+                      {!options?.hideDate && session.sessionDate && <p className="text-xs">{formatEventDate(session.sessionDate, 'short')}</p>}
+                    </div>
+                    {attendeeContext?.attendee && event?.id && (
+                      <BookmarkSessionButton 
+                        eventId={event.id} 
+                        sessionId={session.id} 
+                        variant="ghost"
+                        size="sm"
+                      />
+                    )}
                   </div>
                 </div>
               </CardContent>
