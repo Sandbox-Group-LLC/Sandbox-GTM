@@ -258,7 +258,7 @@ export default function AdminMarketing() {
   };
 
   const handleCopyLink = (link: MarketingActivationLink) => {
-    const baseUrl = window.location.origin;
+    const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
     const trackingUrl = `${baseUrl}/api/public/mkt/${link.shortCode}`;
     navigator.clipboard.writeText(trackingUrl);
     toast({

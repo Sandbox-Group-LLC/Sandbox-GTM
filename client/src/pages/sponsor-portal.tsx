@@ -844,7 +844,7 @@ function TeamTab({ sponsor, token }: { sponsor: SponsorWithEvent; token: string 
   };
 
   const inviteLink = currentSponsor.event?.publicSlug && currentSponsor.baseInviteCodeId
-    ? `${window.location.origin}/event/${currentSponsor.event.publicSlug}/register?invite=${currentSponsor.baseInviteCodeId}`
+    ? `${import.meta.env.VITE_APP_URL || window.location.origin}/event/${currentSponsor.event.publicSlug}/register?invite=${currentSponsor.baseInviteCodeId}`
     : null;
 
   const copyInviteLink = () => {

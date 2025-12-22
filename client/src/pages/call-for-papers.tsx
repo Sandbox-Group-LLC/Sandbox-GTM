@@ -776,7 +776,8 @@ export default function CallForPapers() {
                                   variant="outline"
                                   size="sm"
                                   onClick={() => {
-                                    const url = `${window.location.origin}/event/${selectedEvent.publicSlug}/cfp`;
+                                    const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+                                    const url = `${baseUrl}/event/${selectedEvent.publicSlug}/cfp`;
                                     navigator.clipboard.writeText(url);
                                     toast({
                                       title: "Link copied",
@@ -803,7 +804,7 @@ export default function CallForPapers() {
                               </div>
                             </div>
                             <code className="block text-xs bg-muted p-2 rounded break-all">
-                              {`${window.location.origin}/event/${selectedEvent.publicSlug}/cfp`}
+                              {`${import.meta.env.VITE_APP_URL || window.location.origin}/event/${selectedEvent.publicSlug}/cfp`}
                             </code>
                           </div>
                         )}

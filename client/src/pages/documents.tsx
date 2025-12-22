@@ -374,7 +374,8 @@ export default function Documents() {
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["/api/documents", selectedDocument?.id, "shares"] });
       if (result.shareType === "link") {
-        const link = `${window.location.origin}/documents/shared/${result.shareValue}`;
+        const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+        const link = `${baseUrl}/documents/shared/${result.shareValue}`;
         setCreatedShareLink(link);
         toast({ title: "Share link created" });
       } else {
@@ -550,7 +551,8 @@ export default function Documents() {
   };
 
   const handleCopyLink = async (share: DocumentShare) => {
-    const link = `${window.location.origin}/documents/shared/${share.shareValue}`;
+    const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+    const link = `${baseUrl}/documents/shared/${share.shareValue}`;
     await navigator.clipboard.writeText(link);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);

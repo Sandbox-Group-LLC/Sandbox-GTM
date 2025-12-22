@@ -276,7 +276,8 @@ export default function Sponsors() {
       toast({ title: "No portal token", description: "Generate a portal token first.", variant: "destructive" });
       return;
     }
-    const portalUrl = `${window.location.origin}/sponsor-portal?token=${sponsor.portalAccessToken}`;
+    const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+    const portalUrl = `${baseUrl}/sponsor-portal?token=${sponsor.portalAccessToken}`;
     navigator.clipboard.writeText(portalUrl);
     toast({ title: "Link copied", description: "Portal link copied to clipboard." });
   };
