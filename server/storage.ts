@@ -206,6 +206,21 @@ import {
   type InsertMarketingLinkClick,
   type EventTranslation,
   type InsertEventTranslation,
+  attendeeSavedSessions,
+  attendeeInterests,
+  sessionFeedback,
+  eventFeedback,
+  feedbackConfigs,
+  type AttendeeSavedSession,
+  type InsertAttendeeSavedSession,
+  type AttendeeInterests,
+  type InsertAttendeeInterests,
+  type SessionFeedback,
+  type InsertSessionFeedback,
+  type EventFeedback,
+  type InsertEventFeedback,
+  type FeedbackConfig,
+  type InsertFeedbackConfig,
 } from "@shared/schema";
 import crypto from "crypto";
 import { encrypt, decrypt } from "./encryption";
@@ -703,6 +718,31 @@ export interface IStorage {
   getCustomFontVariants(customFontId: string): Promise<CustomFontVariant[]>;
   createCustomFontVariant(variant: InsertCustomFontVariant): Promise<CustomFontVariant>;
   deleteCustomFontVariant(id: string): Promise<void>;
+
+  // Attendee Saved Sessions operations (personal schedule)
+  getAttendeeSavedSessions(attendeeId: string): Promise<AttendeeSavedSession[]>;
+  saveSession(attendeeId: string, sessionId: string): Promise<AttendeeSavedSession>;
+  unsaveSession(attendeeId: string, sessionId: string): Promise<void>;
+  isSessionSaved(attendeeId: string, sessionId: string): Promise<boolean>;
+  getSessionSaveCount(sessionId: string): Promise<number>;
+
+  // Attendee Interests operations (preferences for recommendations)
+  getAttendeeInterests(attendeeId: string): Promise<AttendeeInterests | undefined>;
+  upsertAttendeeInterests(attendeeId: string, interests: InsertAttendeeInterests): Promise<AttendeeInterests>;
+
+  // Session Feedback operations
+  getSessionFeedback(organizationId: string, sessionId: string): Promise<SessionFeedback[]>;
+  getAttendeeSessionFeedback(attendeeId: string, sessionId: string): Promise<SessionFeedback | undefined>;
+  createSessionFeedback(data: InsertSessionFeedback): Promise<SessionFeedback>;
+
+  // Event Feedback operations
+  getEventFeedback(organizationId: string, eventId: string): Promise<EventFeedback[]>;
+  getAttendeeEventFeedback(attendeeId: string, eventId: string): Promise<EventFeedback | undefined>;
+  createEventFeedback(data: InsertEventFeedback): Promise<EventFeedback>;
+
+  // Feedback Config operations
+  getFeedbackConfig(eventId: string): Promise<FeedbackConfig | undefined>;
+  upsertFeedbackConfig(data: InsertFeedbackConfig): Promise<FeedbackConfig>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3994,6 +4034,148 @@ export class DatabaseStorage implements IStorage {
     };
     
     return { devices, browsers, countries, returningVisitors, botVsHuman };
+  }
+
+  // Attendee Saved Sessions operations (personal schedule)
+  async getAttendeeSavedSessions(attendeeId: string): Promise<AttendeeSavedSession[]> {
+    return db.select().from(attendeeSavedSessions)
+      .where(eq(attendeeSavedSessions.attendeeId, attendeeId))
+      .orderBy(desc(attendeeSavedSessions.createdAt));
+  }
+
+  async saveSession(attendeeId: string, sessionId: string): Promise<AttendeeSavedSession> {
+    const [saved] = await db.insert(attendeeSavedSessions)
+      .values({ attendeeId, sessionId })
+      .onConflictDoNothing()
+      .returning();
+    if (!saved) {
+      const [existing] = await db.select().from(attendeeSavedSessions)
+        .where(and(
+          eq(attendeeSavedSessions.attendeeId, attendeeId),
+          eq(attendeeSavedSessions.sessionId, sessionId)
+        ));
+      return existing;
+    }
+    return saved;
+  }
+
+  async unsaveSession(attendeeId: string, sessionId: string): Promise<void> {
+    await db.delete(attendeeSavedSessions)
+      .where(and(
+        eq(attendeeSavedSessions.attendeeId, attendeeId),
+        eq(attendeeSavedSessions.sessionId, sessionId)
+      ));
+  }
+
+  async isSessionSaved(attendeeId: string, sessionId: string): Promise<boolean> {
+    const [result] = await db.select().from(attendeeSavedSessions)
+      .where(and(
+        eq(attendeeSavedSessions.attendeeId, attendeeId),
+        eq(attendeeSavedSessions.sessionId, sessionId)
+      ));
+    return !!result;
+  }
+
+  async getSessionSaveCount(sessionId: string): Promise<number> {
+    const [result] = await db.select({ count: count() }).from(attendeeSavedSessions)
+      .where(eq(attendeeSavedSessions.sessionId, sessionId));
+    return Number(result?.count || 0);
+  }
+
+  // Attendee Interests operations (preferences for recommendations)
+  async getAttendeeInterests(attendeeId: string): Promise<AttendeeInterests | undefined> {
+    const [result] = await db.select().from(attendeeInterests)
+      .where(eq(attendeeInterests.attendeeId, attendeeId));
+    return result;
+  }
+
+  async upsertAttendeeInterests(attendeeId: string, interests: InsertAttendeeInterests): Promise<AttendeeInterests> {
+    const [result] = await db.insert(attendeeInterests)
+      .values({ ...interests, attendeeId })
+      .onConflictDoUpdate({
+        target: attendeeInterests.attendeeId,
+        set: {
+          preferredTracks: interests.preferredTracks,
+          preferredSessionTypes: interests.preferredSessionTypes,
+          interests: interests.interests,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return result;
+  }
+
+  // Session Feedback operations
+  async getSessionFeedback(organizationId: string, sessionId: string): Promise<SessionFeedback[]> {
+    return db.select().from(sessionFeedback)
+      .where(and(
+        eq(sessionFeedback.organizationId, organizationId),
+        eq(sessionFeedback.sessionId, sessionId)
+      ))
+      .orderBy(desc(sessionFeedback.createdAt));
+  }
+
+  async getAttendeeSessionFeedback(attendeeId: string, sessionId: string): Promise<SessionFeedback | undefined> {
+    const [result] = await db.select().from(sessionFeedback)
+      .where(and(
+        eq(sessionFeedback.attendeeId, attendeeId),
+        eq(sessionFeedback.sessionId, sessionId)
+      ));
+    return result;
+  }
+
+  async createSessionFeedback(data: InsertSessionFeedback): Promise<SessionFeedback> {
+    const [result] = await db.insert(sessionFeedback).values(data).returning();
+    return result;
+  }
+
+  // Event Feedback operations
+  async getEventFeedback(organizationId: string, eventId: string): Promise<EventFeedback[]> {
+    return db.select().from(eventFeedback)
+      .where(and(
+        eq(eventFeedback.organizationId, organizationId),
+        eq(eventFeedback.eventId, eventId)
+      ))
+      .orderBy(desc(eventFeedback.createdAt));
+  }
+
+  async getAttendeeEventFeedback(attendeeId: string, eventId: string): Promise<EventFeedback | undefined> {
+    const [result] = await db.select().from(eventFeedback)
+      .where(and(
+        eq(eventFeedback.attendeeId, attendeeId),
+        eq(eventFeedback.eventId, eventId)
+      ));
+    return result;
+  }
+
+  async createEventFeedback(data: InsertEventFeedback): Promise<EventFeedback> {
+    const [result] = await db.insert(eventFeedback).values(data).returning();
+    return result;
+  }
+
+  // Feedback Config operations
+  async getFeedbackConfig(eventId: string): Promise<FeedbackConfig | undefined> {
+    const [result] = await db.select().from(feedbackConfigs)
+      .where(eq(feedbackConfigs.eventId, eventId));
+    return result;
+  }
+
+  async upsertFeedbackConfig(data: InsertFeedbackConfig): Promise<FeedbackConfig> {
+    const [result] = await db.insert(feedbackConfigs)
+      .values(data)
+      .onConflictDoUpdate({
+        target: feedbackConfigs.eventId,
+        set: {
+          sessionFeedbackEnabled: data.sessionFeedbackEnabled,
+          eventFeedbackEnabled: data.eventFeedbackEnabled,
+          allowAnonymous: data.allowAnonymous,
+          sessionFeedbackFields: data.sessionFeedbackFields as string[] | null | undefined,
+          eventFeedbackFields: data.eventFeedbackFields as string[] | null | undefined,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return result;
   }
 }
 
