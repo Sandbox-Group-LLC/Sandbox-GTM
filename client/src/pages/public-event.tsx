@@ -15,6 +15,11 @@ import { titleCase, formatEventDate } from "@/lib/utils";
 import { sanitizeCustomCss } from "@shared/css-sanitizer";
 import { EventLocaleProvider, useEventLocale } from "@/hooks/use-event-locale";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { PersonalScheduleSection } from "@/components/sections/personal-schedule-section";
+import { SessionFeedbackSection } from "@/components/sections/session-feedback-section";
+import { EventFeedbackSection } from "@/components/sections/event-feedback-section";
+import { RecommendationsSection } from "@/components/sections/recommendations-section";
+import { AttendeeInterestsSection } from "@/components/sections/attendee-interests-section";
 
 export { sanitizeCustomCss };
 
@@ -1964,6 +1969,102 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
 
     case "attendee-qrcode":
       return <AttendeeQRCodeSection config={config} section={section} theme={theme} styles={styles} wrapWithMargins={wrapWithMargins} attendeeContext={attendeeContext} />;
+
+    case "personal-schedule":
+      const scheduleHeading = (config.heading as string) || "My Schedule";
+      const scheduleEmptyMessage = (config.emptyStateMessage as string) || "You haven't saved any sessions yet. Browse the agenda and bookmark sessions you want to attend.";
+      return wrapWithMargins(
+        <PersonalScheduleSection
+          eventId={event.id}
+          heading={scheduleHeading}
+          emptyStateMessage={scheduleEmptyMessage}
+          theme={{
+            headingFont: theme?.headingFont,
+            textColor: styles?.textColor || theme?.textColor,
+            textSecondaryColor: theme?.textSecondaryColor,
+            cardBackground: styles?.backgroundColor || theme?.cardBackground,
+            borderRadius: theme?.borderRadius,
+          }}
+        />
+      );
+
+    case "session-feedback":
+      const sessionFeedbackHeading = (config.heading as string) || "Session Feedback";
+      const sessionFeedbackSessionId = config.sessionId as string | undefined;
+      return wrapWithMargins(
+        <SessionFeedbackSection
+          eventId={event.id}
+          sessionId={sessionFeedbackSessionId}
+          heading={sessionFeedbackHeading}
+          theme={{
+            headingFont: theme?.headingFont,
+            textColor: styles?.textColor || theme?.textColor,
+            textSecondaryColor: theme?.textSecondaryColor,
+            cardBackground: styles?.backgroundColor || theme?.cardBackground,
+            borderRadius: theme?.borderRadius,
+            buttonColor: theme?.buttonColor,
+            buttonTextColor: theme?.buttonTextColor,
+          }}
+        />
+      );
+
+    case "event-feedback":
+      const eventFeedbackHeading = (config.heading as string) || "Event Feedback";
+      const eventFeedbackSuccessMessage = (config.successMessage as string) || "Thank you for sharing your feedback! Your input helps us improve future events.";
+      return wrapWithMargins(
+        <EventFeedbackSection
+          eventId={event.id}
+          heading={eventFeedbackHeading}
+          successMessage={eventFeedbackSuccessMessage}
+          theme={{
+            headingFont: theme?.headingFont,
+            textColor: styles?.textColor || theme?.textColor,
+            textSecondaryColor: theme?.textSecondaryColor,
+            cardBackground: styles?.backgroundColor || theme?.cardBackground,
+            borderRadius: theme?.borderRadius,
+            buttonColor: theme?.buttonColor,
+            buttonTextColor: theme?.buttonTextColor,
+          }}
+        />
+      );
+
+    case "recommendations":
+      const recommendationsHeading = (config.heading as string) || "Recommended For You";
+      const maxRecommendations = (config.maxRecommendations as number) || 6;
+      const recommendationsEmptyMessage = (config.emptyStateMessage as string) || "Set your interests to get personalized session recommendations.";
+      return wrapWithMargins(
+        <RecommendationsSection
+          eventId={event.id}
+          heading={recommendationsHeading}
+          maxRecommendations={maxRecommendations}
+          emptyStateMessage={recommendationsEmptyMessage}
+          theme={{
+            headingFont: theme?.headingFont,
+            textColor: styles?.textColor || theme?.textColor,
+            textSecondaryColor: theme?.textSecondaryColor,
+            cardBackground: styles?.backgroundColor || theme?.cardBackground,
+            borderRadius: theme?.borderRadius,
+          }}
+        />
+      );
+
+    case "attendee-interests":
+      const interestsHeading = (config.heading as string) || "My Interests";
+      return wrapWithMargins(
+        <AttendeeInterestsSection
+          eventId={event.id}
+          heading={interestsHeading}
+          theme={{
+            headingFont: theme?.headingFont,
+            textColor: styles?.textColor || theme?.textColor,
+            textSecondaryColor: theme?.textSecondaryColor,
+            cardBackground: styles?.backgroundColor || theme?.cardBackground,
+            borderRadius: theme?.borderRadius,
+            buttonColor: theme?.buttonColor,
+            buttonTextColor: theme?.buttonTextColor,
+          }}
+        />
+      );
 
     default:
       return null;
