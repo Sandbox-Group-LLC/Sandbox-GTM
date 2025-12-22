@@ -44,6 +44,7 @@ type InterestsFormData = z.infer<typeof interestsFormSchema>;
 interface AttendeeInterestsSectionProps {
   eventId: string;
   heading?: string;
+  isPreview?: boolean;
   theme?: {
     headingFont?: string;
     textColor?: string;
@@ -58,6 +59,7 @@ interface AttendeeInterestsSectionProps {
 export function AttendeeInterestsSection({
   eventId,
   heading = "My Interests",
+  isPreview,
   theme,
 }: AttendeeInterestsSectionProps) {
   const queryClient = useQueryClient();
@@ -66,10 +68,12 @@ export function AttendeeInterestsSection({
 
   const { data: currentInterests, isLoading: loadingInterests } = useQuery<AttendeeInterests | null>({
     queryKey: ["/api/portal", eventId, "interests"],
+    enabled: !isPreview,
   });
 
   const { data: sessions = [], isLoading: loadingSessions } = useQuery<EventSession[]>({
     queryKey: ["/api/portal", eventId, "sessions"],
+    enabled: !isPreview,
   });
 
   const availableTracks = Array.from(new Set(sessions.map(s => s.track).filter(Boolean))) as string[];
@@ -135,6 +139,44 @@ export function AttendeeInterestsSection({
   };
 
   const isLoading = loadingInterests || loadingSessions;
+
+  // Show preview placeholder in site builder
+  if (isPreview) {
+    return (
+      <div data-testid="section-attendee-interests-preview">
+        {heading && <h3 className="text-2xl font-semibold mb-6 text-center" style={headingStyles}>{heading}</h3>}
+        <Card style={cardStyles}>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center gap-2" style={headingStyles}>
+              <Settings className="h-5 w-5" />
+              Customize Your Experience
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <p className="font-medium text-sm" style={headingStyles}>Preferred Tracks</p>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="secondary">Technology</Badge>
+                <Badge variant="outline">Business</Badge>
+                <Badge variant="outline">Marketing</Badge>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <p className="font-medium text-sm" style={headingStyles}>Session Types</p>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="secondary">Workshop</Badge>
+                <Badge variant="secondary">Keynote</Badge>
+                <Badge variant="outline">Panel</Badge>
+              </div>
+            </div>
+            <Button disabled style={buttonStyles}>
+              Save Interests
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

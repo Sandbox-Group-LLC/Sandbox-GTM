@@ -2001,6 +2001,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
           eventId={event.id}
           heading={scheduleHeading}
           emptyStateMessage={scheduleEmptyMessage}
+          isPreview={isPreview}
           theme={{
             headingFont: theme?.headingFont,
             textColor: styles?.textColor || theme?.textColor,
@@ -2019,6 +2020,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
           eventId={event.id}
           sessionId={sessionFeedbackSessionId}
           heading={sessionFeedbackHeading}
+          isPreview={isPreview}
           theme={{
             headingFont: theme?.headingFont,
             textColor: styles?.textColor || theme?.textColor,
@@ -2039,6 +2041,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
           eventId={event.id}
           heading={eventFeedbackHeading}
           successMessage={eventFeedbackSuccessMessage}
+          isPreview={isPreview}
           theme={{
             headingFont: theme?.headingFont,
             textColor: styles?.textColor || theme?.textColor,
@@ -2061,6 +2064,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
           heading={recommendationsHeading}
           maxRecommendations={maxRecommendations}
           emptyStateMessage={recommendationsEmptyMessage}
+          isPreview={isPreview}
           theme={{
             headingFont: theme?.headingFont,
             textColor: styles?.textColor || theme?.textColor,
@@ -2077,6 +2081,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
         <AttendeeInterestsSection
           eventId={event.id}
           heading={interestsHeading}
+          isPreview={isPreview}
           theme={{
             headingFont: theme?.headingFont,
             textColor: styles?.textColor || theme?.textColor,

@@ -16,6 +16,7 @@ interface RecommendationsSectionProps {
   heading?: string;
   maxRecommendations?: number;
   emptyStateMessage?: string;
+  isPreview?: boolean;
   theme?: {
     headingFont?: string;
     textColor?: string;
@@ -30,10 +31,12 @@ export function RecommendationsSection({
   heading = "Recommended For You",
   maxRecommendations = 6,
   emptyStateMessage = "Set your interests to get personalized session recommendations.",
+  isPreview,
   theme,
 }: RecommendationsSectionProps) {
   const { data: recommendations = [], isLoading, error } = useQuery<RecommendedSession[]>({
     queryKey: ["/api/portal", eventId, "recommendations"],
+    enabled: !isPreview,
   });
 
   const borderRadiusMap: Record<string, string> = {
@@ -54,6 +57,49 @@ export function RecommendationsSection({
     backgroundColor: theme?.cardBackground || undefined,
     borderRadius: themeRadius,
   };
+
+  // Show preview placeholder in site builder
+  if (isPreview) {
+    return (
+      <div data-testid="section-recommendations-preview">
+        {heading && <h3 className="text-2xl font-semibold mb-6 text-center" style={headingStyles}>{heading}</h3>}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card style={cardStyles}>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles className="h-4 w-4 text-yellow-500" />
+                <Badge variant="secondary" className="text-xs">Recommended</Badge>
+              </div>
+              <h4 className="font-medium mb-1" style={headingStyles}>AI Workshop: Getting Started</h4>
+              <p className="text-sm line-clamp-2 mb-2" style={secondaryTextStyles}>
+                Learn the fundamentals of AI and machine learning in this hands-on workshop.
+              </p>
+              <div className="flex items-center gap-2 text-xs" style={secondaryTextStyles}>
+                <Calendar className="h-3 w-3" />
+                <span>Day 1 - 10:00 AM</span>
+              </div>
+            </CardContent>
+          </Card>
+          <Card style={cardStyles}>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles className="h-4 w-4 text-yellow-500" />
+                <Badge variant="secondary" className="text-xs">Recommended</Badge>
+              </div>
+              <h4 className="font-medium mb-1" style={headingStyles}>Networking Session</h4>
+              <p className="text-sm line-clamp-2 mb-2" style={secondaryTextStyles}>
+                Connect with industry leaders and fellow attendees during this networking event.
+              </p>
+              <div className="flex items-center gap-2 text-xs" style={secondaryTextStyles}>
+                <Calendar className="h-3 w-3" />
+                <span>Day 2 - 2:00 PM</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

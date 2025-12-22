@@ -40,6 +40,7 @@ interface EventFeedbackSectionProps {
   eventId: string;
   heading?: string;
   successMessage?: string;
+  isPreview?: boolean;
   theme?: {
     headingFont?: string;
     textColor?: string;
@@ -55,6 +56,7 @@ export function EventFeedbackSection({
   eventId,
   heading = "Event Feedback",
   successMessage = "Thank you for sharing your feedback! Your input helps us improve future events.",
+  isPreview,
   theme,
 }: EventFeedbackSectionProps) {
   const queryClient = useQueryClient();
@@ -62,6 +64,7 @@ export function EventFeedbackSection({
 
   const { data: existingFeedback, isLoading } = useQuery<EventFeedback | null>({
     queryKey: ["/api/portal", eventId, "feedback"],
+    enabled: !isPreview,
   });
 
   const form = useForm<EventFeedbackFormData>({
@@ -124,6 +127,55 @@ export function EventFeedbackSection({
     color: theme?.buttonTextColor || undefined,
     borderRadius: themeRadius,
   };
+
+  // Show preview placeholder in site builder
+  if (isPreview) {
+    return (
+      <div data-testid="section-event-feedback-preview">
+        {heading && <h3 className="text-2xl font-semibold mb-6 text-center" style={headingStyles}>{heading}</h3>}
+        <Card style={cardStyles}>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center gap-2" style={headingStyles}>
+              <MessageSquare className="h-5 w-5" />
+              Share Your Experience
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-2">
+              <p className="font-medium text-sm" style={headingStyles}>Overall Experience</p>
+              <StarRating value={4} onChange={() => {}} size="lg" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <p className="font-medium text-sm" style={headingStyles}>Venue</p>
+                <StarRating value={5} onChange={() => {}} size="md" />
+              </div>
+              <div className="space-y-2">
+                <p className="font-medium text-sm" style={headingStyles}>Content</p>
+                <StarRating value={4} onChange={() => {}} size="md" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <p className="font-medium text-sm" style={headingStyles}>Would you recommend this event?</p>
+              <div className="flex gap-2">
+                <Button variant="outline" disabled className="flex-1 gap-2">
+                  <ThumbsUp className="h-4 w-4" />
+                  Yes
+                </Button>
+                <Button variant="outline" disabled className="flex-1 gap-2">
+                  <ThumbsDown className="h-4 w-4" />
+                  No
+                </Button>
+              </div>
+            </div>
+            <Button disabled style={buttonStyles}>
+              Submit Feedback
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

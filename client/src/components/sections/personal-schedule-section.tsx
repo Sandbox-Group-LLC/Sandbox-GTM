@@ -21,6 +21,7 @@ interface PersonalScheduleSectionProps {
   eventId: string;
   heading?: string;
   emptyStateMessage?: string;
+  isPreview?: boolean;
   theme?: {
     headingFont?: string;
     textColor?: string;
@@ -34,6 +35,7 @@ export function PersonalScheduleSection({
   eventId,
   heading = "My Schedule",
   emptyStateMessage = "You haven't saved any sessions yet. Browse the agenda and bookmark sessions you want to attend.",
+  isPreview,
   theme,
 }: PersonalScheduleSectionProps) {
   const queryClient = useQueryClient();
@@ -41,6 +43,7 @@ export function PersonalScheduleSection({
 
   const { data: savedSessions = [], isLoading, error } = useQuery<SavedSession[]>({
     queryKey: ["/api/portal", eventId, "saved-sessions"],
+    enabled: !isPreview,
   });
 
   const removeMutation = useMutation({
@@ -81,6 +84,47 @@ export function PersonalScheduleSection({
     backgroundColor: theme?.cardBackground || undefined,
     borderRadius: themeRadius,
   };
+
+  // Show preview placeholder in site builder
+  if (isPreview) {
+    return (
+      <div data-testid="section-personal-schedule-preview">
+        {heading && <h3 className="text-2xl font-semibold mb-6 text-center" style={headingStyles}>{heading}</h3>}
+        <Card style={cardStyles}>
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-start justify-between">
+              <div className="space-y-1">
+                <h4 className="font-medium" style={headingStyles}>Sample Session: AI in Practice</h4>
+                <div className="flex items-center gap-2 text-sm" style={secondaryTextStyles}>
+                  <Clock className="h-4 w-4" />
+                  <span>9:00 AM - 10:00 AM</span>
+                  <MapPin className="h-4 w-4 ml-2" />
+                  <span>Main Hall</span>
+                </div>
+              </div>
+              <Button size="icon" variant="ghost" disabled>
+                <Bookmark className="h-4 w-4 fill-current" />
+              </Button>
+            </div>
+            <div className="flex items-start justify-between pt-2 border-t">
+              <div className="space-y-1">
+                <h4 className="font-medium" style={headingStyles}>Sample Session: Workshop</h4>
+                <div className="flex items-center gap-2 text-sm" style={secondaryTextStyles}>
+                  <Clock className="h-4 w-4" />
+                  <span>11:00 AM - 12:00 PM</span>
+                  <MapPin className="h-4 w-4 ml-2" />
+                  <span>Room 101</span>
+                </div>
+              </div>
+              <Button size="icon" variant="ghost" disabled>
+                <Bookmark className="h-4 w-4 fill-current" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

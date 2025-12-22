@@ -37,6 +37,7 @@ interface SessionFeedbackSectionProps {
   eventId: string;
   sessionId?: string;
   heading?: string;
+  isPreview?: boolean;
   theme?: {
     headingFont?: string;
     textColor?: string;
@@ -322,21 +323,22 @@ export function SessionFeedbackSection({
   eventId,
   sessionId,
   heading = "Session Feedback",
+  isPreview,
   theme,
 }: SessionFeedbackSectionProps) {
   const { data: savedSessions = [], isLoading: loadingSaved } = useQuery<SavedSession[]>({
     queryKey: ["/api/portal", eventId, "saved-sessions"],
-    enabled: !sessionId,
+    enabled: !sessionId && !isPreview,
   });
 
   const { data: allSessions = [], isLoading: loadingAll } = useQuery<EventSession[]>({
     queryKey: ["/api/portal", eventId, "sessions"],
-    enabled: !sessionId && savedSessions.length === 0,
+    enabled: !sessionId && savedSessions.length === 0 && !isPreview,
   });
 
   const { data: singleSession, isLoading: loadingSingle } = useQuery<EventSession>({
     queryKey: ["/api/portal", eventId, "sessions", sessionId],
-    enabled: !!sessionId,
+    enabled: !!sessionId && !isPreview,
   });
 
   const borderRadiusMap: Record<string, string> = {
@@ -359,6 +361,38 @@ export function SessionFeedbackSection({
   };
 
   const isLoading = loadingSaved || loadingAll || loadingSingle;
+
+  // Show preview placeholder in site builder
+  if (isPreview) {
+    return (
+      <div data-testid="section-session-feedback-preview">
+        {heading && <h3 className="text-2xl font-semibold mb-6 text-center" style={headingStyles}>{heading}</h3>}
+        <Card style={cardStyles}>
+          <CardHeader>
+            <CardTitle className="text-lg" style={headingStyles}>Sample Session Title</CardTitle>
+            <p className="text-sm" style={secondaryTextStyles}>Day 1 - 9:00 AM - 10:00 AM</p>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-2">
+              <p className="font-medium text-sm" style={headingStyles}>Overall Rating</p>
+              <StarRating value={4} onChange={() => {}} size="lg" />
+            </div>
+            <div className="space-y-2">
+              <p className="font-medium text-sm" style={headingStyles}>Comments</p>
+              <Textarea placeholder="Share your thoughts..." disabled className="resize-none" />
+            </div>
+            <Button disabled style={{
+              backgroundColor: theme?.buttonColor || undefined,
+              color: theme?.buttonTextColor || undefined,
+              borderRadius: themeRadius,
+            }}>
+              Submit Feedback
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
