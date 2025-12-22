@@ -94,6 +94,22 @@ export const SUPPORTED_LANGUAGES = [
   { code: "ar", name: "Arabic" },
 ] as const;
 
+// Audience Targeting type for ICP Match Rate calculation
+export interface AudienceTargeting {
+  companyTypes: ('enterprise' | 'mid-market' | 'smb' | 'open')[];
+  roles: ('executive' | 'vp' | 'director' | 'manager' | 'open')[];
+  functions: ('marketing' | 'sales' | 'product' | 'engineering' | 'operations' | 'open')[];
+  accountFocus: 'strategic' | 'open';
+}
+
+// Default audience targeting (all open)
+export const DEFAULT_AUDIENCE_TARGETING: AudienceTargeting = {
+  companyTypes: ['open'],
+  roles: ['open'],
+  functions: ['open'],
+  accountFocus: 'open',
+};
+
 // Organization Members table
 export const organizationMembers = pgTable("organization_members", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -231,6 +247,8 @@ export const events = pgTable("events", {
   // Multi-language support
   supportedLanguages: text("supported_languages").array(), // e.g., ["en", "es", "fr"]
   defaultLanguage: varchar("default_language", { length: 10 }).default("en"),
+  // Audience Targeting for ICP Match Rate calculation
+  audienceTargeting: jsonb("audience_targeting").$type<AudienceTargeting>(),
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

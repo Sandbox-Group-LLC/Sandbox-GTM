@@ -118,6 +118,7 @@ const executionSubItems = [
 
 const programSubItems = [
   { title: "All Programs", path: "/events" },
+  { title: "Audience Targeting", path: "/audience-targeting" },
   { title: "Acquisition Flow", path: "/registration" },
   { title: "Arrivals", path: "/check-in" },
   { title: "Properties", path: "/custom-fields" },

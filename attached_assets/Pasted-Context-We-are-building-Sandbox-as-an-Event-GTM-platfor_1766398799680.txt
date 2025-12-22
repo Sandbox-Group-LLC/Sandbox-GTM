@@ -1,0 +1,150 @@
+Context
+We are building Sandbox as an Event GTM platform. We want to make the ICP Match Rate on the Acquisition Health page real, defensible, and easy to configure — without over-engineering or requiring advanced marketing ops setup.
+
+This implementation should be program-specific, optional, and additive (no breaking changes).
+
+⸻
+
+1️⃣ Add a New Submenu in Program Setup
+
+Under Program Setup, add a new submenu called:
+
+Audience Targeting
+
+(Alternative acceptable names if needed:
+	•	“Target Audience”
+	•	“Audience Definition”
+	•	“Program Audience”
+But default to Audience Targeting.)
+
+This submenu is optional and should not block program creation.
+
+⸻
+
+2️⃣ Audience Targeting UI (Lightweight, Guided)
+
+Inside Audience Targeting, add a simple configuration panel titled:
+
+Who is this program intended for?
+Optional — used to calculate ICP Match Rate
+
+Include the following selectable inputs (checkbox or multi-select, not free-text):
+
+Target Company Type
+	•	☐ Enterprise
+	•	☐ Mid-Market
+	•	☐ SMB / Startup
+	•	☐ Open (default)
+
+Target Roles
+	•	☐ Executive (C-level)
+	•	☐ VP / Head
+	•	☐ Director
+	•	☐ Manager / IC
+	•	☐ Open (default)
+
+Target Functions
+	•	☐ Marketing
+	•	☐ Sales
+	•	☐ Product
+	•	☐ Engineering
+	•	☐ Operations
+	•	☐ Open (default)
+
+Optional Account Focus
+	•	☐ Strategic / Named Accounts Only
+	•	☐ Open Audience (default)
+
+Notes:
+	•	All sections default to Open
+	•	Users can select multiple values
+	•	No weighting, scoring sliders, or advanced logic exposed
+
+⸻
+
+3️⃣ Baseline ICP Signals (Automatic)
+
+Before any user input, compute a baseline ICP signal using existing registration data.
+
+Baseline heuristics may include:
+	•	Business email vs free email domain
+	•	Presence of company domain
+	•	Job title seniority keyword matching
+	•	Known vs unknown company
+	•	Registration source / campaign alignment
+
+This baseline should work even if Audience Targeting is empty.
+
+⸻
+
+4️⃣ ICP Match Logic (Simple + Honest)
+
+For each registrant:
+	•	Compare registrant attributes against the program’s Audience Targeting selections
+	•	Count how many criteria are matched (role, function, company type, etc.)
+
+Define:
+	•	A registrant is considered ICP-aligned if they match at least one meaningful target dimension (v1)
+	•	Do not expose scoring math in the UI
+
+Calculate:
+
+ICP Match Rate = % of registered audience considered ICP-aligned
+
+⸻
+
+5️⃣ Acquisition Health Page Behavior
+
+Update the ICP Match Rate card on the Acquisition Health page:
+
+If Audience Targeting is defined:
+	•	Show numeric percentage
+	•	Subtext:
+Audience aligned to program target
+
+If Audience Targeting is not defined:
+	•	Show placeholder state
+	•	Subtext:
+Define your target audience to enable this metric
+	•	Include a link or CTA to Program Setup → Audience Targeting
+
+⸻
+
+6️⃣ Transparency & UX Copy
+
+Add tooltip/help text where appropriate:
+
+What is ICP Match Rate?
+Measures how closely your registered audience aligns with the intended audience for this program, based on role, function, and company signals.
+
+Avoid:
+	•	AI claims
+	•	Predictive revenue language
+	•	CRM dependency messaging in v1
+
+⸻
+
+7️⃣ Data Model Notes
+	•	Store Audience Targeting configuration at the program level
+	•	Ensure it is editable post-launch
+	•	Ensure existing programs default safely to “Open” targeting
+	•	Do not impact registration flow, campaigns, or reporting outside ICP Match
+
+⸻
+
+8️⃣ Explicit Non-Goals (Do NOT Implement Yet)
+	•	No global ICP builder
+	•	No weighting UI
+	•	No lead scoring
+	•	No CRM-required logic
+	•	No blocking configuration
+
+⸻
+
+Goal Summary
+
+This feature should:
+	•	Make ICP Match Rate real and trustworthy
+	•	Encourage intentional audience definition
+	•	Work out-of-the-box with zero configuration
+	•	Scale later into advanced GTM analytics
