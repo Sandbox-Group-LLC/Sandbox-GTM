@@ -41,7 +41,8 @@ import {
   Mail,
   TrendingUp,
   Plus,
-  ChevronDown
+  ChevronDown,
+  ThumbsUp
 } from "lucide-react";
 import {
   Collapsible,
@@ -86,6 +87,15 @@ interface AnalyticsData {
     totalPosts: number;
     publishedPosts: number;
     scheduledPosts: number;
+  };
+  nps: {
+    score: number | null;
+    totalResponses: number;
+    promoters: number;
+    passives: number;
+    detractors: number;
+    promoterRate: number;
+    detractorRate: number;
   };
 }
 
@@ -311,14 +321,14 @@ export default function Dashboard() {
         <p className="text-muted-foreground text-sm">Is this program working at a glance?</p>
         
         {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[...Array(3)].map((_, i) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[...Array(4)].map((_, i) => (
               <Skeleton key={i} className="h-40" />
             ))}
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <Card className="border-2">
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2 text-lg">
@@ -377,6 +387,34 @@ export default function Dashboard() {
                     <div className="flex items-center gap-1 text-muted-foreground">
                       <Target className="w-5 h-5" />
                       <span className="text-sm font-medium">{analytics?.budget.utilizationRate || 0}% used</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-2">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <ThumbsUp className="w-5 h-5 text-purple-500" />
+                    NPS Score
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-4xl font-bold" data-testid="text-nps-score">
+                        {analytics?.nps?.score !== null && analytics?.nps?.score !== undefined 
+                          ? analytics.nps.score 
+                          : "N/A"}
+                      </p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {analytics?.nps?.totalResponses || 0} responses
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 text-muted-foreground">
+                      <span className="text-sm font-medium" data-testid="text-nps-breakdown">
+                        {analytics?.nps?.promoterRate || 0}% promoters
+                      </span>
                     </div>
                   </div>
                 </CardContent>
