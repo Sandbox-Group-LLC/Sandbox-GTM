@@ -19,6 +19,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
+import { COUNTRIES } from "@/lib/countries";
 
 export const eventFormSchema = z.object({
   name: z.string().min(1, "Event name is required"),
@@ -188,14 +189,20 @@ export function EventFormFields({ form, testIdPrefix = "" }: EventFormFieldsProp
           render={({ field }) => (
             <FormItem>
               <FormLabel>Country</FormLabel>
-              <FormControl>
-                <Input
-                  placeholder="United States"
-                  {...field}
-                  value={field.value || ""}
-                  data-testid={`input-${prefix}event-country`}
-                />
-              </FormControl>
+              <Select onValueChange={field.onChange} value={field.value || ""}>
+                <FormControl>
+                  <SelectTrigger data-testid={`select-${prefix}event-country`}>
+                    <SelectValue placeholder="Select country" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {COUNTRIES.map((country) => (
+                    <SelectItem key={country.code} value={country.name}>
+                      {country.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}

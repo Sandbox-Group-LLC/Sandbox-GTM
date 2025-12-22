@@ -31,6 +31,7 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { COUNTRIES } from "@/lib/countries";
 
 interface OnboardingStep {
   id: number;
@@ -387,14 +388,20 @@ export function OnboardingWizard({ open, onOpenChange }: OnboardingWizardProps) 
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Country (optional)</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="United States"
-                          {...field}
-                          value={field.value || ""}
-                          data-testid="input-org-country"
-                        />
-                      </FormControl>
+                      <Select onValueChange={field.onChange} value={field.value || ""}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-org-country">
+                            <SelectValue placeholder="Select country" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {COUNTRIES.map((country) => (
+                            <SelectItem key={country.code} value={country.name}>
+                              {country.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
