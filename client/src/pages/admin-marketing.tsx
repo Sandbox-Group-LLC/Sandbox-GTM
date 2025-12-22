@@ -61,6 +61,12 @@ import {
   TrendingUp,
   BarChart3,
   ExternalLink,
+  Monitor,
+  Smartphone,
+  Tablet,
+  Globe,
+  UserCheck,
+  Bot,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -93,6 +99,14 @@ interface MarketingAnalytics {
   conversionRate: number;
   topSource: string | null;
   channelBreakdown: Array<{ channel: string; visits: number }>;
+}
+
+interface MarketingBreakdowns {
+  devices: Array<{ type: string; count: number }>;
+  browsers: Array<{ browser: string; count: number }>;
+  countries: Array<{ country: string; countryCode: string | null; count: number }>;
+  returningVisitors: { new: number; returning: number };
+  botVsHuman: { human: number; bot: number };
 }
 
 function getStatusVariant(status: string): "default" | "secondary" | "outline" {
@@ -136,6 +150,10 @@ export default function AdminMarketing() {
 
   const { data: analytics, isLoading: analyticsLoading } = useQuery<MarketingAnalytics>({
     queryKey: ["/api/admin/marketing-analytics"],
+  });
+
+  const { data: breakdowns, isLoading: breakdownsLoading } = useQuery<MarketingBreakdowns>({
+    queryKey: ["/api/admin/marketing-breakdowns"],
   });
 
   const form = useForm<LinkFormData>({
@@ -562,7 +580,7 @@ export default function AdminMarketing() {
     </Form>
   );
 
-  if (linksLoading || analyticsLoading) {
+  if (linksLoading || analyticsLoading || breakdownsLoading) {
     return (
       <div className="p-6 space-y-6">
         <Skeleton className="h-10 w-48" />
@@ -576,6 +594,15 @@ export default function AdminMarketing() {
       </div>
     );
   }
+
+  const getDeviceIcon = (type: string) => {
+    switch (type) {
+      case 'mobile': return <Smartphone className="h-4 w-4" />;
+      case 'tablet': return <Tablet className="h-4 w-4" />;
+      case 'desktop': return <Monitor className="h-4 w-4" />;
+      default: return <Monitor className="h-4 w-4" />;
+    }
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -678,6 +705,139 @@ export default function AdminMarketing() {
           </CardContent>
         </Card>
       )}
+
+      {breakdowns && (breakdowns.devices?.length > 0 || breakdowns.browsers?.length > 0 || breakdowns.countries?.length > 0) && (() => {
+        const deviceTotal = breakdowns.devices?.reduce((a, b) => a + b.count, 0) || 0;
+        const browserTotal = breakdowns.browsers?.reduce((a, b) => a + b.count, 0) || 0;
+        const countryTotal = breakdowns.countries?.reduce((a, b) => a + b.count, 0) || 0;
+        
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {breakdowns.devices && breakdowns.devices.length > 0 && (
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Device Types</CardTitle>
+                  <Monitor className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {breakdowns.devices.map((device) => {
+                      const pct = deviceTotal > 0 ? Math.round((device.count / deviceTotal) * 100) : 0;
+                      return (
+                        <div key={device.type} className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            {getDeviceIcon(device.type)}
+                            <span className="text-sm">{titleCase(device.type)}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground">{device.count}</span>
+                            <Badge variant="secondary" className="text-xs">{pct}%</Badge>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {breakdowns.browsers && breakdowns.browsers.length > 0 && (
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Browsers</CardTitle>
+                  <Globe className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {breakdowns.browsers.slice(0, 5).map((browser) => {
+                      const pct = browserTotal > 0 ? Math.round((browser.count / browserTotal) * 100) : 0;
+                      return (
+                        <div key={browser.browser} className="flex items-center justify-between gap-2">
+                          <span className="text-sm">{browser.browser}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground">{browser.count}</span>
+                            <Badge variant="secondary" className="text-xs">{pct}%</Badge>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {breakdowns.countries && breakdowns.countries.length > 0 && (
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Top Countries</CardTitle>
+                  <Globe className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {breakdowns.countries.slice(0, 5).map((country) => {
+                      const pct = countryTotal > 0 ? Math.round((country.count / countryTotal) * 100) : 0;
+                      return (
+                        <div key={country.country} className="flex items-center justify-between gap-2">
+                          <span className="text-sm">
+                            {country.countryCode && <span className="mr-1">{country.countryCode}</span>}
+                            {country.country}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground">{country.count}</span>
+                            <Badge variant="secondary" className="text-xs">{pct}%</Badge>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {breakdowns.returningVisitors && (
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Visitor Type</CardTitle>
+                  <UserCheck className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm">New Visitors</span>
+                      <span className="text-sm font-medium">{breakdowns.returningVisitors.new || 0}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm">Returning Visitors</span>
+                      <span className="text-sm font-medium">{breakdowns.returningVisitors.returning || 0}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {breakdowns.botVsHuman && (
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Traffic Quality</CardTitle>
+                  <Bot className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm">Human Traffic</span>
+                      <span className="text-sm font-medium">{breakdowns.botVsHuman.human || 0}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm">Bot Traffic</span>
+                      <span className="text-sm text-muted-foreground">{breakdowns.botVsHuman.bot || 0}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        );
+      })()}
 
       <div className="space-y-4">
         <h3 className="text-lg font-medium">Activation Links</h3>

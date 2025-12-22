@@ -280,11 +280,14 @@ export function registerPublicTrackingRoute(app: Express) {
         return res.status(404).json({ message: "Link is not active", status: link.status });
       }
 
-      // Extract visitor information
-      const ip = extractRealIP(req);
+      // Extract visitor information with defensive checks
+      const rawIP = extractRealIP(req);
+      const ip = rawIP && rawIP.trim() !== '' ? rawIP.trim() : 'unknown';
       const userAgent = req.headers["user-agent"] || "";
       const visitorHash = createHash("sha256").update(`${ip}:${userAgent}`).digest("hex").substring(0, 32);
-      const ipHash = createHash("sha256").update(String(ip)).digest("hex").substring(0, 32);
+      const ipHash = ip !== 'unknown' 
+        ? createHash("sha256").update(ip).digest("hex").substring(0, 32)
+        : null;
 
       // Parse User-Agent for device/browser/OS info
       const uaInfo = parseUserAgent(userAgent);
@@ -3036,6 +3039,24 @@ export async function registerRoutes(
     } catch (error) {
       logError("Error fetching marketing analytics:", error);
       res.status(500).json({ message: "Failed to fetch marketing analytics" });
+    }
+  });
+
+  // Marketing click breakdowns (super admin only)
+  app.get("/api/admin/marketing-breakdowns", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!isSuperAdmin(user?.email, user?.isAdmin)) {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+      
+      const breakdowns = await storage.getMarketingClickBreakdowns();
+      res.json(breakdowns);
+    } catch (error) {
+      logError("Error fetching marketing breakdowns:", error);
+      res.status(500).json({ message: "Failed to fetch marketing breakdowns" });
     }
   });
 
