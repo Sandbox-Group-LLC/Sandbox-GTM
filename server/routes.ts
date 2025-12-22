@@ -7606,18 +7606,31 @@ ${urls.map(u => `  <url>
       // Get attendees (filtered by eventId if provided)
       const allAttendees = await storage.getAttendees(organizationId, eventId);
       
-      // Get audience targeting configuration
-      let audienceTargeting = {
+      // Default targeting (used when event has no targeting configured)
+      const defaultTargeting = {
         companyTypes: ['open'] as string[],
         roles: ['open'] as string[],
         functions: ['open'] as string[],
         accountFocus: 'open' as string,
       };
+
+      // Build a map of eventId -> audienceTargeting for efficient lookup
+      type TargetingConfig = typeof defaultTargeting;
+      const eventTargetingMap = new Map<string, TargetingConfig>();
       
       if (eventId) {
+        // Single event mode
         const event = await storage.getEvent(organizationId, eventId);
         if (event?.audienceTargeting) {
-          audienceTargeting = event.audienceTargeting as typeof audienceTargeting;
+          eventTargetingMap.set(eventId, event.audienceTargeting as TargetingConfig);
+        }
+      } else {
+        // All programs mode - get all events and build targeting map
+        const allEvents = await storage.getEvents(organizationId);
+        for (const event of allEvents) {
+          if (event.audienceTargeting) {
+            eventTargetingMap.set(event.id, event.audienceTargeting as TargetingConfig);
+          }
         }
       }
 
@@ -7695,21 +7708,24 @@ ${urls.map(u => `  <url>
       const isOpen = (arr: string[]) => arr.includes('open');
 
       for (const attendee of allAttendees) {
+        // Get the targeting config for this attendee's event
+        const targeting = eventTargetingMap.get(attendee.eventId) || defaultTargeting;
+        
         const inferredRole = inferRole(attendee.jobTitle);
         const inferredFunction = inferFunction(attendee.jobTitle);
         const inferredCompanyType = inferCompanyType(attendee.company);
 
         // Check company type match
-        const companyTypeMatch = isOpen(audienceTargeting.companyTypes) || 
-          (inferredCompanyType !== null && audienceTargeting.companyTypes.includes(inferredCompanyType));
+        const companyTypeMatch = isOpen(targeting.companyTypes) || 
+          (inferredCompanyType !== null && targeting.companyTypes.includes(inferredCompanyType));
         
         // Check role match
-        const roleMatch = isOpen(audienceTargeting.roles) || 
-          (inferredRole !== null && audienceTargeting.roles.includes(inferredRole));
+        const roleMatch = isOpen(targeting.roles) || 
+          (inferredRole !== null && targeting.roles.includes(inferredRole));
         
         // Check function match
-        const functionMatch = isOpen(audienceTargeting.functions) || 
-          (inferredFunction !== null && audienceTargeting.functions.includes(inferredFunction));
+        const functionMatch = isOpen(targeting.functions) || 
+          (inferredFunction !== null && targeting.functions.includes(inferredFunction));
 
         if (companyTypeMatch) companyTypeMatches++;
         if (roleMatch) roleMatches++;
