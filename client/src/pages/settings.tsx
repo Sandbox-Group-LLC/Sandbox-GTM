@@ -302,8 +302,8 @@ export default function Settings() {
                 <div className="flex items-center gap-2">
                   <Globe className="h-4 w-4 text-muted-foreground" />
                   <p className="font-medium">Custom Domain</p>
-                  {domainStatus?.customDomain && (
-                    domainStatus.customDomainVerified ? (
+                  {orgData?.customDomain && (
+                    (orgData.customDomainVerified || domainStatus?.customDomainVerified) ? (
                       <Badge variant="default" className="ml-2" data-testid="badge-domain-verified">
                         <CheckCircle2 className="h-3 w-3 mr-1" />
                         Verified
@@ -374,7 +374,7 @@ export default function Settings() {
                   </div>
                 )}
 
-                {domainStatus?.customDomain && !domainStatus.customDomainVerified && domainStatus.instructions && (
+                {orgData?.customDomain && !orgData.customDomainVerified && !domainStatus?.customDomainVerified && domainStatus?.instructions && (
                   <div className="mt-4 space-y-4">
                     <div className="bg-muted/50 rounded-md p-4 space-y-3">
                       <p className="font-medium text-sm">DNS Configuration Instructions</p>
@@ -439,7 +439,7 @@ export default function Settings() {
                   </div>
                 )}
 
-                {domainStatus?.customDomain && domainStatus.customDomainVerified && (
+                {orgData?.customDomain && (orgData.customDomainVerified || domainStatus?.customDomainVerified) && (
                   <div className="mt-2 flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
                     <CheckCircle2 className="h-4 w-4" />
                     <span>Your custom domain is verified and active.</span>
