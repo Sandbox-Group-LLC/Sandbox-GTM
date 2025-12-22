@@ -1192,6 +1192,66 @@ export const insertMarketingLeadSchema = createInsertSchema(marketingLeads).omit
   createdAt: true,
 });
 
+// Marketing Activation Links - Admin-level tracking links for marketing pages (not org-scoped)
+export const marketingActivationLinks = pgTable("marketing_activation_links", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  // Destination: 'landing', 'pricing', 'lead-form', 'signup'
+  destinationType: varchar("destination_type", { length: 50 }).notNull().default("landing"),
+  destinationUrl: text("destination_url").notNull(), // Full URL including domain
+  // UTM parameters
+  utmSource: varchar("utm_source", { length: 255 }).notNull(),
+  utmMedium: varchar("utm_medium", { length: 255 }).notNull(),
+  utmCampaign: varchar("utm_campaign", { length: 255 }).notNull(),
+  utmContent: varchar("utm_content", { length: 255 }),
+  utmTerm: varchar("utm_term", { length: 255 }),
+  // Short code for tracking URLs
+  shortCode: varchar("short_code", { length: 16 }).unique().notNull(),
+  // Status and metadata
+  status: varchar("status", { length: 20 }).default("active"), // 'active', 'paused', 'archived'
+  clickCount: integer("click_count").default(0),
+  conversionCount: integer("conversion_count").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_marketing_link_short_code").on(table.shortCode),
+  index("IDX_marketing_link_status").on(table.status),
+]);
+
+// Marketing Link Clicks - Track individual click events for marketing links
+export const marketingLinkClicks = pgTable("marketing_link_clicks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  marketingLinkId: varchar("marketing_link_id").references(() => marketingActivationLinks.id).notNull(),
+  // Visitor identification (hashed for privacy)
+  visitorHash: varchar("visitor_hash", { length: 64 }),
+  ipHash: varchar("ip_hash", { length: 64 }),
+  userAgent: text("user_agent"),
+  referrer: text("referrer"),
+  // Query params snapshot
+  queryParams: jsonb("query_params").$type<Record<string, string>>(),
+  // Conversion tracking (linked to marketing lead if converted)
+  convertedToLeadId: varchar("converted_to_lead_id").references(() => marketingLeads.id),
+  convertedAt: timestamp("converted_at"),
+  // Timing
+  clickedAt: timestamp("clicked_at").defaultNow(),
+}, (table) => [
+  index("IDX_marketing_click_link").on(table.marketingLinkId),
+  index("IDX_marketing_click_time").on(table.clickedAt),
+]);
+
+export const insertMarketingActivationLinkSchema = createInsertSchema(marketingActivationLinks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  clickCount: true,
+  conversionCount: true,
+});
+export const insertMarketingLinkClickSchema = createInsertSchema(marketingLinkClicks).omit({
+  id: true,
+  clickedAt: true,
+});
+
 // Custom Fonts - Organization-scoped custom font families
 export const customFonts = pgTable("custom_fonts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1851,3 +1911,7 @@ export type InsertCustomFontVariant = z.infer<typeof insertCustomFontVariantSche
 export type CustomFontVariant = typeof customFontVariants.$inferSelect;
 export type InsertMarketingLead = z.infer<typeof insertMarketingLeadSchema>;
 export type MarketingLead = typeof marketingLeads.$inferSelect;
+export type InsertMarketingActivationLink = z.infer<typeof insertMarketingActivationLinkSchema>;
+export type MarketingActivationLink = typeof marketingActivationLinks.$inferSelect;
+export type InsertMarketingLinkClick = z.infer<typeof insertMarketingLinkClickSchema>;
+export type MarketingLinkClick = typeof marketingLinkClicks.$inferSelect;

@@ -57,6 +57,8 @@ import {
   activationLinkClicks,
   pageViews,
   marketingLeads,
+  marketingActivationLinks,
+  marketingLinkClicks,
   eventTranslations,
   type User,
   type UpsertUser,
@@ -198,6 +200,10 @@ import {
   type InsertCustomFontVariant,
   type MarketingLead,
   type InsertMarketingLead,
+  type MarketingActivationLink,
+  type InsertMarketingActivationLink,
+  type MarketingLinkClick,
+  type InsertMarketingLinkClick,
   type EventTranslation,
   type InsertEventTranslation,
 } from "@shared/schema";
@@ -3713,6 +3719,125 @@ export class DatabaseStorage implements IStorage {
       .where(eq(marketingLeads.id, id))
       .returning();
     return updated;
+  }
+
+  // Marketing Activation Link operations (admin-level, not org-scoped)
+  async getMarketingActivationLinks(): Promise<MarketingActivationLink[]> {
+    return db.select().from(marketingActivationLinks).orderBy(desc(marketingActivationLinks.createdAt));
+  }
+
+  async getMarketingActivationLink(id: string): Promise<MarketingActivationLink | undefined> {
+    const [link] = await db.select().from(marketingActivationLinks)
+      .where(eq(marketingActivationLinks.id, id));
+    return link;
+  }
+
+  async getMarketingActivationLinkByShortCode(shortCode: string): Promise<MarketingActivationLink | undefined> {
+    const [link] = await db.select().from(marketingActivationLinks)
+      .where(eq(marketingActivationLinks.shortCode, shortCode));
+    return link;
+  }
+
+  async createMarketingActivationLink(link: InsertMarketingActivationLink): Promise<MarketingActivationLink> {
+    const [newLink] = await db.insert(marketingActivationLinks).values(link).returning();
+    return newLink;
+  }
+
+  async updateMarketingActivationLink(id: string, link: Partial<InsertMarketingActivationLink>): Promise<MarketingActivationLink | undefined> {
+    const [updated] = await db
+      .update(marketingActivationLinks)
+      .set({ ...link, updatedAt: new Date() })
+      .where(eq(marketingActivationLinks.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteMarketingActivationLink(id: string): Promise<void> {
+    await db.delete(marketingLinkClicks).where(eq(marketingLinkClicks.marketingLinkId, id));
+    await db.delete(marketingActivationLinks).where(eq(marketingActivationLinks.id, id));
+  }
+
+  async incrementMarketingLinkClicks(id: string): Promise<void> {
+    await db.update(marketingActivationLinks)
+      .set({ clickCount: sql`${marketingActivationLinks.clickCount} + 1` })
+      .where(eq(marketingActivationLinks.id, id));
+  }
+
+  async incrementMarketingLinkConversions(id: string): Promise<void> {
+    await db.update(marketingActivationLinks)
+      .set({ conversionCount: sql`${marketingActivationLinks.conversionCount} + 1` })
+      .where(eq(marketingActivationLinks.id, id));
+  }
+
+  // Marketing Link Click operations
+  async getMarketingLinkClicks(marketingLinkId: string): Promise<MarketingLinkClick[]> {
+    return db.select().from(marketingLinkClicks)
+      .where(eq(marketingLinkClicks.marketingLinkId, marketingLinkId))
+      .orderBy(desc(marketingLinkClicks.clickedAt));
+  }
+
+  async createMarketingLinkClick(click: InsertMarketingLinkClick): Promise<MarketingLinkClick> {
+    const [newClick] = await db.insert(marketingLinkClicks).values(click).returning();
+    return newClick;
+  }
+
+  async updateMarketingLinkClickConversion(clickId: string, leadId: string): Promise<void> {
+    await db.update(marketingLinkClicks)
+      .set({ convertedToLeadId: leadId, convertedAt: new Date() })
+      .where(eq(marketingLinkClicks.id, clickId));
+  }
+
+  // Marketing Acquisition Metrics
+  async getMarketingAcquisitionMetrics(): Promise<{
+    uniqueVisitors: number;
+    leads: number;
+    conversionRate: number;
+    topSource: string | null;
+    channelBreakdown: Array<{ channel: string; visits: number }>;
+  }> {
+    // Get all marketing activation links
+    const links = await db.select().from(marketingActivationLinks);
+    const linkIds = links.map(l => l.id);
+    
+    // Count unique visitors (unique visitorHash from clicks)
+    let uniqueVisitors = 0;
+    if (linkIds.length > 0) {
+      const clicksResult = await db.selectDistinct({ visitorHash: marketingLinkClicks.visitorHash })
+        .from(marketingLinkClicks)
+        .where(inArray(marketingLinkClicks.marketingLinkId, linkIds));
+      uniqueVisitors = clicksResult.filter(c => c.visitorHash).length;
+    }
+    
+    // Count total leads
+    const allLeads = await db.select().from(marketingLeads);
+    const leads = allLeads.length;
+    
+    // Calculate conversion rate
+    const conversionRate = uniqueVisitors > 0 
+      ? Math.round((leads / uniqueVisitors) * 100 * 10) / 10 
+      : 0;
+    
+    // Get channel breakdown (by utm_source)
+    const channelCounts: Record<string, number> = {};
+    for (const link of links) {
+      const source = link.utmSource || 'direct';
+      channelCounts[source] = (channelCounts[source] || 0) + (link.clickCount || 0);
+    }
+    
+    const channelBreakdown = Object.entries(channelCounts)
+      .map(([channel, visits]) => ({ channel, visits }))
+      .sort((a, b) => b.visits - a.visits)
+      .slice(0, 10);
+    
+    const topSource = channelBreakdown.length > 0 ? channelBreakdown[0].channel : null;
+    
+    return {
+      uniqueVisitors,
+      leads,
+      conversionRate,
+      topSource,
+      channelBreakdown,
+    };
   }
 }
 
