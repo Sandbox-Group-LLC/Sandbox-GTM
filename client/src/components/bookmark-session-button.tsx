@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Bookmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,12 @@ export function BookmarkSessionButton({
   variant = "ghost",
 }: BookmarkSessionButtonProps) {
   const [isSaved, setIsSaved] = useState(initialSaved);
+
+  // Sync state with prop for hydration
+  useEffect(() => {
+    setIsSaved(initialSaved);
+  }, [initialSaved]);
+
   const queryClient = useQueryClient();
   const { toast } = useToast();
 

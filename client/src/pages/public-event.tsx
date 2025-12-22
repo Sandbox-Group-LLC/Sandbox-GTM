@@ -868,6 +868,17 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
   const styles = section.styles;
   const isFullWidth = theme?.containerWidth === "full";
   const isHtmlSection = section.type === "html";
+
+  // Fetch saved sessions for hydration
+  const { data: savedSessions } = useQuery<EventSession[]>({
+    queryKey: ["/api/portal", event.id, "saved-sessions"],
+    enabled: !!attendeeContext?.attendee && !!event?.id,
+  });
+
+  const savedSessionIds = useMemo(() => 
+    savedSessions?.map(s => s.id) || [], 
+    [savedSessions]
+  );
   
   // Container styles - NO backgroundColor here (that goes on cards only)
   const sectionWrapperStyles: React.CSSProperties = {
@@ -1237,6 +1248,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
                       <BookmarkSessionButton 
                         eventId={event.id} 
                         sessionId={session.id} 
+                        initialSaved={savedSessionIds.includes(session.id)}
                         variant="ghost"
                         size="sm"
                       />
