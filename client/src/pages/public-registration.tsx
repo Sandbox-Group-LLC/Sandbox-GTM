@@ -1186,7 +1186,7 @@ export default function PublicRegistration() {
         </div>
       )}
       <div 
-        className="min-h-screen bg-background"
+        className="min-h-screen bg-background pb-8"
         style={{
           ...themeStyles,
           backgroundColor: theme?.backgroundColor || undefined,
@@ -1194,7 +1194,7 @@ export default function PublicRegistration() {
           fontFamily: theme?.bodyFont ? `"${theme.bodyFont}", sans-serif` : undefined,
         }}
       >
-      <div className="max-w-2xl mx-auto px-6 py-8">
+        <div className="max-w-2xl mx-auto px-6 py-8">
         {sections.length > 0 && currentStep === 1 && (
           <div className="mb-8 space-y-6">
             {sections
@@ -1579,7 +1579,7 @@ export default function PublicRegistration() {
             )}
           </CardContent>
         </Card>
-      </div>
+        </div>
       </div>
     </>
   );
