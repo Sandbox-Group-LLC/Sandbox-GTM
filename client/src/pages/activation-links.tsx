@@ -784,7 +784,7 @@ export default function ActivationLinks() {
                     <Collapsible open={isExpanded} onOpenChange={() => toggleLinkExpanded(link.id)}>
                       <CollapsibleTrigger asChild>
                         <CardHeader className="cursor-pointer hover-elevate py-3">
-                          <div className="flex items-center justify-between gap-4">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                             <div className="flex items-center gap-3 min-w-0 flex-1">
                               {isExpanded ? (
                                 <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
@@ -792,37 +792,44 @@ export default function ActivationLinks() {
                                 <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                               )}
                               <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2 flex-wrap">
+                                <div className="flex items-center gap-2">
                                   <span className="font-medium truncate" data-testid={`text-link-name-${link.id}`}>
                                     {link.name}
                                   </span>
-                                  <Badge variant="outline" className="text-xs flex-shrink-0" data-testid={`badge-event-${link.id}`}>
+                                  <Badge variant="outline" className="text-xs flex-shrink-0 hidden md:inline-flex" data-testid={`badge-event-${link.id}`}>
                                     {eventName}
                                   </Badge>
                                 </div>
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1 flex-wrap">
-                                  <span data-testid={`text-source-medium-${link.id}`}>
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                                  <span className="truncate" data-testid={`text-source-medium-${link.id}`}>
                                     {link.utmSource} / {link.utmMedium}
                                   </span>
+                                  <span className="md:hidden text-xs">({eventName})</span>
                                 </div>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
-                              <Badge variant="outline" className="gap-1" data-testid={`badge-clicks-${link.id}`}>
+                            <div className="flex items-center gap-2 flex-shrink-0 pl-7 sm:pl-0">
+                              <Badge variant="outline" className="gap-1 hidden sm:flex" data-testid={`badge-clicks-${link.id}`}>
                                 <MousePointerClick className="h-3 w-3" />
                                 {link.clickCount ?? 0}
                               </Badge>
-                              <Badge variant="outline" className="gap-1" data-testid={`badge-conversions-${link.id}`}>
+                              <Badge variant="outline" className="gap-1 hidden sm:flex" data-testid={`badge-conversions-${link.id}`}>
                                 <Users className="h-3 w-3" />
                                 {link.conversionCount ?? 0}
                               </Badge>
+                              <span className="text-xs text-muted-foreground sm:hidden" data-testid={`text-clicks-mobile-${link.id}`}>
+                                <MousePointerClick className="h-3 w-3 inline mr-1" />{link.clickCount ?? 0}
+                              </span>
+                              <span className="text-xs text-muted-foreground sm:hidden" data-testid={`text-conversions-mobile-${link.id}`}>
+                                <Users className="h-3 w-3 inline mr-1" />{link.conversionCount ?? 0}
+                              </span>
                               <Badge 
                                 variant={link.status === "active" ? "default" : "secondary"} 
                                 data-testid={`badge-status-${link.id}`}
                               >
                                 {link.status === "active" ? "Active" : "Paused"}
                               </Badge>
-                              <div className="flex items-center gap-1 ml-2">
+                              <div className="flex items-center gap-1 ml-auto sm:ml-2">
                                 <Button
                                   variant="ghost"
                                   size="icon"
