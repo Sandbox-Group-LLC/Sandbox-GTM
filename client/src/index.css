@@ -286,3 +286,14 @@
     inset: -1px;
   }
 }
+
+/* Public page styling - prevents dark mode bleed-through and overscroll issues */
+html.public-page,
+html.public-page body {
+  min-height: 100%;
+  overscroll-behavior: none;
+}
+
+html.public-page body {
+  background-color: var(--public-page-bg, #ffffff);
+}

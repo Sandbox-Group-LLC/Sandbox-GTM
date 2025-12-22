@@ -875,15 +875,17 @@ export default function PublicRegistration() {
     }
   }, [attributionParams.activationLinkId, slug, alCodeAttempted, validatedCode, isValidatingCode, inviteCodeFromUrl]);
 
-  // Set body background color to match theme to prevent dark mode bleed-through when scrolling
+  // Set public page styling to prevent dark mode bleed-through and overscroll issues
   useEffect(() => {
     const theme = data?.registrationPage?.theme || data?.landingTheme;
     const bgColor = theme?.backgroundColor || '#ffffff';
     if (data) {
-      document.body.style.backgroundColor = bgColor;
+      document.documentElement.classList.add('public-page');
+      document.documentElement.style.setProperty('--public-page-bg', bgColor);
     }
     return () => {
-      document.body.style.backgroundColor = '';
+      document.documentElement.classList.remove('public-page');
+      document.documentElement.style.removeProperty('--public-page-bg');
     };
   }, [data]);
 
