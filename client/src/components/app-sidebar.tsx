@@ -643,6 +643,18 @@ export function AppSidebar() {
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === "/admin/marketing"}
+                    data-testid="nav-admin-marketing"
+                  >
+                    <Link href="/admin/marketing">
+                      <BarChart3 className="h-4 w-4" />
+                      <span>Marketing Analytics</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>

@@ -38,6 +38,7 @@ import ActivationLinks from "@/pages/activation-links";
 import SiteBuilder from "@/pages/site-builder";
 import AdminOrganizations from "@/pages/admin-organizations";
 import AdminLeads from "@/pages/admin-leads";
+import AdminMarketing from "@/pages/admin-marketing";
 import MyOrganization from "@/pages/my-organization";
 import CustomFields from "@/pages/custom-fields";
 import PrivacyPolicy from "@/pages/privacy-policy";
@@ -181,6 +182,7 @@ function Router() {
         <Route path="/team-members" component={TeamMembers} />
         <Route path="/admin/organizations" component={AdminOrganizations} />
         <Route path="/admin/leads" component={AdminLeads} />
+        <Route path="/admin/marketing" component={AdminMarketing} />
         <Route path="/privacy-policy" component={PrivacyPolicy} />
         <Route path="/event/:slug/register" component={PublicRegistration} />
         <Route path="/event/:slug/portal" component={AttendeePortal} />
