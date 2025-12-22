@@ -1205,7 +1205,7 @@ export default function PublicRegistration() {
           </div>
         )}
 
-        <Card style={{
+        <Card className="overflow-hidden" style={{
           backgroundColor: theme?.cardBackground || undefined,
           borderRadius: theme?.borderRadius ? ({ none: "0px", small: "4px", medium: "8px", large: "16px", pill: "9999px" }[theme.borderRadius]) : undefined,
         }}>
