@@ -200,8 +200,8 @@ export function AppSidebar() {
       <SidebarHeader className="p-4 border-b border-sidebar-border">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <img src={logoImage} alt="Sandbox" className="h-6 w-6" />
-            <span className="font-semibold text-lg">Sandbox</span>
+            <img src={logoImage} alt="sandbox" className="h-6 w-6" />
+            <span className="text-lg" style={{ fontFamily: 'Urbanist, sans-serif', fontWeight: 800 }}>sandbox</span>
           </div>
           {isMobile && (
             <Button
