@@ -1236,7 +1236,7 @@ export default function PublicRegistration() {
                           name="firstName"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>
+                              <FormLabel style={labelStyles}>
                                 First Name{requiredFields.firstName && <span className="text-destructive ml-1">*</span>}
                               </FormLabel>
                               <FormControl>
@@ -1251,7 +1251,7 @@ export default function PublicRegistration() {
                           name="lastName"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>
+                              <FormLabel style={labelStyles}>
                                 Last Name{requiredFields.lastName && <span className="text-destructive ml-1">*</span>}
                               </FormLabel>
                               <FormControl>
@@ -1268,7 +1268,7 @@ export default function PublicRegistration() {
                         name="email"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>
+                            <FormLabel style={labelStyles}>
                               Email{requiredFields.email && <span className="text-destructive ml-1">*</span>}
                             </FormLabel>
                             <FormControl>
@@ -1286,7 +1286,7 @@ export default function PublicRegistration() {
                             name="password"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>
+                                <FormLabel style={labelStyles}>
                                   Password<span className="text-destructive ml-1">*</span>
                                 </FormLabel>
                                 <FormControl>
@@ -1301,7 +1301,7 @@ export default function PublicRegistration() {
                             name="confirmPassword"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>
+                                <FormLabel style={labelStyles}>
                                   Confirm Password<span className="text-destructive ml-1">*</span>
                                 </FormLabel>
                                 <FormControl>
@@ -1319,7 +1319,7 @@ export default function PublicRegistration() {
                         name="phone"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>
+                            <FormLabel style={labelStyles}>
                               Phone{requiredFields.phone ? <span className="text-destructive ml-1">*</span> : " (optional)"}
                             </FormLabel>
                             <FormControl>
@@ -1335,7 +1335,7 @@ export default function PublicRegistration() {
                         name="company"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>
+                            <FormLabel style={labelStyles}>
                               Company{requiredFields.company ? <span className="text-destructive ml-1">*</span> : " (optional)"}
                             </FormLabel>
                             <FormControl>
@@ -1351,7 +1351,7 @@ export default function PublicRegistration() {
                         name="jobTitle"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>
+                            <FormLabel style={labelStyles}>
                               Job Title{requiredFields.jobTitle ? <span className="text-destructive ml-1">*</span> : " (optional)"}
                             </FormLabel>
                             <FormControl>
@@ -1363,7 +1363,7 @@ export default function PublicRegistration() {
                       />
 
                       <div className="space-y-2">
-                        <FormLabel>Activation Key (optional)</FormLabel>
+                        <FormLabel style={labelStyles}>Activation Key (optional)</FormLabel>
                         <div className="flex gap-2">
                           <Input
                             placeholder="Enter activation key"
@@ -1426,7 +1426,7 @@ export default function PublicRegistration() {
 
                       {availablePackages.length > 0 && (
                         <div className="space-y-2">
-                          <FormLabel>Select Access Package</FormLabel>
+                          <FormLabel style={labelStyles}>Select Access Package</FormLabel>
                           <div className="grid gap-3">
                             {availablePackages.map((pkg) => {
                               const originalPrice = Number(pkg.effectivePrice) || 0;
@@ -1495,6 +1495,7 @@ export default function PublicRegistration() {
                               customField={customField}
                               control={form.control}
                               inputStyles={inputStyles}
+                              labelStyles={labelStyles}
                             />
                           ))}
                         </div>
@@ -1759,7 +1760,7 @@ function SectionRenderer({ section, event, slug, theme }: { section: Section; ev
   }
 }
 
-function CustomFieldRenderer({ customField, control, inputStyles }: { customField: CustomField; control: any; inputStyles?: React.CSSProperties }) {
+function CustomFieldRenderer({ customField, control, inputStyles, labelStyles }: { customField: CustomField; control: any; inputStyles?: React.CSSProperties; labelStyles?: React.CSSProperties }) {
   const fieldName = `customData.${customField.name}` as const;
   const labelText = customField.required ? customField.label : `${customField.label} (optional)`;
 
@@ -1771,7 +1772,7 @@ function CustomFieldRenderer({ customField, control, inputStyles }: { customFiel
           name={fieldName}
           render={({ field }) => (
             <FormItem>
-              <FormLabel>{labelText}</FormLabel>
+              <FormLabel style={labelStyles}>{labelText}</FormLabel>
               <FormControl>
                 <Input 
                   {...field} 
@@ -1793,7 +1794,7 @@ function CustomFieldRenderer({ customField, control, inputStyles }: { customFiel
           name={fieldName}
           render={({ field }) => (
             <FormItem>
-              <FormLabel>{labelText}</FormLabel>
+              <FormLabel style={labelStyles}>{labelText}</FormLabel>
               <FormControl>
                 <Textarea 
                   {...field} 
@@ -1815,7 +1816,7 @@ function CustomFieldRenderer({ customField, control, inputStyles }: { customFiel
           name={fieldName}
           render={({ field }) => (
             <FormItem>
-              <FormLabel>{labelText}</FormLabel>
+              <FormLabel style={labelStyles}>{labelText}</FormLabel>
               <FormControl>
                 <Input 
                   type="number" 
@@ -1839,7 +1840,7 @@ function CustomFieldRenderer({ customField, control, inputStyles }: { customFiel
           name={fieldName}
           render={({ field }) => (
             <FormItem>
-              <FormLabel>{labelText}</FormLabel>
+              <FormLabel style={labelStyles}>{labelText}</FormLabel>
               <Select onValueChange={field.onChange} value={field.value as string || ""}>
                 <FormControl>
                   <SelectTrigger style={inputStyles} data-testid={`select-custom-${customField.name}`}>
@@ -1875,7 +1876,7 @@ function CustomFieldRenderer({ customField, control, inputStyles }: { customFiel
                 />
               </FormControl>
               <div className="space-y-1 leading-none">
-                <FormLabel className="cursor-pointer">{customField.label}</FormLabel>
+                <FormLabel style={labelStyles} className="cursor-pointer">{customField.label}</FormLabel>
               </div>
             </FormItem>
           )}
@@ -1889,7 +1890,7 @@ function CustomFieldRenderer({ customField, control, inputStyles }: { customFiel
           name={fieldName}
           render={({ field }) => (
             <FormItem>
-              <FormLabel>{labelText}</FormLabel>
+              <FormLabel style={labelStyles}>{labelText}</FormLabel>
               <FormControl>
                 <Input 
                   {...field} 
