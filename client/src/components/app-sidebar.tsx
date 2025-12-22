@@ -265,6 +265,49 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
+        {canViewPerformance && (
+        <SidebarGroup>
+          <SidebarGroupLabel>Performance</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <Collapsible defaultOpen={isPerformanceActive} className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton
+                      isActive={isPerformanceActive}
+                      data-testid="nav-performance"
+                    >
+                      <TrendingUp className="h-4 w-4" />
+                      <span>Analytics</span>
+                      <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {performanceSubItems.map((item) => (
+                        <SidebarMenuSubItem key={item.title}>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={location === item.path}
+                          >
+                            <Link
+                              href={item.path}
+                              data-testid={`nav-${item.title.toLowerCase().replace(/ /g, "-")}`}
+                            >
+                              <span>{item.title}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        )}
+
         {canViewPrograms && (
         <SidebarGroup>
           <SidebarGroupLabel>Programs</SidebarGroupLabel>
@@ -339,49 +382,6 @@ export function AppSidebar() {
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                       </SidebarMenuSub>
-                  </CollapsibleContent>
-                </SidebarMenuItem>
-              </Collapsible>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-        )}
-
-        {canViewPerformance && (
-        <SidebarGroup>
-          <SidebarGroupLabel>Performance</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <Collapsible defaultOpen={isPerformanceActive} className="group/collapsible">
-                <SidebarMenuItem>
-                  <CollapsibleTrigger asChild>
-                    <SidebarMenuButton
-                      isActive={isPerformanceActive}
-                      data-testid="nav-performance"
-                    >
-                      <TrendingUp className="h-4 w-4" />
-                      <span>Analytics</span>
-                      <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                    </SidebarMenuButton>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <SidebarMenuSub>
-                      {performanceSubItems.map((item) => (
-                        <SidebarMenuSubItem key={item.title}>
-                          <SidebarMenuSubButton
-                            asChild
-                            isActive={location === item.path}
-                          >
-                            <Link
-                              href={item.path}
-                              data-testid={`nav-${item.title.toLowerCase().replace(/ /g, "-")}`}
-                            >
-                              <span>{item.title}</span>
-                            </Link>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      ))}
-                    </SidebarMenuSub>
                   </CollapsibleContent>
                 </SidebarMenuItem>
               </Collapsible>
