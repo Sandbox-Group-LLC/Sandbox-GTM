@@ -867,9 +867,9 @@ export default function RegistrationFlow() {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground">
-                  Stripe integration is configured in Settings to securely process credit card payments.{" "}
-                  <Link href="/settings" className="text-primary hover:underline" data-testid="link-stripe-settings">
-                    Go to Settings
+                  Stripe integration is configured in Integrations to securely process credit card payments.{" "}
+                  <Link href="/integrations" className="text-primary hover:underline" data-testid="link-stripe-integrations">
+                    Go to Integrations
                   </Link>{" "}
                   to connect your Stripe account and enable live payment processing.
                 </p>
