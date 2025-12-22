@@ -613,6 +613,18 @@ export default function AttendeePortal() {
     }
   }, [error, slug, setLocation, isSpoof]);
 
+  // Set body background color to match theme to prevent dark mode bleed-through when scrolling
+  useEffect(() => {
+    const theme = portalPageData?.portalPage?.theme || portalPageData?.landingTheme;
+    const bgColor = theme?.backgroundColor || '#ffffff';
+    if (portalPageData) {
+      document.body.style.backgroundColor = bgColor;
+    }
+    return () => {
+      document.body.style.backgroundColor = '';
+    };
+  }, [portalPageData]);
+
   const logoutMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest("POST", "/api/public/attendee/logout", {});
