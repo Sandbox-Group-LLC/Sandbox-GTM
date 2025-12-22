@@ -1159,6 +1159,11 @@ export class DatabaseStorage implements IStorage {
       sql`session_id IN (SELECT id FROM event_sessions WHERE event_id = ${id})`
     );
     
+    // Delete vendors before budget_items (vendors references budget_items)
+    await db.delete(vendors).where(
+      sql`budget_item_id IN (SELECT id FROM budget_items WHERE event_id = ${id})`
+    );
+    
     // Now delete main records
     await db.delete(attendees).where(eq(attendees.eventId, id));
     await db.delete(attendeeTypes).where(eq(attendeeTypes.eventId, id));
