@@ -127,8 +127,6 @@ const programSubItems = [
   { title: "Arrivals", path: "/check-in" },
   { title: "Properties", path: "/custom-fields" },
   { title: "Program Hub", path: "/site-builder" },
-  { title: "Sponsors", path: "/sponsors" },
-  { title: "Sponsor Tasks", path: "/sponsor-tasks" },
 ];
 
 const myTasksItems = [
@@ -172,8 +170,8 @@ export function AppSidebar() {
   const isGtmActive = location === "/attendees" || location === "/import-attendees" || location === "/attendee-types" || location === "/invite-codes" || location === "/activation-links" || location === "/packages" || location === "/emails" || location === "/email-analytics" || location === "/social";
   const isEngagementActive = location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/rooms";
   const isRevenueActive = location === "/pipeline" || location === "/sales-handoff" || location === "/follow-up" || location === "/roi";
-  const isExecutionActive = location === "/run-of-show" || location === "/deliverables" || location === "/vendors" || location === "/budget";
-  const isProgramActive = location === "/events" || location === "/registration" || location === "/check-in" || location === "/site-builder" || location === "/custom-fields" || location === "/sponsors" || location === "/sponsor-tasks";
+  const isExecutionActive = location === "/run-of-show" || location === "/deliverables" || location === "/vendors" || location === "/budget" || location === "/sponsors" || location === "/sponsor-tasks";
+  const isProgramActive = location === "/events" || location === "/registration" || location === "/check-in" || location === "/site-builder" || location === "/custom-fields";
   const isContentActive = location === "/content" || location === "/documents";
   
   const isSuperAdmin = user?.email?.toLowerCase().endsWith("@makemysandbox.com") ?? false;
@@ -594,6 +592,32 @@ export function AppSidebar() {
                   <Link href="/budget">
                     <Wallet className="h-4 w-4" />
                     <span>Investment Health</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location === "/sponsors"}
+                  data-testid="nav-sponsors"
+                >
+                  <Link href="/sponsors">
+                    <Building2 className="h-4 w-4" />
+                    <span>Sponsors</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location === "/sponsor-tasks"}
+                  data-testid="nav-sponsor-tasks"
+                >
+                  <Link href="/sponsor-tasks">
+                    <ClipboardList className="h-4 w-4" />
+                    <span>Sponsor Tasks</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
