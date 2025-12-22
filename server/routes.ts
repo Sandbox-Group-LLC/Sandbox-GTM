@@ -2930,7 +2930,7 @@ export async function registerRoutes(
       const data = createMarketingLinkSchema.parse(req.body);
       
       // Generate short code
-      const shortCode = crypto.randomBytes(4).toString("hex");
+      const shortCode = randomBytes(4).toString("hex");
       
       const link = await storage.createMarketingActivationLink({
         ...data,
