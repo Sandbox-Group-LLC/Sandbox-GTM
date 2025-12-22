@@ -875,12 +875,12 @@ export default function SiteBuilder() {
 
                   {PAGE_TYPES.map((pt) => (
                     <TabsContent key={pt.value} value={pt.value} className="space-y-4">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                      <div className="flex flex-col gap-3 mb-4">
                         <div>
                           <h3 className="font-medium">{pt.label}</h3>
                           <p className="text-sm text-muted-foreground">{pt.description}</p>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <Button
                             variant={activeSubTab === "content" ? "default" : "outline"}
                             size="sm"
@@ -899,30 +899,32 @@ export default function SiteBuilder() {
                             <Palette className="h-4 w-4 mr-2" />
                             Styles
                           </Button>
+                          {activeSubTab === "content" && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setIsTemplatePickerOpen(true)}
+                                data-testid="button-templates"
+                              >
+                                <Sparkles className="h-4 w-4 mr-2" />
+                                Templates
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => setIsAddSectionOpen(true)}
+                                data-testid="button-add-section"
+                              >
+                                <Plus className="h-4 w-4 mr-2" />
+                                Add Section
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </div>
 
                       {activeSubTab === "content" ? (
                         <>
-                          <div className="flex items-center justify-end gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setIsTemplatePickerOpen(true)}
-                              data-testid="button-templates"
-                            >
-                              <Sparkles className="h-4 w-4 mr-2" />
-                              Templates
-                            </Button>
-                            <Button
-                              size="sm"
-                              onClick={() => setIsAddSectionOpen(true)}
-                              data-testid="button-add-section"
-                            >
-                              <Plus className="h-4 w-4 mr-2" />
-                              Add Section
-                            </Button>
-                          </div>
 
                           {sections.length === 0 ? (
                             <div className="border-2 border-dashed rounded-md p-12 text-center">
