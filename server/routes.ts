@@ -261,6 +261,60 @@ export function registerPublicTrackingRoute(app: Express) {
       res.status(500).json({ message: "Failed to submit lead" });
     }
   });
+
+  // Public marketing link tracking (no auth required)
+  app.get("/api/public/mkt/:shortCode", async (req: any, res) => {
+    try {
+      const { shortCode } = req.params;
+      logInfo(`[MKT] Marketing link lookup for shortCode: ${shortCode}`, "marketing-link");
+      const link = await storage.getMarketingActivationLinkByShortCode(shortCode);
+      
+      if (!link) {
+        logInfo(`[MKT] Link not found for shortCode: ${shortCode}`, "marketing-link");
+        return res.status(404).json({ message: "Link not found", shortCode });
+      }
+      
+      if (link.status !== "active") {
+        logInfo(`[MKT] Link found but status is: ${link.status} for shortCode: ${shortCode}`, "marketing-link");
+        return res.status(404).json({ message: "Link is not active", status: link.status });
+      }
+
+      // Create visitor hash from IP + User-Agent
+      const ip = req.headers["x-forwarded-for"] || req.connection?.remoteAddress || "";
+      const userAgent = req.headers["user-agent"] || "";
+      const visitorHash = createHash("sha256").update(`${ip}:${userAgent}`).digest("hex").substring(0, 32);
+      const ipHash = createHash("sha256").update(String(ip)).digest("hex").substring(0, 32);
+
+      // Record the click
+      await storage.createMarketingLinkClick({
+        marketingLinkId: link.id,
+        visitorHash,
+        ipHash,
+        userAgent: userAgent.substring(0, 500),
+        referrer: (req.headers.referer || req.headers.referrer || "").substring(0, 1000),
+        queryParams: req.query as Record<string, string>,
+      });
+
+      // Increment click count
+      await storage.incrementMarketingLinkClicks(link.id);
+
+      // Build destination URL with UTM params
+      const url = new URL(link.destinationUrl);
+      url.searchParams.set("utm_source", link.utmSource);
+      url.searchParams.set("utm_medium", link.utmMedium);
+      url.searchParams.set("utm_campaign", link.utmCampaign);
+      if (link.utmContent) url.searchParams.set("utm_content", link.utmContent);
+      if (link.utmTerm) url.searchParams.set("utm_term", link.utmTerm);
+      
+      // Add marketing link ID for attribution tracking
+      url.searchParams.set("mkt_id", link.id);
+
+      res.redirect(302, url.toString());
+    } catch (error) {
+      logError("Error tracking marketing link:", error);
+      res.status(500).json({ message: "Failed to process link" });
+    }
+  });
 }
 
 export async function registerRoutes(
@@ -2810,6 +2864,140 @@ export async function registerRoutes(
     } catch (error) {
       logError("Error updating lead status:", error);
       res.status(500).json({ message: "Failed to update lead status" });
+    }
+  });
+
+  // Marketing Activation Links (super admin only)
+  app.get("/api/admin/marketing-links", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!isSuperAdmin(user?.email, user?.isAdmin)) {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+      
+      const links = await storage.getMarketingActivationLinks();
+      res.json(links);
+    } catch (error) {
+      logError("Error fetching marketing links:", error);
+      res.status(500).json({ message: "Failed to fetch marketing links" });
+    }
+  });
+
+  app.get("/api/admin/marketing-links/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!isSuperAdmin(user?.email, user?.isAdmin)) {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+      
+      const link = await storage.getMarketingActivationLink(req.params.id);
+      if (!link) {
+        return res.status(404).json({ message: "Marketing link not found" });
+      }
+      res.json(link);
+    } catch (error) {
+      logError("Error fetching marketing link:", error);
+      res.status(500).json({ message: "Failed to fetch marketing link" });
+    }
+  });
+
+  const createMarketingLinkSchema = z.object({
+    name: z.string().min(1, "Name is required"),
+    description: z.string().optional().nullable(),
+    destinationType: z.enum(["landing", "pricing", "lead-form", "signup"]).default("landing"),
+    destinationUrl: z.string().url("Invalid URL"),
+    utmSource: z.string().min(1, "Source is required"),
+    utmMedium: z.string().min(1, "Medium is required"),
+    utmCampaign: z.string().min(1, "Campaign is required"),
+    utmContent: z.string().optional().nullable(),
+    utmTerm: z.string().optional().nullable(),
+    status: z.enum(["active", "paused", "archived"]).optional().default("active"),
+  });
+
+  app.post("/api/admin/marketing-links", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!isSuperAdmin(user?.email, user?.isAdmin)) {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+      
+      const data = createMarketingLinkSchema.parse(req.body);
+      
+      // Generate short code
+      const shortCode = crypto.randomBytes(4).toString("hex");
+      
+      const link = await storage.createMarketingActivationLink({
+        ...data,
+        shortCode,
+      });
+      res.status(201).json(link);
+    } catch (error: any) {
+      logError("Error creating marketing link:", error);
+      const message = error.errors ? error.errors.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', ') : "Invalid marketing link data";
+      res.status(400).json({ message });
+    }
+  });
+
+  app.patch("/api/admin/marketing-links/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!isSuperAdmin(user?.email, user?.isAdmin)) {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+      
+      const data = createMarketingLinkSchema.partial().parse(req.body);
+      const updated = await storage.updateMarketingActivationLink(req.params.id, data);
+      if (!updated) {
+        return res.status(404).json({ message: "Marketing link not found" });
+      }
+      res.json(updated);
+    } catch (error: any) {
+      logError("Error updating marketing link:", error);
+      const message = error.errors ? error.errors.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', ') : "Failed to update marketing link";
+      res.status(400).json({ message });
+    }
+  });
+
+  app.delete("/api/admin/marketing-links/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!isSuperAdmin(user?.email, user?.isAdmin)) {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+      
+      await storage.deleteMarketingActivationLink(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting marketing link:", error);
+      res.status(500).json({ message: "Failed to delete marketing link" });
+    }
+  });
+
+  // Marketing analytics (super admin only)
+  app.get("/api/admin/marketing-analytics", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!isSuperAdmin(user?.email, user?.isAdmin)) {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+      
+      const metrics = await storage.getMarketingAcquisitionMetrics();
+      res.json(metrics);
+    } catch (error) {
+      logError("Error fetching marketing analytics:", error);
+      res.status(500).json({ message: "Failed to fetch marketing analytics" });
     }
   });
 
