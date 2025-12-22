@@ -43,6 +43,13 @@
       "when": 1766394486480,
       "tag": "0005_sudden_lila_cheney",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1766403669759,
+      "tag": "0006_add_personalized_schedule",
+      "breakpoints": true
     }
   ]
 }
