@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -866,8 +867,11 @@ export default function RegistrationFlow() {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground">
-                  Stripe integration will be configured here to securely process credit card payments. 
-                  Connect your Stripe account to enable live payment processing.
+                  Stripe integration is configured in Settings to securely process credit card payments.{" "}
+                  <Link href="/settings" className="text-primary hover:underline" data-testid="link-stripe-settings">
+                    Go to Settings
+                  </Link>{" "}
+                  to connect your Stripe account and enable live payment processing.
                 </p>
               </CardContent>
             </Card>
