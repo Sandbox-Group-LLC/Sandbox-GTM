@@ -120,6 +120,17 @@ function SessionFeedbackForm({
     color: theme?.textSecondaryColor || undefined,
   };
 
+  const labelStyles: React.CSSProperties = {
+    color: theme?.textColor || undefined,
+  };
+
+  const inputStyles: React.CSSProperties = {
+    backgroundColor: theme?.cardBackground || undefined,
+    borderColor: theme?.textSecondaryColor ? `${theme.textSecondaryColor}40` : undefined,
+    borderRadius: themeRadius,
+    color: theme?.textColor || undefined,
+  };
+
   const buttonStyles: React.CSSProperties = {
     backgroundColor: theme?.buttonColor || undefined,
     color: theme?.buttonTextColor || undefined,
@@ -168,7 +179,7 @@ function SessionFeedbackForm({
               name="overallRating"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Overall Rating *</FormLabel>
+                  <FormLabel style={labelStyles}>Overall Rating *</FormLabel>
                   <FormControl>
                     <StarRating
                       value={field.value}
@@ -187,7 +198,7 @@ function SessionFeedbackForm({
                 name="contentRating"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Content Quality</FormLabel>
+                    <FormLabel style={labelStyles}>Content Quality</FormLabel>
                     <FormControl>
                       <StarRating
                         value={field.value || 0}
@@ -203,7 +214,7 @@ function SessionFeedbackForm({
                 name="speakerRating"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Speaker</FormLabel>
+                    <FormLabel style={labelStyles}>Speaker</FormLabel>
                     <FormControl>
                       <StarRating
                         value={field.value || 0}
@@ -219,7 +230,7 @@ function SessionFeedbackForm({
                 name="relevanceRating"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Relevance</FormLabel>
+                    <FormLabel style={labelStyles}>Relevance</FormLabel>
                     <FormControl>
                       <StarRating
                         value={field.value || 0}
@@ -237,11 +248,12 @@ function SessionFeedbackForm({
               name="comment"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Comments (optional)</FormLabel>
+                  <FormLabel style={labelStyles}>Comments (optional)</FormLabel>
                   <FormControl>
                     <Textarea
                       placeholder="Share your thoughts about this session..."
                       className="resize-none"
+                      style={inputStyles}
                       rows={3}
                       {...field}
                       data-testid={`textarea-comment-${session.id}`}
@@ -263,7 +275,7 @@ function SessionFeedbackForm({
                       data-testid={`checkbox-anonymous-${session.id}`}
                     />
                   </FormControl>
-                  <FormLabel className="font-normal cursor-pointer">
+                  <FormLabel style={labelStyles} className="font-normal cursor-pointer">
                     Submit anonymously
                   </FormLabel>
                 </FormItem>

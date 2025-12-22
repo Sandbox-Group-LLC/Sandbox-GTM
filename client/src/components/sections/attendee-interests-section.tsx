@@ -127,6 +127,17 @@ export function AttendeeInterestsSection({
     color: theme?.textSecondaryColor || undefined,
   };
 
+  const labelStyles: React.CSSProperties = {
+    color: theme?.textColor || undefined,
+  };
+
+  const inputStyles: React.CSSProperties = {
+    backgroundColor: theme?.cardBackground || undefined,
+    borderColor: theme?.textSecondaryColor ? `${theme.textSecondaryColor}40` : undefined,
+    borderRadius: themeRadius,
+    color: theme?.textColor || undefined,
+  };
+
   const cardStyles: React.CSSProperties = {
     backgroundColor: theme?.cardBackground || undefined,
     borderRadius: themeRadius,
@@ -226,7 +237,7 @@ export function AttendeeInterestsSection({
                   name="preferredTracks"
                   render={() => (
                     <FormItem>
-                      <FormLabel>Preferred Tracks</FormLabel>
+                      <FormLabel style={labelStyles}>Preferred Tracks</FormLabel>
                       <FormDescription style={secondaryTextStyles}>
                         Select the tracks that interest you most.
                       </FormDescription>
@@ -251,7 +262,7 @@ export function AttendeeInterestsSection({
                                     data-testid={`checkbox-track-${track}`}
                                   />
                                 </FormControl>
-                                <FormLabel className="font-normal cursor-pointer">
+                                <FormLabel style={labelStyles} className="font-normal cursor-pointer">
                                   {titleCase(track)}
                                 </FormLabel>
                               </FormItem>
@@ -270,7 +281,7 @@ export function AttendeeInterestsSection({
                 name="preferredSessionTypes"
                 render={() => (
                   <FormItem>
-                    <FormLabel>Preferred Session Types</FormLabel>
+                    <FormLabel style={labelStyles}>Preferred Session Types</FormLabel>
                     <FormDescription style={secondaryTextStyles}>
                       What types of sessions do you prefer?
                     </FormDescription>
@@ -295,7 +306,7 @@ export function AttendeeInterestsSection({
                                   data-testid={`checkbox-type-${type.value}`}
                                 />
                               </FormControl>
-                              <FormLabel className="font-normal cursor-pointer">
+                              <FormLabel style={labelStyles} className="font-normal cursor-pointer">
                                 {type.label}
                               </FormLabel>
                             </FormItem>
@@ -313,7 +324,7 @@ export function AttendeeInterestsSection({
                 name="interests"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Topics of Interest</FormLabel>
+                    <FormLabel style={labelStyles}>Topics of Interest</FormLabel>
                     <FormDescription style={secondaryTextStyles}>
                       Add keywords or topics you'd like to learn about.
                     </FormDescription>
@@ -351,6 +362,7 @@ export function AttendeeInterestsSection({
                               addInterest();
                             }
                           }}
+                          style={inputStyles}
                           data-testid="input-new-interest"
                         />
                       </FormControl>

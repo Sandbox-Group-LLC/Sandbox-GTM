@@ -118,6 +118,17 @@ export function EventFeedbackSection({
     color: theme?.textSecondaryColor || undefined,
   };
 
+  const labelStyles: React.CSSProperties = {
+    color: theme?.textColor || undefined,
+  };
+
+  const inputStyles: React.CSSProperties = {
+    backgroundColor: theme?.cardBackground || undefined,
+    borderColor: theme?.textSecondaryColor ? `${theme.textSecondaryColor}40` : undefined,
+    borderRadius: themeRadius,
+    color: theme?.textColor || undefined,
+  };
+
   const cardStyles: React.CSSProperties = {
     backgroundColor: theme?.cardBackground || undefined,
     borderRadius: themeRadius,
@@ -255,7 +266,7 @@ export function EventFeedbackSection({
                 name="overallRating"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-base">Overall Experience *</FormLabel>
+                    <FormLabel style={labelStyles} className="text-base">Overall Experience *</FormLabel>
                     <FormControl>
                       <StarRating
                         value={field.value}
@@ -274,7 +285,7 @@ export function EventFeedbackSection({
                   name="venueRating"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Venue & Facilities</FormLabel>
+                      <FormLabel style={labelStyles}>Venue & Facilities</FormLabel>
                       <FormControl>
                         <StarRating
                           value={field.value || 0}
@@ -290,7 +301,7 @@ export function EventFeedbackSection({
                   name="contentRating"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Content & Sessions</FormLabel>
+                      <FormLabel style={labelStyles}>Content & Sessions</FormLabel>
                       <FormControl>
                         <StarRating
                           value={field.value || 0}
@@ -306,7 +317,7 @@ export function EventFeedbackSection({
                   name="networkingRating"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Networking Opportunities</FormLabel>
+                      <FormLabel style={labelStyles}>Networking Opportunities</FormLabel>
                       <FormControl>
                         <StarRating
                           value={field.value || 0}
@@ -322,7 +333,7 @@ export function EventFeedbackSection({
                   name="organizationRating"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Organization & Logistics</FormLabel>
+                      <FormLabel style={labelStyles}>Organization & Logistics</FormLabel>
                       <FormControl>
                         <StarRating
                           value={field.value || 0}
@@ -340,7 +351,7 @@ export function EventFeedbackSection({
                 name="recommendationScore"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>How likely are you to recommend this event? (0-10)</FormLabel>
+                    <FormLabel style={labelStyles}>How likely are you to recommend this event? (0-10)</FormLabel>
                     <FormControl>
                       <div className="space-y-4">
                         <div className="flex justify-between text-xs text-muted-foreground">
@@ -394,11 +405,12 @@ export function EventFeedbackSection({
                 name="highlights"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>What did you enjoy most?</FormLabel>
+                    <FormLabel style={labelStyles}>What did you enjoy most?</FormLabel>
                     <FormControl>
                       <Textarea
                         placeholder="Share the highlights of your experience..."
                         className="resize-none"
+                        style={inputStyles}
                         rows={3}
                         {...field}
                         data-testid="textarea-highlights"
@@ -413,11 +425,12 @@ export function EventFeedbackSection({
                 name="improvements"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>What could be improved?</FormLabel>
+                    <FormLabel style={labelStyles}>What could be improved?</FormLabel>
                     <FormControl>
                       <Textarea
                         placeholder="Share your suggestions for improvement..."
                         className="resize-none"
+                        style={inputStyles}
                         rows={3}
                         {...field}
                         data-testid="textarea-improvements"
@@ -432,11 +445,12 @@ export function EventFeedbackSection({
                 name="additionalComments"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Additional Comments</FormLabel>
+                    <FormLabel style={labelStyles}>Additional Comments</FormLabel>
                     <FormControl>
                       <Textarea
                         placeholder="Any other thoughts you'd like to share..."
                         className="resize-none"
+                        style={inputStyles}
                         rows={3}
                         {...field}
                         data-testid="textarea-additional-comments"
@@ -458,7 +472,7 @@ export function EventFeedbackSection({
                         data-testid="checkbox-anonymous"
                       />
                     </FormControl>
-                    <FormLabel className="font-normal cursor-pointer">
+                    <FormLabel style={labelStyles} className="font-normal cursor-pointer">
                       Submit anonymously
                     </FormLabel>
                   </FormItem>
