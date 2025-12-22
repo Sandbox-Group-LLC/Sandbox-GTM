@@ -1018,7 +1018,14 @@ export default function PublicRegistration() {
   const themeStyles = getThemeStyles(theme);
   const fontsToLoad = [theme?.headingFont, theme?.bodyFont].filter(Boolean) as string[];
 
-  // Input styling based on theme - matches site builder preview
+  // Find registration-form section to get section-level fontColor
+  const registrationFormSection = sections.find(s => s.type === "registration-form");
+  const sectionFontColor = (registrationFormSection?.config as any)?.fontColor 
+    || (registrationFormSection?.styles as any)?.textColor 
+    || theme?.textColor 
+    || "#1f2937";
+
+  // Input styling based on theme and section settings - matches site builder preview
   const borderRadiusMap: Record<string, string> = {
     none: "0px", small: "4px", medium: "8px", large: "16px", pill: "9999px",
   };
@@ -1026,10 +1033,10 @@ export default function PublicRegistration() {
     backgroundColor: theme?.backgroundColor || "#ffffff",
     borderColor: theme?.borderColor || "#e5e7eb",
     borderRadius: borderRadiusMap[theme?.borderRadius || "medium"],
-    color: theme?.textColor || "#1f2937",
+    color: sectionFontColor,
   };
   const labelStyles: React.CSSProperties = {
-    color: theme?.textColor || "#1f2937",
+    color: sectionFontColor,
   };
 
   const stepTitles = ["Personal Info", "Select Access Package", "Payment", "Confirmation"];
