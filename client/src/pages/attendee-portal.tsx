@@ -10,7 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import {
   Form,
@@ -28,8 +27,6 @@ import {
   Ticket, 
   Package, 
   QrCode, 
-  LogOut, 
-  ArrowLeft, 
   Loader2, 
   AlertCircle,
   Edit,
@@ -790,37 +787,6 @@ export default function AttendeePortal() {
             </div>
           </div>
         )}
-
-        <header className="border-b bg-card">
-          <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="sm" asChild>
-                <Link href={`/event/${slug}`} data-testid="link-back-to-event">
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back to Event
-                </Link>
-              </Button>
-              <Separator orientation="vertical" className="h-6" />
-              <h1 className="text-lg font-semibold" data-testid="text-event-name">{event?.name || "Event Portal"}</h1>
-            </div>
-            {!isSpoof && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => logoutMutation.mutate()}
-                disabled={logoutMutation.isPending}
-                data-testid="button-logout"
-              >
-                {logoutMutation.isPending ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <LogOut className="w-4 h-4 mr-2" />
-                )}
-                Log Out
-              </Button>
-            )}
-          </div>
-        </header>
 
         <main className="max-w-4xl mx-auto px-6 py-8">
           <div className="mb-8">
