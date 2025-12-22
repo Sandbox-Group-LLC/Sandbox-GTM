@@ -2,11 +2,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, Check, ThumbsUp, ThumbsDown, MessageSquare } from "lucide-react";
+import { Loader2, Check, MessageSquare } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Slider } from "@/components/ui/slider";
 import {
   Form,
   FormControl,
@@ -27,7 +28,7 @@ const eventFeedbackSchema = z.object({
   contentRating: z.number().min(0).max(5).optional(),
   networkingRating: z.number().min(0).max(5).optional(),
   organizationRating: z.number().min(0).max(5).optional(),
-  wouldRecommend: z.boolean().nullable().optional(),
+  recommendationScore: z.number().min(0, "Please provide a recommendation score").max(10),
   highlights: z.string().optional(),
   improvements: z.string().optional(),
   additionalComments: z.string().optional(),
@@ -75,7 +76,7 @@ export function EventFeedbackSection({
       contentRating: 0,
       networkingRating: 0,
       organizationRating: 0,
-      wouldRecommend: null,
+      recommendationScore: 5,
       highlights: "",
       improvements: "",
       additionalComments: "",
@@ -156,16 +157,23 @@ export function EventFeedbackSection({
               </div>
             </div>
             <div className="space-y-2">
-              <p className="font-medium text-sm" style={headingStyles}>Would you recommend this event?</p>
-              <div className="flex gap-2">
-                <Button variant="outline" disabled className="flex-1 gap-2">
-                  <ThumbsUp className="h-4 w-4" />
-                  Yes
-                </Button>
-                <Button variant="outline" disabled className="flex-1 gap-2">
-                  <ThumbsDown className="h-4 w-4" />
-                  No
-                </Button>
+              <p className="font-medium text-sm" style={headingStyles}>How likely are you to recommend? (0-10)</p>
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Not at all</span>
+                <span>Extremely likely</span>
+              </div>
+              <div className="flex gap-1 flex-wrap">
+                {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                  <div
+                    key={n}
+                    className={cn(
+                      "w-7 h-7 rounded-md text-xs font-medium flex items-center justify-center",
+                      n === 8 ? "bg-yellow-500 text-white" : "bg-muted"
+                    )}
+                  >
+                    {n}
+                  </div>
+                ))}
               </div>
             </div>
             <Button disabled style={buttonStyles}>
@@ -213,7 +221,21 @@ export function EventFeedbackSection({
     submitMutation.mutate(data);
   };
 
-  const wouldRecommendValue = form.watch("wouldRecommend");
+  const recommendationScoreValue = form.watch("recommendationScore");
+
+  const getNpsLabel = (score: number | null | undefined) => {
+    if (score === null || score === undefined) return "Select a score";
+    if (score >= 9) return "Promoter";
+    if (score >= 7) return "Passive";
+    return "Detractor";
+  };
+
+  const getNpsColor = (score: number | null | undefined) => {
+    if (score === null || score === undefined) return "text-muted-foreground";
+    if (score >= 9) return "text-green-600 dark:text-green-400";
+    if (score >= 7) return "text-yellow-600 dark:text-yellow-400";
+    return "text-red-600 dark:text-red-400";
+  };
 
   return (
     <div data-testid="section-event-feedback">
@@ -315,38 +337,52 @@ export function EventFeedbackSection({
 
               <FormField
                 control={form.control}
-                name="wouldRecommend"
+                name="recommendationScore"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Would you recommend this event to a colleague?</FormLabel>
+                    <FormLabel>How likely are you to recommend this event? (0-10)</FormLabel>
                     <FormControl>
-                      <div className="flex gap-3">
-                        <Button
-                          type="button"
-                          variant={field.value === true ? "default" : "outline"}
-                          className={cn(
-                            "flex-1",
-                            field.value === true && "bg-green-600 hover:bg-green-700"
-                          )}
-                          onClick={() => field.onChange(true)}
-                          data-testid="button-recommend-yes"
-                        >
-                          <ThumbsUp className="h-4 w-4 mr-2" />
-                          Yes
-                        </Button>
-                        <Button
-                          type="button"
-                          variant={field.value === false ? "default" : "outline"}
-                          className={cn(
-                            "flex-1",
-                            field.value === false && "bg-red-600 hover:bg-red-700"
-                          )}
-                          onClick={() => field.onChange(false)}
-                          data-testid="button-recommend-no"
-                        >
-                          <ThumbsDown className="h-4 w-4 mr-2" />
-                          No
-                        </Button>
+                      <div className="space-y-4">
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>Not at all likely</span>
+                          <span>Extremely likely</span>
+                        </div>
+                        <Slider
+                          min={0}
+                          max={10}
+                          step={1}
+                          value={[field.value ?? 5]}
+                          onValueChange={(vals) => field.onChange(vals[0])}
+                          className="cursor-pointer"
+                          data-testid="slider-recommendation-score"
+                        />
+                        <div className="flex justify-between items-center">
+                          <div className="flex gap-1">
+                            {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                              <button
+                                key={n}
+                                type="button"
+                                onClick={() => field.onChange(n)}
+                                className={cn(
+                                  "w-7 h-7 rounded-md text-xs font-medium transition-colors",
+                                  field.value === n
+                                    ? n >= 9
+                                      ? "bg-green-600 text-white"
+                                      : n >= 7
+                                        ? "bg-yellow-500 text-white"
+                                        : "bg-red-500 text-white"
+                                    : "bg-muted hover:bg-muted/80"
+                                )}
+                                data-testid={`button-nps-${n}`}
+                              >
+                                {n}
+                              </button>
+                            ))}
+                          </div>
+                          <span className={cn("text-sm font-medium ml-3", getNpsColor(field.value))}>
+                            {field.value !== null && field.value !== undefined ? `${field.value} - ${getNpsLabel(field.value)}` : ""}
+                          </span>
+                        </div>
                       </div>
                     </FormControl>
                   </FormItem>

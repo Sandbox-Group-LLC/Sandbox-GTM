@@ -7689,8 +7689,15 @@ ${urls.map(u => `  <url>
         return res.status(400).json({ message: "Feedback already submitted for this event" });
       }
       
+      // Derive wouldRecommend from recommendationScore for backward compatibility
+      const recommendationScore = req.body.recommendationScore;
+      const wouldRecommend = recommendationScore !== null && recommendationScore !== undefined
+        ? recommendationScore >= 7  // Passives and promoters count as "would recommend"
+        : req.body.wouldRecommend ?? null;
+      
       const data = insertEventFeedbackSchema.parse({
         ...req.body,
+        wouldRecommend,
         attendeeId: attendee.id,
         eventId,
         organizationId: attendee.organizationId,
