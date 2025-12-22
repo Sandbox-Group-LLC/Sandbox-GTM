@@ -875,6 +875,18 @@ export default function PublicRegistration() {
     }
   }, [attributionParams.activationLinkId, slug, alCodeAttempted, validatedCode, isValidatingCode, inviteCodeFromUrl]);
 
+  // Set body background color to match theme to prevent dark mode bleed-through when scrolling
+  useEffect(() => {
+    const theme = data?.registrationPage?.theme || data?.landingTheme;
+    const bgColor = theme?.backgroundColor || '#ffffff';
+    if (data) {
+      document.body.style.backgroundColor = bgColor;
+    }
+    return () => {
+      document.body.style.backgroundColor = '';
+    };
+  }, [data]);
+
   const registerMutation = useMutation({
     mutationFn: async (formData: RegistrationFormData) => {
       const res = await apiRequest("POST", `/api/public/register/${slug}`, {
@@ -1159,15 +1171,6 @@ export default function PublicRegistration() {
       </div>
     );
   };
-
-  // Set body background color to match theme to prevent dark mode bleed-through
-  useEffect(() => {
-    const bgColor = theme?.backgroundColor || '#ffffff';
-    document.body.style.backgroundColor = bgColor;
-    return () => {
-      document.body.style.backgroundColor = '';
-    };
-  }, [theme?.backgroundColor]);
 
   return (
     <>
