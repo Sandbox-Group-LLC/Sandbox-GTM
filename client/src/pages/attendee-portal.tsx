@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import type { Attendee, Event, EventPage, EventPageTheme, EventSession, Speaker } from "@shared/schema";
 import { SectionRenderer, GoogleFontsLoader, CustomFontsLoader, GoogleAnalyticsLoader, getThemeStyles } from "@/pages/public-event";
+import { EventLocaleProvider } from "@/hooks/use-event-locale";
 
 interface AttendeePortalData {
   attendee: Omit<Attendee, 'passwordHash'>;
@@ -741,7 +742,7 @@ export default function AttendeePortal() {
   };
 
   return (
-    <>
+    <EventLocaleProvider event={portalPageData?.event}>
       {hasSections && <GoogleFontsLoader fonts={fontsToLoad} />}
       <CustomFontsLoader slug={slug || ''} />
       <GoogleAnalyticsLoader googleTagId={theme?.googleTagId} />
@@ -849,6 +850,6 @@ export default function AttendeePortal() {
           )}
         </main>
       </div>
-    </>
+    </EventLocaleProvider>
   );
 }
