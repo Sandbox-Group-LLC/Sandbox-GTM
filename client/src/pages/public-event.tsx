@@ -1582,6 +1582,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
                     sponsors={sponsors}
                     theme={theme}
                     isPreview={isPreview}
+                    attendeeContext={attendeeContext}
                   />
                 ))}
               </div>
