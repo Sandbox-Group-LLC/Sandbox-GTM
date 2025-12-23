@@ -270,7 +270,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>Performance</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              <Collapsible defaultOpen={isPerformanceActive} className="group/collapsible">
+              <Collapsible defaultOpen={location === "/acquisition" || location === "/engagement-signals" || location === "/revenue-snapshot"} className="group/collapsible">
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton
