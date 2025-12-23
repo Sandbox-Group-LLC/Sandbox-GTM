@@ -488,7 +488,7 @@ export function registerPublicTrackingRoute(app: Express) {
       }
       
       // Find or create an anonymous attendee record (use a placeholder for anonymous users)
-      let attendee = await storage.getAttendeeByEmail(event.organizationId, `${attendeeId}@anonymous.local`);
+      let attendee = await storage.getAttendeeByEventAndEmail(eventId, `${attendeeId}@anonymous.local`);
       
       if (!attendee) {
         // Create a temporary anonymous attendee record
