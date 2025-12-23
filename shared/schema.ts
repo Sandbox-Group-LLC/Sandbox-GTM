@@ -1835,6 +1835,75 @@ export const documentApprovalsRelations = relations(documentApprovals, ({ one })
   requestedByUser: one(users, { fields: [documentApprovals.requestedBy], references: [users.id] }),
 }));
 
+// Engagement Moments - Live engagement layer for events
+export const moments = pgTable("moments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id).notNull(),
+  sessionId: varchar("session_id").references(() => eventSessions.id),
+  type: varchar("type", { length: 50 }).notNull(), // poll_single, poll_multi, rating, open_text, qa, pulse, cta
+  title: varchar("title", { length: 255 }).notNull(),
+  prompt: text("prompt"),
+  optionsJson: jsonb("options_json"), // Array of options for polls, or config for other types
+  status: varchar("status", { length: 50 }).default("draft").notNull(), // draft, live, locked, ended
+  startTime: timestamp("start_time"),
+  endTime: timestamp("end_time"),
+  showResults: boolean("show_results").default(false),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const momentResponses = pgTable("moment_responses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  momentId: varchar("moment_id").references(() => moments.id).notNull(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id).notNull(),
+  sessionId: varchar("session_id").references(() => eventSessions.id),
+  attendeeId: varchar("attendee_id").references(() => attendees.id).notNull(),
+  payloadJson: jsonb("payload_json").notNull(), // Response data (selected option, text, rating, etc.)
+  metadataJson: jsonb("metadata_json"), // Device info, user agent, etc.
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const engagementSignals = pgTable("engagement_signals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id).notNull(),
+  sessionId: varchar("session_id").references(() => eventSessions.id),
+  attendeeId: varchar("attendee_id").references(() => attendees.id).notNull(),
+  engaged: boolean("engaged").default(false),
+  engagementScore: integer("engagement_score").default(0),
+  highIntent: boolean("high_intent").default(false),
+  lastEngagedAt: timestamp("last_engaged_at"),
+  signalSummaryJson: jsonb("signal_summary_json"), // Breakdown of engagement by type
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Moments relations
+export const momentsRelations = relations(moments, ({ one, many }) => ({
+  organization: one(organizations, { fields: [moments.organizationId], references: [organizations.id] }),
+  event: one(events, { fields: [moments.eventId], references: [events.id] }),
+  session: one(eventSessions, { fields: [moments.sessionId], references: [eventSessions.id] }),
+  createdByUser: one(users, { fields: [moments.createdBy], references: [users.id] }),
+  responses: many(momentResponses),
+}));
+
+export const momentResponsesRelations = relations(momentResponses, ({ one }) => ({
+  moment: one(moments, { fields: [momentResponses.momentId], references: [moments.id] }),
+  organization: one(organizations, { fields: [momentResponses.organizationId], references: [organizations.id] }),
+  event: one(events, { fields: [momentResponses.eventId], references: [events.id] }),
+  session: one(eventSessions, { fields: [momentResponses.sessionId], references: [eventSessions.id] }),
+  attendee: one(attendees, { fields: [momentResponses.attendeeId], references: [attendees.id] }),
+}));
+
+export const engagementSignalsRelations = relations(engagementSignals, ({ one }) => ({
+  organization: one(organizations, { fields: [engagementSignals.organizationId], references: [organizations.id] }),
+  event: one(events, { fields: [engagementSignals.eventId], references: [events.id] }),
+  session: one(eventSessions, { fields: [engagementSignals.sessionId], references: [eventSessions.id] }),
+  attendee: one(attendees, { fields: [engagementSignals.attendeeId], references: [attendees.id] }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true, updatedAt: true });
 export const insertOrganizationSchema = createInsertSchema(organizations).omit({ id: true, createdAt: true, updatedAt: true });
@@ -1911,6 +1980,9 @@ export const insertDocumentCommentSchema = createInsertSchema(documentComments).
 export const insertDocumentApprovalSchema = createInsertSchema(documentApprovals).omit({ id: true, createdAt: true });
 export const insertCustomFontSchema = createInsertSchema(customFonts).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertCustomFontVariantSchema = createInsertSchema(customFontVariants).omit({ id: true, createdAt: true });
+export const insertMomentSchema = createInsertSchema(moments).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertMomentResponseSchema = createInsertSchema(momentResponses).omit({ id: true, createdAt: true });
+export const insertEngagementSignalSchema = createInsertSchema(engagementSignals).omit({ id: true, updatedAt: true });
 
 // Types
 export type UpsertUser = typeof users.$inferInsert;
@@ -2061,3 +2133,9 @@ export type InsertMarketingActivationLink = z.infer<typeof insertMarketingActiva
 export type MarketingActivationLink = typeof marketingActivationLinks.$inferSelect;
 export type InsertMarketingLinkClick = z.infer<typeof insertMarketingLinkClickSchema>;
 export type MarketingLinkClick = typeof marketingLinkClicks.$inferSelect;
+export type InsertMoment = z.infer<typeof insertMomentSchema>;
+export type Moment = typeof moments.$inferSelect;
+export type InsertMomentResponse = z.infer<typeof insertMomentResponseSchema>;
+export type MomentResponse = typeof momentResponses.$inferSelect;
+export type InsertEngagementSignal = z.infer<typeof insertEngagementSignalSchema>;
+export type EngagementSignal = typeof engagementSignals.$inferSelect;

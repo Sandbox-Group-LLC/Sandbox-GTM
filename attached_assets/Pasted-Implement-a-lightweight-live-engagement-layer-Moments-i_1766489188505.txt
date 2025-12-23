@@ -1,0 +1,128 @@
+Implement a lightweight live engagement layer (“Moments”) in Sandbox that requires authenticated users via Replit Auth so that all live engagement is automatically tied to known attendee profiles.
+
+Sandbox already captures attendee identity fields:
+first name, last name, email, job title, company, role, company type, function.
+
+All engagement data must be stored directly on the authenticated attendee record.
+
+Additive only; no breaking changes.
+
+⸻
+
+1️⃣ Identity & Access Rules (Important)
+	•	All attendee interaction with live Moments requires login via Replit Auth
+	•	If a user is not authenticated, redirect them to login before joining engagement
+	•	Upon authentication:
+	•	Resolve the user to an existing Attendee record for the Program (by user ID or email)
+	•	If no Attendee exists for that Program, create one automatically
+	•	No anonymous participation
+	•	No manual identity forms
+
+This ensures all MomentResponses are fully attributed.
+
+⸻
+
+2️⃣ Data Models
+
+Moment
+	•	id, program_id, session_id (nullable)
+	•	type: poll_single, poll_multi, rating, open_text, qa, pulse, cta
+	•	title, prompt, options_json
+	•	status: draft | live | locked | ended
+	•	start_time, end_time, created_by
+
+MomentResponse
+	•	id, moment_id, program_id, session_id (nullable)
+	•	attendee_id (required)
+	•	timestamp
+	•	payload_json
+	•	metadata_json (device, user_agent)
+
+EngagementSignal (derived)
+	•	program_id, attendee_id, session_id (nullable)
+	•	engaged(boolean)
+	•	engagement_score(number)
+	•	high_intent(boolean)
+	•	last_engaged_at
+	•	signal_summary_json
+
+⸻
+
+3️⃣ Program Setup → Engagement Moments
+
+Add submenu under Program Setup: Engagement Moments
+	•	Create Moments using templates:
+	•	Poll (single, multi, rating, open text)
+	•	Q&A
+	•	Pulse (binary feedback)
+	•	CTA (explicit hand-raise actions)
+	•	Optionally associate Moments with a session
+	•	Keep configuration minimal and transparent
+
+⸻
+
+4️⃣ Execution → Engagement Capture → Moment Launcher
+
+Add a Moment Launcher control surface:
+	•	List Moments by Program (filter by Session optional)
+	•	Actions:
+	•	Launch Moment
+	•	Lock / Unlock
+	•	Show / Hide results
+	•	End Moment
+	•	Display:
+	•	Live participant count
+	•	Response count
+	•	Must be fully usable on desktop and mobile browsers
+	•	Designed so a producer can operate from a second device without disrupting execution
+
+⸻
+
+5️⃣ Attendee Engagement Flow
+	•	Authenticated attendees access live engagement via Program Experience
+	•	If no Moment is live, show “Stand by” state
+	•	When a Moment goes live, it appears instantly
+	•	Responses are saved in real time and tied to the attendee profile
+	•	No slide rendering or presentation control is required
+
+⸻
+
+6️⃣ Metrics & Dashboards
+
+Compute and surface:
+
+Engagement Signals
+	•	Engagement Rate (% of attendees with ≥1 MomentResponse)
+	•	High-Intent Audience:
+	•	CTA click = high intent
+	•	Q&A submission + another response = high intent
+	•	Engagement breakdowns by:
+	•	Role
+	•	Function
+	•	Company Type
+
+Acquisition Health
+	•	ICP Match Rate (All Registrants)
+	•	ICP Match Rate (Engaged Audience)
+
+If ICP definition is missing:
+	•	Show placeholder with link to Program Setup → Audience Targeting
+
+⸻
+
+7️⃣ Non-Goals (Do Not Build)
+	•	No anonymous engagement
+	•	No slide editor
+	•	No native mobile apps
+	•	No ML scoring in v1
+	•	No CRM dependency required
+
+⸻
+
+Goal
+
+Deliver a demo-ready system where:
+	•	Attendees log in once
+	•	Engagement Moments run live
+	•	Responses are attributed to real people
+	•	Dashboards show ICP-aligned engagement and intent
