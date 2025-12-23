@@ -98,7 +98,7 @@ export default function Landing() {
               Finally, a platform that treats events like the revenue channel they are.
             </p>
             <p className="text-lg text-[#ffffff] mb-10 max-w-2xl mx-auto font-medium" data-testid="text-tagline">
-              Sandbox elevates event operations by making execution measurable, intentional, and revenue-aware.
+              Sandbox elevates event operations by making execution measurable, intentional, and connected to revenue.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-4">
               <LeadFormDialog source="landing-hero">
