@@ -67,6 +67,7 @@ interface ThemeProps {
   buttonColor?: string;
   buttonTextColor?: string;
   buttonBorderRadius?: string;
+  buttonBorderColor?: string;
 }
 
 interface LiveMomentsSectionProps {
@@ -134,6 +135,7 @@ function PollMoment({ moment, onRespond, isSubmitting, hasResponded, theme }: Mo
     backgroundColor: theme?.buttonColor || DEFAULT_BUTTON_COLOR,
     color: theme?.buttonTextColor || DEFAULT_BUTTON_TEXT_COLOR,
     borderRadius: theme?.buttonBorderRadius || "8px",
+    borderColor: theme?.buttonBorderColor || theme?.buttonColor || DEFAULT_BUTTON_COLOR,
   };
 
   return (
@@ -189,6 +191,7 @@ function RatingMoment({ moment, onRespond, isSubmitting, hasResponded, theme }: 
     backgroundColor: theme?.buttonColor || DEFAULT_BUTTON_COLOR,
     color: theme?.buttonTextColor || DEFAULT_BUTTON_TEXT_COLOR,
     borderRadius: theme?.buttonBorderRadius || "8px",
+    borderColor: theme?.buttonBorderColor || theme?.buttonColor || DEFAULT_BUTTON_COLOR,
   };
 
   return (
@@ -242,6 +245,7 @@ function OpenTextMoment({ moment, onRespond, isSubmitting, hasResponded, theme }
     backgroundColor: theme?.buttonColor || DEFAULT_BUTTON_COLOR,
     color: theme?.buttonTextColor || DEFAULT_BUTTON_TEXT_COLOR,
     borderRadius: theme?.buttonBorderRadius || "8px",
+    borderColor: theme?.buttonBorderColor || theme?.buttonColor || DEFAULT_BUTTON_COLOR,
   };
 
   return (
@@ -284,6 +288,7 @@ function QAMoment({ moment, onRespond, isSubmitting, hasResponded, theme }: Mome
     backgroundColor: theme?.buttonColor || DEFAULT_BUTTON_COLOR,
     color: theme?.buttonTextColor || DEFAULT_BUTTON_TEXT_COLOR,
     borderRadius: theme?.buttonBorderRadius || "8px",
+    borderColor: theme?.buttonBorderColor || theme?.buttonColor || DEFAULT_BUTTON_COLOR,
   };
 
   return (
@@ -318,6 +323,7 @@ function PulseMoment({ moment, onRespond, isSubmitting, hasResponded, theme }: M
     backgroundColor: theme?.buttonColor || DEFAULT_BUTTON_COLOR,
     color: theme?.buttonTextColor || DEFAULT_BUTTON_TEXT_COLOR,
     borderRadius: theme?.buttonBorderRadius || "8px",
+    borderColor: theme?.buttonBorderColor || theme?.buttonColor || DEFAULT_BUTTON_COLOR,
   };
 
   return (
@@ -368,6 +374,7 @@ function CTAMoment({ moment, onRespond, isSubmitting, hasResponded, theme }: Mom
     backgroundColor: theme?.buttonColor || DEFAULT_BUTTON_COLOR,
     color: theme?.buttonTextColor || DEFAULT_BUTTON_TEXT_COLOR,
     borderRadius: theme?.buttonBorderRadius || "8px",
+    borderColor: theme?.buttonBorderColor || theme?.buttonColor || DEFAULT_BUTTON_COLOR,
   };
 
   return (

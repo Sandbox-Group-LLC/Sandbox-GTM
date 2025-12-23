@@ -50,6 +50,7 @@ interface EventFeedbackSectionProps {
     borderRadius?: string;
     buttonColor?: string;
     buttonTextColor?: string;
+    buttonBorderColor?: string;
   };
 }
 
@@ -138,6 +139,7 @@ export function EventFeedbackSection({
     backgroundColor: theme?.buttonColor || undefined,
     color: theme?.buttonTextColor || undefined,
     borderRadius: themeRadius,
+    borderColor: theme?.buttonBorderColor || theme?.buttonColor || undefined,
   };
 
   // Show preview placeholder in site builder

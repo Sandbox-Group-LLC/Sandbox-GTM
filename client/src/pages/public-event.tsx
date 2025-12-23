@@ -1153,7 +1153,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
         backgroundColor: theme?.buttonColor || DEFAULT_BUTTON_COLOR,
         color: theme?.buttonTextColor || DEFAULT_BUTTON_TEXT_COLOR,
         borderRadius: themeRadius,
-        border: theme?.buttonBorderColor ? `2px solid ${theme.buttonBorderColor}` : undefined,
+        borderColor: theme?.buttonBorderColor || theme?.buttonColor || DEFAULT_BUTTON_COLOR,
       };
 
   // Card styles - section backgroundColor takes priority over theme cardBackground
@@ -2489,6 +2489,7 @@ function HousingSection({ config, section, event, theme, styles, wrapWithMargins
     backgroundColor: theme?.buttonColor || DEFAULT_BUTTON_COLOR,
     color: theme?.buttonTextColor || DEFAULT_BUTTON_TEXT_COLOR,
     borderRadius: themeRadius,
+    borderColor: theme?.buttonBorderColor || theme?.buttonColor || DEFAULT_BUTTON_COLOR,
   };
 
   // Section styles?.backgroundColor takes priority over theme cardBackground
@@ -2593,7 +2594,7 @@ function AttendeeProfileSection({ config, section, theme, styles, wrapWithMargin
         backgroundColor: theme?.buttonColor || DEFAULT_BUTTON_COLOR,
         color: theme?.buttonTextColor || DEFAULT_BUTTON_TEXT_COLOR,
         borderRadius: themeRadius,
-        border: theme?.buttonBorderColor ? `2px solid ${theme.buttonBorderColor}` : undefined,
+        borderColor: theme?.buttonBorderColor || theme?.buttonColor || DEFAULT_BUTTON_COLOR,
       };
 
   if (!attendeeContext?.attendee) {

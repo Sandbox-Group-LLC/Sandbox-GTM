@@ -46,6 +46,7 @@ interface SessionFeedbackSectionProps {
     borderRadius?: string;
     buttonColor?: string;
     buttonTextColor?: string;
+    buttonBorderColor?: string;
   };
 }
 
@@ -135,6 +136,7 @@ function SessionFeedbackForm({
     backgroundColor: theme?.buttonColor || undefined,
     color: theme?.buttonTextColor || undefined,
     borderRadius: themeRadius,
+    borderColor: theme?.buttonBorderColor || theme?.buttonColor || undefined,
   };
 
   if (existingFeedback) {
@@ -397,6 +399,7 @@ export function SessionFeedbackSection({
               backgroundColor: theme?.buttonColor || undefined,
               color: theme?.buttonTextColor || undefined,
               borderRadius: themeRadius,
+              borderColor: theme?.buttonBorderColor || theme?.buttonColor || undefined,
             }}>
               Submit Feedback
             </Button>

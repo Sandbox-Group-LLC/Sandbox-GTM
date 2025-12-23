@@ -53,6 +53,7 @@ interface AttendeeInterestsSectionProps {
     borderRadius?: string;
     buttonColor?: string;
     buttonTextColor?: string;
+    buttonBorderColor?: string;
   };
 }
 
@@ -147,6 +148,7 @@ export function AttendeeInterestsSection({
     backgroundColor: theme?.buttonColor || undefined,
     color: theme?.buttonTextColor || undefined,
     borderRadius: themeRadius,
+    borderColor: theme?.buttonBorderColor || theme?.buttonColor || undefined,
   };
 
   const isLoading = loadingInterests || loadingSessions;

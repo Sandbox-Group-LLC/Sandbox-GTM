@@ -1651,13 +1651,14 @@ function SectionRenderer({ section, event, slug, theme }: { section: Section; ev
     ? {
         backgroundColor: "transparent",
         color: theme?.buttonColor || DEFAULT_BUTTON_COLOR,
-        border: `2px solid ${theme?.buttonColor || DEFAULT_BUTTON_COLOR}`,
+        border: `2px solid ${theme?.buttonBorderColor || theme?.buttonColor || DEFAULT_BUTTON_COLOR}`,
         borderRadius: themeRadius,
       }
     : {
         backgroundColor: theme?.buttonColor || DEFAULT_BUTTON_COLOR,
         color: theme?.buttonTextColor || DEFAULT_BUTTON_TEXT_COLOR,
         borderRadius: themeRadius,
+        borderColor: theme?.buttonBorderColor || theme?.buttonColor || DEFAULT_BUTTON_COLOR,
       };
 
   const cardStyles: React.CSSProperties = {
