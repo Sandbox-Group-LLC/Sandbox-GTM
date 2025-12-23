@@ -11,6 +11,7 @@ import { titleCase } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { ThemedButton } from "@/components/themed-button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
@@ -1656,20 +1657,20 @@ function SectionRenderer({ section, event, slug, theme }: { section: Section; ev
     
     if (link && (isExternal || isAnchor)) {
       return (
-        <Button size="lg" asChild data-testid={testId} style={buttonStyles}>
+        <ThemedButton size="lg" asChild data-testid={testId} theme={theme}>
           <a href={link} target={isExternal ? "_blank" : undefined} rel={isExternal ? "noopener noreferrer" : undefined}>
             {text}
             <ArrowRight className="ml-2 h-4 w-4" />
           </a>
-        </Button>
+        </ThemedButton>
       );
     }
     
     return (
-      <Button size="lg" onClick={() => link && (window.location.href = link)} data-testid={testId} style={buttonStyles}>
+      <ThemedButton size="lg" onClick={() => link && (window.location.href = link)} data-testid={testId} theme={theme}>
         {text}
         <ArrowRight className="ml-2 h-4 w-4" />
-      </Button>
+      </ThemedButton>
     );
   };
 

@@ -7,6 +7,10 @@ export interface EventPageTheme {
   buttonBorderColor?: string;
   buttonStyle?: 'filled' | 'outline';
   borderRadius?: string;
+  headingFont?: string;
+  bodyFont?: string;
+  textColor?: string;
+  textSecondaryColor?: string;
 }
 
 interface ThemedButtonProps extends Omit<ButtonProps, 'style'> {
@@ -32,11 +36,13 @@ const ThemedButton = forwardRef<HTMLButtonElement, ThemedButtonProps>(
           color: theme?.buttonColor || "#3b82f6",
           border: `2px solid ${theme?.buttonBorderColor || theme?.buttonColor || "#3b82f6"}`,
           borderRadius: themeRadius,
+          fontFamily: theme?.bodyFont ? `"${theme.bodyFont}", sans-serif` : undefined,
         }
       : {
           backgroundColor: theme?.buttonColor || undefined,
           color: theme?.buttonTextColor || undefined,
           borderRadius: themeRadius,
+          fontFamily: theme?.bodyFont ? `"${theme.bodyFont}", sans-serif` : undefined,
         };
 
     return (

@@ -8,6 +8,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { ThemedButton } from "@/components/themed-button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
@@ -208,7 +209,8 @@ function DefaultPortalLayout({
   setIsEditing,
   form,
   onSubmit,
-  updateProfileMutation 
+  updateProfileMutation,
+  theme
 }: { 
   attendee: Omit<Attendee, 'passwordHash'>;
   event: { id: string; name: string; publicSlug: string } | null;
@@ -219,6 +221,7 @@ function DefaultPortalLayout({
   form: ReturnType<typeof useForm<ProfileFormData>>;
   onSubmit: (data: ProfileFormData) => void;
   updateProfileMutation: ReturnType<typeof useMutation<unknown, Error, ProfileFormData>>;
+  theme?: EventPageTheme | null;
 }) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -430,13 +433,13 @@ function DefaultPortalLayout({
           </CardHeader>
           <CardContent>
             {housingInfo.bookingUrl ? (
-              <Button asChild data-testid="button-book-hotel">
+              <ThemedButton asChild data-testid="button-book-hotel" theme={theme}>
                 <a href={housingInfo.bookingUrl} target="_blank" rel="noopener noreferrer">
                   <Hotel className="w-4 h-4 mr-2" />
                   Book Your Hotel Room
                   <ExternalLink className="w-3 h-3 ml-2" />
                 </a>
-              </Button>
+              </ThemedButton>
             ) : (
               <p className="text-muted-foreground text-sm">
                 Hotel booking will be available soon. Please check back later.
@@ -831,6 +834,7 @@ export default function AttendeePortal() {
               form={form}
               onSubmit={onSubmit}
               updateProfileMutation={updateProfileMutation}
+              theme={theme}
             />
           )}
         </main>
