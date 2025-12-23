@@ -1528,20 +1528,24 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
       );
 
     case "gallery":
-      const galleryImages = (config.images as Array<{ url: string; caption: string; width?: string; height?: string; widthUnit?: string; heightUnit?: string }>) || [];
+      const galleryImages = (config.images as Array<{ url: string; caption: string; width?: string; height?: string; widthUnit?: string; heightUnit?: string; linkUrl?: string; linkNewTab?: boolean }>) || [];
+      const galleryAlignment = (config.alignment as string) || "center";
+      const alignmentClass = galleryAlignment === "start" ? "justify-start" : 
+                             galleryAlignment === "end" ? "justify-end" : 
+                             galleryAlignment === "stretch" ? "justify-stretch" : "justify-center";
       return wrapWithMargins(
         <div data-testid={`section-gallery-${section.id}`}>
           {heading && <h3 className="text-2xl font-semibold mb-6 text-center" style={headingStyles}>{heading}</h3>}
           {galleryImages.length > 0 ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className={`grid grid-cols-2 md:grid-cols-3 gap-4 ${alignmentClass}`} style={{ justifyItems: galleryAlignment }}>
               {galleryImages.map((item, idx) => {
                 const hasCustomSize = item.width || item.height;
                 const imageWidth = item.width ? `${item.width}${item.widthUnit || 'px'}` : undefined;
                 const imageHeight = item.height ? `${item.height}${item.heightUnit || 'px'}` : undefined;
-                return (
+                
+                const imageContent = (
                   <div 
-                    key={idx} 
-                    className={`relative bg-muted overflow-hidden ${hasCustomSize ? '' : 'aspect-video'}`}
+                    className={`relative bg-muted overflow-hidden ${hasCustomSize ? '' : 'aspect-video'} ${item.linkUrl ? 'cursor-pointer hover:opacity-90 transition-opacity' : ''}`}
                     style={{ 
                       borderRadius: themeRadius,
                       ...(hasCustomSize ? { width: imageWidth || 'auto', height: imageHeight || 'auto' } : {})
@@ -1560,6 +1564,21 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
                     )}
                   </div>
                 );
+                
+                if (item.linkUrl) {
+                  return (
+                    <a 
+                      key={idx}
+                      href={item.linkUrl}
+                      target={item.linkNewTab !== false ? "_blank" : "_self"}
+                      rel={item.linkNewTab !== false ? "noopener noreferrer" : undefined}
+                    >
+                      {imageContent}
+                    </a>
+                  );
+                }
+                
+                return <div key={idx}>{imageContent}</div>;
               })}
             </div>
           ) : (

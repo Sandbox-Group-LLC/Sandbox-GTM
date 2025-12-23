@@ -313,7 +313,7 @@ const getDefaultConfig = (type: SectionType): Record<string, unknown> => {
     case "testimonials":
       return { heading: "What Attendees Say", items: [] };
     case "gallery":
-      return { heading: "Event Gallery", images: [], columns: 3 };
+      return { heading: "Event Gallery", images: [], columns: 3, alignment: "center" };
     case "html":
       return { content: "" };
     case "sponsors":
@@ -3198,7 +3198,7 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId, cus
           </>
         );
       case "gallery":
-        const galleryImages = (config.images as Array<{ url: string; caption: string; width?: string; height?: string; widthUnit?: string; heightUnit?: string }>) || [];
+        const galleryImages = (config.images as Array<{ url: string; caption: string; width?: string; height?: string; widthUnit?: string; heightUnit?: string; linkUrl?: string; linkNewTab?: boolean }>) || [];
         const sizeUnits = ["px", "%", "rem", "em", "vh", "vw"];
         return (
           <>
@@ -3211,6 +3211,23 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId, cus
                 placeholder="Event Gallery"
                 data-testid="input-gallery-heading"
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Grid Alignment</Label>
+              <Select
+                value={(config.alignment as string) || "center"}
+                onValueChange={(value) => updateConfig("alignment", value)}
+              >
+                <SelectTrigger data-testid="select-gallery-alignment">
+                  <SelectValue placeholder="Select alignment" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="start">Left</SelectItem>
+                  <SelectItem value="center">Center</SelectItem>
+                  <SelectItem value="end">Right</SelectItem>
+                  <SelectItem value="stretch">Stretch</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-3">
               <Label>Gallery Images</Label>
@@ -3236,6 +3253,38 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId, cus
                     }}
                     data-testid={`input-gallery-caption-${index}`}
                   />
+                  <div className="space-y-1">
+                    <Label className="text-xs">Link URL (optional)</Label>
+                    <Input
+                      placeholder="https://example.com"
+                      value={item.linkUrl || ""}
+                      onChange={(e) => {
+                        const newImages = [...galleryImages];
+                        newImages[index] = { ...item, linkUrl: e.target.value };
+                        updateConfig("images", newImages);
+                      }}
+                      data-testid={`input-gallery-link-${index}`}
+                    />
+                  </div>
+                  {item.linkUrl && (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id={`gallery-link-newtab-${index}`}
+                        checked={item.linkNewTab !== false}
+                        onChange={(e) => {
+                          const newImages = [...galleryImages];
+                          newImages[index] = { ...item, linkNewTab: e.target.checked };
+                          updateConfig("images", newImages);
+                        }}
+                        className="h-4 w-4"
+                        data-testid={`checkbox-gallery-newtab-${index}`}
+                      />
+                      <Label htmlFor={`gallery-link-newtab-${index}`} className="text-xs cursor-pointer">
+                        Open link in new tab
+                      </Label>
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
                       <Label className="text-xs">Width</Label>
@@ -3322,7 +3371,7 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId, cus
               <div className="flex gap-2 flex-wrap">
                 <Button
                   variant="outline"
-                  onClick={() => updateConfig("images", [...galleryImages, { url: "", caption: "", width: "", height: "", widthUnit: "px", heightUnit: "px" }])}
+                  onClick={() => updateConfig("images", [...galleryImages, { url: "", caption: "", width: "", height: "", widthUnit: "px", heightUnit: "px", linkUrl: "", linkNewTab: true }])}
                   data-testid="button-add-image"
                 >
                   <Plus className="h-4 w-4 mr-2" />
@@ -3339,6 +3388,8 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId, cus
                       height: "",
                       widthUnit: "px",
                       heightUnit: "px",
+                      linkUrl: "",
+                      linkNewTab: true,
                     }));
                     updateConfig("images", [...galleryImages, ...newImages]);
                   }}
