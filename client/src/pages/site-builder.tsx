@@ -1774,24 +1774,170 @@ function NestedSectionEditor({ section, onUpdate, customFonts = [] }: NestedSect
   return (
     <div className="space-y-4">
       {renderNestedFields()}
-      <div className="space-y-2">
-        <Label htmlFor="nested-bg-color">Background Color (optional)</Label>
-        <div className="flex items-center gap-2">
-          <input
-            type="color"
-            id="nested-bg-color"
-            value={styles.backgroundColor || "#ffffff"}
-            onChange={(e) => updateStyles("backgroundColor", e.target.value)}
-            className="h-9 w-12 rounded border cursor-pointer"
-          />
-          <Input
-            value={styles.backgroundColor || ""}
-            onChange={(e) => updateStyles("backgroundColor", e.target.value || undefined)}
-            placeholder="Default"
-            className="flex-1 font-mono text-sm"
-          />
-        </div>
-      </div>
+      
+      <Accordion type="single" collapsible className="w-full">
+        <AccordionItem value="styles">
+          <AccordionTrigger className="text-sm font-medium">Section Styles</AccordionTrigger>
+          <AccordionContent className="space-y-4 pt-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="nested-bg-color">Background Color</Label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    id="nested-bg-color"
+                    value={styles.backgroundColor || "#ffffff"}
+                    onChange={(e) => updateStyles("backgroundColor", e.target.value)}
+                    className="h-9 w-12 rounded border cursor-pointer"
+                  />
+                  <Input
+                    value={styles.backgroundColor || ""}
+                    onChange={(e) => updateStyles("backgroundColor", e.target.value || undefined)}
+                    placeholder="Default"
+                    className="flex-1 font-mono text-sm"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="nested-text-color">Text Color</Label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    id="nested-text-color"
+                    value={styles.textColor || "#1f2937"}
+                    onChange={(e) => updateStyles("textColor", e.target.value)}
+                    className="h-9 w-12 rounded border cursor-pointer"
+                  />
+                  <Input
+                    value={styles.textColor || ""}
+                    onChange={(e) => updateStyles("textColor", e.target.value || undefined)}
+                    placeholder="Default"
+                    className="flex-1 font-mono text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Text Alignment</Label>
+              <Select
+                value={styles.textAlign || "left"}
+                onValueChange={(value) => updateStyles("textAlign", value as SectionStyles["textAlign"])}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select alignment" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="left">Left</SelectItem>
+                  <SelectItem value="center">Center</SelectItem>
+                  <SelectItem value="right">Right</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Padding Top</Label>
+                <Select
+                  value={styles.paddingTop || "none"}
+                  onValueChange={(value) => updateStyles("paddingTop", value as SectionStyles["paddingTop"])}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select padding" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PADDING_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Padding Bottom</Label>
+                <Select
+                  value={styles.paddingBottom || "none"}
+                  onValueChange={(value) => updateStyles("paddingBottom", value as SectionStyles["paddingBottom"])}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select padding" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PADDING_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Padding Left</Label>
+                <Select
+                  value={styles.paddingLeft || "none"}
+                  onValueChange={(value) => updateStyles("paddingLeft", value as SectionStyles["paddingLeft"])}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select padding" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PADDING_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Padding Right</Label>
+                <Select
+                  value={styles.paddingRight || "none"}
+                  onValueChange={(value) => updateStyles("paddingRight", value as SectionStyles["paddingRight"])}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select padding" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PADDING_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="nested-hide-mobile"
+                  checked={styles.hideOnMobile || false}
+                  onChange={(e) => updateStyles("hideOnMobile", e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300"
+                />
+                <Label htmlFor="nested-hide-mobile">Hide on Mobile</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="nested-hide-desktop"
+                  checked={styles.hideOnDesktop || false}
+                  onChange={(e) => updateStyles("hideOnDesktop", e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300"
+                />
+                <Label htmlFor="nested-hide-desktop">Hide on Desktop</Label>
+              </div>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
     </div>
   );
 }
