@@ -149,10 +149,10 @@ export default function PublicPortal() {
       <GoogleFontsLoader fonts={fontsToLoad} />
       <CustomFontsLoader slug={slug || ''} />
       <div 
-        className="min-h-screen bg-background"
+        className="min-h-screen"
         style={{
           ...themeStyles,
-          backgroundColor: theme?.backgroundColor || undefined,
+          backgroundColor: theme?.backgroundColor || 'hsl(var(--background))',
           color: theme?.textColor || undefined,
           fontFamily: theme?.bodyFont ? `"${theme.bodyFont}", sans-serif` : undefined,
         }}
