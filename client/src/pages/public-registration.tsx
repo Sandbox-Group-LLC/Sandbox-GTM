@@ -1153,6 +1153,9 @@ export default function PublicRegistration() {
       ? stepTitles 
       : stepTitles.filter((_, i) => i !== 2);
     
+    const activeStepColor = theme?.buttonColor || DEFAULT_BUTTON_COLOR;
+    const activeStepTextColor = theme?.buttonTextColor || DEFAULT_BUTTON_TEXT_COLOR;
+    
     return (
       <div className="flex items-center justify-center gap-2 mb-6">
         {displaySteps.map((title, index) => {
@@ -1160,16 +1163,17 @@ export default function PublicRegistration() {
           const isActive = currentStep === stepNum || (currentStep === 3 && !requiresPayment && stepNum === 3);
           const isCompleted = currentStep > stepNum;
           
+          const stepCircleStyle: React.CSSProperties = isActive || isCompleted
+            ? { backgroundColor: activeStepColor, color: activeStepTextColor }
+            : {};
+          
           return (
             <div key={title} className="flex items-center gap-2">
               <div 
                 className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium transition-colors ${
-                  isActive 
-                    ? "bg-primary text-primary-foreground" 
-                    : isCompleted 
-                      ? "bg-green-600 text-white" 
-                      : "bg-muted text-muted-foreground"
+                  !isActive && !isCompleted ? "bg-muted text-muted-foreground" : ""
                 }`}
+                style={stepCircleStyle}
               >
                 {isCompleted ? <Check className="w-4 h-4" /> : stepNum}
               </div>
@@ -1180,7 +1184,10 @@ export default function PublicRegistration() {
                 {title}
               </span>
               {index < displaySteps.length - 1 && (
-                <div className={`w-8 h-0.5 ${isCompleted ? "bg-green-600" : "bg-muted"}`} />
+                <div 
+                  className={`w-8 h-0.5 ${!isCompleted ? "bg-muted" : ""}`}
+                  style={isCompleted ? { backgroundColor: activeStepColor } : {}}
+                />
               )}
             </div>
           );
