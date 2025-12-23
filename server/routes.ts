@@ -6877,6 +6877,59 @@ ${urls.map(u => `  <url>
     }
   });
 
+  // Public API endpoint for custom pages by slug
+  app.get("/api/public/event/:slug/page/:pageSlug", async (req: any, res) => {
+    try {
+      const { slug, pageSlug } = req.params;
+      logInfo(`[Public Custom Page] Fetching page ${pageSlug} for event ${slug}`);
+      
+      const event = await resolveEventBySlug(req, slug);
+      
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      if (!event.isPublic && event.status !== 'published') {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      const pages = await storage.getEventPages(event.organizationId, event.id);
+      const customPage = pages.find(p => p.pageType === "custom" && p.slug === pageSlug && p.isPublished);
+      
+      if (!customPage) {
+        return res.status(404).json({ message: "Page not found" });
+      }
+      
+      // Get landing page theme as fallback
+      const landingPage = pages.find(p => p.pageType === "landing" && p.isPublished);
+      const landingTheme = landingPage?.theme || null;
+      
+      // Use custom page theme or fall back to landing theme
+      const effectivePage = {
+        ...customPage,
+        theme: customPage.theme || landingTheme
+      };
+      
+      // Also fetch sessions, speakers, sponsors for section rendering
+      const sessions = await storage.getSessions(event.organizationId, event.id);
+      const speakers = await storage.getSpeakers(event.organizationId, event.id);
+      const sponsors = await storage.getEventSponsors(event.organizationId, event.id, { activeOnly: true });
+      
+      res.json({ 
+        event, 
+        customPage: effectivePage,
+        landingTheme,
+        sessions,
+        speakers,
+        sponsors,
+        organizationId: event.organizationId
+      });
+    } catch (error) {
+      logError("[Public Custom Page] Error fetching custom page:", error);
+      res.status(500).json({ message: "Failed to fetch page" });
+    }
+  });
+
   app.get("/api/public/event/:slug/registration", async (req: any, res) => {
     try {
       const event = await resolveEventBySlug(req, req.params.slug);

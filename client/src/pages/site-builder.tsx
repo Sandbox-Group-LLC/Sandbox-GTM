@@ -859,11 +859,18 @@ export default function SiteBuilder() {
                 onClick={() => {
                   if (selectedEvent?.publicSlug) {
                     const baseUrl = `/event/${selectedEvent.publicSlug}`;
-                    const previewUrl = activeTab === "landing" 
-                      ? baseUrl 
-                      : activeTab === "registration" 
-                        ? `${baseUrl}/register`
-                        : `${baseUrl}/portal`;
+                    let previewUrl = baseUrl;
+                    if (activeTab === "registration") {
+                      previewUrl = `${baseUrl}/register`;
+                    } else if (activeTab === "portal") {
+                      previewUrl = `${baseUrl}/portal`;
+                    } else if (activeTab !== "landing") {
+                      // Custom page - find the page slug
+                      const customPage = customPages.find(cp => cp.id === activeTab);
+                      if (customPage?.slug) {
+                        previewUrl = `${baseUrl}/page/${customPage.slug}`;
+                      }
+                    }
                     window.open(previewUrl, "_blank");
                   } else {
                     toast({ 

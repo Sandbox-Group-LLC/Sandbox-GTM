@@ -549,6 +549,92 @@ export default function PublicEvent() {
   );
 }
 
+// Custom page data interface
+interface PublicCustomPageData {
+  event: Event;
+  customPage: EventPage;
+  landingTheme: EventPageTheme | null;
+  sessions: EventSession[];
+  speakers: Speaker[];
+  sponsors: EventSponsor[];
+  organizationId: string;
+}
+
+// Public custom page component for /event/:slug/page/:pageSlug routes
+export function PublicCustomPage() {
+  const { slug, pageSlug } = useParams<{ slug: string; pageSlug: string }>();
+  
+  const { data, isLoading, error } = useQuery<PublicCustomPageData>({
+    queryKey: ["/api/public/event", slug, "page", pageSlug],
+    queryFn: async () => {
+      const res = await fetch(`/api/public/event/${slug}/page/${pageSlug}`);
+      if (!res.ok) throw new Error("Failed to fetch page");
+      return res.json();
+    },
+    enabled: !!slug && !!pageSlug,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background p-6">
+        <div className="max-w-4xl mx-auto space-y-6">
+          <Skeleton className="h-48" />
+          <Skeleton className="h-96" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <Card className="max-w-md w-full">
+          <CardContent className="pt-6 text-center">
+            <AlertCircle className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+            <h2 className="text-xl font-semibold mb-2">Page Not Found</h2>
+            <p className="text-muted-foreground">This page doesn't exist or is not available for public viewing.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const { event, customPage, sessions, speakers, sponsors } = data;
+  const sections = (customPage?.sections as Section[]) || [];
+  const theme = customPage?.theme as EventPageTheme | undefined;
+  const themeStyles = getThemeStyles(theme);
+  const fontsToLoad = [theme?.headingFont, theme?.bodyFont].filter(Boolean) as string[];
+
+  return (
+    <EventLocaleProvider event={event}>
+      <GoogleFontsLoader fonts={fontsToLoad} />
+      <CustomFontsLoader slug={slug || ''} />
+      {theme?.customCss && (
+        <style dangerouslySetInnerHTML={{ __html: scopeCustomCss(sanitizeCustomCss(theme.customCss)) }} />
+      )}
+      <div 
+        className="event-page-custom min-h-screen overflow-y-auto"
+        style={{
+          ...themeStyles,
+          backgroundColor: theme?.backgroundColor || undefined,
+        }}
+      >
+        {sections.map((section) => (
+          <SectionRenderer 
+            key={section.id}
+            section={section}
+            event={event}
+            sessions={sessions}
+            speakers={speakers}
+            sponsors={sponsors}
+            theme={theme}
+          />
+        ))}
+      </div>
+    </EventLocaleProvider>
+  );
+}
+
 interface PublicEventContentProps {
   data: PublicEventData;
   slug: string;
