@@ -1073,6 +1073,7 @@ export const contentAssets = pgTable("content_assets", {
   byteSize: integer("byte_size").notNull(),
   objectPath: text("object_path").notNull(),
   publicUrl: text("public_url").notNull(),
+  folder: varchar("folder", { length: 100 }), // Optional folder for organization (e.g., "Sponsor Logos")
   uploadedBy: varchar("uploaded_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
 });

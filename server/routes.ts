@@ -5305,6 +5305,7 @@ export async function registerRoutes(
         byteSize: byteSize || 0,
         objectPath,
         publicUrl,
+        folder: "Sponsor Logos", // Categorize sponsor uploads
         uploadedBy: null,
       });
       

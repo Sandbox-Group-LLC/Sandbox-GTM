@@ -98,6 +98,7 @@ export default function Content() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [editingContent, setEditingContent] = useState<ContentItem | null>(null);
+  const [folderFilter, setFolderFilter] = useState<string>("all");
 
   const { data: contentItems = [], isLoading } = useQuery<ContentItem[]>({
     queryKey: ["/api/content"],
@@ -650,81 +651,120 @@ export default function Content() {
             </TabsContent>
 
             <TabsContent value="media" className="space-y-6">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-lg font-semibold">Media Library</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Upload images to use in your email templates
-                  </p>
-                </div>
-                <ObjectUploader
-                  onComplete={handleUploadComplete}
-                  accept="image/*"
-                  buttonText="Upload Image"
-                />
-              </div>
-
-              {assetsLoading ? (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {[...Array(8)].map((_, i) => (
-                    <Skeleton key={i} className="aspect-square" />
-                  ))}
-                </div>
-              ) : contentAssets.length === 0 ? (
-                <EmptyState
-                  icon={ImageIcon}
-                  title="No images yet"
-                  description="Upload images to use in your email templates. Images will be publicly accessible for email rendering."
-                  action={{
-                    label: "Upload Image",
-                    onClick: () => {},
-                  }}
-                />
-              ) : (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {contentAssets.map((asset) => (
-                    <Card key={asset.id} className="overflow-hidden" data-testid={`card-asset-${asset.id}`}>
-                      <div className="aspect-square bg-muted relative">
-                        <img
-                          src={asset.publicUrl}
-                          alt={asset.fileName}
-                          className="w-full h-full object-cover"
-                          data-testid={`img-asset-${asset.id}`}
+              {(() => {
+                // Compute unique folders from assets
+                const folders = Array.from(new Set(contentAssets.map(a => a.folder).filter(Boolean))) as string[];
+                const filteredAssets = folderFilter === "all" 
+                  ? contentAssets 
+                  : contentAssets.filter(a => (a.folder || "") === (folderFilter === "uncategorized" ? "" : folderFilter));
+                
+                return (
+                  <>
+                    <div className="flex items-center justify-between gap-4 flex-wrap">
+                      <div>
+                        <h2 className="text-lg font-semibold">Media Library</h2>
+                        <p className="text-sm text-muted-foreground">
+                          Upload images to use in your email templates
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {folders.length > 0 && (
+                          <Select value={folderFilter} onValueChange={setFolderFilter}>
+                            <SelectTrigger className="w-[180px]" data-testid="select-folder-filter">
+                              <FolderOpen className="h-4 w-4 mr-2" />
+                              <SelectValue placeholder="All Folders" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All Files</SelectItem>
+                              <SelectItem value="uncategorized">Uncategorized</SelectItem>
+                              {folders.map(folder => (
+                                <SelectItem key={folder} value={folder}>{folder}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                        <ObjectUploader
+                          onComplete={handleUploadComplete}
+                          accept="image/*"
+                          buttonText="Upload Image"
                         />
                       </div>
-                      <CardContent className="p-3 space-y-2">
-                        <p className="text-sm font-medium truncate" title={asset.fileName}>
-                          {asset.fileName}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {asset.mimeType} • {Math.round((asset.byteSize || 0) / 1024)} KB
-                        </p>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex-1"
-                            onClick={() => handleCopyUrl(asset.publicUrl)}
-                            data-testid={`button-copy-url-${asset.id}`}
-                          >
-                            <Copy className="h-3 w-3 mr-1" />
-                            Copy URL
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => handleDeleteAsset(asset.id)}
-                            disabled={deleteAssetMutation.isPending}
-                            data-testid={`button-delete-asset-${asset.id}`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
+                    </div>
+
+                    {assetsLoading ? (
+                      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                        {[...Array(8)].map((_, i) => (
+                          <Skeleton key={i} className="aspect-square" />
+                        ))}
+                      </div>
+                    ) : contentAssets.length === 0 ? (
+                      <EmptyState
+                        icon={ImageIcon}
+                        title="No images yet"
+                        description="Upload images to use in your email templates. Images will be publicly accessible for email rendering."
+                        action={{
+                          label: "Upload Image",
+                          onClick: () => {},
+                        }}
+                      />
+                    ) : filteredAssets.length === 0 ? (
+                      <p className="text-center text-muted-foreground py-12">No images match this folder filter</p>
+                    ) : (
+                      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                        {filteredAssets.map((asset) => (
+                          <Card key={asset.id} className="overflow-hidden" data-testid={`card-asset-${asset.id}`}>
+                            <div className="aspect-square bg-muted relative">
+                              <img
+                                src={asset.publicUrl}
+                                alt={asset.fileName}
+                                className="w-full h-full object-cover"
+                                data-testid={`img-asset-${asset.id}`}
+                              />
+                              {asset.folder && (
+                                <Badge 
+                                  variant="secondary" 
+                                  className="absolute top-2 left-2 text-xs"
+                                >
+                                  {asset.folder}
+                                </Badge>
+                              )}
+                            </div>
+                            <CardContent className="p-3 space-y-2">
+                              <p className="text-sm font-medium truncate" title={asset.fileName}>
+                                {asset.fileName}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {asset.mimeType} • {Math.round((asset.byteSize || 0) / 1024)} KB
+                              </p>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="flex-1"
+                                  onClick={() => handleCopyUrl(asset.publicUrl)}
+                                  data-testid={`button-copy-url-${asset.id}`}
+                                >
+                                  <Copy className="h-3 w-3 mr-1" />
+                                  Copy URL
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() => handleDeleteAsset(asset.id)}
+                                  disabled={deleteAssetMutation.isPending}
+                                  data-testid={`button-delete-asset-${asset.id}`}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </TabsContent>
 
             <TabsContent value="sponsor-logos" className="space-y-6">
