@@ -788,9 +788,17 @@ export default function AttendeePortal() {
           </div>
         )}
 
-        <main className="max-w-4xl mx-auto px-6 py-8">
+        <main 
+          className={`mx-auto ${theme?.pagePadding === 'none' ? '' : 'px-6 py-8'}`}
+          style={{
+            maxWidth: hasSections ? "var(--theme-container-width, 1024px)" : "896px",
+          }}
+        >
           {hasSections ? (
-            <div className="space-y-6">
+            <div 
+              className="flex flex-col"
+              style={{ gap: "var(--theme-section-spacing, 1.5rem)" }}
+            >
               {sections
                 .filter((section) => checkVisibilityCondition(section.styles?.visibilityCondition, attendee))
                 .sort((a, b) => a.order - b.order)
