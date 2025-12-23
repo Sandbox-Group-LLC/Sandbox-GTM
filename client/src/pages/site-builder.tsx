@@ -3198,7 +3198,8 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId, cus
           </>
         );
       case "gallery":
-        const galleryImages = (config.images as Array<{ url: string; caption: string }>) || [];
+        const galleryImages = (config.images as Array<{ url: string; caption: string; width?: string; height?: string; widthUnit?: string; heightUnit?: string }>) || [];
+        const sizeUnits = ["px", "%", "rem", "em", "vh", "vw"];
         return (
           <>
             <div className="space-y-2">
@@ -3235,6 +3236,75 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId, cus
                     }}
                     data-testid={`input-gallery-caption-${index}`}
                   />
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Width</Label>
+                      <div className="flex gap-1">
+                        <Input
+                          placeholder="auto"
+                          value={item.width || ""}
+                          onChange={(e) => {
+                            const newImages = [...galleryImages];
+                            newImages[index] = { ...item, width: e.target.value };
+                            updateConfig("images", newImages);
+                          }}
+                          className="flex-1"
+                          data-testid={`input-gallery-width-${index}`}
+                        />
+                        <Select
+                          value={item.widthUnit || "px"}
+                          onValueChange={(value) => {
+                            const newImages = [...galleryImages];
+                            newImages[index] = { ...item, widthUnit: value };
+                            updateConfig("images", newImages);
+                          }}
+                        >
+                          <SelectTrigger className="w-20" data-testid={`select-gallery-width-unit-${index}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {sizeUnits.map((unit) => (
+                              <SelectItem key={unit} value={unit}>{unit}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Height</Label>
+                      <div className="flex gap-1">
+                        <Input
+                          placeholder="auto"
+                          value={item.height || ""}
+                          onChange={(e) => {
+                            const newImages = [...galleryImages];
+                            newImages[index] = { ...item, height: e.target.value };
+                            updateConfig("images", newImages);
+                          }}
+                          className="flex-1"
+                          data-testid={`input-gallery-height-${index}`}
+                        />
+                        <Select
+                          value={item.heightUnit || "px"}
+                          onValueChange={(value) => {
+                            const newImages = [...galleryImages];
+                            newImages[index] = { ...item, heightUnit: value };
+                            updateConfig("images", newImages);
+                          }}
+                        >
+                          <SelectTrigger className="w-20" data-testid={`select-gallery-height-unit-${index}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {sizeUnits.map((unit) => (
+                              <SelectItem key={unit} value={unit}>{unit}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Leave empty for auto sizing</p>
                   <Button
                     variant="outline"
                     size="sm"
@@ -3252,7 +3322,7 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId, cus
               <div className="flex gap-2 flex-wrap">
                 <Button
                   variant="outline"
-                  onClick={() => updateConfig("images", [...galleryImages, { url: "", caption: "" }])}
+                  onClick={() => updateConfig("images", [...galleryImages, { url: "", caption: "", width: "", height: "", widthUnit: "px", heightUnit: "px" }])}
                   data-testid="button-add-image"
                 >
                   <Plus className="h-4 w-4 mr-2" />
@@ -3265,6 +3335,10 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId, cus
                     const newImages = assets.map((asset) => ({
                       url: asset.publicUrl,
                       caption: asset.fileName.replace(/\.[^/.]+$/, ""),
+                      width: "",
+                      height: "",
+                      widthUnit: "px",
+                      heightUnit: "px",
                     }));
                     updateConfig("images", [...galleryImages, ...newImages]);
                   }}
