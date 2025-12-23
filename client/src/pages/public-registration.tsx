@@ -35,6 +35,18 @@ import {
 } from "@/components/ui/form";
 import { Calendar, MapPin, CheckCircle, AlertCircle, ArrowLeft, ArrowRight, Tag, Check, Loader2, CreditCard, Hotel, ExternalLink, Eye } from "lucide-react";
 import type { Event, Attendee, EventPage, EventPageTheme, CustomField, Package } from "@shared/schema";
+import { 
+  DEFAULT_BUTTON_COLOR, 
+  DEFAULT_BUTTON_TEXT_COLOR, 
+  DEFAULT_TEXT_COLOR, 
+  DEFAULT_TEXT_SECONDARY_COLOR, 
+  DEFAULT_CARD_BACKGROUND, 
+  DEFAULT_BACKGROUND_COLOR, 
+  DEFAULT_HEADING_FONT, 
+  DEFAULT_BODY_FONT,
+  DEFAULT_PRIMARY_COLOR,
+  DEFAULT_SECONDARY_COLOR
+} from "./public-event";
 
 interface PackageWithEffectivePrice extends Package {
   effectivePrice: string;
@@ -303,19 +315,19 @@ function getThemeStyles(theme: EventPageTheme | null | undefined): React.CSSProp
   };
   
   return {
-    "--theme-primary-color": theme.primaryColor || "#3b82f6",
-    "--theme-secondary-color": theme.secondaryColor || "#64748b",
-    "--theme-background-color": theme.backgroundColor || "#ffffff",
-    "--theme-text-color": theme.textColor || "#1f2937",
-    "--theme-text-secondary-color": theme.textSecondaryColor || "#6b7280",
-    "--theme-button-color": theme.buttonColor || "#3b82f6",
-    "--theme-button-text-color": theme.buttonTextColor || "#ffffff",
-    "--theme-card-background": theme.cardBackground || "#f9fafb",
+    "--theme-primary-color": theme.primaryColor || DEFAULT_PRIMARY_COLOR,
+    "--theme-secondary-color": theme.secondaryColor || DEFAULT_SECONDARY_COLOR,
+    "--theme-background-color": theme.backgroundColor || DEFAULT_BACKGROUND_COLOR,
+    "--theme-text-color": theme.textColor || DEFAULT_TEXT_COLOR,
+    "--theme-text-secondary-color": theme.textSecondaryColor || DEFAULT_TEXT_SECONDARY_COLOR,
+    "--theme-button-color": theme.buttonColor || DEFAULT_BUTTON_COLOR,
+    "--theme-button-text-color": theme.buttonTextColor || DEFAULT_BUTTON_TEXT_COLOR,
+    "--theme-card-background": theme.cardBackground || DEFAULT_CARD_BACKGROUND,
     "--theme-border-radius": borderRadiusMap[theme.borderRadius || "medium"],
     "--theme-container-width": containerWidthMap[theme.containerWidth || "standard"],
     "--theme-section-spacing": sectionSpacingMap[theme.sectionSpacing || "normal"],
-    "--theme-heading-font": theme.headingFont || "Inter",
-    "--theme-body-font": theme.bodyFont || "Inter",
+    "--theme-heading-font": theme.headingFont || DEFAULT_HEADING_FONT,
+    "--theme-body-font": theme.bodyFont || DEFAULT_BODY_FONT,
   } as React.CSSProperties;
 }
 
@@ -580,7 +592,7 @@ function PaymentForm({
           style={{
             backgroundColor: theme?.buttonStyle === "outline" ? "transparent" : (theme?.buttonColor || undefined),
             color: theme?.buttonStyle === "outline" ? (theme?.buttonColor || undefined) : (theme?.buttonTextColor || undefined),
-            border: theme?.buttonStyle === "outline" ? `2px solid ${theme?.buttonColor || "#3b82f6"}` : undefined,
+            border: theme?.buttonStyle === "outline" ? `2px solid ${theme?.buttonColor || DEFAULT_BUTTON_COLOR}` : undefined,
           }}
         >
           {isProcessing ? (
@@ -1039,14 +1051,14 @@ export default function PublicRegistration() {
   const sectionFontColor = (registrationFormSection?.config as any)?.fontColor 
     || (registrationFormSection?.styles as any)?.textColor 
     || theme?.textColor 
-    || "#1f2937";
+    || DEFAULT_TEXT_COLOR;
 
   // Input styling based on theme and section settings - matches site builder preview
   const borderRadiusMap: Record<string, string> = {
     none: "0px", small: "4px", medium: "8px", large: "16px", pill: "9999px",
   };
   const inputStyles: React.CSSProperties = {
-    backgroundColor: theme?.backgroundColor || "#ffffff",
+    backgroundColor: theme?.backgroundColor || DEFAULT_BACKGROUND_COLOR,
     borderColor: theme?.borderColor || "#e5e7eb",
     borderRadius: borderRadiusMap[theme?.borderRadius || "medium"],
     color: sectionFontColor,
@@ -1424,7 +1436,7 @@ export default function PublicRegistration() {
                         style={{
                           backgroundColor: theme?.buttonStyle === "outline" ? "transparent" : (theme?.buttonColor || undefined),
                           color: theme?.buttonStyle === "outline" ? (theme?.buttonColor || undefined) : (theme?.buttonTextColor || undefined),
-                          border: theme?.buttonStyle === "outline" ? `2px solid ${theme?.buttonColor || "#3b82f6"}` : undefined,
+                          border: theme?.buttonStyle === "outline" ? `2px solid ${theme?.buttonColor || DEFAULT_BUTTON_COLOR}` : undefined,
                           borderRadius: theme?.borderRadius ? ({ none: "0px", small: "4px", medium: "8px", large: "16px", pill: "9999px" }[theme.borderRadius]) : undefined,
                         }}
                       >
@@ -1539,7 +1551,7 @@ export default function PublicRegistration() {
                           style={{
                             backgroundColor: theme?.buttonStyle === "outline" ? "transparent" : (theme?.buttonColor || undefined),
                             color: theme?.buttonStyle === "outline" ? (theme?.buttonColor || undefined) : (theme?.buttonTextColor || undefined),
-                            border: theme?.buttonStyle === "outline" ? `2px solid ${theme?.buttonColor || "#3b82f6"}` : undefined,
+                            border: theme?.buttonStyle === "outline" ? `2px solid ${theme?.buttonColor || DEFAULT_BUTTON_COLOR}` : undefined,
                             borderRadius: theme?.borderRadius ? ({ none: "0px", small: "4px", medium: "8px", large: "16px", pill: "9999px" }[theme.borderRadius]) : undefined,
                           }}
                         >
@@ -1627,28 +1639,28 @@ function SectionRenderer({ section, event, slug, theme }: { section: Section; ev
   const buttonStyles: React.CSSProperties = isOutlineButton 
     ? {
         backgroundColor: "transparent",
-        color: theme?.buttonColor || "#3b82f6",
-        border: `2px solid ${theme?.buttonColor || "#3b82f6"}`,
+        color: theme?.buttonColor || DEFAULT_BUTTON_COLOR,
+        border: `2px solid ${theme?.buttonColor || DEFAULT_BUTTON_COLOR}`,
         borderRadius: themeRadius,
       }
     : {
-        backgroundColor: theme?.buttonColor || undefined,
-        color: theme?.buttonTextColor || undefined,
+        backgroundColor: theme?.buttonColor || DEFAULT_BUTTON_COLOR,
+        color: theme?.buttonTextColor || DEFAULT_BUTTON_TEXT_COLOR,
         borderRadius: themeRadius,
       };
 
   const cardStyles: React.CSSProperties = {
-    backgroundColor: theme?.cardBackground || undefined,
+    backgroundColor: theme?.cardBackground || DEFAULT_CARD_BACKGROUND,
     borderRadius: themeRadius,
   };
 
   const headingStyles: React.CSSProperties = {
-    fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined,
-    color: theme?.textColor || undefined,
+    fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : `"${DEFAULT_HEADING_FONT}", sans-serif`,
+    color: theme?.textColor || DEFAULT_TEXT_COLOR,
   };
 
   const secondaryTextStyles: React.CSSProperties = {
-    color: theme?.textSecondaryColor || undefined,
+    color: theme?.textSecondaryColor || DEFAULT_TEXT_SECONDARY_COLOR,
   };
 
   const renderButton = (text: string, link: string, testId: string) => {

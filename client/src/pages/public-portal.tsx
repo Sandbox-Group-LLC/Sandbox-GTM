@@ -8,6 +8,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar, MapPin, Clock, Mic, AlertCircle, ArrowLeft, ArrowRight, User } from "lucide-react";
 import type { Event, EventSession, Speaker, EventPage, EventPageTheme } from "@shared/schema";
 import { titleCase } from "@/lib/utils";
+import { 
+  DEFAULT_BUTTON_COLOR, 
+  DEFAULT_BUTTON_TEXT_COLOR, 
+  DEFAULT_TEXT_COLOR, 
+  DEFAULT_TEXT_SECONDARY_COLOR, 
+  DEFAULT_CARD_BACKGROUND, 
+  DEFAULT_BACKGROUND_COLOR, 
+  DEFAULT_HEADING_FONT, 
+  DEFAULT_BODY_FONT,
+  DEFAULT_PRIMARY_COLOR,
+  DEFAULT_SECONDARY_COLOR
+} from "./public-event";
 
 function GoogleFontsLoader({ fonts }: { fonts: string[] }) {
   const uniqueFonts = useMemo(() => [...new Set(fonts.filter(Boolean))], [fonts]);
@@ -62,19 +74,19 @@ function getThemeStyles(theme: EventPageTheme | null | undefined): React.CSSProp
   };
   
   return {
-    "--theme-primary-color": theme.primaryColor || "#3b82f6",
-    "--theme-secondary-color": theme.secondaryColor || "#64748b",
-    "--theme-background-color": theme.backgroundColor || "#ffffff",
-    "--theme-text-color": theme.textColor || "#1f2937",
-    "--theme-text-secondary-color": theme.textSecondaryColor || "#6b7280",
-    "--theme-button-color": theme.buttonColor || "#3b82f6",
-    "--theme-button-text-color": theme.buttonTextColor || "#ffffff",
-    "--theme-card-background": theme.cardBackground || "#f9fafb",
+    "--theme-primary-color": theme.primaryColor || DEFAULT_PRIMARY_COLOR,
+    "--theme-secondary-color": theme.secondaryColor || DEFAULT_SECONDARY_COLOR,
+    "--theme-background-color": theme.backgroundColor || DEFAULT_BACKGROUND_COLOR,
+    "--theme-text-color": theme.textColor || DEFAULT_TEXT_COLOR,
+    "--theme-text-secondary-color": theme.textSecondaryColor || DEFAULT_TEXT_SECONDARY_COLOR,
+    "--theme-button-color": theme.buttonColor || DEFAULT_BUTTON_COLOR,
+    "--theme-button-text-color": theme.buttonTextColor || DEFAULT_BUTTON_TEXT_COLOR,
+    "--theme-card-background": theme.cardBackground || DEFAULT_CARD_BACKGROUND,
     "--theme-border-radius": borderRadiusMap[theme.borderRadius || "medium"],
     "--theme-container-width": containerWidthMap[theme.containerWidth || "standard"],
     "--theme-section-spacing": sectionSpacingMap[theme.sectionSpacing || "normal"],
-    "--theme-heading-font": theme.headingFont || "Inter",
-    "--theme-body-font": theme.bodyFont || "Inter",
+    "--theme-heading-font": theme.headingFont || DEFAULT_HEADING_FONT,
+    "--theme-body-font": theme.bodyFont || DEFAULT_BODY_FONT,
   } as React.CSSProperties;
 }
 
@@ -305,28 +317,28 @@ function SectionRenderer({ section, event, slug, theme }: { section: Section; ev
   const buttonStyles: React.CSSProperties = isOutlineButton 
     ? {
         backgroundColor: "transparent",
-        color: theme?.buttonColor || "#3b82f6",
-        border: `2px solid ${theme?.buttonColor || "#3b82f6"}`,
+        color: theme?.buttonColor || DEFAULT_BUTTON_COLOR,
+        border: `2px solid ${theme?.buttonColor || DEFAULT_BUTTON_COLOR}`,
         borderRadius: themeRadius,
       }
     : {
-        backgroundColor: theme?.buttonColor || undefined,
-        color: theme?.buttonTextColor || undefined,
+        backgroundColor: theme?.buttonColor || DEFAULT_BUTTON_COLOR,
+        color: theme?.buttonTextColor || DEFAULT_BUTTON_TEXT_COLOR,
         borderRadius: themeRadius,
       };
 
   const cardStyles: React.CSSProperties = {
-    backgroundColor: theme?.cardBackground || undefined,
+    backgroundColor: theme?.cardBackground || DEFAULT_CARD_BACKGROUND,
     borderRadius: themeRadius,
   };
 
   const headingStyles: React.CSSProperties = {
-    fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined,
-    color: theme?.textColor || undefined,
+    fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : `"${DEFAULT_HEADING_FONT}", sans-serif`,
+    color: theme?.textColor || DEFAULT_TEXT_COLOR,
   };
 
   const secondaryTextStyles: React.CSSProperties = {
-    color: theme?.textSecondaryColor || undefined,
+    color: theme?.textSecondaryColor || DEFAULT_TEXT_SECONDARY_COLOR,
   };
 
   const renderButton = (text: string, link: string, testId: string) => {
