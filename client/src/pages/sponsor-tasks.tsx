@@ -110,6 +110,20 @@ const statusColors: Record<string, "default" | "secondary" | "outline" | "destru
   rejected: "destructive",
 };
 
+interface PreviewData {
+  completion: SponsorTaskCompletion;
+  task: SponsorTask;
+  sponsor: EventSponsor;
+}
+
+interface ImageMetadata {
+  width: number;
+  height: number;
+  size?: number;
+  type?: string;
+  dpi?: number;
+}
+
 export default function SponsorTasks() {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -118,6 +132,9 @@ export default function SponsorTasks() {
   const [deletingTask, setDeletingTask] = useState<SponsorTask | null>(null);
   const [viewingTaskCompletions, setViewingTaskCompletions] = useState<SponsorTask | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<string>("");
+  const [previewData, setPreviewData] = useState<PreviewData | null>(null);
+  const [imageMetadata, setImageMetadata] = useState<ImageMetadata | null>(null);
+  const [loadingMetadata, setLoadingMetadata] = useState(false);
 
   const { data: events = [] } = useQuery<Event[]>({
     queryKey: ["/api/events"],
@@ -290,6 +307,70 @@ export default function SponsorTasks() {
 
   const getSponsorsForEvent = (eventId: string) => {
     return sponsors.filter(s => s.eventId === eventId);
+  };
+
+  const loadImageMetadata = async (url: string): Promise<ImageMetadata> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = async () => {
+        const metadata: ImageMetadata = {
+          width: img.naturalWidth,
+          height: img.naturalHeight,
+        };
+        
+        // Try to get file size and type via fetch
+        try {
+          const response = await fetch(url, { method: 'HEAD' });
+          const contentLength = response.headers.get('content-length');
+          const contentType = response.headers.get('content-type');
+          if (contentLength) {
+            metadata.size = parseInt(contentLength, 10);
+          }
+          if (contentType) {
+            metadata.type = contentType;
+          }
+        } catch {
+          // If HEAD request fails, try GET for metadata
+          try {
+            const response = await fetch(url);
+            const blob = await response.blob();
+            metadata.size = blob.size;
+            metadata.type = blob.type;
+          } catch {
+            // Ignore fetch errors
+          }
+        }
+        
+        resolve(metadata);
+      };
+      img.onerror = () => {
+        resolve({ width: 0, height: 0 });
+      };
+      img.src = url;
+    });
+  };
+
+  const handleOpenPreview = async (completion: SponsorTaskCompletion, task: SponsorTask, sponsor: EventSponsor) => {
+    setPreviewData({ completion, task, sponsor });
+    setImageMetadata(null);
+    
+    // If it's a logo upload, try to load image metadata
+    if (task.taskType === "logo_upload") {
+      const submittedData = completion.submittedData as Record<string, unknown> | undefined;
+      const logoUrl = submittedData?.logoUrl as string | undefined;
+      if (logoUrl) {
+        setLoadingMetadata(true);
+        const metadata = await loadImageMetadata(logoUrl);
+        setImageMetadata(metadata);
+        setLoadingMetadata(false);
+      }
+    }
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   };
 
   const filteredTasks = tasks.filter((task) => {
@@ -680,6 +761,15 @@ export default function SponsorTasks() {
                                               <Button
                                                 size="sm"
                                                 variant="ghost"
+                                                onClick={() => handleOpenPreview(completion, task, sponsor)}
+                                                data-testid={`button-preview-${sponsor.id}`}
+                                              >
+                                                <Eye className="h-4 w-4 mr-1" />
+                                                Preview
+                                              </Button>
+                                              <Button
+                                                size="sm"
+                                                variant="ghost"
                                                 onClick={() => updateCompletionStatusMutation.mutate({ 
                                                   id: completion.id, 
                                                   status: "approved" 
@@ -705,8 +795,19 @@ export default function SponsorTasks() {
                                               </Button>
                                             </div>
                                           )}
-                                          {status === "approved" && (
-                                            <span className="text-sm text-muted-foreground">Approved</span>
+                                          {status === "approved" && completion && (
+                                            <div className="flex justify-end gap-1">
+                                              <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={() => handleOpenPreview(completion, task, sponsor)}
+                                                data-testid={`button-preview-approved-${sponsor.id}`}
+                                              >
+                                                <Eye className="h-4 w-4 mr-1" />
+                                                View
+                                              </Button>
+                                              <span className="text-sm text-muted-foreground flex items-center">Approved</span>
+                                            </div>
                                           )}
                                           {status === "rejected" && completion && (
                                             <Button
@@ -764,6 +865,165 @@ export default function SponsorTasks() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Preview Dialog */}
+      <Dialog open={!!previewData} onOpenChange={() => setPreviewData(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Submission Preview</DialogTitle>
+            <DialogDescription>
+              {previewData?.sponsor.name} - {previewData?.task.name}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {previewData && (
+            <div className="space-y-4">
+              {/* Logo Preview for logo_upload tasks */}
+              {previewData.task.taskType === "logo_upload" && (
+                <div className="space-y-4">
+                  {(() => {
+                    const submittedData = previewData.completion.submittedData as Record<string, unknown> | undefined;
+                    const logoUrl = submittedData?.logoUrl as string | undefined;
+                    
+                    if (!logoUrl) {
+                      return (
+                        <div className="text-center py-8 text-muted-foreground">
+                          No logo uploaded
+                        </div>
+                      );
+                    }
+                    
+                    return (
+                      <>
+                        <div className="border rounded-md p-4 bg-muted/30">
+                          <div className="flex justify-center mb-4">
+                            <img 
+                              src={logoUrl} 
+                              alt="Uploaded logo"
+                              className="max-h-48 max-w-full object-contain"
+                              data-testid="img-preview-logo"
+                            />
+                          </div>
+                        </div>
+                        
+                        <div className="border rounded-md p-4">
+                          <h4 className="font-medium mb-3">File Information</h4>
+                          {loadingMetadata ? (
+                            <div className="space-y-2">
+                              <Skeleton className="h-4 w-32" />
+                              <Skeleton className="h-4 w-40" />
+                              <Skeleton className="h-4 w-28" />
+                            </div>
+                          ) : imageMetadata ? (
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              <div className="text-muted-foreground">Dimensions:</div>
+                              <div>{imageMetadata.width} x {imageMetadata.height} px</div>
+                              
+                              {imageMetadata.size && (
+                                <>
+                                  <div className="text-muted-foreground">File Size:</div>
+                                  <div>{formatFileSize(imageMetadata.size)}</div>
+                                </>
+                              )}
+                              
+                              {imageMetadata.type && (
+                                <>
+                                  <div className="text-muted-foreground">File Type:</div>
+                                  <div>{imageMetadata.type}</div>
+                                </>
+                              )}
+                              
+                              <div className="text-muted-foreground">Aspect Ratio:</div>
+                              <div>
+                                {imageMetadata.width && imageMetadata.height 
+                                  ? `${(imageMetadata.width / imageMetadata.height).toFixed(2)}:1`
+                                  : "N/A"
+                                }
+                              </div>
+                              
+                              <div className="text-muted-foreground">Resolution:</div>
+                              <div>
+                                {imageMetadata.width >= 300 && imageMetadata.height >= 300
+                                  ? "High resolution"
+                                  : imageMetadata.width >= 100 && imageMetadata.height >= 100
+                                    ? "Medium resolution"
+                                    : "Low resolution"
+                                }
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-sm text-muted-foreground">
+                              Unable to load file information
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="text-xs text-muted-foreground break-all">
+                          <span className="font-medium">URL: </span>
+                          <a href={logoUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                            {logoUrl}
+                          </a>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+              
+              {/* Generic data display for other task types */}
+              {previewData.task.taskType !== "logo_upload" && (
+                <div className="border rounded-md p-4">
+                  <h4 className="font-medium mb-3">Submitted Data</h4>
+                  <div className="space-y-2 text-sm">
+                    {Object.entries(previewData.completion.submittedData || {}).map(([key, value]) => (
+                      <div key={key} className="grid grid-cols-3 gap-2">
+                        <div className="text-muted-foreground capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}:</div>
+                        <div className="col-span-2 break-words">
+                          {typeof value === 'string' && value.startsWith('http') ? (
+                            <a href={value} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                              {value}
+                            </a>
+                          ) : (
+                            String(value || '-')
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Status and Metadata */}
+              <div className="border rounded-md p-4">
+                <h4 className="font-medium mb-3">Submission Details</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="text-muted-foreground">Status:</div>
+                  <div>
+                    <Badge variant={statusColors[previewData.completion.status || "pending"]}>
+                      {(previewData.completion.status || "pending").charAt(0).toUpperCase() + (previewData.completion.status || "pending").slice(1)}
+                    </Badge>
+                  </div>
+                  
+                  <div className="text-muted-foreground">Submitted:</div>
+                  <div>
+                    {previewData.completion.createdAt 
+                      ? format(new Date(previewData.completion.createdAt), "MMM d, yyyy 'at' h:mm a")
+                      : "-"
+                    }
+                  </div>
+                  
+                  {previewData.completion.completedAt && (
+                    <>
+                      <div className="text-muted-foreground">Completed:</div>
+                      <div>{format(new Date(previewData.completion.completedAt), "MMM d, yyyy 'at' h:mm a")}</div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
