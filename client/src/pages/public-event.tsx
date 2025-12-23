@@ -1118,16 +1118,20 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
   const themeRadius = borderRadiusMap[theme?.borderRadius || "medium"];
   const isOutlineButton = theme?.buttonStyle === "outline";
 
+  // Default colors match the StylesEditor defaults for consistency
+  const defaultButtonColor = "#3b82f6";
+  const defaultButtonTextColor = "#ffffff";
+
   const buttonStyles: React.CSSProperties = isOutlineButton 
     ? {
         backgroundColor: "transparent",
-        color: theme?.buttonColor || "#3b82f6",
-        border: `2px solid ${theme?.buttonBorderColor || theme?.buttonColor || "#3b82f6"}`,
+        color: theme?.buttonColor || defaultButtonColor,
+        border: `2px solid ${theme?.buttonBorderColor || theme?.buttonColor || defaultButtonColor}`,
         borderRadius: themeRadius,
       }
     : {
-        backgroundColor: theme?.buttonColor || undefined,
-        color: theme?.buttonTextColor || undefined,
+        backgroundColor: theme?.buttonColor || defaultButtonColor,
+        color: theme?.buttonTextColor || defaultButtonTextColor,
         borderRadius: themeRadius,
         border: theme?.buttonBorderColor ? `2px solid ${theme.buttonBorderColor}` : undefined,
       };
