@@ -69,6 +69,7 @@ import TeamMembers from "@/pages/team-members";
 import AcceptInvitation from "@/pages/accept-invitation";
 import Pricing from "@/pages/pricing";
 import AudienceTargeting from "@/pages/audience-targeting";
+import EngagementMoments from "@/pages/engagement-moments";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const sidebarStyle = {
@@ -209,6 +210,7 @@ function Router() {
         <Route path="/accept-invitation" component={AcceptInvitation} />
         <Route path="/acquisition" component={Acquisition} />
         <Route path="/audience-targeting" component={AudienceTargeting} />
+        <Route path="/engagement-moments" component={EngagementMoments} />
         <Route path="/engagement-signals" component={EngagementSignals} />
         <Route path="/revenue-snapshot" component={RevenueSnapshot} />
         <Route path="/pipeline" component={Pipeline} />

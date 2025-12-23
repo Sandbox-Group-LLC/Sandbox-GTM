@@ -126,6 +126,7 @@ const programSubItems = [
   { title: "Acquisition Flow", path: "/registration" },
   { title: "Properties", path: "/custom-fields" },
   { title: "Program Hub", path: "/site-builder" },
+  { title: "Engagement Moments", path: "/engagement-moments" },
 ];
 
 const myTasksItems = [
@@ -170,7 +171,7 @@ export function AppSidebar() {
   const isEngagementActive = location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/rooms";
   const isRevenueActive = location === "/pipeline" || location === "/sales-handoff" || location === "/follow-up" || location === "/roi";
   const isExecutionActive = location === "/run-of-show" || location === "/deliverables" || location === "/vendors" || location === "/budget" || location === "/sponsors" || location === "/sponsor-tasks" || location === "/check-in";
-  const isProgramActive = location === "/events" || location === "/registration" || location === "/site-builder" || location === "/custom-fields";
+  const isProgramActive = location === "/events" || location === "/registration" || location === "/site-builder" || location === "/custom-fields" || location === "/engagement-moments";
   const isContentActive = location === "/content" || location === "/documents";
   
   const isSuperAdmin = user?.email?.toLowerCase().endsWith("@makemysandbox.com") ?? false;
