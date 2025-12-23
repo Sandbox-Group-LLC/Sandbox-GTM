@@ -18,7 +18,8 @@ import {
   DEFAULT_HEADING_FONT, 
   DEFAULT_BODY_FONT,
   DEFAULT_PRIMARY_COLOR,
-  DEFAULT_SECONDARY_COLOR
+  DEFAULT_SECONDARY_COLOR,
+  DEFAULT_BORDER_COLOR
 } from "./public-event";
 
 function GoogleFontsLoader({ fonts }: { fonts: string[] }) {
@@ -167,9 +168,9 @@ export default function PublicPortal() {
         className="min-h-screen"
         style={{
           ...themeStyles,
-          backgroundColor: theme?.backgroundColor || 'hsl(var(--background))',
-          color: theme?.textColor || undefined,
-          fontFamily: theme?.bodyFont ? `"${theme.bodyFont}", sans-serif` : undefined,
+          backgroundColor: theme?.backgroundColor || DEFAULT_BACKGROUND_COLOR,
+          color: theme?.textColor || DEFAULT_TEXT_COLOR,
+          fontFamily: theme?.bodyFont ? `"${theme.bodyFont}", sans-serif` : `"${DEFAULT_BODY_FONT}", sans-serif`,
         }}
       >
       <div className="max-w-4xl mx-auto px-6 py-8">
@@ -186,11 +187,11 @@ export default function PublicPortal() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {sessions.length > 0 && (
             <Card style={{
-              backgroundColor: theme?.cardBackground || undefined,
-              borderRadius: theme?.borderRadius ? ({ none: "0px", small: "4px", medium: "8px", large: "16px", pill: "9999px" }[theme.borderRadius]) : undefined,
+              backgroundColor: theme?.cardBackground || DEFAULT_CARD_BACKGROUND,
+              borderRadius: theme?.borderRadius ? ({ none: "0px", small: "4px", medium: "8px", large: "16px", pill: "9999px" }[theme.borderRadius]) : "8px",
             }}>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2" style={{ fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined }}>
+                <CardTitle className="flex items-center gap-2" style={{ fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : `"${DEFAULT_HEADING_FONT}", sans-serif` }}>
                   <Clock className="w-5 h-5" />
                   Your Schedule
                 </CardTitle>
@@ -225,11 +226,11 @@ export default function PublicPortal() {
 
           {speakers.length > 0 && (
             <Card style={{
-              backgroundColor: theme?.cardBackground || undefined,
-              borderRadius: theme?.borderRadius ? ({ none: "0px", small: "4px", medium: "8px", large: "16px", pill: "9999px" }[theme.borderRadius]) : undefined,
+              backgroundColor: theme?.cardBackground || DEFAULT_CARD_BACKGROUND,
+              borderRadius: theme?.borderRadius ? ({ none: "0px", small: "4px", medium: "8px", large: "16px", pill: "9999px" }[theme.borderRadius]) : "8px",
             }}>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2" style={{ fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined }}>
+                <CardTitle className="flex items-center gap-2" style={{ fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : `"${DEFAULT_HEADING_FONT}", sans-serif` }}>
                   <Mic className="w-5 h-5" />
                   Speakers
                 </CardTitle>
@@ -265,13 +266,13 @@ export default function PublicPortal() {
 
         {sessions.length === 0 && speakers.length === 0 && sections.length === 0 && (
           <Card style={{
-            backgroundColor: theme?.cardBackground || undefined,
-            borderRadius: theme?.borderRadius ? ({ none: "0px", small: "4px", medium: "8px", large: "16px", pill: "9999px" }[theme.borderRadius]) : undefined,
+            backgroundColor: theme?.cardBackground || DEFAULT_CARD_BACKGROUND,
+            borderRadius: theme?.borderRadius ? ({ none: "0px", small: "4px", medium: "8px", large: "16px", pill: "9999px" }[theme.borderRadius]) : "8px",
           }}>
             <CardContent className="py-12 text-center">
               <AlertCircle className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-medium mb-2" style={{ fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined }}>Portal Content Coming Soon</h3>
-              <p className="mb-4" style={{ color: theme?.textSecondaryColor || undefined }}>
+              <h3 className="text-lg font-medium mb-2" style={{ fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : `"${DEFAULT_HEADING_FONT}", sans-serif` }}>Portal Content Coming Soon</h3>
+              <p className="mb-4" style={{ color: theme?.textSecondaryColor || DEFAULT_TEXT_SECONDARY_COLOR }}>
                 Check back later for schedule updates and event information.
               </p>
               <Button variant="outline" asChild style={{
@@ -369,11 +370,11 @@ function SectionRenderer({ section, event, slug, theme }: { section: Section; ev
     case "hero":
       const eventDate = event.startDate ? new Date(event.startDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : "";
       const heroStyles: React.CSSProperties = {
-        backgroundColor: theme?.cardBackground || undefined,
+        backgroundColor: theme?.cardBackground || DEFAULT_CARD_BACKGROUND,
         borderRadius: themeRadius,
-        borderColor: theme?.borderColor || undefined,
-        borderWidth: theme?.borderColor ? '1px' : undefined,
-        borderStyle: theme?.borderColor ? 'solid' : undefined,
+        borderColor: theme?.borderColor || DEFAULT_BORDER_COLOR,
+        borderWidth: '1px',
+        borderStyle: 'solid',
       };
       return wrapWithMargins(
         <div className="p-8 py-12 bg-muted" style={heroStyles} data-testid={`section-hero-${section.id}`}>

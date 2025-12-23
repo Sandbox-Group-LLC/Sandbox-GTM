@@ -217,6 +217,7 @@ export const DEFAULT_HEADING_FONT = "Inter";
 export const DEFAULT_BODY_FONT = "Inter";
 export const DEFAULT_PRIMARY_COLOR = "#3b82f6";
 export const DEFAULT_SECONDARY_COLOR = "#64748b";
+export const DEFAULT_BORDER_COLOR = "#e5e7eb";
 
 export function getThemeStyles(theme: EventPageTheme | null | undefined): React.CSSProperties {
   if (!theme) return {};

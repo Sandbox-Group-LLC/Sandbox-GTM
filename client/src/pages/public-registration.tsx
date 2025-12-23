@@ -45,7 +45,8 @@ import {
   DEFAULT_HEADING_FONT, 
   DEFAULT_BODY_FONT,
   DEFAULT_PRIMARY_COLOR,
-  DEFAULT_SECONDARY_COLOR
+  DEFAULT_SECONDARY_COLOR,
+  DEFAULT_BORDER_COLOR
 } from "./public-event";
 
 interface PackageWithEffectivePrice extends Package {
@@ -892,7 +893,7 @@ export default function PublicRegistration() {
   // Set public page styling to prevent dark mode bleed-through and overscroll issues
   useEffect(() => {
     const theme = data?.registrationPage?.theme || data?.landingTheme;
-    const bgColor = theme?.backgroundColor || '#ffffff';
+    const bgColor = theme?.backgroundColor || DEFAULT_BACKGROUND_COLOR;
     if (data) {
       document.documentElement.classList.add('public-page');
       document.documentElement.style.setProperty('--public-page-bg', bgColor);
@@ -1059,7 +1060,7 @@ export default function PublicRegistration() {
   };
   const inputStyles: React.CSSProperties = {
     backgroundColor: theme?.backgroundColor || DEFAULT_BACKGROUND_COLOR,
-    borderColor: theme?.borderColor || "#e5e7eb",
+    borderColor: theme?.borderColor || DEFAULT_BORDER_COLOR,
     borderRadius: borderRadiusMap[theme?.borderRadius || "medium"],
     color: sectionFontColor,
   };
@@ -1217,7 +1218,7 @@ export default function PublicRegistration() {
         className="min-h-screen pb-8"
         style={{
           ...themeStyles,
-          backgroundColor: theme?.backgroundColor || '#ffffff',
+          backgroundColor: theme?.backgroundColor || DEFAULT_BACKGROUND_COLOR,
           color: theme?.textColor || undefined,
           fontFamily: theme?.bodyFont ? `"${theme.bodyFont}", sans-serif` : undefined,
         }}
