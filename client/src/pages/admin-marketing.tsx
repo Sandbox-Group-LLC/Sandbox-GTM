@@ -68,6 +68,7 @@ import {
   UserCheck,
   Bot,
   RefreshCw,
+  Info,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -652,6 +653,14 @@ export default function AdminMarketing() {
           </Dialog>
         }
       />
+
+      <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-md text-sm text-muted-foreground">
+        <Info className="h-4 w-4 mt-0.5 shrink-0" />
+        <span>
+          Analytics data is only tracked for visitors who arrive through activation links created below. 
+          To measure acquisition metrics, share your activation links in campaigns, emails, and social posts.
+        </span>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
