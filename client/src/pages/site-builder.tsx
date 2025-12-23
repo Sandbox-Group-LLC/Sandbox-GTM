@@ -521,7 +521,8 @@ export default function SiteBuilder() {
   
   // Get landing page theme for style inheritance
   const landingPage = pages.find((p) => p.pageType === "landing");
-  const landingPageTheme = landingPage?.theme as EventPageTheme | undefined;
+  const landingPageTheme = (landingPage?.theme || null) as EventPageTheme | null;
+  const hasLandingPage = !!landingPage;
 
   useEffect(() => {
     // Skip sync while waiting for template data to be persisted
@@ -1156,6 +1157,7 @@ export default function SiteBuilder() {
                           onUpdateSeo={handleUpdateSeo}
                           customFonts={customFonts}
                           landingPageTheme={landingPageTheme}
+                          hasLandingPage={hasLandingPage}
                           showInheritButton={currentPage?.pageType !== "landing"}
                         />
                       )}
@@ -1313,6 +1315,7 @@ export default function SiteBuilder() {
                           onUpdateSeo={handleUpdateSeo}
                           customFonts={customFonts}
                           landingPageTheme={landingPageTheme}
+                          hasLandingPage={hasLandingPage}
                           showInheritButton={currentPage?.pageType !== "landing"}
                         />
                       )}
@@ -5274,7 +5277,8 @@ interface StylesEditorProps {
   seo?: { title?: string; description?: string; ogImage?: string };
   onUpdateSeo: (updates: { title?: string; description?: string; ogImage?: string }) => void;
   customFonts?: CustomFont[];
-  landingPageTheme?: EventPageTheme;
+  landingPageTheme?: EventPageTheme | null;
+  hasLandingPage?: boolean;
   showInheritButton?: boolean;
 }
 
@@ -5368,7 +5372,7 @@ function DebouncedColorInput({
   );
 }
 
-function StylesEditor({ theme, onUpdateTheme, isPending, seo, onUpdateSeo, customFonts = [], landingPageTheme, showInheritButton }: StylesEditorProps) {
+function StylesEditor({ theme, onUpdateTheme, isPending, seo, onUpdateSeo, customFonts = [], landingPageTheme, hasLandingPage, showInheritButton }: StylesEditorProps) {
   const [localCss, setLocalCss] = useState(theme.customCss || "");
   const [cssHasChanges, setCssHasChanges] = useState(false);
   const { toast } = useToast();
@@ -5390,8 +5394,12 @@ function StylesEditor({ theme, onUpdateTheme, isPending, seo, onUpdateSeo, custo
   };
   
   const handleInheritStyles = () => {
-    if (!landingPageTheme) {
-      toast({ title: "No landing page styles", description: "Create a landing page first to inherit styles from it.", variant: "destructive" });
+    if (!hasLandingPage) {
+      toast({ title: "No landing page", description: "Create a landing page first to inherit styles from it.", variant: "destructive" });
+      return;
+    }
+    if (!landingPageTheme || Object.keys(landingPageTheme).length === 0) {
+      toast({ title: "No styles configured", description: "Configure styles on your landing page first, then inherit them here.", variant: "destructive" });
       return;
     }
     // Copy all typography, colors, and layout settings from landing page
@@ -5404,15 +5412,19 @@ function StylesEditor({ theme, onUpdateTheme, isPending, seo, onUpdateSeo, custo
       backgroundColor: landingPageTheme.backgroundColor,
       textColor: landingPageTheme.textColor,
       textSecondaryColor: landingPageTheme.textSecondaryColor,
-      accentColor: landingPageTheme.accentColor,
       borderColor: landingPageTheme.borderColor,
       buttonColor: landingPageTheme.buttonColor,
       buttonTextColor: landingPageTheme.buttonTextColor,
-      buttonRadius: landingPageTheme.buttonRadius,
-      cardRadius: landingPageTheme.cardRadius,
+      buttonBorderColor: landingPageTheme.buttonBorderColor,
+      buttonStyle: landingPageTheme.buttonStyle,
+      borderRadius: landingPageTheme.borderRadius,
+      cardBackground: landingPageTheme.cardBackground,
       containerWidth: landingPageTheme.containerWidth,
+      sectionSpacing: landingPageTheme.sectionSpacing,
       pagePadding: landingPageTheme.pagePadding,
+      textDecoration: landingPageTheme.textDecoration,
       customCss: landingPageTheme.customCss,
+      googleTagId: landingPageTheme.googleTagId,
     });
     setLocalCss(landingPageTheme.customCss || "");
     setCssHasChanges(false);
@@ -5431,7 +5443,7 @@ function StylesEditor({ theme, onUpdateTheme, isPending, seo, onUpdateSeo, custo
             variant="outline" 
             size="sm" 
             onClick={handleInheritStyles}
-            disabled={isPending || !landingPageTheme}
+            disabled={isPending}
             data-testid="button-inherit-styles"
           >
             <Copy className="h-4 w-4 mr-2" />
