@@ -28,6 +28,8 @@ const DEFAULT_TEXT_COLOR = "#1f2937";
 const DEFAULT_TEXT_SECONDARY_COLOR = "#6b7280";
 const DEFAULT_CARD_BACKGROUND = "#f9fafb";
 const DEFAULT_HEADING_FONT = "Inter";
+const DEFAULT_BUTTON_COLOR = "#3b82f6";
+const DEFAULT_BUTTON_TEXT_COLOR = "#ffffff";
 
 function getOrCreateAttendeeId(): string {
   let attendeeId = localStorage.getItem(ATTENDEE_ID_KEY);
@@ -80,6 +82,7 @@ interface MomentCardProps {
   onRespond: (momentId: string, response: unknown) => void;
   isSubmitting: boolean;
   hasResponded: boolean;
+  theme?: ThemeProps;
 }
 
 function ThankYouMessage() {
@@ -91,7 +94,7 @@ function ThankYouMessage() {
   );
 }
 
-function PollMoment({ moment, onRespond, isSubmitting, hasResponded }: MomentCardProps) {
+function PollMoment({ moment, onRespond, isSubmitting, hasResponded, theme }: MomentCardProps) {
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const options = (moment.optionsJson as { options?: string[] })?.options || [];
   const isMulti = moment.type === "poll_multi";
@@ -127,6 +130,12 @@ function PollMoment({ moment, onRespond, isSubmitting, hasResponded }: MomentCar
     }
   };
 
+  const buttonStyle: React.CSSProperties = {
+    backgroundColor: theme?.buttonColor || DEFAULT_BUTTON_COLOR,
+    color: theme?.buttonTextColor || DEFAULT_BUTTON_TEXT_COLOR,
+    borderRadius: theme?.buttonBorderRadius || "8px",
+  };
+
   return (
     <div className="space-y-4">
       <div className="space-y-2">
@@ -140,6 +149,7 @@ function PollMoment({ moment, onRespond, isSubmitting, hasResponded }: MomentCar
               onClick={() => toggleOption(option)}
               disabled={isSubmitting}
               data-testid={`option-${idx}`}
+              style={isSelected ? buttonStyle : undefined}
             >
               {option}
             </Button>
@@ -151,6 +161,7 @@ function PollMoment({ moment, onRespond, isSubmitting, hasResponded }: MomentCar
         disabled={isSubmitting || (isMulti ? selectedOptions.size === 0 : !selectedOption)}
         className="w-full"
         data-testid="button-submit-poll"
+        style={buttonStyle}
       >
         {isSubmitting ? "Submitting..." : "Submit Vote"}
       </Button>
@@ -158,7 +169,7 @@ function PollMoment({ moment, onRespond, isSubmitting, hasResponded }: MomentCar
   );
 }
 
-function RatingMoment({ moment, onRespond, isSubmitting, hasResponded }: MomentCardProps) {
+function RatingMoment({ moment, onRespond, isSubmitting, hasResponded, theme }: MomentCardProps) {
   const [rating, setRating] = useState<number | null>(null);
   const config = moment.optionsJson as { minValue?: number; maxValue?: number } || {};
   const minValue = config.minValue ?? 1;
@@ -174,6 +185,12 @@ function RatingMoment({ moment, onRespond, isSubmitting, hasResponded }: MomentC
     }
   };
 
+  const buttonStyle: React.CSSProperties = {
+    backgroundColor: theme?.buttonColor || DEFAULT_BUTTON_COLOR,
+    color: theme?.buttonTextColor || DEFAULT_BUTTON_TEXT_COLOR,
+    borderRadius: theme?.buttonBorderRadius || "8px",
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-center gap-2 flex-wrap">
@@ -185,6 +202,7 @@ function RatingMoment({ moment, onRespond, isSubmitting, hasResponded }: MomentC
             onClick={() => setRating(value)}
             disabled={isSubmitting}
             data-testid={`rating-${value}`}
+            style={rating === value ? buttonStyle : undefined}
           >
             {value}
           </Button>
@@ -199,6 +217,7 @@ function RatingMoment({ moment, onRespond, isSubmitting, hasResponded }: MomentC
         disabled={isSubmitting || rating === null}
         className="w-full"
         data-testid="button-submit-rating"
+        style={buttonStyle}
       >
         {isSubmitting ? "Submitting..." : "Submit Rating"}
       </Button>
@@ -206,7 +225,7 @@ function RatingMoment({ moment, onRespond, isSubmitting, hasResponded }: MomentC
   );
 }
 
-function OpenTextMoment({ moment, onRespond, isSubmitting, hasResponded }: MomentCardProps) {
+function OpenTextMoment({ moment, onRespond, isSubmitting, hasResponded, theme }: MomentCardProps) {
   const [text, setText] = useState("");
 
   if (hasResponded) {
@@ -217,6 +236,12 @@ function OpenTextMoment({ moment, onRespond, isSubmitting, hasResponded }: Momen
     if (text.trim()) {
       onRespond(moment.id, { text: text.trim() });
     }
+  };
+
+  const buttonStyle: React.CSSProperties = {
+    backgroundColor: theme?.buttonColor || DEFAULT_BUTTON_COLOR,
+    color: theme?.buttonTextColor || DEFAULT_BUTTON_TEXT_COLOR,
+    borderRadius: theme?.buttonBorderRadius || "8px",
   };
 
   return (
@@ -234,6 +259,7 @@ function OpenTextMoment({ moment, onRespond, isSubmitting, hasResponded }: Momen
         disabled={isSubmitting || !text.trim()}
         className="w-full"
         data-testid="button-submit-text"
+        style={buttonStyle}
       >
         {isSubmitting ? "Submitting..." : "Submit Response"}
       </Button>
@@ -241,7 +267,7 @@ function OpenTextMoment({ moment, onRespond, isSubmitting, hasResponded }: Momen
   );
 }
 
-function QAMoment({ moment, onRespond, isSubmitting, hasResponded }: MomentCardProps) {
+function QAMoment({ moment, onRespond, isSubmitting, hasResponded, theme }: MomentCardProps) {
   const [question, setQuestion] = useState("");
 
   if (hasResponded) {
@@ -252,6 +278,12 @@ function QAMoment({ moment, onRespond, isSubmitting, hasResponded }: MomentCardP
     if (question.trim()) {
       onRespond(moment.id, { question: question.trim() });
     }
+  };
+
+  const buttonStyle: React.CSSProperties = {
+    backgroundColor: theme?.buttonColor || DEFAULT_BUTTON_COLOR,
+    color: theme?.buttonTextColor || DEFAULT_BUTTON_TEXT_COLOR,
+    borderRadius: theme?.buttonBorderRadius || "8px",
   };
 
   return (
@@ -269,6 +301,7 @@ function QAMoment({ moment, onRespond, isSubmitting, hasResponded }: MomentCardP
         disabled={isSubmitting || !question.trim()}
         className="w-full"
         data-testid="button-submit-question"
+        style={buttonStyle}
       >
         {isSubmitting ? "Submitting..." : "Submit Question"}
       </Button>
@@ -276,31 +309,37 @@ function QAMoment({ moment, onRespond, isSubmitting, hasResponded }: MomentCardP
   );
 }
 
-function PulseMoment({ moment, onRespond, isSubmitting, hasResponded }: MomentCardProps) {
+function PulseMoment({ moment, onRespond, isSubmitting, hasResponded, theme }: MomentCardProps) {
   if (hasResponded) {
     return <ThankYouMessage />;
   }
 
+  const buttonStyle: React.CSSProperties = {
+    backgroundColor: theme?.buttonColor || DEFAULT_BUTTON_COLOR,
+    color: theme?.buttonTextColor || DEFAULT_BUTTON_TEXT_COLOR,
+    borderRadius: theme?.buttonBorderRadius || "8px",
+  };
+
   return (
     <div className="flex items-center justify-center gap-4 py-4">
       <Button
-        variant="outline"
         size="lg"
         onClick={() => onRespond(moment.id, { pulse: "positive" })}
         disabled={isSubmitting}
         className="flex-1 gap-2"
         data-testid="button-pulse-positive"
+        style={buttonStyle}
       >
         <ThumbsUp className="w-5 h-5" />
         Yes
       </Button>
       <Button
-        variant="outline"
         size="lg"
         onClick={() => onRespond(moment.id, { pulse: "negative" })}
         disabled={isSubmitting}
         className="flex-1 gap-2"
         data-testid="button-pulse-negative"
+        style={buttonStyle}
       >
         <ThumbsDown className="w-5 h-5" />
         No
@@ -309,7 +348,7 @@ function PulseMoment({ moment, onRespond, isSubmitting, hasResponded }: MomentCa
   );
 }
 
-function CTAMoment({ moment, onRespond, isSubmitting, hasResponded }: MomentCardProps) {
+function CTAMoment({ moment, onRespond, isSubmitting, hasResponded, theme }: MomentCardProps) {
   const config = moment.optionsJson as { ctaUrl?: string; ctaLabel?: string } || {};
   const ctaUrl = config.ctaUrl || "#";
   const ctaLabel = config.ctaLabel || "Learn More";
@@ -325,12 +364,19 @@ function CTAMoment({ moment, onRespond, isSubmitting, hasResponded }: MomentCard
     }
   };
 
+  const buttonStyle: React.CSSProperties = {
+    backgroundColor: theme?.buttonColor || DEFAULT_BUTTON_COLOR,
+    color: theme?.buttonTextColor || DEFAULT_BUTTON_TEXT_COLOR,
+    borderRadius: theme?.buttonBorderRadius || "8px",
+  };
+
   return (
     <Button
       onClick={handleClick}
       disabled={isSubmitting}
       className="w-full gap-2"
       data-testid="button-cta"
+      style={buttonStyle}
     >
       <ExternalLink className="w-4 h-4" />
       {ctaLabel}
@@ -492,6 +538,7 @@ function MomentCard({ moment, respondedMoments, onRespond, isSubmitting, theme }
       onRespond,
       isSubmitting,
       hasResponded,
+      theme,
     };
 
     switch (moment.type) {
