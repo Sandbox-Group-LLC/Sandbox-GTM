@@ -758,10 +758,10 @@ export default function AttendeePortal() {
       <CustomFontsLoader slug={slug || ''} />
       <GoogleAnalyticsLoader googleTagId={theme?.googleTagId} />
       <div 
-        className="min-h-screen bg-background"
+        className={`min-h-screen ${hasSections ? '' : 'bg-background'}`}
         style={hasSections ? {
           ...themeStyles,
-          backgroundColor: theme?.backgroundColor || undefined,
+          backgroundColor: theme?.backgroundColor || 'hsl(var(--background))',
           color: theme?.textColor || undefined,
           fontFamily: theme?.bodyFont ? `"${theme.bodyFont}", sans-serif` : undefined,
         } : undefined}
