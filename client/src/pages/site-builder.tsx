@@ -5020,6 +5020,8 @@ function StylesEditor({ theme, onUpdateTheme, isPending, seo, onUpdateSeo, custo
       textSecondaryColor: landingPageTheme.textSecondaryColor,
       accentColor: landingPageTheme.accentColor,
       borderColor: landingPageTheme.borderColor,
+      buttonColor: landingPageTheme.buttonColor,
+      buttonTextColor: landingPageTheme.buttonTextColor,
       buttonRadius: landingPageTheme.buttonRadius,
       cardRadius: landingPageTheme.cardRadius,
       containerWidth: landingPageTheme.containerWidth,
