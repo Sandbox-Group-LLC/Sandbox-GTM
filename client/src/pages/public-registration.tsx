@@ -1160,7 +1160,7 @@ export default function PublicRegistration() {
                 {isCompleted ? <Check className="w-4 h-4" /> : stepNum}
               </div>
               <span 
-                className={`text-sm hidden sm:inline ${isActive ? "font-medium" : ""}`}
+                className={`text-sm hidden sm:inline ${isActive ? "font-medium" : "text-muted-foreground"}`}
                 style={{ color: isActive ? sectionFontColor : undefined }}
               >
                 {title}
