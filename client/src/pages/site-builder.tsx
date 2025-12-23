@@ -134,6 +134,7 @@ interface VisibilityCondition {
 interface SectionStyles {
   backgroundColor?: string;
   textColor?: string;
+  headingColor?: string;
   textAlign?: 'left' | 'center' | 'right';
   gridJustify?: 'start' | 'center';
   paddingTop?: 'none' | 'small' | 'medium' | 'large';
@@ -2124,6 +2125,25 @@ function NestedSectionEditor({ section, onUpdate, customFonts = [] }: NestedSect
                   />
                 </div>
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="nested-heading-color">Header Color</Label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  id="nested-heading-color"
+                  value={styles.headingColor || styles.textColor || "#1f2937"}
+                  onChange={(e) => updateStyles("headingColor", e.target.value)}
+                  className="h-9 w-12 rounded border cursor-pointer"
+                />
+                <Input
+                  value={styles.headingColor || ""}
+                  onChange={(e) => updateStyles("headingColor", e.target.value || undefined)}
+                  placeholder="Same as text"
+                  className="flex-1 font-mono text-sm"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">Overrides text color for section headers</p>
             </div>
             
             <div className="space-y-2">
@@ -4560,6 +4580,27 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId, cus
                     />
                   </div>
                 </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="section-heading-color">Header Color</Label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    id="section-heading-color"
+                    value={styles.headingColor || styles.textColor || "#1f2937"}
+                    onChange={(e) => updateStyles("headingColor", e.target.value)}
+                    className="h-9 w-12 rounded border cursor-pointer"
+                    data-testid="input-section-heading-color"
+                  />
+                  <Input
+                    value={styles.headingColor || ""}
+                    onChange={(e) => updateStyles("headingColor", e.target.value || undefined)}
+                    placeholder="Same as text"
+                    className="flex-1 font-mono text-sm"
+                    data-testid="input-section-heading-color-text"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">Overrides text color for section headers</p>
               </div>
               <div className="space-y-2">
                 <Label>Text Alignment</Label>

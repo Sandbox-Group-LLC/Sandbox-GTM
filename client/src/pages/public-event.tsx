@@ -249,6 +249,7 @@ export function getThemeStyles(theme: EventPageTheme | null | undefined): React.
 export interface SectionStyles {
   backgroundColor?: string;
   textColor?: string;
+  headingColor?: string;
   textAlign?: 'left' | 'center' | 'right';
   gridJustify?: 'start' | 'center';
   paddingTop?: 'none' | 'small' | 'medium' | 'large';
@@ -1056,7 +1057,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
 
   const headingStyles: React.CSSProperties = {
     fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined,
-    color: styles?.textColor || theme?.textColor || undefined,
+    color: styles?.headingColor || styles?.textColor || theme?.textColor || undefined,
   };
 
   const secondaryTextStyles: React.CSSProperties = {
@@ -2252,7 +2253,7 @@ function CountdownSection({ config, event, sectionId, theme, styles }: { config:
 
   const headingStyles: React.CSSProperties = {
     fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined,
-    color: styles?.textColor || theme?.textColor || undefined,
+    color: styles?.headingColor || styles?.textColor || theme?.textColor || undefined,
   };
 
   const secondaryTextStyles: React.CSSProperties = {
@@ -2344,7 +2345,7 @@ function HousingSection({ config, section, event, theme, styles, wrapWithMargins
 
   const headingStyles: React.CSSProperties = {
     fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined,
-    color: styles?.textColor || theme?.textColor || undefined,
+    color: styles?.headingColor || styles?.textColor || theme?.textColor || undefined,
   };
 
   const secondaryTextStyles: React.CSSProperties = {
@@ -2440,7 +2441,7 @@ function AttendeeProfileSection({ config, section, theme, styles, wrapWithMargin
 
   const headingStyles: React.CSSProperties = {
     fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined,
-    color: styles?.textColor || theme?.textColor || undefined,
+    color: styles?.headingColor || styles?.textColor || theme?.textColor || undefined,
   };
 
   const secondaryTextStyles: React.CSSProperties = {
@@ -2651,7 +2652,7 @@ function AttendeeQRCodeSection({ config, section, theme, styles, wrapWithMargins
 
   const headingStyles: React.CSSProperties = {
     fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined,
-    color: styles?.textColor || theme?.textColor || undefined,
+    color: styles?.headingColor || styles?.textColor || theme?.textColor || undefined,
   };
 
   const secondaryTextStyles: React.CSSProperties = {

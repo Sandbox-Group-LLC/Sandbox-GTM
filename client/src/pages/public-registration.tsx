@@ -81,6 +81,7 @@ interface HousingInfo {
 export interface SectionStyles {
   backgroundColor?: string;
   textColor?: string;
+  headingColor?: string;
   textAlign?: 'left' | 'center' | 'right';
   gridJustify?: 'start' | 'center';
   paddingTop?: 'none' | 'small' | 'medium' | 'large';
