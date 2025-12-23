@@ -112,7 +112,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-type PageType = "landing" | "registration" | "portal" | "confirmation";
+type PageType = "landing" | "registration" | "portal" | "custom";
 
 type SectionType = "hero" | "text" | "cta" | "features" | "countdown" | "speakers" | "agenda" | "faq" | "testimonials" | "gallery" | "html" | "sponsors" | "map" | "video" | "footer" | "navigation" | "columns" | "columns-flex" | "layout-columns" | "registration-form" | "housing" | "attendee-profile" | "attendee-qrcode" | "personal-schedule" | "recommendations" | "attendee-interests" | "session-feedback" | "event-feedback";
 
@@ -182,12 +182,20 @@ interface Section {
   styles?: SectionStyles;
 }
 
-const PAGE_TYPES: { value: PageType; label: string; description: string }[] = [
+const CORE_PAGE_TYPES: { value: PageType; label: string; description: string }[] = [
   { value: "landing", label: "Landing Page", description: "Public event information page" },
   { value: "registration", label: "Registration", description: "Registration form and flow" },
   { value: "portal", label: "Attendee Portal", description: "Post-registration attendee area" },
-  { value: "confirmation", label: "Confirmation", description: "Post-registration confirmation page" },
 ];
+
+function generateSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim();
+}
 
 const SECTION_TYPES: { type: SectionType; label: string; icon: React.ComponentType<{ className?: string }>; description: string }[] = [
   { type: "hero", label: "Hero Section", icon: Image, description: "Large header with image and title" },
@@ -426,7 +434,7 @@ const getDefaultConfig = (type: SectionType): Record<string, unknown> => {
 export default function SiteBuilder() {
   const { toast } = useToast();
   const [selectedEventId, setSelectedEventId] = useState<string>("");
-  const [activeTab, setActiveTab] = useState<PageType>("landing");
+  const [activeTab, setActiveTab] = useState<string>("landing"); // Can be pageType or custom page id
   const [activeSubTab, setActiveSubTab] = useState<"content" | "styles">("content");
   const [isAddSectionOpen, setIsAddSectionOpen] = useState(false);
   const [editingSection, setEditingSection] = useState<Section | null>(null);
@@ -441,6 +449,8 @@ export default function SiteBuilder() {
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false);
   const [versionToRestore, setVersionToRestore] = useState<string | null>(null);
+  const [isAddCustomPageOpen, setIsAddCustomPageOpen] = useState(false);
+  const [newCustomPageName, setNewCustomPageName] = useState("");
   const justAppliedTemplateRef = useRef(false);
 
   const { data: events = [], isLoading: eventsLoading } = useQuery<Event[]>({
@@ -489,7 +499,12 @@ export default function SiteBuilder() {
     enabled: !!selectedEvent?.organizationId,
   });
 
-  const currentPage = pages.find((p) => p.pageType === activeTab);
+  // Find current page - for core pages, match by pageType; for custom pages, match by id
+  const corePageTypes = CORE_PAGE_TYPES.map(p => p.value);
+  const customPages = pages.filter((p) => p.pageType === "custom");
+  const currentPage = corePageTypes.includes(activeTab as PageType)
+    ? pages.find((p) => p.pageType === activeTab)
+    : pages.find((p) => p.id === activeTab);
   const sections = (currentPage?.sections as Section[]) || [];
 
   useEffect(() => {
@@ -498,19 +513,29 @@ export default function SiteBuilder() {
       return;
     }
     setPreviewSections(sections);
-    setPreviewTheme(currentPage?.theme);
+    setPreviewTheme(currentPage?.theme ?? undefined);
   }, [sections, currentPage?.theme]);
 
   const saveMutation = useMutation({
-    mutationFn: async (data: { pageType: PageType; sections: Section[]; isPublished?: boolean; theme?: EventPageTheme; seo?: { title?: string; description?: string; ogImage?: string } }) => {
-      const response = await apiRequest("POST", `/api/events/${selectedEventId}/pages`, {
+    mutationFn: async (data: { pageType: string; pageId?: string; name?: string; slug?: string; sections: Section[]; isPublished?: boolean; theme?: EventPageTheme; seo?: { title?: string; description?: string; ogImage?: string } }) => {
+      const payload: Record<string, unknown> = {
         eventId: selectedEventId,
         pageType: data.pageType,
         sections: data.sections,
         isPublished: data.isPublished ?? currentPage?.isPublished ?? false,
         theme: data.theme ?? currentPage?.theme,
         seo: data.seo ?? currentPage?.seo,
-      });
+      };
+      // For custom pages, include name and slug
+      if (data.pageType === "custom") {
+        payload.name = data.name ?? currentPage?.name;
+        payload.slug = data.slug ?? currentPage?.slug;
+      }
+      // If editing existing custom page, include the page id
+      if (data.pageId) {
+        payload.id = data.pageId;
+      }
+      const response = await apiRequest("POST", `/api/events/${selectedEventId}/pages`, payload);
       const savedPage = await response.json();
       if (savedPage?.id) {
         await apiRequest("POST", `/api/events/${selectedEventId}/pages/${savedPage.id}/versions`, {
@@ -540,15 +565,35 @@ export default function SiteBuilder() {
     },
   });
 
+  // Helper to get save parameters for current page
+  const getCurrentPageSaveParams = () => {
+    if (currentPage?.pageType === "custom") {
+      return { 
+        pageType: "custom" as const, 
+        pageId: currentPage.id, 
+        name: currentPage.name ?? undefined, 
+        slug: currentPage.slug ?? undefined 
+      };
+    }
+    return { pageType: (currentPage?.pageType || activeTab) as string };
+  };
+
   const publishMutation = useMutation({
     mutationFn: async (isPublished: boolean) => {
-      return await apiRequest("POST", `/api/events/${selectedEventId}/pages`, {
+      const params = getCurrentPageSaveParams();
+      const payload: Record<string, unknown> = {
         eventId: selectedEventId,
-        pageType: activeTab,
+        pageType: params.pageType,
         sections: sections,
         isPublished,
         theme: currentPage?.theme,
-      });
+      };
+      if (params.pageType === "custom" && "pageId" in params) {
+        payload.id = params.pageId;
+        payload.name = params.name;
+        payload.slug = params.slug;
+      }
+      return await apiRequest("POST", `/api/events/${selectedEventId}/pages`, payload);
     },
     onSuccess: (_, isPublished) => {
       queryClient.invalidateQueries({ queryKey: ["/api/events", selectedEventId, "pages"] });
@@ -572,7 +617,7 @@ export default function SiteBuilder() {
       config: getDefaultConfig(type),
     };
     const updatedSections = [...sections, newSection];
-    saveMutation.mutate({ pageType: activeTab, sections: updatedSections });
+    saveMutation.mutate({ ...getCurrentPageSaveParams(), sections: updatedSections });
     setIsAddSectionOpen(false);
   };
 
@@ -580,7 +625,7 @@ export default function SiteBuilder() {
     const updatedSections = sections
       .filter((s) => s.id !== sectionId)
       .map((s, index) => ({ ...s, order: index }));
-    saveMutation.mutate({ pageType: activeTab, sections: updatedSections });
+    saveMutation.mutate({ ...getCurrentPageSaveParams(), sections: updatedSections });
   };
 
   const handleMoveSection = (sectionId: string, direction: "up" | "down") => {
@@ -593,7 +638,7 @@ export default function SiteBuilder() {
     const swapIndex = direction === "up" ? index - 1 : index + 1;
     [newSections[index], newSections[swapIndex]] = [newSections[swapIndex], newSections[index]];
     const updatedSections = newSections.map((s, i) => ({ ...s, order: i }));
-    saveMutation.mutate({ pageType: activeTab, sections: updatedSections });
+    saveMutation.mutate({ ...getCurrentPageSaveParams(), sections: updatedSections });
   };
 
   const handleUpdateSection = (sectionId: string, config: Record<string, unknown>, styles?: SectionStyles) => {
@@ -605,7 +650,7 @@ export default function SiteBuilder() {
         : s.styles;
       return { ...s, config, styles: mergedStyles };
     });
-    saveMutation.mutate({ pageType: activeTab, sections: updatedSections });
+    saveMutation.mutate({ ...getCurrentPageSaveParams(), sections: updatedSections });
     setIsSectionEditorOpen(false);
     setEditingSection(null);
   };
@@ -623,12 +668,12 @@ export default function SiteBuilder() {
     // Update preview immediately for real-time feedback
     setPreviewTheme(newTheme);
     // Persist to server
-    saveMutation.mutate({ pageType: activeTab, sections: sections, theme: newTheme });
+    saveMutation.mutate({ ...getCurrentPageSaveParams(), sections: sections, theme: newTheme });
   };
 
   const handleUpdateSeo = (updates: { title?: string; description?: string; ogImage?: string }) => {
     const newSeo = { ...(currentPage?.seo ?? {}), ...updates };
-    saveMutation.mutate({ pageType: activeTab, sections, seo: newSeo });
+    saveMutation.mutate({ ...getCurrentPageSaveParams(), sections, seo: newSeo });
   };
 
   const handleApplyTemplate = (template: EventTemplate) => {
@@ -649,7 +694,7 @@ export default function SiteBuilder() {
       config: s.config,
     }));
     saveMutation.mutate({ 
-      pageType: activeTab, 
+      ...getCurrentPageSaveParams(), 
       sections: newSections, 
       theme: template.theme as EventPageTheme 
     });
@@ -895,10 +940,10 @@ export default function SiteBuilder() {
           ) : (
             <Card>
               <CardContent className="pt-6">
-                <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as PageType)}>
+                <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v)}>
                   <div className="overflow-x-auto -mx-2 px-2 mb-6">
                     <TabsList className="w-auto inline-flex">
-                      {PAGE_TYPES.map((pt) => (
+                      {CORE_PAGE_TYPES.map((pt) => (
                         <TabsTrigger
                           key={pt.value}
                           value={pt.value}
@@ -911,10 +956,32 @@ export default function SiteBuilder() {
                           )}
                         </TabsTrigger>
                       ))}
+                      {customPages.map((cp) => (
+                        <TabsTrigger
+                          key={cp.id}
+                          value={cp.id}
+                          className="flex items-center gap-2 whitespace-nowrap"
+                          data-testid={`tab-custom-${cp.slug}`}
+                        >
+                          {cp.name || "Custom Page"}
+                          {cp.isPublished && (
+                            <Badge variant="secondary" className="text-xs">Live</Badge>
+                          )}
+                        </TabsTrigger>
+                      ))}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="ml-1"
+                        onClick={() => setIsAddCustomPageOpen(true)}
+                        data-testid="button-add-custom-page"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
                     </TabsList>
                   </div>
 
-                  {PAGE_TYPES.map((pt) => (
+                  {CORE_PAGE_TYPES.map((pt) => (
                     <TabsContent key={pt.value} value={pt.value} className="space-y-4">
                       <div className="flex flex-col gap-3 mb-4">
                         <div>
@@ -1060,7 +1127,162 @@ export default function SiteBuilder() {
                           theme={previewTheme || currentTheme}
                           onUpdateTheme={handleUpdateTheme}
                           isPending={saveMutation.isPending}
-                          seo={currentPage?.seo}
+                          seo={currentPage?.seo ?? undefined}
+                          onUpdateSeo={handleUpdateSeo}
+                          customFonts={customFonts}
+                        />
+                      )}
+                    </TabsContent>
+                  ))}
+                  
+                  {customPages.map((cp) => (
+                    <TabsContent key={cp.id} value={cp.id} className="space-y-4">
+                      <div className="flex flex-col gap-3 mb-4">
+                        <div>
+                          <h3 className="font-medium">{cp.name || "Custom Page"}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            URL: /e/{selectedEvent?.publicSlug}/{cp.slug}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Button
+                            variant={activeSubTab === "content" ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setActiveSubTab("content")}
+                            data-testid="tab-content"
+                          >
+                            <Layout className="h-4 w-4 mr-2" />
+                            Content
+                          </Button>
+                          <Button
+                            variant={activeSubTab === "styles" ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setActiveSubTab("styles")}
+                            data-testid="tab-styles"
+                          >
+                            <Palette className="h-4 w-4 mr-2" />
+                            Styles
+                          </Button>
+                          {activeSubTab === "content" && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setIsTemplatePickerOpen(true)}
+                                data-testid="button-templates"
+                              >
+                                <Sparkles className="h-4 w-4 mr-2" />
+                                Templates
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => setIsAddSectionOpen(true)}
+                                data-testid="button-add-section"
+                              >
+                                <Plus className="h-4 w-4 mr-2" />
+                                Add Section
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {activeSubTab === "content" ? (
+                        <>
+                          {sections.length === 0 ? (
+                            <div className="border-2 border-dashed rounded-md p-12 text-center">
+                              <Layout className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                              <h4 className="font-medium mb-2">No sections yet</h4>
+                              <p className="text-sm text-muted-foreground mb-4">
+                                Add sections to build your custom page
+                              </p>
+                              <Button
+                                variant="outline"
+                                onClick={() => setIsAddSectionOpen(true)}
+                                data-testid="button-add-first-section"
+                              >
+                                <Plus className="h-4 w-4 mr-2" />
+                                Add First Section
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              {sections
+                                .sort((a, b) => a.order - b.order)
+                                .map((section, index) => {
+                                  const Icon = getSectionIcon(section.type);
+                                  return (
+                                    <div
+                                      key={section.id}
+                                      className="flex items-start gap-3 p-3 border rounded-md bg-card"
+                                      data-testid={`section-item-${section.id}`}
+                                    >
+                                      <div className="flex flex-col gap-1 pt-1">
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-6 w-6"
+                                          onClick={() => handleMoveSection(section.id, "up")}
+                                          disabled={index === 0 || saveMutation.isPending}
+                                          data-testid={`button-move-up-${section.id}`}
+                                        >
+                                          <GripVertical className="h-4 w-4 -rotate-90" />
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-6 w-6"
+                                          onClick={() => handleMoveSection(section.id, "down")}
+                                          disabled={index === sections.length - 1 || saveMutation.isPending}
+                                          data-testid={`button-move-down-${section.id}`}
+                                        >
+                                          <GripVertical className="h-4 w-4 rotate-90" />
+                                        </Button>
+                                      </div>
+                                      <Icon className="h-5 w-5 text-muted-foreground mt-1" />
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <span className="font-medium">{getSectionLabel(section.type)}</span>
+                                          <Badge variant="outline" className="text-xs">
+                                            {section.type}
+                                          </Badge>
+                                        </div>
+                                        <SectionPreview section={section} />
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          onClick={() => {
+                                            setEditingSection(section);
+                                            setIsSectionEditorOpen(true);
+                                          }}
+                                          data-testid={`button-edit-${section.id}`}
+                                        >
+                                          <Settings className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          onClick={() => handleDeleteSection(section.id)}
+                                          disabled={saveMutation.isPending}
+                                          data-testid={`button-delete-${section.id}`}
+                                        >
+                                          <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <StylesEditor
+                          theme={previewTheme || currentTheme}
+                          onUpdateTheme={handleUpdateTheme}
+                          isPending={saveMutation.isPending}
+                          seo={currentPage?.seo ?? undefined}
                           onUpdateSeo={handleUpdateSeo}
                           customFonts={customFonts}
                         />
@@ -1165,6 +1387,74 @@ export default function SiteBuilder() {
           </div>
         )}
       </div>
+
+      <Dialog open={isAddCustomPageOpen} onOpenChange={(open) => { setIsAddCustomPageOpen(open); if (!open) setNewCustomPageName(""); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Create Custom Page
+            </DialogTitle>
+            <DialogDescription>
+              Create a new custom page for your event. The URL slug will be generated automatically.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="custom-page-name">Page Name</Label>
+              <Input
+                id="custom-page-name"
+                value={newCustomPageName}
+                onChange={(e) => setNewCustomPageName(e.target.value)}
+                placeholder="e.g., Confirmation, Thank You, Resources"
+                data-testid="input-custom-page-name"
+              />
+            </div>
+            {newCustomPageName && (
+              <div className="text-sm text-muted-foreground">
+                URL: /e/{selectedEvent?.publicSlug}/{generateSlug(newCustomPageName)}
+              </div>
+            )}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => { setIsAddCustomPageOpen(false); setNewCustomPageName(""); }}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (!newCustomPageName.trim()) {
+                  toast({ title: "Error", description: "Please enter a page name", variant: "destructive" });
+                  return;
+                }
+                const slug = generateSlug(newCustomPageName);
+                if (!slug) {
+                  toast({ title: "Error", description: "Invalid page name", variant: "destructive" });
+                  return;
+                }
+                saveMutation.mutate({
+                  pageType: "custom",
+                  name: newCustomPageName.trim(),
+                  slug,
+                  sections: [],
+                }, {
+                  onSuccess: (savedPage) => {
+                    setIsAddCustomPageOpen(false);
+                    setNewCustomPageName("");
+                    if (savedPage?.id) {
+                      setActiveTab(savedPage.id);
+                    }
+                    toast({ title: "Custom page created", description: `"${newCustomPageName}" page has been created` });
+                  }
+                });
+              }}
+              disabled={!newCustomPageName.trim() || saveMutation.isPending}
+              data-testid="button-create-custom-page"
+            >
+              {saveMutation.isPending ? "Creating..." : "Create Page"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isAddSectionOpen} onOpenChange={setIsAddSectionOpen}>
         <DialogContent className="max-w-3xl max-h-[80vh]">

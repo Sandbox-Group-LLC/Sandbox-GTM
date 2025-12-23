@@ -8826,7 +8826,9 @@ ${urls.map(u => `  <url>
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId, req.session);
       const eventId = req.params.eventId;
-      const { theme, ...rest } = req.body;
+      // Extract id separately since it's omitted from insertEventPageSchema for normal creates
+      // but needed for custom page updates
+      const { theme, id: pageId, ...rest } = req.body;
       
       // Sanitize customCss in theme before persisting to prevent XSS
       const sanitizedTheme = theme ? {
@@ -8835,7 +8837,8 @@ ${urls.map(u => `  <url>
       } : theme;
       
       const data = insertEventPageSchema.parse({ ...rest, organizationId, eventId });
-      const page = await storage.upsertEventPage({ ...data, theme: sanitizedTheme });
+      // Pass pageId for custom page updates (upsertEventPage uses it to decide update vs insert)
+      const page = await storage.upsertEventPage({ ...data, theme: sanitizedTheme, id: pageId });
       res.status(201).json(page);
     } catch (error) {
       logError("Error creating/updating event page:", error);

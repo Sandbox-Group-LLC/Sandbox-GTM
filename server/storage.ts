@@ -520,7 +520,7 @@ export interface IStorage {
   getEventPageByType(organizationId: string, eventId: string, pageType: string): Promise<EventPage | undefined>;
   createEventPage(page: InsertEventPage): Promise<EventPage>;
   updateEventPage(organizationId: string, id: string, page: Partial<InsertEventPage>): Promise<EventPage | undefined>;
-  upsertEventPage(page: InsertEventPage): Promise<EventPage>;
+  upsertEventPage(page: InsertEventPage & { id?: string }): Promise<EventPage>;
   deleteEventPage(organizationId: string, id: string): Promise<void>;
   getPublishedLandingPagesForSitemap(): Promise<Array<{ slug: string | null; updatedAt: Date | null }>>;
 
@@ -2413,24 +2413,73 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async upsertEventPage(page: InsertEventPage): Promise<EventPage> {
-    const insertValue = page as typeof eventPages.$inferInsert;
-    const [result] = await db
-      .insert(eventPages)
-      .values(insertValue)
-      .onConflictDoUpdate({
-        target: [eventPages.eventId, eventPages.pageType],
-        set: {
+  async upsertEventPage(page: InsertEventPage & { id?: string }): Promise<EventPage> {
+    const insertValue = page as typeof eventPages.$inferInsert & { id?: string };
+    
+    // For custom pages, handle differently than core page types
+    if (page.pageType === "custom") {
+      if (insertValue.id) {
+        // Existing custom page - update by id
+        const [result] = await db
+          .update(eventPages)
+          .set({
+            name: insertValue.name,
+            slug: insertValue.slug,
+            isPublished: insertValue.isPublished,
+            theme: insertValue.theme,
+            seo: insertValue.seo,
+            sections: insertValue.sections,
+            updatedAt: new Date(),
+          })
+          .where(and(
+            eq(eventPages.id, insertValue.id),
+            eq(eventPages.organizationId, insertValue.organizationId!)
+          ))
+          .returning();
+        return result;
+      } else {
+        // New custom page - plain insert
+        const [result] = await db
+          .insert(eventPages)
+          .values(insertValue)
+          .returning();
+        return result;
+      }
+    }
+    
+    // For core page types (landing, registration, portal) - check if exists, then update or insert
+    // The unique index is now (eventId, pageType, slug) so we can't use simple onConflict
+    const [existing] = await db.select({ id: eventPages.id })
+      .from(eventPages)
+      .where(and(
+        eq(eventPages.organizationId, insertValue.organizationId!),
+        eq(eventPages.eventId, insertValue.eventId!),
+        eq(eventPages.pageType, insertValue.pageType!)
+      ));
+    
+    if (existing) {
+      // Update existing core page
+      const [result] = await db
+        .update(eventPages)
+        .set({
           slug: insertValue.slug,
           isPublished: insertValue.isPublished,
           theme: insertValue.theme,
           seo: insertValue.seo,
           sections: insertValue.sections,
           updatedAt: new Date(),
-        },
-      })
-      .returning();
-    return result;
+        })
+        .where(eq(eventPages.id, existing.id))
+        .returning();
+      return result;
+    } else {
+      // Insert new core page
+      const [result] = await db
+        .insert(eventPages)
+        .values(insertValue)
+        .returning();
+      return result;
+    }
   }
 
   async deleteEventPage(organizationId: string, id: string): Promise<void> {
