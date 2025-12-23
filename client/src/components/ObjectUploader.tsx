@@ -50,12 +50,21 @@ export function ObjectUploader({
         throw new Error("Failed to upload file");
       }
 
-      // Call onComplete with file info
+      // Create asset record and make the file publicly accessible
+      const assetResponse = await apiRequest("POST", "/api/content/assets", {
+        fileName: file.name,
+        mimeType: file.type || "application/octet-stream",
+        byteSize: file.size,
+        uploadUrl: data.uploadUrl,
+      });
+      const assetData = await assetResponse.json();
+
+      // Call onComplete with file info and the public URL
       onComplete({
         fileName: file.name,
         mimeType: file.type || "application/octet-stream",
         byteSize: file.size,
-        uploadUrl: data.uploadUrl.split("?")[0], // Remove query params for storage
+        uploadUrl: assetData.publicUrl || assetData.objectPath,
       });
 
       // Reset file input
