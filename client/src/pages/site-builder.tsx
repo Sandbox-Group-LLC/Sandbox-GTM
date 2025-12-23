@@ -875,6 +875,8 @@ export default function SiteBuilder() {
                       previewUrl = `${baseUrl}/register`;
                     } else if (activeTab === "portal") {
                       previewUrl = `${baseUrl}/portal`;
+                    } else if (activeTab === "live") {
+                      previewUrl = `${baseUrl}/live`;
                     } else if (activeTab !== "landing") {
                       // Custom page - find the page slug
                       const customPage = customPages.find(cp => cp.id === activeTab);
