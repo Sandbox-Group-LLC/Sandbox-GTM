@@ -822,6 +822,13 @@ const SECTION_PADDING_MAP: Record<string, string> = {
   large: "4rem",
 };
 
+const SECTION_PADDING_HORIZONTAL_MAP: Record<string, string> = {
+  none: "0",
+  small: "5%",
+  medium: "10%",
+  large: "15%",
+};
+
 export interface ProfileFormData {
   firstName: string;
   lastName: string;
@@ -886,8 +893,8 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
     textAlign: styles?.textAlign || undefined,
     paddingTop: SECTION_PADDING_MAP[styles?.paddingTop || "none"] || undefined,
     paddingBottom: SECTION_PADDING_MAP[styles?.paddingBottom || "none"] || undefined,
-    paddingLeft: SECTION_PADDING_MAP[styles?.paddingLeft || "none"] || undefined,
-    paddingRight: SECTION_PADDING_MAP[styles?.paddingRight || "none"] || undefined,
+    paddingLeft: SECTION_PADDING_HORIZONTAL_MAP[styles?.paddingLeft || "none"] || undefined,
+    paddingRight: SECTION_PADDING_HORIZONTAL_MAP[styles?.paddingRight || "none"] || undefined,
   };
   
   const wrapWithMargins = (content: React.ReactNode) => {
