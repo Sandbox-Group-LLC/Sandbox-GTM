@@ -806,7 +806,19 @@ export default function SponsorTasks() {
                                                 <Eye className="h-4 w-4 mr-1" />
                                                 View
                                               </Button>
-                                              <span className="text-sm text-muted-foreground flex items-center">Approved</span>
+                                              <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={() => updateCompletionStatusMutation.mutate({ 
+                                                  id: completion.id, 
+                                                  status: "submitted" 
+                                                })}
+                                                disabled={updateCompletionStatusMutation.isPending}
+                                                data-testid={`button-unapprove-${sponsor.id}`}
+                                              >
+                                                <X className="h-4 w-4 mr-1" />
+                                                Unapprove
+                                              </Button>
                                             </div>
                                           )}
                                           {status === "rejected" && completion && (
