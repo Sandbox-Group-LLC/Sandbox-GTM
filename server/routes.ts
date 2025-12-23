@@ -8406,6 +8406,67 @@ ${urls.map(u => `  <url>
   // Moments - Live Engagement Routes
   // ============================================
 
+  // Get all moments for an event (admin - simplified route)
+  app.get("/api/events/:eventId/moments", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { eventId } = req.params;
+      
+      // Get the event to find the organization
+      const event = await storage.getEventById(eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      // Check user has access to this organization
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === event.organizationId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const moments = await storage.getMoments(event.organizationId, eventId);
+      res.json(moments);
+    } catch (error) {
+      logError("Error fetching moments:", error);
+      res.status(500).json({ message: "Failed to fetch moments" });
+    }
+  });
+
+  // Create a new moment (admin - simplified route)
+  app.post("/api/events/:eventId/moments", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { eventId } = req.params;
+      
+      // Get the event to find the organization
+      const event = await storage.getEventById(eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      // Check user has access to this organization
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === event.organizationId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const data = insertMomentSchema.parse({
+        ...req.body,
+        organizationId: event.organizationId,
+        eventId,
+        createdBy: userId,
+      });
+      
+      const moment = await storage.createMoment(data);
+      res.status(201).json(moment);
+    } catch (error: any) {
+      logError("Error creating moment:", error);
+      res.status(400).json({ message: error.message || "Failed to create moment" });
+    }
+  });
+
   // Get moments analytics for an organization (optionally filtered by event)
   app.get("/api/organizations/:orgId/moments/analytics", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
