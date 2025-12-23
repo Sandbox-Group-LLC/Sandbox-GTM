@@ -1762,10 +1762,10 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
       const linkedinUrl = (config.linkedinUrl as string) || "";
       const instagramUrl = (config.instagramUrl as string) || "";
       const copyright = (config.copyright as string) || "";
-      return (
+      return wrapWithMargins(
         <footer 
           className="w-full py-8 px-6 bg-muted/50 mt-auto"
-          style={{ backgroundColor: theme?.cardBackground || undefined, borderRadius: themeRadius }}
+          style={{ backgroundColor: styles?.backgroundColor || theme?.cardBackground || undefined, borderRadius: themeRadius }}
           data-testid={`section-footer-${section.id}`}
         >
           <div className="max-w-4xl mx-auto">
@@ -1863,7 +1863,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
         (theme?.textColor || "#1f2937")
       );
       
-      return (
+      return wrapWithMargins(
         <nav 
           className={`w-full py-3 px-6 ${isSticky ? 'sticky top-0 z-50' : ''} ${navStyle === "light" ? "border-b" : ""}`}
           style={{ 
