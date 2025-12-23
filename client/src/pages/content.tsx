@@ -41,7 +41,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { titleCase } from "@/lib/utils";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Plus, FolderOpen, Search, FileText, Video, Image, Link as LinkIcon, File, ExternalLink, Copy, Trash2, ImageIcon, Users, Award } from "lucide-react";
+import { Plus, FolderOpen, Search, FileText, Video, Image, Link as LinkIcon, File, ExternalLink, Copy, Trash2, ImageIcon, Users, Award, RefreshCw } from "lucide-react";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import type { ContentItem, ContentAsset, EventSession, EventSponsor, SponsorTaskCompletion, Event } from "@shared/schema";
 import { EventSelectField } from "@/components/event-select-field";
@@ -272,6 +272,22 @@ export default function Content() {
         return;
       }
       toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const backfillSponsorsMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", "/api/content/assets/backfill-sponsors");
+    },
+    onSuccess: (data: { updated: number }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/content/assets"] });
+      toast({ 
+        title: "Sponsor data synced", 
+        description: `Updated ${data.updated} asset${data.updated !== 1 ? 's' : ''} with sponsor tier information` 
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Sync failed", description: error.message, variant: "destructive" });
     },
   });
 
@@ -682,6 +698,17 @@ export default function Content() {
                               ))}
                             </SelectContent>
                           </Select>
+                        )}
+                        {folderFilter === "Sponsor Logos" && (
+                          <Button
+                            variant="outline"
+                            onClick={() => backfillSponsorsMutation.mutate()}
+                            disabled={backfillSponsorsMutation.isPending}
+                            data-testid="button-sync-sponsor-tiers"
+                          >
+                            <RefreshCw className={`h-4 w-4 mr-2 ${backfillSponsorsMutation.isPending ? 'animate-spin' : ''}`} />
+                            {backfillSponsorsMutation.isPending ? 'Syncing...' : 'Sync Tier Data'}
+                          </Button>
                         )}
                         <ObjectUploader
                           onComplete={handleUploadComplete}
