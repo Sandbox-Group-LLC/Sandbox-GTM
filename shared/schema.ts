@@ -409,8 +409,9 @@ export const eventPages = pgTable("event_pages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
   eventId: varchar("event_id").references(() => events.id).notNull(),
-  pageType: varchar("page_type", { length: 50 }).notNull(),
-  slug: varchar("slug", { length: 100 }),
+  pageType: varchar("page_type", { length: 50 }).notNull(), // 'landing', 'registration', 'portal', 'custom'
+  name: varchar("name", { length: 255 }), // Display name for custom pages
+  slug: varchar("slug", { length: 100 }), // URL slug, auto-generated for custom pages
   isPublished: boolean("is_published").default(false),
   theme: jsonb("theme").$type<{
     // Typography
@@ -466,7 +467,7 @@ export const eventPages = pgTable("event_pages", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
-  uniqueIndex("IDX_event_page_unique").on(table.eventId, table.pageType),
+  uniqueIndex("IDX_event_page_unique").on(table.eventId, table.pageType, table.slug),
 ]);
 
 // Page Versions table - stores version history for event pages
