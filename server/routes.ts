@@ -143,12 +143,27 @@ export function registerPublicTrackingRoute(app: Express) {
       }
 
       // Create visitor hash from IP + User-Agent
-      const ip = req.headers["x-forwarded-for"] || req.connection?.remoteAddress || "";
+      const ip = extractRealIP(req);
       const userAgent = req.headers["user-agent"] || "";
       const visitorHash = createHash("sha256").update(`${ip}:${userAgent}`).digest("hex").substring(0, 32);
       const ipHash = createHash("sha256").update(String(ip)).digest("hex").substring(0, 32);
 
-      // Record the click
+      // Parse User-Agent for device/browser/OS info
+      const uaInfo = parseUserAgent(userAgent);
+      
+      // Detect if this is a bot
+      const isBotVisitor = isBot(userAgent);
+      
+      // Get time context
+      const timeContext = getTimeContext(new Date());
+      
+      // Check if returning visitor
+      const visitorHistory = await storage.getVisitorClickHistory(visitorHash);
+      
+      // Get geographic data from IP (non-blocking)
+      const geoData = await getGeoFromIP(ip).catch(() => null);
+
+      // Record the click with all enriched data
       await storage.createActivationLinkClick({
         activationLinkId: link.id,
         visitorHash,
@@ -156,6 +171,24 @@ export function registerPublicTrackingRoute(app: Express) {
         userAgent: userAgent.substring(0, 500),
         referrer: (req.headers.referer || req.headers.referrer || "").substring(0, 1000),
         queryParams: req.query as Record<string, string>,
+        // Device & Browser info
+        deviceType: uaInfo.deviceType,
+        browser: uaInfo.browser,
+        os: uaInfo.os,
+        // Geographic data
+        country: geoData?.country || null,
+        countryCode: geoData?.countryCode || null,
+        region: geoData?.region || null,
+        city: geoData?.city || null,
+        timezone: geoData?.timezone || null,
+        // Visitor behavior
+        isReturningVisitor: visitorHistory.isReturning,
+        previousVisitCount: visitorHistory.count,
+        // Time context
+        dayOfWeek: timeContext.dayOfWeek,
+        hourOfDay: timeContext.hourOfDay,
+        // Bot detection
+        isBot: isBotVisitor,
       });
 
       // Increment click count
@@ -4401,12 +4434,27 @@ export async function registerRoutes(
       }
 
       // Create visitor hash from IP + User-Agent
-      const ip = req.headers["x-forwarded-for"] || req.connection?.remoteAddress || "";
+      const ip = extractRealIP(req);
       const userAgent = req.headers["user-agent"] || "";
       const visitorHash = createHash("sha256").update(`${ip}:${userAgent}`).digest("hex").substring(0, 32);
       const ipHash = createHash("sha256").update(String(ip)).digest("hex").substring(0, 32);
 
-      // Record the click
+      // Parse User-Agent for device/browser/OS info
+      const uaInfo = parseUserAgent(userAgent);
+      
+      // Detect if this is a bot
+      const isBotVisitor = isBot(userAgent);
+      
+      // Get time context
+      const timeContext = getTimeContext(new Date());
+      
+      // Check if returning visitor
+      const visitorHistory = await storage.getVisitorClickHistory(visitorHash);
+      
+      // Get geographic data from IP (non-blocking)
+      const geoData = await getGeoFromIP(ip).catch(() => null);
+
+      // Record the click with all enriched data
       await storage.createActivationLinkClick({
         activationLinkId: link.id,
         visitorHash,
@@ -4414,6 +4462,24 @@ export async function registerRoutes(
         userAgent: userAgent.substring(0, 500),
         referrer: (req.headers.referer || req.headers.referrer || "").substring(0, 1000),
         queryParams: req.query as Record<string, string>,
+        // Device & Browser info
+        deviceType: uaInfo.deviceType,
+        browser: uaInfo.browser,
+        os: uaInfo.os,
+        // Geographic data
+        country: geoData?.country || null,
+        countryCode: geoData?.countryCode || null,
+        region: geoData?.region || null,
+        city: geoData?.city || null,
+        timezone: geoData?.timezone || null,
+        // Visitor behavior
+        isReturningVisitor: visitorHistory.isReturning,
+        previousVisitCount: visitorHistory.count,
+        // Time context
+        dayOfWeek: timeContext.dayOfWeek,
+        hourOfDay: timeContext.hourOfDay,
+        // Bot detection
+        isBot: isBotVisitor,
       });
 
       // Increment click count

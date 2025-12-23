@@ -102,7 +102,8 @@ export async function getGeoFromIP(ip: string): Promise<{
     return null;
   }
   
-  // Skip private/local IPs
+  // Skip private/local IPs - they can't be geolocated
+  // The display layer will show "Local/Dev" for null geo data when IP is private
   if (isPrivateIP(ip)) {
     return null;
   }
@@ -134,7 +135,7 @@ export async function getGeoFromIP(ip: string): Promise<{
 }
 
 // Check if an IP is private/local
-function isPrivateIP(ip: string): boolean {
+export function isPrivateIP(ip: string): boolean {
   // Handle IPv4 mapped IPv6
   const cleanIP = ip.replace(/^::ffff:/, '');
   

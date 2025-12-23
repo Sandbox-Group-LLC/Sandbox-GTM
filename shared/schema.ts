@@ -376,6 +376,24 @@ export const activationLinkClicks = pgTable("activation_link_clicks", {
   referrer: text("referrer"),
   // Query params snapshot
   queryParams: jsonb("query_params").$type<Record<string, string>>(),
+  // Device & Browser info (parsed from User-Agent)
+  deviceType: varchar("device_type", { length: 20 }),
+  browser: varchar("browser", { length: 50 }),
+  os: varchar("os", { length: 50 }),
+  // Geographic data (from IP geolocation)
+  country: varchar("country", { length: 100 }),
+  countryCode: varchar("country_code", { length: 10 }),
+  region: varchar("region", { length: 100 }),
+  city: varchar("city", { length: 100 }),
+  timezone: varchar("timezone", { length: 50 }),
+  // Visitor behavior
+  isReturningVisitor: boolean("is_returning_visitor").default(false),
+  previousVisitCount: integer("previous_visit_count").default(0),
+  // Time context (for analytics)
+  dayOfWeek: integer("day_of_week"),
+  hourOfDay: integer("hour_of_day"),
+  // Bot detection
+  isBot: boolean("is_bot").default(false),
   // Conversion tracking
   convertedToAttendeeId: varchar("converted_to_attendee_id").references(() => attendees.id),
   convertedAt: timestamp("converted_at"),
