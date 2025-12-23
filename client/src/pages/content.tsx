@@ -709,6 +709,73 @@ export default function Content() {
                       />
                     ) : filteredAssets.length === 0 ? (
                       <p className="text-center text-muted-foreground py-12">No images match this folder filter</p>
+                    ) : folderFilter === "Sponsor Logos" ? (
+                      // Group sponsor logos by tier
+                      <div className="space-y-8">
+                        {tierOrder
+                          .filter(tier => filteredAssets.some(a => (a.sponsorTier || "other").toLowerCase() === tier))
+                          .map(tier => {
+                            const tierAssets = filteredAssets.filter(a => (a.sponsorTier || "other").toLowerCase() === tier);
+                            if (tierAssets.length === 0) return null;
+                            
+                            return (
+                              <div key={tier} className="space-y-4">
+                                <div className="flex items-center gap-3">
+                                  <Badge className={tierColors[tier] || tierColors.other}>
+                                    {titleCase(tier)}
+                                  </Badge>
+                                  <span className="text-sm text-muted-foreground">
+                                    {tierAssets.length} logo{tierAssets.length !== 1 ? "s" : ""}
+                                  </span>
+                                </div>
+                                
+                                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                                  {tierAssets.map((asset) => (
+                                    <Card key={asset.id} className="overflow-hidden" data-testid={`card-asset-${asset.id}`}>
+                                      <div className="aspect-video bg-white dark:bg-slate-900 p-4 flex items-center justify-center border-b">
+                                        <img
+                                          src={asset.publicUrl}
+                                          alt={asset.fileName}
+                                          className="max-h-full max-w-full object-contain"
+                                          data-testid={`img-asset-${asset.id}`}
+                                        />
+                                      </div>
+                                      <CardContent className="p-3 space-y-2">
+                                        <p className="text-sm font-medium truncate" title={asset.fileName}>
+                                          {asset.fileName}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">
+                                          {asset.mimeType} • {Math.round((asset.byteSize || 0) / 1024)} KB
+                                        </p>
+                                        <div className="flex items-center gap-2">
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="flex-1"
+                                            onClick={() => handleCopyUrl(asset.publicUrl)}
+                                            data-testid={`button-copy-url-${asset.id}`}
+                                          >
+                                            <Copy className="h-3 w-3 mr-1" />
+                                            Copy URL
+                                          </Button>
+                                          <Button
+                                            variant="outline"
+                                            size="icon"
+                                            onClick={() => handleDeleteAsset(asset.id)}
+                                            disabled={deleteAssetMutation.isPending}
+                                            data-testid={`button-delete-asset-${asset.id}`}
+                                          >
+                                            <Trash2 className="h-4 w-4" />
+                                          </Button>
+                                        </div>
+                                      </CardContent>
+                                    </Card>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
                     ) : (
                       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                         {filteredAssets.map((asset) => (
