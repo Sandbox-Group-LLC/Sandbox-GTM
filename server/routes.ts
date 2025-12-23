@@ -85,6 +85,9 @@ import {
   insertEventFeedbackSchema,
   insertFeedbackConfigSchema,
   insertAttendeeInterestsSchema,
+  insertMomentSchema,
+  insertMomentResponseSchema,
+  insertEngagementSignalSchema,
   pageVersions,
   eventPages,
   emailPlatformConnections,
@@ -8270,6 +8273,266 @@ ${urls.map(u => `  <url>
     } catch (error: any) {
       logError("Error updating feedback config:", error);
       res.status(400).json({ message: error.message || "Failed to update feedback config" });
+    }
+  });
+
+  // ============================================
+  // Moments - Live Engagement Routes
+  // ============================================
+
+  // Get all moments for an event (admin)
+  app.get("/api/organizations/:orgId/events/:eventId/moments", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orgId, eventId } = req.params;
+      
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === orgId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const moments = await storage.getMoments(orgId, eventId);
+      res.json(moments);
+    } catch (error) {
+      logError("Error fetching moments:", error);
+      res.status(500).json({ message: "Failed to fetch moments" });
+    }
+  });
+
+  // Get live moments for an event (public - for attendee portal)
+  app.get("/api/portal/:eventId/moments/live", async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+      const attendee = await getPortalAttendee(req, eventId);
+      if (!attendee) {
+        return res.status(401).json({ message: "Not authenticated or invalid event" });
+      }
+      
+      const moments = await storage.getLiveMoments(attendee.organizationId, eventId);
+      res.json(moments);
+    } catch (error) {
+      logError("Error fetching live moments:", error);
+      res.status(500).json({ message: "Failed to fetch live moments" });
+    }
+  });
+
+  // Get single moment with responses (admin)
+  app.get("/api/organizations/:orgId/moments/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orgId, id } = req.params;
+      
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === orgId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const moment = await storage.getMoment(orgId, id);
+      if (!moment) {
+        return res.status(404).json({ message: "Moment not found" });
+      }
+      
+      const responses = await storage.getMomentResponses(id);
+      res.json({ ...moment, responses });
+    } catch (error) {
+      logError("Error fetching moment:", error);
+      res.status(500).json({ message: "Failed to fetch moment" });
+    }
+  });
+
+  // Create a new moment (admin)
+  app.post("/api/organizations/:orgId/events/:eventId/moments", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orgId, eventId } = req.params;
+      
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === orgId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const event = await storage.getEvent(orgId, eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      const data = insertMomentSchema.parse({
+        ...req.body,
+        organizationId: orgId,
+        eventId,
+        createdBy: userId,
+      });
+      
+      const moment = await storage.createMoment(data);
+      res.status(201).json(moment);
+    } catch (error: any) {
+      logError("Error creating moment:", error);
+      res.status(400).json({ message: error.message || "Failed to create moment" });
+    }
+  });
+
+  // Update moment (admin)
+  app.patch("/api/organizations/:orgId/moments/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orgId, id } = req.params;
+      
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === orgId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const moment = await storage.updateMoment(orgId, id, req.body);
+      if (!moment) {
+        return res.status(404).json({ message: "Moment not found" });
+      }
+      res.json(moment);
+    } catch (error: any) {
+      logError("Error updating moment:", error);
+      res.status(400).json({ message: error.message || "Failed to update moment" });
+    }
+  });
+
+  // Delete moment (admin)
+  app.delete("/api/organizations/:orgId/moments/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orgId, id } = req.params;
+      
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === orgId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      await storage.deleteMoment(orgId, id);
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting moment:", error);
+      res.status(500).json({ message: "Failed to delete moment" });
+    }
+  });
+
+  // Submit moment response (attendee portal)
+  app.post("/api/portal/:eventId/moments/:momentId/responses", async (req: any, res) => {
+    try {
+      const { eventId, momentId } = req.params;
+      const attendee = await getPortalAttendee(req, eventId);
+      if (!attendee) {
+        return res.status(401).json({ message: "Not authenticated or invalid event" });
+      }
+      
+      // Check if moment is live
+      const moment = await storage.getMoment(attendee.organizationId, momentId);
+      if (!moment) {
+        return res.status(404).json({ message: "Moment not found" });
+      }
+      if (moment.status !== "live") {
+        return res.status(400).json({ message: "Moment is not currently active" });
+      }
+      
+      // Check if attendee already responded
+      const existingResponse = await storage.getAttendeeMomentResponse(momentId, attendee.id);
+      if (existingResponse) {
+        return res.status(400).json({ message: "You have already responded to this moment" });
+      }
+      
+      const data = insertMomentResponseSchema.parse({
+        momentId,
+        organizationId: attendee.organizationId,
+        eventId,
+        sessionId: moment.sessionId,
+        attendeeId: attendee.id,
+        payloadJson: req.body.payloadJson,
+        metadataJson: req.body.metadataJson,
+      });
+      
+      const response = await storage.createMomentResponse(data);
+      
+      // Update engagement signal for the attendee
+      const existingSignal = await storage.getAttendeeEngagementSignal(eventId, attendee.id);
+      const currentScore = existingSignal?.engagementScore || 0;
+      
+      await storage.upsertEngagementSignal({
+        organizationId: attendee.organizationId,
+        eventId,
+        sessionId: moment.sessionId,
+        attendeeId: attendee.id,
+        engaged: true,
+        engagementScore: currentScore + 1,
+        lastEngagedAt: new Date(),
+      });
+      
+      res.status(201).json(response);
+    } catch (error: any) {
+      logError("Error submitting moment response:", error);
+      res.status(400).json({ message: error.message || "Failed to submit response" });
+    }
+  });
+
+  // Get moment responses (admin)
+  app.get("/api/organizations/:orgId/moments/:id/responses", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orgId, id } = req.params;
+      
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === orgId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const moment = await storage.getMoment(orgId, id);
+      if (!moment) {
+        return res.status(404).json({ message: "Moment not found" });
+      }
+      
+      const responses = await storage.getMomentResponses(id);
+      res.json(responses);
+    } catch (error) {
+      logError("Error fetching moment responses:", error);
+      res.status(500).json({ message: "Failed to fetch responses" });
+    }
+  });
+
+  // Check if attendee has responded to a moment (attendee portal)
+  app.get("/api/portal/:eventId/moments/:momentId/my-response", async (req: any, res) => {
+    try {
+      const { eventId, momentId } = req.params;
+      const attendee = await getPortalAttendee(req, eventId);
+      if (!attendee) {
+        return res.status(401).json({ message: "Not authenticated or invalid event" });
+      }
+      
+      const response = await storage.getAttendeeMomentResponse(momentId, attendee.id);
+      res.json(response || null);
+    } catch (error) {
+      logError("Error fetching attendee moment response:", error);
+      res.status(500).json({ message: "Failed to fetch response" });
+    }
+  });
+
+  // Get engagement signals for an event (admin)
+  app.get("/api/organizations/:orgId/events/:eventId/engagement-signals", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orgId, eventId } = req.params;
+      
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === orgId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const signals = await storage.getEngagementSignals(orgId, eventId);
+      res.json(signals);
+    } catch (error) {
+      logError("Error fetching engagement signals:", error);
+      res.status(500).json({ message: "Failed to fetch engagement signals" });
     }
   });
 

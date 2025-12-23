@@ -60,6 +60,9 @@ import {
   marketingActivationLinks,
   marketingLinkClicks,
   eventTranslations,
+  moments,
+  momentResponses,
+  engagementSignals,
   type User,
   type UpsertUser,
   type Event,
@@ -221,6 +224,12 @@ import {
   type InsertEventFeedback,
   type FeedbackConfig,
   type InsertFeedbackConfig,
+  type Moment,
+  type InsertMoment,
+  type MomentResponse,
+  type InsertMomentResponse,
+  type EngagementSignal,
+  type InsertEngagementSignal,
 } from "@shared/schema";
 import crypto from "crypto";
 import { encrypt, decrypt } from "./encryption";
@@ -745,6 +754,25 @@ export interface IStorage {
   // Feedback Config operations
   getFeedbackConfig(eventId: string): Promise<FeedbackConfig | undefined>;
   upsertFeedbackConfig(data: InsertFeedbackConfig): Promise<FeedbackConfig>;
+
+  // Moments - Live engagement operations
+  getMoments(organizationId: string, eventId?: string): Promise<Moment[]>;
+  getMoment(organizationId: string, id: string): Promise<Moment | undefined>;
+  getMomentsBySession(organizationId: string, sessionId: string): Promise<Moment[]>;
+  getLiveMoments(organizationId: string, eventId: string): Promise<Moment[]>;
+  createMoment(data: InsertMoment): Promise<Moment>;
+  updateMoment(organizationId: string, id: string, updates: Partial<InsertMoment>): Promise<Moment | undefined>;
+  deleteMoment(organizationId: string, id: string): Promise<void>;
+
+  // Moment Responses
+  getMomentResponses(momentId: string): Promise<MomentResponse[]>;
+  getAttendeeMomentResponse(momentId: string, attendeeId: string): Promise<MomentResponse | undefined>;
+  createMomentResponse(data: InsertMomentResponse): Promise<MomentResponse>;
+
+  // Engagement Signals
+  getEngagementSignals(organizationId: string, eventId: string): Promise<EngagementSignal[]>;
+  getAttendeeEngagementSignal(eventId: string, attendeeId: string): Promise<EngagementSignal | undefined>;
+  upsertEngagementSignal(data: InsertEngagementSignal): Promise<EngagementSignal>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -4337,6 +4365,131 @@ export class DatabaseStorage implements IStorage {
           allowAnonymous: data.allowAnonymous,
           sessionFeedbackFields: data.sessionFeedbackFields as string[] | null | undefined,
           eventFeedbackFields: data.eventFeedbackFields as string[] | null | undefined,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return result;
+  }
+
+  // Moments - Live engagement operations
+  async getMoments(organizationId: string, eventId?: string): Promise<Moment[]> {
+    if (eventId) {
+      return db.select().from(moments)
+        .where(and(
+          eq(moments.organizationId, organizationId),
+          eq(moments.eventId, eventId)
+        ))
+        .orderBy(desc(moments.createdAt));
+    }
+    return db.select().from(moments)
+      .where(eq(moments.organizationId, organizationId))
+      .orderBy(desc(moments.createdAt));
+  }
+
+  async getMoment(organizationId: string, id: string): Promise<Moment | undefined> {
+    const [result] = await db.select().from(moments)
+      .where(and(
+        eq(moments.organizationId, organizationId),
+        eq(moments.id, id)
+      ));
+    return result;
+  }
+
+  async getMomentsBySession(organizationId: string, sessionId: string): Promise<Moment[]> {
+    return db.select().from(moments)
+      .where(and(
+        eq(moments.organizationId, organizationId),
+        eq(moments.sessionId, sessionId)
+      ))
+      .orderBy(desc(moments.createdAt));
+  }
+
+  async getLiveMoments(organizationId: string, eventId: string): Promise<Moment[]> {
+    return db.select().from(moments)
+      .where(and(
+        eq(moments.organizationId, organizationId),
+        eq(moments.eventId, eventId),
+        eq(moments.status, "live")
+      ))
+      .orderBy(desc(moments.createdAt));
+  }
+
+  async createMoment(data: InsertMoment): Promise<Moment> {
+    const [result] = await db.insert(moments).values(data).returning();
+    return result;
+  }
+
+  async updateMoment(organizationId: string, id: string, updates: Partial<InsertMoment>): Promise<Moment | undefined> {
+    const [result] = await db.update(moments)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(
+        eq(moments.organizationId, organizationId),
+        eq(moments.id, id)
+      ))
+      .returning();
+    return result;
+  }
+
+  async deleteMoment(organizationId: string, id: string): Promise<void> {
+    await db.delete(moments)
+      .where(and(
+        eq(moments.organizationId, organizationId),
+        eq(moments.id, id)
+      ));
+  }
+
+  // Moment Responses
+  async getMomentResponses(momentId: string): Promise<MomentResponse[]> {
+    return db.select().from(momentResponses)
+      .where(eq(momentResponses.momentId, momentId))
+      .orderBy(desc(momentResponses.createdAt));
+  }
+
+  async getAttendeeMomentResponse(momentId: string, attendeeId: string): Promise<MomentResponse | undefined> {
+    const [result] = await db.select().from(momentResponses)
+      .where(and(
+        eq(momentResponses.momentId, momentId),
+        eq(momentResponses.attendeeId, attendeeId)
+      ));
+    return result;
+  }
+
+  async createMomentResponse(data: InsertMomentResponse): Promise<MomentResponse> {
+    const [result] = await db.insert(momentResponses).values(data).returning();
+    return result;
+  }
+
+  // Engagement Signals
+  async getEngagementSignals(organizationId: string, eventId: string): Promise<EngagementSignal[]> {
+    return db.select().from(engagementSignals)
+      .where(and(
+        eq(engagementSignals.organizationId, organizationId),
+        eq(engagementSignals.eventId, eventId)
+      ))
+      .orderBy(desc(engagementSignals.updatedAt));
+  }
+
+  async getAttendeeEngagementSignal(eventId: string, attendeeId: string): Promise<EngagementSignal | undefined> {
+    const [result] = await db.select().from(engagementSignals)
+      .where(and(
+        eq(engagementSignals.eventId, eventId),
+        eq(engagementSignals.attendeeId, attendeeId)
+      ));
+    return result;
+  }
+
+  async upsertEngagementSignal(data: InsertEngagementSignal): Promise<EngagementSignal> {
+    const [result] = await db.insert(engagementSignals)
+      .values(data)
+      .onConflictDoUpdate({
+        target: [engagementSignals.eventId, engagementSignals.attendeeId],
+        set: {
+          engaged: data.engaged,
+          engagementScore: data.engagementScore,
+          highIntent: data.highIntent,
+          lastEngagedAt: data.lastEngagedAt,
+          signalSummaryJson: data.signalSummaryJson,
           updatedAt: new Date(),
         },
       })
