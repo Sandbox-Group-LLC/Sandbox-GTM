@@ -5129,6 +5129,80 @@ export async function registerRoutes(
     }
   });
 
+  // Sponsor portal file upload routes (token-based auth)
+  app.post("/api/sponsor-portal/assets/upload", async (req: any, res) => {
+    try {
+      const token = req.query.token as string;
+      if (!token) {
+        return res.status(400).json({ message: "Token is required" });
+      }
+      
+      const sponsor = await storage.getEventSponsorByToken(token);
+      if (!sponsor) {
+        return res.status(401).json({ message: "Invalid or expired token" });
+      }
+      
+      if (sponsor.portalTokenExpiresAt && new Date(sponsor.portalTokenExpiresAt) < new Date()) {
+        return res.status(401).json({ message: "Token has expired" });
+      }
+      
+      const uploadUrl = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadUrl });
+    } catch (error) {
+      logError("Error getting portal upload URL:", error);
+      res.status(500).json({ message: "Failed to get upload URL" });
+    }
+  });
+
+  app.post("/api/sponsor-portal/assets", async (req: any, res) => {
+    try {
+      const token = req.query.token as string;
+      if (!token) {
+        return res.status(400).json({ message: "Token is required" });
+      }
+      
+      const sponsor = await storage.getEventSponsorByToken(token);
+      if (!sponsor) {
+        return res.status(401).json({ message: "Invalid or expired token" });
+      }
+      
+      if (sponsor.portalTokenExpiresAt && new Date(sponsor.portalTokenExpiresAt) < new Date()) {
+        return res.status(401).json({ message: "Token has expired" });
+      }
+      
+      const { fileName, mimeType, byteSize, uploadUrl } = req.body;
+      
+      if (!fileName || !uploadUrl) {
+        return res.status(400).json({ message: "fileName and uploadUrl are required" });
+      }
+      
+      // Use the same method as the main content/assets route to normalize path and set ACL
+      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(uploadUrl, {
+        owner: `sponsor:${sponsor.id}`,
+        visibility: "public",
+      });
+      
+      // Construct public URL the same way as main route
+      const publicUrl = `${req.protocol}://${req.get("host")}${objectPath}`;
+      
+      // Create content asset record for the organization
+      const asset = await storage.createContentAsset({
+        organizationId: sponsor.organizationId,
+        fileName,
+        mimeType: mimeType || 'application/octet-stream',
+        byteSize: byteSize || 0,
+        objectPath,
+        publicUrl,
+        uploadedBy: `sponsor:${sponsor.id}`,
+      });
+      
+      res.status(201).json(asset);
+    } catch (error) {
+      logError("Error creating portal content asset:", error);
+      res.status(400).json({ message: "Failed to create content asset" });
+    }
+  });
+
   // Sponsor portal team members routes
   app.get("/api/sponsor-portal/team-members", async (req: any, res) => {
     try {

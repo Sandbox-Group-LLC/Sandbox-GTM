@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { ObjectUploader } from "@/components/ObjectUploader";
+import { PortalObjectUploader } from "@/components/PortalObjectUploader";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -270,7 +270,8 @@ function ProfileTab({ sponsor, token }: { sponsor: SponsorWithEvent; token: stri
                     </div>
                   )}
                   <div className="flex flex-col gap-2">
-                    <ObjectUploader
+                    <PortalObjectUploader
+                      token={token}
                       onComplete={(result) => form.setValue("logoUrl", result.uploadUrl)}
                       accept="image/*"
                       buttonText="Upload Logo"
@@ -527,7 +528,8 @@ function TaskCompletionForm({
                   </div>
                 )}
                 {!isLocked && (
-                  <ObjectUploader
+                  <PortalObjectUploader
+                    token={token}
                     onComplete={(result) => setFormData({ ...formData, logoUrl: result.uploadUrl })}
                     accept="image/*"
                     buttonText="Upload Logo"
