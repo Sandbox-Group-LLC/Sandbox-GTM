@@ -506,6 +506,10 @@ export default function SiteBuilder() {
     ? pages.find((p) => p.pageType === activeTab)
     : pages.find((p) => p.id === activeTab);
   const sections = (currentPage?.sections as Section[]) || [];
+  
+  // Get landing page theme for style inheritance
+  const landingPage = pages.find((p) => p.pageType === "landing");
+  const landingPageTheme = landingPage?.theme as EventPageTheme | undefined;
 
   useEffect(() => {
     // Skip sync while waiting for template data to be persisted
@@ -1130,6 +1134,8 @@ export default function SiteBuilder() {
                           seo={currentPage?.seo ?? undefined}
                           onUpdateSeo={handleUpdateSeo}
                           customFonts={customFonts}
+                          landingPageTheme={landingPageTheme}
+                          showInheritButton={currentPage?.pageType !== "landing"}
                         />
                       )}
                     </TabsContent>
@@ -1285,6 +1291,8 @@ export default function SiteBuilder() {
                           seo={currentPage?.seo ?? undefined}
                           onUpdateSeo={handleUpdateSeo}
                           customFonts={customFonts}
+                          landingPageTheme={landingPageTheme}
+                          showInheritButton={currentPage?.pageType !== "landing"}
                         />
                       )}
                     </TabsContent>
@@ -4872,6 +4880,8 @@ interface StylesEditorProps {
   seo?: { title?: string; description?: string; ogImage?: string };
   onUpdateSeo: (updates: { title?: string; description?: string; ogImage?: string }) => void;
   customFonts?: CustomFont[];
+  landingPageTheme?: EventPageTheme;
+  showInheritButton?: boolean;
 }
 
 // Debounced color input component to prevent saving on every keystroke
@@ -4964,9 +4974,10 @@ function DebouncedColorInput({
   );
 }
 
-function StylesEditor({ theme, onUpdateTheme, isPending, seo, onUpdateSeo, customFonts = [] }: StylesEditorProps) {
+function StylesEditor({ theme, onUpdateTheme, isPending, seo, onUpdateSeo, customFonts = [], landingPageTheme, showInheritButton }: StylesEditorProps) {
   const [localCss, setLocalCss] = useState(theme.customCss || "");
   const [cssHasChanges, setCssHasChanges] = useState(false);
+  const { toast } = useToast();
   
   // Sync local CSS when theme changes from external source (e.g., template applied)
   useEffect(() => {
@@ -4984,8 +4995,54 @@ function StylesEditor({ theme, onUpdateTheme, isPending, seo, onUpdateSeo, custo
     setCssHasChanges(false);
   };
   
+  const handleInheritStyles = () => {
+    if (!landingPageTheme) {
+      toast({ title: "No landing page styles", description: "Create a landing page first to inherit styles from it.", variant: "destructive" });
+      return;
+    }
+    // Copy all typography, colors, and layout settings from landing page
+    onUpdateTheme({
+      headingFont: landingPageTheme.headingFont,
+      bodyFont: landingPageTheme.bodyFont,
+      baseFontSize: landingPageTheme.baseFontSize,
+      primaryColor: landingPageTheme.primaryColor,
+      secondaryColor: landingPageTheme.secondaryColor,
+      backgroundColor: landingPageTheme.backgroundColor,
+      textColor: landingPageTheme.textColor,
+      textSecondaryColor: landingPageTheme.textSecondaryColor,
+      accentColor: landingPageTheme.accentColor,
+      borderColor: landingPageTheme.borderColor,
+      buttonRadius: landingPageTheme.buttonRadius,
+      cardRadius: landingPageTheme.cardRadius,
+      containerWidth: landingPageTheme.containerWidth,
+      pagePadding: landingPageTheme.pagePadding,
+      customCss: landingPageTheme.customCss,
+    });
+    setLocalCss(landingPageTheme.customCss || "");
+    setCssHasChanges(false);
+    toast({ title: "Styles inherited", description: "All typography, colors, and layout settings have been copied from the landing page." });
+  };
+  
   return (
     <div className="space-y-8">
+      {showInheritButton && (
+        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md border">
+          <div>
+            <p className="text-sm font-medium">Inherit from Landing Page</p>
+            <p className="text-xs text-muted-foreground">Copy all typography, colors, and layout settings</p>
+          </div>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleInheritStyles}
+            disabled={isPending || !landingPageTheme}
+            data-testid="button-inherit-styles"
+          >
+            <Copy className="h-4 w-4 mr-2" />
+            Inherit Styles
+          </Button>
+        </div>
+      )}
       <div className="space-y-4">
         <div className="flex items-center gap-2">
           <Type className="h-5 w-5 text-muted-foreground" />
