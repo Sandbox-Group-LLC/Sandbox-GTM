@@ -914,7 +914,7 @@ export default function SponsorTasks() {
 
       {/* Preview Dialog */}
       <Dialog open={!!previewData} onOpenChange={() => setPreviewData(null)}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Submission Preview</DialogTitle>
             <DialogDescription>
