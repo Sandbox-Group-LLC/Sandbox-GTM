@@ -4822,6 +4822,24 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Task completion not found" });
       }
       
+      // When a logo_upload task is approved, update the sponsor's logoUrl
+      if (updateData.status === "approved") {
+        try {
+          const task = await storage.getSponsorTask(organizationId, completion.taskId);
+          if (task && task.taskType === "logo_upload") {
+            const submittedData = completion.submittedData as Record<string, unknown> | undefined;
+            const logoUrl = submittedData?.logoUrl as string | undefined;
+            if (logoUrl) {
+              await storage.updateEventSponsor(organizationId, completion.sponsorId, { logoUrl });
+              logInfo(`Updated sponsor ${completion.sponsorId} logoUrl from approved task`, 'Sponsors');
+            }
+          }
+        } catch (logoError) {
+          logError("Error updating sponsor logo from approved task:", logoError);
+          // Don't fail the request if logo update fails
+        }
+      }
+      
       // Send rejection email if requested and status is rejected
       if (sendRejectionEmail && updateData.status === "rejected") {
         try {
