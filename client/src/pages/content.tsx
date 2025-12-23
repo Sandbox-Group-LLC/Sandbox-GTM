@@ -41,9 +41,9 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { titleCase } from "@/lib/utils";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Plus, FolderOpen, Search, FileText, Video, Image, Link as LinkIcon, File, ExternalLink, Copy, Trash2, ImageIcon } from "lucide-react";
+import { Plus, FolderOpen, Search, FileText, Video, Image, Link as LinkIcon, File, ExternalLink, Copy, Trash2, ImageIcon, Users, Award } from "lucide-react";
 import { ObjectUploader } from "@/components/ObjectUploader";
-import type { ContentItem, ContentAsset, EventSession } from "@shared/schema";
+import type { ContentItem, ContentAsset, EventSession, EventSponsor, SponsorTaskCompletion, Event } from "@shared/schema";
 import { EventSelectField } from "@/components/event-select-field";
 
 const contentFormSchema = z.object({
@@ -76,6 +76,22 @@ const typeColors: Record<string, "default" | "secondary" | "outline"> = {
   other: "outline",
 };
 
+// Sponsor tier ordering and display
+const tierOrder = ["platinum", "gold", "silver", "bronze", "partner", "other"];
+const tierColors: Record<string, string> = {
+  platinum: "bg-gradient-to-r from-slate-200 to-slate-400 text-slate-900",
+  gold: "bg-gradient-to-r from-yellow-300 to-yellow-500 text-yellow-900",
+  silver: "bg-gradient-to-r from-gray-300 to-gray-400 text-gray-900",
+  bronze: "bg-gradient-to-r from-amber-600 to-amber-700 text-white",
+  partner: "bg-blue-500 text-white",
+  other: "bg-muted text-muted-foreground",
+};
+
+interface SponsorWithLogo extends EventSponsor {
+  eventName?: string;
+  logoFromTask?: string;
+}
+
 export default function Content() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("catalog");
@@ -89,6 +105,61 @@ export default function Content() {
 
   const { data: contentAssets = [], isLoading: assetsLoading } = useQuery<ContentAsset[]>({
     queryKey: ["/api/content/assets"],
+  });
+
+  const { data: events = [] } = useQuery<Event[]>({
+    queryKey: ["/api/events"],
+  });
+
+  // Fetch all sponsors with their approved logo submissions
+  const { data: sponsorLogos = [], isLoading: logosLoading } = useQuery<SponsorWithLogo[]>({
+    queryKey: ["/api/sponsor-logos"],
+    queryFn: async () => {
+      // Get all sponsors first
+      const sponsorsRes = await fetch("/api/sponsors", { credentials: "include" });
+      if (!sponsorsRes.ok) return [];
+      const sponsors: EventSponsor[] = await sponsorsRes.json();
+      
+      // Get all events for names
+      const eventsRes = await fetch("/api/events", { credentials: "include" });
+      const eventsList: Event[] = eventsRes.ok ? await eventsRes.json() : [];
+      const eventMap = new Map(eventsList.map(e => [e.id, e.name]));
+      
+      // For each sponsor, check for approved logo task completions
+      const sponsorsWithLogos: SponsorWithLogo[] = [];
+      
+      for (const sponsor of sponsors) {
+        // Get task completions for this sponsor
+        const completionsRes = await fetch(`/api/events/${sponsor.eventId}/sponsor-task-completions`, { credentials: "include" });
+        let logoFromTask: string | undefined;
+        
+        if (completionsRes.ok) {
+          const completions: SponsorTaskCompletion[] = await completionsRes.json();
+          // Find approved logo_upload completions for this sponsor
+          const logoCompletion = completions.find(c => 
+            c.sponsorId === sponsor.id && 
+            c.status === "approved" && 
+            c.submittedData && 
+            typeof c.submittedData === 'object' && 
+            'logoUrl' in c.submittedData
+          );
+          if (logoCompletion?.submittedData) {
+            logoFromTask = (logoCompletion.submittedData as Record<string, unknown>).logoUrl as string;
+          }
+        }
+        
+        // Only include sponsors that have a logo (either from logoUrl or task completion)
+        if (sponsor.logoUrl || logoFromTask) {
+          sponsorsWithLogos.push({
+            ...sponsor,
+            eventName: eventMap.get(sponsor.eventId) || "Unknown Event",
+            logoFromTask,
+          });
+        }
+      }
+      
+      return sponsorsWithLogos;
+    },
   });
 
   const form = useForm<ContentFormData>({
@@ -288,6 +359,7 @@ export default function Content() {
             <TabsList data-testid="content-tabs">
               <TabsTrigger value="catalog" data-testid="tab-catalog">Content Catalog</TabsTrigger>
               <TabsTrigger value="media" data-testid="tab-media">Media Library</TabsTrigger>
+              <TabsTrigger value="sponsor-logos" data-testid="tab-sponsor-logos">Sponsor Logos</TabsTrigger>
             </TabsList>
 
             <TabsContent value="catalog" className="space-y-6">
@@ -651,6 +723,122 @@ export default function Content() {
                       </CardContent>
                     </Card>
                   ))}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="sponsor-logos" className="space-y-6">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-semibold">Sponsor Logos</h2>
+                  <p className="text-sm text-muted-foreground">
+                    All approved sponsor logos organized by sponsorship level
+                  </p>
+                </div>
+              </div>
+
+              {logosLoading ? (
+                <div className="space-y-8">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="space-y-4">
+                      <Skeleton className="h-6 w-32" />
+                      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                        {[...Array(4)].map((_, j) => (
+                          <Skeleton key={j} className="aspect-video" />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : sponsorLogos.length === 0 ? (
+                <EmptyState
+                  icon={Award}
+                  title="No sponsor logos yet"
+                  description="Sponsor logos will appear here once sponsors submit and get their logo uploads approved."
+                />
+              ) : (
+                <div className="space-y-8">
+                  {tierOrder
+                    .filter(tier => sponsorLogos.some(s => (s.tier || "other").toLowerCase() === tier))
+                    .map(tier => {
+                      const tierSponsors = sponsorLogos.filter(s => (s.tier || "other").toLowerCase() === tier);
+                      if (tierSponsors.length === 0) return null;
+                      
+                      return (
+                        <div key={tier} className="space-y-4">
+                          <div className="flex items-center gap-3">
+                            <Badge className={tierColors[tier] || tierColors.other}>
+                              {titleCase(tier)}
+                            </Badge>
+                            <span className="text-sm text-muted-foreground">
+                              {tierSponsors.length} sponsor{tierSponsors.length !== 1 ? "s" : ""}
+                            </span>
+                          </div>
+                          
+                          <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                            {tierSponsors.map((sponsor) => {
+                              const logoUrl = sponsor.logoFromTask || sponsor.logoUrl;
+                              return (
+                                <Card key={sponsor.id} className="overflow-hidden" data-testid={`card-sponsor-logo-${sponsor.id}`}>
+                                  <div className="aspect-video bg-white dark:bg-slate-900 p-4 flex items-center justify-center border-b">
+                                    {logoUrl ? (
+                                      <img
+                                        src={logoUrl}
+                                        alt={`${sponsor.name} logo`}
+                                        className="max-h-full max-w-full object-contain"
+                                        data-testid={`img-sponsor-logo-${sponsor.id}`}
+                                      />
+                                    ) : (
+                                      <ImageIcon className="h-12 w-12 text-muted-foreground" />
+                                    )}
+                                  </div>
+                                  <CardContent className="p-3 space-y-2">
+                                    <p className="text-sm font-medium truncate" title={sponsor.name}>
+                                      {sponsor.name}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground truncate">
+                                      {sponsor.eventName}
+                                    </p>
+                                    <div className="flex items-center gap-2">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="flex-1"
+                                        onClick={() => {
+                                          if (logoUrl) {
+                                            navigator.clipboard.writeText(logoUrl);
+                                            toast({
+                                              title: "Copied!",
+                                              description: "Logo URL copied to clipboard",
+                                            });
+                                          }
+                                        }}
+                                        disabled={!logoUrl}
+                                        data-testid={`button-copy-sponsor-logo-${sponsor.id}`}
+                                      >
+                                        <Copy className="h-3 w-3 mr-1" />
+                                        Copy URL
+                                      </Button>
+                                      {logoUrl && (
+                                        <Button
+                                          variant="outline"
+                                          size="icon"
+                                          asChild
+                                        >
+                                          <a href={logoUrl} target="_blank" rel="noopener noreferrer" data-testid={`link-sponsor-logo-${sponsor.id}`}>
+                                            <ExternalLink className="h-4 w-4" />
+                                          </a>
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </CardContent>
+                                </Card>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
                 </div>
               )}
             </TabsContent>
