@@ -18,7 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { titleCase } from "@/lib/utils";
-import { Target, Save } from "lucide-react";
+import { Target, Save, Info } from "lucide-react";
 import type { Event, AudienceTargeting } from "@shared/schema";
 import { DEFAULT_AUDIENCE_TARGETING } from "@shared/schema";
 
@@ -134,6 +134,13 @@ export default function AudienceTargeting() {
           <p className="text-muted-foreground text-sm">
             Define your ideal customer profile (ICP) to measure audience quality and match rate.
           </p>
+
+          <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-md text-sm">
+            <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+            <p className="text-muted-foreground">
+              These ICP factors are only tracked when the corresponding properties (company type, role, function) are captured in your registration form. Configure your registration fields in Acquisition to collect this data.
+            </p>
+          </div>
 
           {eventsLoading ? (
             <div className="space-y-4">
