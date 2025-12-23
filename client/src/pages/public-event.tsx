@@ -20,6 +20,7 @@ import { SessionFeedbackSection } from "@/components/sections/session-feedback-s
 import { EventFeedbackSection } from "@/components/sections/event-feedback-section";
 import { RecommendationsSection } from "@/components/sections/recommendations-section";
 import { AttendeeInterestsSection } from "@/components/sections/attendee-interests-section";
+import { LiveMomentsSection } from "@/components/sections/live-moments-section";
 import { BookmarkSessionButton } from "@/components/bookmark-session-button";
 
 export { sanitizeCustomCss };
@@ -2220,6 +2221,27 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
         <AttendeeInterestsSection
           eventId={event.id}
           heading={interestsHeading}
+          isPreview={isPreview}
+          theme={{
+            headingFont: theme?.headingFont,
+            textColor: styles?.textColor || theme?.textColor,
+            textSecondaryColor: theme?.textSecondaryColor,
+            cardBackground: styles?.backgroundColor || theme?.cardBackground,
+            borderRadius: theme?.borderRadius,
+            buttonColor: theme?.buttonColor,
+            buttonTextColor: theme?.buttonTextColor,
+          }}
+        />
+      );
+
+    case "live-moments":
+      const liveMomentsHeading = (config.heading as string) || "Live Moments";
+      const liveMomentsEmptyMessage = (config.emptyStateMessage as string) || "There are no live engagement moments right now. Check back soon!";
+      return wrapWithMargins(
+        <LiveMomentsSection
+          eventId={event.id}
+          heading={liveMomentsHeading}
+          emptyStateMessage={liveMomentsEmptyMessage}
           isPreview={isPreview}
           theme={{
             headingFont: theme?.headingFont,

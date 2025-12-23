@@ -95,6 +95,7 @@ import {
   Lightbulb,
   Heart,
   Copy,
+  Radio,
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Event, EventPage, EventPageTheme, EventSession, Speaker, EventSponsor, CustomFont } from "@shared/schema";
@@ -115,9 +116,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-type PageType = "landing" | "registration" | "portal" | "custom";
+type PageType = "landing" | "registration" | "portal" | "live" | "custom";
 
-type SectionType = "hero" | "text" | "cta" | "features" | "countdown" | "speakers" | "agenda" | "faq" | "testimonials" | "gallery" | "html" | "sponsors" | "map" | "video" | "footer" | "navigation" | "columns" | "columns-flex" | "layout-columns" | "registration-form" | "housing" | "attendee-profile" | "attendee-qrcode" | "personal-schedule" | "recommendations" | "attendee-interests" | "session-feedback" | "event-feedback";
+type SectionType = "hero" | "text" | "cta" | "features" | "countdown" | "speakers" | "agenda" | "faq" | "testimonials" | "gallery" | "html" | "sponsors" | "map" | "video" | "footer" | "navigation" | "columns" | "columns-flex" | "layout-columns" | "registration-form" | "housing" | "attendee-profile" | "attendee-qrcode" | "personal-schedule" | "recommendations" | "attendee-interests" | "session-feedback" | "event-feedback" | "live-moments";
 
 interface SingleCondition {
   property: string;
@@ -190,6 +191,7 @@ const CORE_PAGE_TYPES: { value: PageType; label: string; description: string }[]
   { value: "landing", label: "Landing Page", description: "Public event information page" },
   { value: "registration", label: "Registration", description: "Registration form and flow" },
   { value: "portal", label: "Attendee Portal", description: "Post-registration attendee area" },
+  { value: "live", label: "Live Experience", description: "Real-time engagement moments during sessions" },
 ];
 
 function generateSlug(name: string): string {
@@ -230,6 +232,7 @@ const SECTION_TYPES: { type: SectionType; label: string; icon: React.ComponentTy
   { type: "attendee-interests", label: "Attendee Interests", icon: Heart, description: "Let attendees set their preferences" },
   { type: "session-feedback", label: "Session Feedback", icon: Star, description: "Collect ratings and feedback on sessions" },
   { type: "event-feedback", label: "Event Feedback", icon: MessageSquare, description: "Collect overall event experience feedback" },
+  { type: "live-moments", label: "Live Moments", icon: Radio, description: "Real-time polls, Q&A, and engagement during sessions" },
 ];
 
 const GOOGLE_FONTS = [
@@ -429,6 +432,11 @@ const getDefaultConfig = (type: SectionType): Record<string, unknown> => {
         heading: "Share Your Experience",
         description: "We'd love to hear about your overall event experience.",
         successMessage: "Thank you for your feedback! Your input helps us improve future events.",
+      };
+    case "live-moments":
+      return {
+        heading: "Live Moments",
+        emptyStateMessage: "There are no live engagement moments right now. Check back soon!",
       };
     default:
       return {};
