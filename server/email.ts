@@ -916,3 +916,71 @@ export async function sendTeamInvitationEmail(params: {
     return { success: false, error: String(err) };
   }
 }
+
+// Send sponsor task rejection notification
+export async function sendSponsorTaskRejectionEmail(params: {
+  sponsorEmail: string;
+  sponsorName: string;
+  taskName: string;
+  eventName: string;
+  rejectionReason: string;
+  portalUrl?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const { sponsorEmail, sponsorName, taskName, eventName, rejectionReason, portalUrl } = params;
+  
+  if (!resend) {
+    logWarn('Resend not configured - skipping sponsor task rejection email', 'Email');
+    return { success: false, error: 'Email service not configured' };
+  }
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: sponsorEmail,
+      subject: `Action Required: Your submission for "${taskName}" needs revision`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #333; margin-bottom: 20px;">Submission Requires Revision</h2>
+          
+          <p style="color: #555; font-size: 16px; line-height: 1.6;">
+            Hello ${sponsorName},
+          </p>
+          
+          <p style="color: #555; font-size: 16px; line-height: 1.6;">
+            Your submission for <strong>"${taskName}"</strong> for the event <strong>${eventName}</strong> has been reviewed and requires some changes.
+          </p>
+          
+          <div style="background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 20px; margin: 20px 0;">
+            <h3 style="color: #856404; margin: 0 0 10px 0;">Feedback from the Reviewer:</h3>
+            <p style="color: #856404; margin: 0; white-space: pre-wrap;">${rejectionReason || 'No specific feedback provided. Please contact the event organizer for more details.'}</p>
+          </div>
+          
+          <p style="color: #555; font-size: 16px; line-height: 1.6;">
+            Please review the feedback above and update your submission accordingly.
+          </p>
+          
+          ${portalUrl ? `
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${portalUrl}" style="display: inline-block; background-color: #0066cc; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px;">Update Submission</a>
+          </div>
+          ` : ''}
+          
+          <p style="color: #999; font-size: 12px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+            If you have any questions about this feedback, please contact the event organizer directly.
+          </p>
+        </div>
+      `,
+    });
+
+    if (error) {
+      logError(`Failed to send sponsor task rejection email: ${error.message || 'Unknown error'}`, 'Email');
+      return { success: false, error: error.message || 'Unknown error' };
+    }
+
+    logInfo(`Sponsor task rejection email sent to ${sponsorEmail}: ${data?.id}`, 'Email');
+    return { success: true };
+  } catch (err) {
+    logError(`Error sending sponsor task rejection email: ${err}`, 'Email');
+    return { success: false, error: String(err) };
+  }
+}

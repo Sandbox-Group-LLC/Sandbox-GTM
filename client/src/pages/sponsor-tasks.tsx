@@ -80,6 +80,8 @@ import { Badge } from "@/components/ui/badge";
 import { EventSelectField } from "@/components/event-select-field";
 import { cn } from "@/lib/utils";
 import type { SponsorTask, Event, EventSponsor, SponsorTaskCompletion } from "@shared/schema";
+import { Loader2, Send } from "lucide-react";
+import { DialogFooter } from "@/components/ui/dialog";
 
 const taskFormSchema = z.object({
   eventId: z.string().min(1, "Event is required"),
@@ -135,6 +137,12 @@ export default function SponsorTasks() {
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
   const [imageMetadata, setImageMetadata] = useState<ImageMetadata | null>(null);
   const [loadingMetadata, setLoadingMetadata] = useState(false);
+  const [rejectingCompletion, setRejectingCompletion] = useState<{
+    completion: SponsorTaskCompletion;
+    task: SponsorTask;
+    sponsor: EventSponsor;
+  } | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
 
   const { data: events = [] } = useQuery<Event[]>({
     queryKey: ["/api/events"],
@@ -251,6 +259,33 @@ export default function SponsorTasks() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/events", selectedEventId, "sponsor-task-completions"] });
       toast({ title: "Status updated successfully" });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({ title: "Unauthorized", description: "You are logged out. Logging in again...", variant: "destructive" });
+        setTimeout(() => { window.location.href = "/api/login"; }, 500);
+        return;
+      }
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const rejectWithReasonMutation = useMutation({
+    mutationFn: async ({ id, reviewNotes, sendEmail }: { id: string; reviewNotes: string; sendEmail: boolean }) => {
+      return await apiRequest("PATCH", `/api/task-completions/${id}`, { 
+        status: "rejected", 
+        reviewNotes,
+        sendRejectionEmail: sendEmail 
+      });
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/events", selectedEventId, "sponsor-task-completions"] });
+      toast({ 
+        title: "Task rejected", 
+        description: variables.sendEmail ? "The sponsor has been notified via email." : "Task has been rejected." 
+      });
+      setRejectingCompletion(null);
+      setRejectReason("");
     },
     onError: (error: Error) => {
       if (isUnauthorizedError(error)) {
@@ -783,11 +818,10 @@ export default function SponsorTasks() {
                                               <Button
                                                 size="sm"
                                                 variant="ghost"
-                                                onClick={() => updateCompletionStatusMutation.mutate({ 
-                                                  id: completion.id, 
-                                                  status: "rejected" 
-                                                })}
-                                                disabled={updateCompletionStatusMutation.isPending}
+                                                onClick={() => {
+                                                  setRejectingCompletion({ completion, task, sponsor });
+                                                  setRejectReason("");
+                                                }}
                                                 data-testid={`button-reject-${sponsor.id}`}
                                               >
                                                 <X className="h-4 w-4 mr-1" />
@@ -1033,6 +1067,87 @@ export default function SponsorTasks() {
                 </div>
               </div>
             </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Rejection Dialog */}
+      <Dialog open={!!rejectingCompletion} onOpenChange={() => {
+        setRejectingCompletion(null);
+        setRejectReason("");
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject Submission</DialogTitle>
+            <DialogDescription>
+              Provide a reason for rejecting {rejectingCompletion?.sponsor.name}'s submission for "{rejectingCompletion?.task.name}".
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Rejection Reason</label>
+              <Textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Please provide feedback explaining why this submission was rejected and what changes are needed..."
+                className="mt-1 min-h-[120px]"
+                data-testid="input-reject-reason"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                This feedback will be shown to the sponsor and included in the notification email.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (rejectingCompletion) {
+                  rejectWithReasonMutation.mutate({
+                    id: rejectingCompletion.completion.id,
+                    reviewNotes: rejectReason,
+                    sendEmail: false,
+                  });
+                }
+              }}
+              disabled={rejectWithReasonMutation.isPending}
+              data-testid="button-reject-without-email"
+            >
+              {rejectWithReasonMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              ) : (
+                <X className="h-4 w-4 mr-1" />
+              )}
+              Reject Only
+            </Button>
+            <Button
+              onClick={() => {
+                if (rejectingCompletion) {
+                  rejectWithReasonMutation.mutate({
+                    id: rejectingCompletion.completion.id,
+                    reviewNotes: rejectReason,
+                    sendEmail: true,
+                  });
+                }
+              }}
+              disabled={rejectWithReasonMutation.isPending || !rejectingCompletion?.sponsor.contactEmail}
+              data-testid="button-reject-and-email"
+            >
+              {rejectWithReasonMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4 mr-1" />
+              )}
+              Reject & Send Email
+            </Button>
+          </DialogFooter>
+          
+          {rejectingCompletion && !rejectingCompletion.sponsor.contactEmail && (
+            <p className="text-xs text-muted-foreground text-center">
+              No contact email available for this sponsor. Email notification is not available.
+            </p>
           )}
         </DialogContent>
       </Dialog>

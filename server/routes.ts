@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { sendNewOrganizationAlert, sendCampaignEmails, sendTestEmail, validateTrackingToken, verifyResendWebhookSignature, isValidRedirectUrl, sendReviewerNotificationEmail, sendSubmissionAcceptanceEmail, sendTeamInvitationEmail, sendNewLeadNotification } from "./email";
+import { sendNewOrganizationAlert, sendCampaignEmails, sendTestEmail, validateTrackingToken, verifyResendWebhookSignature, isValidRedirectUrl, sendReviewerNotificationEmail, sendSubmissionAcceptanceEmail, sendTeamInvitationEmail, sendNewLeadNotification, sendSponsorTaskRejectionEmail } from "./email";
 import { createPaymentIntent, getPaymentIntent, calculateFinalPrice } from "./stripe";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
@@ -4815,10 +4815,50 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId, req.session);
-      const completion = await storage.updateSponsorTaskCompletion(organizationId, req.params.id, req.body);
+      const { sendRejectionEmail, ...updateData } = req.body;
+      
+      const completion = await storage.updateSponsorTaskCompletion(organizationId, req.params.id, updateData);
       if (!completion) {
         return res.status(404).json({ message: "Task completion not found" });
       }
+      
+      // Send rejection email if requested and status is rejected
+      if (sendRejectionEmail && updateData.status === "rejected") {
+        try {
+          // Get sponsor details
+          const sponsor = await storage.getEventSponsor(organizationId, completion.sponsorId);
+          if (sponsor && sponsor.contactEmail) {
+            // Get task details
+            const task = await storage.getSponsorTask(organizationId, completion.taskId);
+            // Get event details
+            const event = await storage.getEvent(organizationId, sponsor.eventId);
+            
+            if (task && event) {
+              // Build portal URL if sponsor has access token
+              let portalUrl: string | undefined;
+              if (sponsor.portalAccessToken) {
+                const forwardedProto = req.get('x-forwarded-proto');
+                const protocol = forwardedProto || req.protocol || 'https';
+                const host = req.get('host');
+                portalUrl = `${protocol}://${host}/sponsor-portal?token=${sponsor.portalAccessToken}`;
+              }
+              
+              await sendSponsorTaskRejectionEmail({
+                sponsorEmail: sponsor.contactEmail,
+                sponsorName: sponsor.name,
+                taskName: task.name,
+                eventName: event.name,
+                rejectionReason: updateData.reviewNotes || '',
+                portalUrl,
+              });
+            }
+          }
+        } catch (emailError) {
+          logError("Error sending rejection email (continuing anyway):", emailError);
+          // Don't fail the request if email fails - the rejection was still saved
+        }
+      }
+      
       res.json(completion);
     } catch (error) {
       logError("Error updating task completion:", error);
