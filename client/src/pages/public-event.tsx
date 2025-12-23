@@ -1534,7 +1534,6 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
       const galleryGridStyle: React.CSSProperties = isStretch 
         ? {} 
         : { 
-            gridTemplateColumns: `repeat(auto-fit, minmax(200px, max-content))`,
             justifyContent: galleryAlignment === "start" ? "start" : galleryAlignment === "end" ? "end" : "center",
           };
       return wrapWithMargins(
@@ -1542,27 +1541,29 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
           {heading && <h3 className="text-2xl font-semibold mb-6 text-center" style={headingStyles}>{heading}</h3>}
           {galleryImages.length > 0 ? (
             <div 
-              className={`grid gap-4 ${isStretch ? 'grid-cols-2 md:grid-cols-3' : ''}`} 
+              className={`flex flex-wrap gap-4 ${isStretch ? 'grid grid-cols-2 md:grid-cols-3' : ''}`} 
               style={galleryGridStyle}
             >
               {galleryImages.map((item, idx) => {
                 const hasCustomSize = item.width || item.height;
                 const imageWidth = item.width ? `${item.width}${item.widthUnit || 'px'}` : undefined;
                 const imageHeight = item.height ? `${item.height}${item.heightUnit || 'px'}` : undefined;
+                // For non-stretch without custom size, use a default width
+                const defaultWidth = !isStretch && !hasCustomSize ? '300px' : undefined;
                 
                 const imageContent = (
                   <div 
                     className={`relative bg-muted overflow-hidden ${hasCustomSize ? '' : 'aspect-video'} ${item.linkUrl ? 'cursor-pointer hover:opacity-90 transition-opacity' : ''}`}
                     style={{ 
                       borderRadius: themeRadius,
-                      ...(hasCustomSize ? { width: imageWidth || 'auto', height: imageHeight || 'auto' } : {})
+                      width: hasCustomSize ? (imageWidth || 'auto') : defaultWidth,
+                      height: hasCustomSize ? (imageHeight || 'auto') : undefined,
                     }}
                   >
                     <img 
                       src={item.url} 
                       alt={item.caption || `Gallery image ${idx + 1}`} 
-                      className={hasCustomSize ? 'object-contain' : 'w-full h-full object-cover'}
-                      style={hasCustomSize ? { width: imageWidth || '100%', height: imageHeight || 'auto' } : undefined}
+                      className="w-full h-full object-cover"
                     />
                     {item.caption && (
                       <div className="absolute bottom-0 left-0 right-0 bg-black/50 p-2">
