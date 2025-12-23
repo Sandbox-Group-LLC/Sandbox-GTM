@@ -5129,6 +5129,9 @@ export async function registerRoutes(
     }
   });
 
+  // Initialize object storage service for sponsor portal and content routes
+  const objectStorageService = new ObjectStorageService();
+
   // Sponsor portal file upload routes (token-based auth)
   app.post("/api/sponsor-portal/assets/upload", async (req: any, res) => {
     try {
@@ -9491,8 +9494,6 @@ ${urls.map(u => `  <url>
   });
 
   // Object Storage routes
-  const objectStorageService = new ObjectStorageService();
-
   // Serve uploaded objects (public access for email rendering)
   app.get("/objects/*", async (req, res) => {
     try {
