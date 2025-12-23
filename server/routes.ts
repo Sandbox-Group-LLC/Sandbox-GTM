@@ -5306,6 +5306,8 @@ export async function registerRoutes(
         objectPath,
         publicUrl,
         folder: "Sponsor Logos", // Categorize sponsor uploads
+        sponsorId: sponsor.id, // Link to the sponsor
+        sponsorTier: sponsor.tier || 'other', // Track sponsor tier (platinum, gold, silver, etc.)
         uploadedBy: null,
       });
       
