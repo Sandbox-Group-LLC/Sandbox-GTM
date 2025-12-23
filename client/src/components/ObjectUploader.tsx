@@ -80,6 +80,7 @@ export function ObjectUploader({
         data-testid="input-file-upload"
       />
       <Button
+        type="button"
         variant={buttonVariant}
         size="sm"
         onClick={() => fileInputRef.current?.click()}
