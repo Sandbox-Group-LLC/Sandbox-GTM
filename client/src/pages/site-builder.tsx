@@ -4530,6 +4530,200 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId, cus
             </div>
           </>
         );
+      case "live-moments":
+        return (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="heading">Section Heading</Label>
+              <Input
+                id="heading"
+                value={(config.heading as string) || ""}
+                onChange={(e) => updateConfig("heading", e.target.value)}
+                placeholder="Live Moments"
+                data-testid="input-live-moments-heading"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="emptyStateMessage">Empty State Message</Label>
+              <Textarea
+                id="emptyStateMessage"
+                value={(config.emptyStateMessage as string) || ""}
+                onChange={(e) => updateConfig("emptyStateMessage", e.target.value)}
+                placeholder="There are no live engagement moments right now. Check back soon!"
+                rows={2}
+                data-testid="textarea-live-moments-empty"
+              />
+              <p className="text-xs text-muted-foreground">
+                Shown when no moments are currently live
+              </p>
+            </div>
+            <div className="pt-4 border-t">
+              <h4 className="font-medium mb-3">Card Styling</h4>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="cardBackground">Card Background</Label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      id="cardBackground"
+                      value={(config.cardBackground as string) || "#ffffff"}
+                      onChange={(e) => updateConfig("cardBackground", e.target.value)}
+                      className="h-9 w-12 rounded border cursor-pointer"
+                      data-testid="input-card-background"
+                    />
+                    <Input
+                      value={(config.cardBackground as string) || ""}
+                      onChange={(e) => updateConfig("cardBackground", e.target.value || undefined)}
+                      placeholder="Default"
+                      className="flex-1 font-mono text-sm"
+                      data-testid="input-card-background-text"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Card Border Radius</Label>
+                  <Select
+                    value={(config.cardBorderRadius as string) || "medium"}
+                    onValueChange={(value) => updateConfig("cardBorderRadius", value)}
+                  >
+                    <SelectTrigger data-testid="select-card-border-radius">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      <SelectItem value="small">Small</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="large">Large</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="showCardBorder"
+                    checked={(config.showCardBorder as boolean) !== false}
+                    onCheckedChange={(checked) => updateConfig("showCardBorder", checked)}
+                    data-testid="switch-show-card-border"
+                  />
+                  <Label htmlFor="showCardBorder">Show Card Border</Label>
+                </div>
+              </div>
+            </div>
+            <div className="pt-4 border-t">
+              <h4 className="font-medium mb-3">Button Styling</h4>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="buttonColor">Button Background Color</Label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      id="buttonColor"
+                      value={(config.buttonColor as string) || "#3b82f6"}
+                      onChange={(e) => updateConfig("buttonColor", e.target.value)}
+                      className="h-9 w-12 rounded border cursor-pointer"
+                      data-testid="input-button-color"
+                    />
+                    <Input
+                      value={(config.buttonColor as string) || ""}
+                      onChange={(e) => updateConfig("buttonColor", e.target.value || undefined)}
+                      placeholder="Theme default"
+                      className="flex-1 font-mono text-sm"
+                      data-testid="input-button-color-text"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="buttonTextColor">Button Text Color</Label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      id="buttonTextColor"
+                      value={(config.buttonTextColor as string) || "#ffffff"}
+                      onChange={(e) => updateConfig("buttonTextColor", e.target.value)}
+                      className="h-9 w-12 rounded border cursor-pointer"
+                      data-testid="input-button-text-color"
+                    />
+                    <Input
+                      value={(config.buttonTextColor as string) || ""}
+                      onChange={(e) => updateConfig("buttonTextColor", e.target.value || undefined)}
+                      placeholder="Theme default"
+                      className="flex-1 font-mono text-sm"
+                      data-testid="input-button-text-color-text"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Button Border Radius</Label>
+                  <Select
+                    value={(config.buttonBorderRadius as string) || "medium"}
+                    onValueChange={(value) => updateConfig("buttonBorderRadius", value)}
+                  >
+                    <SelectTrigger data-testid="select-button-border-radius">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      <SelectItem value="small">Small</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="large">Large</SelectItem>
+                      <SelectItem value="pill">Pill</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+            <div className="pt-4 border-t">
+              <h4 className="font-medium mb-3">Text Styling</h4>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="textColor">Text Color</Label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      id="textColor"
+                      value={(config.textColor as string) || "#1f2937"}
+                      onChange={(e) => updateConfig("textColor", e.target.value)}
+                      className="h-9 w-12 rounded border cursor-pointer"
+                      data-testid="input-text-color"
+                    />
+                    <Input
+                      value={(config.textColor as string) || ""}
+                      onChange={(e) => updateConfig("textColor", e.target.value || undefined)}
+                      placeholder="Theme default"
+                      className="flex-1 font-mono text-sm"
+                      data-testid="input-text-color-text"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="textSecondaryColor">Secondary Text Color</Label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      id="textSecondaryColor"
+                      value={(config.textSecondaryColor as string) || "#6b7280"}
+                      onChange={(e) => updateConfig("textSecondaryColor", e.target.value)}
+                      className="h-9 w-12 rounded border cursor-pointer"
+                      data-testid="input-text-secondary-color"
+                    />
+                    <Input
+                      value={(config.textSecondaryColor as string) || ""}
+                      onChange={(e) => updateConfig("textSecondaryColor", e.target.value || undefined)}
+                      placeholder="Theme default"
+                      className="flex-1 font-mono text-sm"
+                      data-testid="input-text-secondary-color-text"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">Used for descriptions and labels</p>
+                </div>
+              </div>
+            </div>
+            <div className="p-4 bg-muted rounded-md">
+              <p className="text-sm text-muted-foreground">
+                Live Moments display real-time polls, Q&A, ratings, and other engagement activities. Create and manage moments from the Engagement &gt; Moments section.
+              </p>
+            </div>
+          </>
+        );
       default:
         return <p className="text-muted-foreground">No configuration available for this section type.</p>;
     }

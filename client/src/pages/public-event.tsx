@@ -2328,12 +2328,15 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
           isPreview={isPreview}
           theme={{
             headingFont: theme?.headingFont,
-            textColor: styles?.textColor || theme?.textColor,
-            textSecondaryColor: theme?.textSecondaryColor,
-            cardBackground: styles?.backgroundColor || theme?.cardBackground,
+            textColor: (config.textColor as string) || styles?.textColor || theme?.textColor,
+            textSecondaryColor: (config.textSecondaryColor as string) || theme?.textSecondaryColor,
+            cardBackground: (config.cardBackground as string) || styles?.backgroundColor || theme?.cardBackground,
+            cardBorderRadius: (config.cardBorderRadius as string) || theme?.borderRadius,
+            showCardBorder: config.showCardBorder !== false,
             borderRadius: theme?.borderRadius,
-            buttonColor: theme?.buttonColor,
-            buttonTextColor: theme?.buttonTextColor,
+            buttonColor: (config.buttonColor as string) || theme?.buttonColor,
+            buttonTextColor: (config.buttonTextColor as string) || theme?.buttonTextColor,
+            buttonBorderRadius: (config.buttonBorderRadius as string),
           }}
         />
       );

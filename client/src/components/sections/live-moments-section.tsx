@@ -54,8 +54,11 @@ interface ThemeProps {
   textSecondaryColor?: string;
   cardBackground?: string;
   borderRadius?: string;
+  cardBorderRadius?: string;
+  showCardBorder?: boolean;
   buttonColor?: string;
   buttonTextColor?: string;
+  buttonBorderRadius?: string;
 }
 
 interface LiveMomentsSectionProps {
@@ -409,14 +412,33 @@ function ResultsVisualization({ moment }: { moment: Moment & { results?: Record<
   return null;
 }
 
-function MomentCard({ moment, respondedMoments, onRespond, isSubmitting }: {
+function MomentCard({ moment, respondedMoments, onRespond, isSubmitting, theme }: {
   moment: Moment & { results?: Record<string, number> };
   respondedMoments: Set<string>;
   onRespond: (momentId: string, response: unknown) => void;
   isSubmitting: boolean;
+  theme?: ThemeProps;
 }) {
   const hasResponded = respondedMoments.has(moment.id);
   const showResults = moment.showResults && hasResponded;
+
+  const getBorderRadiusStyle = (radiusValue?: string): string => {
+    switch (radiusValue) {
+      case "none": return "0";
+      case "small": return "4px";
+      case "large": return "16px";
+      case "pill": return "9999px";
+      case "medium":
+      default: return "8px";
+    }
+  };
+
+  const cardStyle: React.CSSProperties = {
+    backgroundColor: theme?.cardBackground,
+    borderRadius: getBorderRadiusStyle(theme?.cardBorderRadius),
+    border: theme?.showCardBorder === false ? "none" : undefined,
+    color: theme?.textColor,
+  };
 
   const getMomentIcon = () => {
     switch (moment.type) {
@@ -486,15 +508,15 @@ function MomentCard({ moment, respondedMoments, onRespond, isSubmitting }: {
   };
 
   return (
-    <Card className="w-full" data-testid={`moment-card-${moment.id}`}>
+    <Card className="w-full" style={cardStyle} data-testid={`moment-card-${moment.id}`}>
       <CardHeader className="pb-3">
         <div className="flex items-center gap-2 flex-wrap">
           {getMomentIcon()}
           <Badge variant="secondary">{getMomentTypeLabel()}</Badge>
         </div>
-        <CardTitle className="text-lg">{moment.title}</CardTitle>
+        <CardTitle className="text-lg" style={{ color: theme?.textColor }}>{moment.title}</CardTitle>
         {moment.prompt && (
-          <p className="text-sm text-muted-foreground">{moment.prompt}</p>
+          <p className="text-sm" style={{ color: theme?.textSecondaryColor || "var(--muted-foreground)" }}>{moment.prompt}</p>
         )}
       </CardHeader>
       <CardContent>
@@ -665,6 +687,7 @@ export function LiveMomentsSection({
               respondedMoments={respondedMoments}
               onRespond={handleRespond}
               isSubmitting={submittingMomentId === moment.id}
+              theme={theme}
             />
           ))}
         </div>
