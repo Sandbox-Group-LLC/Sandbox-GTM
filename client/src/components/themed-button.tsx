@@ -30,6 +30,10 @@ const ThemedButton = forwardRef<HTMLButtonElement, ThemedButtonProps>(
     const themeRadius = borderRadiusMap[theme?.borderRadius || "medium"];
     const isOutlineButton = theme?.buttonStyle === "outline";
 
+    // For filled buttons, use a matching border color (either explicit buttonBorderColor or buttonColor)
+    // This prevents the default button border from showing through
+    const filledBorderColor = theme?.buttonBorderColor || theme?.buttonColor;
+    
     const buttonStyles: React.CSSProperties = isOutlineButton
       ? {
           backgroundColor: "transparent",
@@ -41,6 +45,7 @@ const ThemedButton = forwardRef<HTMLButtonElement, ThemedButtonProps>(
       : {
           backgroundColor: theme?.buttonColor || undefined,
           color: theme?.buttonTextColor || undefined,
+          borderColor: filledBorderColor || undefined,
           borderRadius: themeRadius,
           fontFamily: theme?.bodyFont ? `"${theme.bodyFont}", sans-serif` : undefined,
         };

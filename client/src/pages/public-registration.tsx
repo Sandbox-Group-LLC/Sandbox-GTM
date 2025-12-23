@@ -1444,7 +1444,8 @@ export default function PublicRegistration() {
                         style={{
                           backgroundColor: theme?.buttonStyle === "outline" ? "transparent" : (theme?.buttonColor || undefined),
                           color: theme?.buttonStyle === "outline" ? (theme?.buttonColor || undefined) : (theme?.buttonTextColor || undefined),
-                          border: theme?.buttonStyle === "outline" ? `2px solid ${theme?.buttonColor || DEFAULT_BUTTON_COLOR}` : undefined,
+                          border: theme?.buttonStyle === "outline" ? `2px solid ${theme?.buttonBorderColor || theme?.buttonColor || DEFAULT_BUTTON_COLOR}` : undefined,
+                          borderColor: theme?.buttonStyle !== "outline" ? (theme?.buttonBorderColor || theme?.buttonColor || undefined) : undefined,
                           borderRadius: theme?.borderRadius ? ({ none: "0px", small: "4px", medium: "8px", large: "16px", pill: "9999px" }[theme.borderRadius]) : undefined,
                         }}
                       >
@@ -1559,7 +1560,8 @@ export default function PublicRegistration() {
                           style={{
                             backgroundColor: theme?.buttonStyle === "outline" ? "transparent" : (theme?.buttonColor || undefined),
                             color: theme?.buttonStyle === "outline" ? (theme?.buttonColor || undefined) : (theme?.buttonTextColor || undefined),
-                            border: theme?.buttonStyle === "outline" ? `2px solid ${theme?.buttonColor || DEFAULT_BUTTON_COLOR}` : undefined,
+                            border: theme?.buttonStyle === "outline" ? `2px solid ${theme?.buttonBorderColor || theme?.buttonColor || DEFAULT_BUTTON_COLOR}` : undefined,
+                            borderColor: theme?.buttonStyle !== "outline" ? (theme?.buttonBorderColor || theme?.buttonColor || undefined) : undefined,
                             borderRadius: theme?.borderRadius ? ({ none: "0px", small: "4px", medium: "8px", large: "16px", pill: "9999px" }[theme.borderRadius]) : undefined,
                           }}
                         >
