@@ -23,6 +23,12 @@ import type { Moment, EventPageTheme } from "@shared/schema";
 const ATTENDEE_ID_KEY = "sandbox_attendee_id";
 const RESPONDED_MOMENTS_KEY = "sandbox_responded_moments";
 
+// Default theme values - must match Site Builder defaults
+const DEFAULT_TEXT_COLOR = "#1f2937";
+const DEFAULT_TEXT_SECONDARY_COLOR = "#6b7280";
+const DEFAULT_CARD_BACKGROUND = "#f9fafb";
+const DEFAULT_HEADING_FONT = "Inter";
+
 function getOrCreateAttendeeId(): string {
   let attendeeId = localStorage.getItem(ATTENDEE_ID_KEY);
   if (!attendeeId) {
@@ -434,10 +440,10 @@ function MomentCard({ moment, respondedMoments, onRespond, isSubmitting, theme }
   };
 
   const cardStyle: React.CSSProperties = {
-    backgroundColor: theme?.cardBackground,
+    backgroundColor: theme?.cardBackground || DEFAULT_CARD_BACKGROUND,
     borderRadius: getBorderRadiusStyle(theme?.cardBorderRadius),
     border: theme?.showCardBorder === false ? "none" : undefined,
-    color: theme?.textColor,
+    color: theme?.textColor || DEFAULT_TEXT_COLOR,
   };
 
   const getMomentIcon = () => {
@@ -514,9 +520,9 @@ function MomentCard({ moment, respondedMoments, onRespond, isSubmitting, theme }
           {getMomentIcon()}
           <Badge variant="secondary">{getMomentTypeLabel()}</Badge>
         </div>
-        <CardTitle className="text-lg" style={{ color: theme?.textColor }}>{moment.title}</CardTitle>
+        <CardTitle className="text-lg" style={{ color: theme?.textColor || DEFAULT_TEXT_COLOR }}>{moment.title}</CardTitle>
         {moment.prompt && (
-          <p className="text-sm" style={{ color: theme?.textSecondaryColor || "var(--muted-foreground)" }}>{moment.prompt}</p>
+          <p className="text-sm" style={{ color: theme?.textSecondaryColor || DEFAULT_TEXT_SECONDARY_COLOR }}>{moment.prompt}</p>
         )}
       </CardHeader>
       <CardContent>
@@ -616,13 +622,18 @@ export function LiveMomentsSection({
     respondMutation.mutate({ momentId, response });
   }, [respondedMoments, respondMutation, toast]);
 
+  const headingStyle: React.CSSProperties = {
+    fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : `"${DEFAULT_HEADING_FONT}", sans-serif`,
+    color: theme?.textColor || DEFAULT_TEXT_COLOR,
+  };
+
   if (isPreview) {
     return (
       <div className="space-y-4">
         {heading && (
           <h2
             className="text-2xl font-bold"
-            style={{ fontFamily: theme?.headingFont, color: theme?.textColor }}
+            style={headingStyle}
           >
             {heading}
           </h2>
@@ -643,7 +654,7 @@ export function LiveMomentsSection({
         {heading && (
           <h2
             className="text-2xl font-bold"
-            style={{ fontFamily: theme?.headingFont, color: theme?.textColor }}
+            style={headingStyle}
           >
             {heading}
           </h2>
@@ -666,7 +677,7 @@ export function LiveMomentsSection({
       {heading && (
         <h2
           className="text-2xl font-bold"
-          style={{ fontFamily: theme?.headingFont, color: theme?.textColor }}
+          style={headingStyle}
         >
           {heading}
         </h2>

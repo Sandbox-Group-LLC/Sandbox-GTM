@@ -2350,15 +2350,15 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
           emptyStateMessage={liveMomentsEmptyMessage}
           isPreview={isPreview}
           theme={{
-            headingFont: theme?.headingFont,
-            textColor: (config.textColor as string) || styles?.textColor || theme?.textColor,
-            textSecondaryColor: (config.textSecondaryColor as string) || theme?.textSecondaryColor,
-            cardBackground: (config.cardBackground as string) || styles?.backgroundColor || theme?.cardBackground,
-            cardBorderRadius: (config.cardBorderRadius as string) || theme?.borderRadius,
+            headingFont: theme?.headingFont || DEFAULT_HEADING_FONT,
+            textColor: (config.textColor as string) || styles?.textColor || theme?.textColor || DEFAULT_TEXT_COLOR,
+            textSecondaryColor: (config.textSecondaryColor as string) || theme?.textSecondaryColor || DEFAULT_TEXT_SECONDARY_COLOR,
+            cardBackground: (config.cardBackground as string) || styles?.backgroundColor || theme?.cardBackground || DEFAULT_CARD_BACKGROUND,
+            cardBorderRadius: (config.cardBorderRadius as string) || theme?.borderRadius || "medium",
             showCardBorder: config.showCardBorder !== false,
-            borderRadius: theme?.borderRadius,
-            buttonColor: (config.buttonColor as string) || theme?.buttonColor,
-            buttonTextColor: (config.buttonTextColor as string) || theme?.buttonTextColor,
+            borderRadius: theme?.borderRadius || "medium",
+            buttonColor: (config.buttonColor as string) || theme?.buttonColor || DEFAULT_BUTTON_COLOR,
+            buttonTextColor: (config.buttonTextColor as string) || theme?.buttonTextColor || DEFAULT_BUTTON_TEXT_COLOR,
             buttonBorderRadius: (config.buttonBorderRadius as string),
           }}
         />
