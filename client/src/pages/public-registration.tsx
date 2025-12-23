@@ -593,7 +593,8 @@ function PaymentForm({
           style={{
             backgroundColor: theme?.buttonStyle === "outline" ? "transparent" : (theme?.buttonColor || undefined),
             color: theme?.buttonStyle === "outline" ? (theme?.buttonColor || undefined) : (theme?.buttonTextColor || undefined),
-            border: theme?.buttonStyle === "outline" ? `2px solid ${theme?.buttonColor || DEFAULT_BUTTON_COLOR}` : undefined,
+            border: theme?.buttonStyle === "outline" ? `2px solid ${theme?.buttonBorderColor || theme?.buttonColor || DEFAULT_BUTTON_COLOR}` : undefined,
+            borderColor: theme?.buttonStyle !== "outline" ? (theme?.buttonBorderColor || theme?.buttonColor || undefined) : undefined,
           }}
         >
           {isProcessing ? (
