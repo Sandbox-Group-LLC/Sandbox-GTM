@@ -41,6 +41,7 @@ import {
   ImageIcon,
   Trash2,
   Send,
+  X,
 } from "lucide-react";
 import { SiLinkedin, SiX, SiFacebook, SiInstagram } from "react-icons/si";
 import type { EventSponsor, SponsorTask, SponsorTaskCompletion } from "@shared/schema";
@@ -494,17 +495,45 @@ function TaskCompletionForm({
         return (
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium">Logo URL</label>
-              <Input
-                value={formData.logoUrl || ""}
-                onChange={(e) => setFormData({ ...formData, logoUrl: e.target.value })}
-                placeholder="https://example.com/logo.png"
-                className="mt-1"
-                disabled={isSubmitted}
-                data-testid={`input-task-${task.id}-logo-url`}
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Provide a direct URL to your company logo
+              <label className="text-sm font-medium">Company Logo</label>
+              <div className="flex items-start gap-4 flex-wrap mt-2">
+                {formData.logoUrl ? (
+                  <div className="relative">
+                    <img
+                      src={formData.logoUrl}
+                      alt="Logo preview"
+                      className="h-20 w-auto max-w-40 object-contain border rounded-md p-2"
+                      data-testid={`img-task-${task.id}-logo-preview`}
+                    />
+                    {!isSubmitted && (
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="destructive"
+                        className="absolute -top-2 -right-2 h-6 w-6"
+                        onClick={() => setFormData({ ...formData, logoUrl: "" })}
+                        data-testid={`button-task-${task.id}-remove-logo`}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="h-20 w-20 border rounded-md flex items-center justify-center bg-muted">
+                    <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                )}
+                {!isSubmitted && (
+                  <ObjectUploader
+                    onComplete={(result) => setFormData({ ...formData, logoUrl: result.uploadUrl })}
+                    accept="image/*"
+                    buttonText="Upload Logo"
+                    buttonVariant="outline"
+                  />
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Upload your company logo (PNG, JPG, or SVG recommended)
               </p>
             </div>
           </div>
