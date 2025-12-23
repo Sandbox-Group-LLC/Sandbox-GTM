@@ -241,7 +241,7 @@ export default function AttendeeTypes() {
     <div className="flex flex-col h-full">
       <PageHeader
         title="Attendee Types"
-        breadcrumbs={[{ label: "Attendees", href: "/attendees" }, { label: "Attendee Types" }]}
+        breadcrumbs={[{ label: "Audience", href: "/attendees" }, { label: "Attendee Types" }]}
         actions={
           <div className="flex items-center gap-2">
             {groupedData.length > 0 && (

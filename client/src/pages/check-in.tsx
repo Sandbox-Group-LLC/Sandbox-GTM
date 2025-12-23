@@ -212,7 +212,7 @@ export default function CheckIn() {
             <CardContent>
               <Input
                 data-testid="input-search-attendee"
-                placeholder="Search attendee by name, email, or code..."
+                placeholder="Search audience member by name, email, or code..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="mb-4"

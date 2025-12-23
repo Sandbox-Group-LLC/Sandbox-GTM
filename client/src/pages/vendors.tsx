@@ -333,7 +333,7 @@ export default function Vendors() {
                     <tr className="border-b">
                       <th className="text-left py-3 px-2 font-medium text-sm">Vendor Name</th>
                       <th className="text-left py-3 px-2 font-medium text-sm">Category</th>
-                      <th className="text-left py-3 px-2 font-medium text-sm">Event</th>
+                      <th className="text-left py-3 px-2 font-medium text-sm">Program</th>
                       <th className="text-left py-3 px-2 font-medium text-sm">Cost</th>
                       <th className="text-left py-3 px-2 font-medium text-sm">Contract Status</th>
                       <th className="text-left py-3 px-2 font-medium text-sm">Approval Status</th>

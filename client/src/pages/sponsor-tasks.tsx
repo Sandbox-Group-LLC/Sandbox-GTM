@@ -421,7 +421,7 @@ export default function SponsorTasks() {
     <div className="flex flex-col h-full">
       <PageHeader
         title="Sponsor Tasks"
-        breadcrumbs={[{ label: "Events", href: "/events" }, { label: "Sponsor Tasks" }]}
+        breadcrumbs={[{ label: "Programs", href: "/events" }, { label: "Sponsor Tasks" }]}
         actions={
           <Dialog open={isDialogOpen} onOpenChange={(open) => open ? setIsDialogOpen(true) : handleDialogClose()}>
             <DialogTrigger asChild>

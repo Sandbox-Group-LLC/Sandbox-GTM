@@ -536,7 +536,7 @@ export default function ImportAttendees() {
       <PageHeader
         title="Import Attendees"
         breadcrumbs={[
-          { label: "Attendees", href: "/attendees" },
+          { label: "Audience", href: "/attendees" },
           { label: "Import" },
         ]}
         actions={
