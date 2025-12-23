@@ -5189,6 +5189,7 @@ export async function registerRoutes(
       const publicUrl = `${req.protocol}://${req.get("host")}${objectPath}`;
       
       // Create content asset record for the organization
+      // Note: uploadedBy is null for portal uploads since sponsors don't have user accounts
       const asset = await storage.createContentAsset({
         organizationId: sponsor.organizationId,
         fileName,
@@ -5196,7 +5197,7 @@ export async function registerRoutes(
         byteSize: byteSize || 0,
         objectPath,
         publicUrl,
-        uploadedBy: `sponsor:${sponsor.id}`,
+        uploadedBy: null,
       });
       
       res.status(201).json(asset);
