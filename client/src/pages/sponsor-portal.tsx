@@ -42,6 +42,7 @@ import {
   Trash2,
   Send,
   X,
+  FileText,
 } from "lucide-react";
 import { SiLinkedin, SiX, SiFacebook, SiInstagram } from "react-icons/si";
 import type { EventSponsor, SponsorTask, SponsorTaskCompletion } from "@shared/schema";
@@ -590,17 +591,59 @@ function TaskCompletionForm({
         return (
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium">Document URL</label>
-              <Input
-                value={formData.documentUrl || ""}
-                onChange={(e) => setFormData({ ...formData, documentUrl: e.target.value })}
-                placeholder="https://example.com/document.pdf"
-                className="mt-1"
-                disabled={isLocked}
-                data-testid={`input-task-${task.id}-document-url`}
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Provide a direct URL to your document
+              <label className="text-sm font-medium">Document</label>
+              <div className="flex items-start gap-4 flex-wrap mt-2">
+                {formData.documentUrl ? (
+                  <div className="relative flex items-center gap-2 border rounded-md p-3 bg-muted/50">
+                    <FileText className="h-8 w-8 text-muted-foreground" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate max-w-[200px]">
+                        {formData.documentName || "Document uploaded"}
+                      </p>
+                      <a
+                        href={formData.documentUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-primary hover:underline"
+                        data-testid={`link-task-${task.id}-document-view`}
+                      >
+                        View document
+                      </a>
+                    </div>
+                    {!isLocked && (
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="destructive"
+                        className="h-6 w-6 ml-2"
+                        onClick={() => setFormData({ ...formData, documentUrl: "", documentName: "" })}
+                        data-testid={`button-task-${task.id}-remove-document`}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="h-16 w-16 border rounded-md flex items-center justify-center bg-muted">
+                    <FileText className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                )}
+                {!isLocked && (
+                  <PortalObjectUploader
+                    token={token}
+                    onComplete={(result) => setFormData({ 
+                      ...formData, 
+                      documentUrl: result.uploadUrl,
+                      documentName: result.fileName || "Document"
+                    })}
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv"
+                    buttonText="Upload Document"
+                    buttonVariant="outline"
+                  />
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Upload your document (PDF, Word, Excel, PowerPoint, or text files)
               </p>
             </div>
           </div>
