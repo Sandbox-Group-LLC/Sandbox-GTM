@@ -225,7 +225,7 @@ import {
 import crypto from "crypto";
 import { encrypt, decrypt } from "./encryption";
 import { db } from "./db";
-import { eq, desc, and, ilike, or, isNull, sql, count, inArray, gt } from "drizzle-orm";
+import { eq, desc, and, ilike, or, isNull, isNotNull, sql, count, inArray, gt } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (MANDATORY for Replit Auth)
@@ -4142,6 +4142,38 @@ export class DatabaseStorage implements IStorage {
     };
     
     return { devices, browsers, countries, returningVisitors, botVsHuman };
+  }
+
+  // Get clicks that need backfilling (have userAgent but no parsed device data)
+  async getClicksNeedingBackfill(organizationId: string): Promise<ActivationLinkClick[]> {
+    // Get activation link IDs for this organization
+    const orgLinks = await db.select({ id: activationLinks.id })
+      .from(activationLinks)
+      .where(eq(activationLinks.organizationId, organizationId));
+    
+    const linkIds = orgLinks.map(l => l.id);
+    if (linkIds.length === 0) return [];
+    
+    // Get clicks that have userAgent but no deviceType populated
+    return db.select()
+      .from(activationLinkClicks)
+      .where(and(
+        inArray(activationLinkClicks.activationLinkId, linkIds),
+        isNotNull(activationLinkClicks.userAgent),
+        isNull(activationLinkClicks.deviceType)
+      ));
+  }
+
+  // Update a click with backfilled data
+  async updateActivationLinkClick(clickId: string, data: {
+    deviceType?: string | null;
+    browser?: string | null;
+    os?: string | null;
+    isBot?: boolean | null;
+  }): Promise<void> {
+    await db.update(activationLinkClicks)
+      .set(data)
+      .where(eq(activationLinkClicks.id, clickId));
   }
 
   // Attendee Saved Sessions operations (personal schedule)

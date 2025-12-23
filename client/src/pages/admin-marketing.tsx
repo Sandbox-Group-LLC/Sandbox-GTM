@@ -67,6 +67,7 @@ import {
   Globe,
   UserCheck,
   Bot,
+  RefreshCw,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -236,6 +237,28 @@ export default function AdminMarketing() {
       toast({
         title: "Error",
         description: error.message || "Failed to delete link",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Backfill mutation - parses stored user-agent strings to populate device/browser data
+  const backfillMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/activation-links/backfill");
+      return response.json();
+    },
+    onSuccess: (data: { message: string; updated: number }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/marketing-breakdowns"] });
+      toast({
+        title: "Data Updated",
+        description: data.message,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update analytics data",
         variant: "destructive",
       });
     },
@@ -711,8 +734,39 @@ export default function AdminMarketing() {
         const browserTotal = breakdowns.browsers?.reduce((a, b) => a + b.count, 0) || 0;
         const countryTotal = breakdowns.countries?.reduce((a, b) => a + b.count, 0) || 0;
         
+        // Check if there's significant "Unknown" data that might be backfillable
+        const unknownDeviceCount = breakdowns.devices?.find(d => d.type.toLowerCase() === 'unknown')?.count || 0;
+        const unknownBrowserCount = breakdowns.browsers?.find(b => b.browser.toLowerCase() === 'unknown')?.count || 0;
+        const hasUnknownData = (unknownDeviceCount > 0 && unknownDeviceCount === deviceTotal) || 
+                               (unknownBrowserCount > 0 && unknownBrowserCount === browserTotal);
+        
         return (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="space-y-4">
+            {hasUnknownData && (
+              <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-md">
+                <RefreshCw className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground flex-1">
+                  Some analytics data can be recovered from stored records.
+                </span>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => backfillMutation.mutate()}
+                  disabled={backfillMutation.isPending}
+                  data-testid="button-backfill-analytics"
+                >
+                  {backfillMutation.isPending ? (
+                    <>
+                      <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                      Updating...
+                    </>
+                  ) : (
+                    "Update Analytics"
+                  )}
+                </Button>
+              </div>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {breakdowns.devices && breakdowns.devices.length > 0 && (
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
@@ -835,6 +889,7 @@ export default function AdminMarketing() {
                 </CardContent>
               </Card>
             )}
+            </div>
           </div>
         );
       })()}

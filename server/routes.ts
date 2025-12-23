@@ -4416,6 +4416,48 @@ export async function registerRoutes(
     }
   });
 
+  // Backfill activation link clicks with device/browser data from stored user-agent strings
+  app.post("/api/activation-links/backfill", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      
+      // Get clicks that need backfilling
+      const clicksToBackfill = await storage.getClicksNeedingBackfill(organizationId);
+      
+      if (clicksToBackfill.length === 0) {
+        return res.json({ message: "No clicks need backfilling", updated: 0 });
+      }
+      
+      let updated = 0;
+      for (const click of clicksToBackfill) {
+        if (!click.userAgent) continue;
+        
+        // Parse the stored user-agent string
+        const uaInfo = parseUserAgent(click.userAgent);
+        const isBotVisitor = isBot(click.userAgent);
+        
+        // Update the click with parsed data
+        await storage.updateActivationLinkClick(click.id, {
+          deviceType: uaInfo.deviceType,
+          browser: uaInfo.browser,
+          os: uaInfo.os,
+          isBot: isBotVisitor,
+        });
+        updated++;
+      }
+      
+      res.json({ 
+        message: `Successfully backfilled ${updated} click records`, 
+        updated,
+        total: clicksToBackfill.length 
+      });
+    } catch (error) {
+      logError("Error backfilling activation link clicks:", error);
+      res.status(500).json({ message: "Failed to backfill click data" });
+    }
+  });
+
   // Public activation link tracking (no auth required)
   app.get("/api/public/track/:shortCode", async (req: any, res) => {
     try {
