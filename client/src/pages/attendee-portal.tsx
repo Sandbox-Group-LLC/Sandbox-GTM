@@ -612,7 +612,10 @@ export default function AttendeePortal() {
 
   // Set public page styling to prevent dark mode bleed-through and overscroll issues
   useEffect(() => {
-    const theme = portalPageData?.portalPage?.theme || portalPageData?.landingTheme;
+    // Merge portal theme with landing theme - portal overrides landing defaults
+    const theme = portalPageData?.portalPage?.theme 
+      ? { ...portalPageData?.landingTheme, ...portalPageData.portalPage.theme }
+      : portalPageData?.landingTheme;
     const bgColor = theme?.backgroundColor || '#ffffff';
     if (portalPageData) {
       document.documentElement.classList.add('public-page');
@@ -724,7 +727,10 @@ export default function AttendeePortal() {
 
   const { attendee, event, package: packageInfo } = data;
   const sections = (portalPageData?.portalPage?.sections as Section[]) || [];
-  const theme = portalPageData?.portalPage?.theme || portalPageData?.landingTheme;
+  // Merge portal theme with landing theme - portal overrides landing defaults
+  const theme = portalPageData?.portalPage?.theme 
+    ? { ...portalPageData?.landingTheme, ...portalPageData.portalPage.theme }
+    : portalPageData?.landingTheme;
   const themeStyles = getThemeStyles(theme);
   const fontsToLoad = [theme?.headingFont, theme?.bodyFont].filter(Boolean) as string[];
   const hasSections = sections.length > 0;

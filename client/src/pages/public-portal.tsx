@@ -140,7 +140,10 @@ export default function PublicPortal() {
 
   const { event, sessions, speakers, portalPage, landingTheme } = data;
   const sections = (portalPage?.sections as Section[]) || [];
-  const theme = portalPage?.theme || landingTheme;
+  // Merge portal theme with landing theme - portal overrides landing defaults
+  const theme = portalPage?.theme 
+    ? { ...landingTheme, ...portalPage.theme }
+    : landingTheme;
   const themeStyles = getThemeStyles(theme);
   const fontsToLoad = [theme?.headingFont, theme?.bodyFont].filter(Boolean) as string[];
 
