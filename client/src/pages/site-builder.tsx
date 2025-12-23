@@ -94,6 +94,7 @@ import {
   Bookmark,
   Lightbulb,
   Heart,
+  Copy,
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Event, EventPage, EventPageTheme, EventSession, Speaker, EventSponsor, CustomFont } from "@shared/schema";
