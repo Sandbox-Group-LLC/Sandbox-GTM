@@ -789,15 +789,6 @@ export default function AttendeePortal() {
         )}
 
         <main className="max-w-4xl mx-auto px-6 py-8">
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold mb-2" data-testid="text-welcome">
-              Welcome, {attendee.firstName}!
-            </h2>
-            <p className="text-muted-foreground">
-              Manage your registration and view your check-in code below.
-            </p>
-          </div>
-
           {hasSections ? (
             <div className="space-y-6">
               {sections
