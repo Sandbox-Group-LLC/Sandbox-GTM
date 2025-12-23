@@ -2373,7 +2373,7 @@ function AttendeeProfileSection({ config, section, theme, styles, wrapWithMargin
             variant="ghost" 
             size="sm" 
             onClick={() => setIsEditing(true)}
-            style={{ color: 'hsl(var(--foreground))' }}
+            style={headingStyles}
             data-testid="button-edit-profile"
           >
             <Edit className="w-4 h-4 mr-2" />
