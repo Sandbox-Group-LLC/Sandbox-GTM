@@ -9713,6 +9713,64 @@ ${urls.map(u => `  <url>
     }
   });
 
+  // Backfill sponsor metadata for existing content assets
+  // This links assets to sponsors based on sponsor task completions with logo_upload
+  app.post("/api/content/assets/backfill-sponsors", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      
+      // Get all sponsors for this organization
+      const allEvents = await storage.getEvents(organizationId);
+      let totalUpdated = 0;
+      
+      for (const event of allEvents) {
+        const sponsors = await storage.getEventSponsors(organizationId, event.id);
+        const tasks = await storage.getSponsorTasks(organizationId, event.id);
+        const logoUploadTasks = tasks.filter(t => t.taskType === 'logo_upload');
+        
+        for (const sponsor of sponsors) {
+          // Get all task completions for this sponsor
+          const completions = await storage.getSponsorTaskCompletions(organizationId, sponsor.id);
+          
+          // Filter to logo_upload task completions
+          for (const completion of completions) {
+            const isLogoUploadTask = logoUploadTasks.some(t => t.id === completion.taskId);
+            if (isLogoUploadTask) {
+              const submittedData = completion.submittedData as Record<string, unknown> | null;
+              if (submittedData?.logoUrl && typeof submittedData.logoUrl === 'string') {
+                // Find the content asset by URL and update it
+                const updated = await storage.updateContentAssetBySponsorUrl(
+                  organizationId,
+                  submittedData.logoUrl,
+                  sponsor.id,
+                  sponsor.tier || 'other'
+                );
+                if (updated) totalUpdated++;
+              }
+            }
+          }
+          
+          // Also check if sponsor has a logoUrl directly set
+          if (sponsor.logoUrl) {
+            const updated = await storage.updateContentAssetBySponsorUrl(
+              organizationId,
+              sponsor.logoUrl,
+              sponsor.id,
+              sponsor.tier || 'other'
+            );
+            if (updated) totalUpdated++;
+          }
+        }
+      }
+      
+      res.json({ message: `Backfill complete. Updated ${totalUpdated} assets.`, updatedCount: totalUpdated });
+    } catch (error) {
+      logError("Error backfilling sponsor assets:", error);
+      res.status(500).json({ message: "Failed to backfill sponsor assets" });
+    }
+  });
+
   // AI Content Generation endpoint
   app.post("/api/ai/generate-content", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {

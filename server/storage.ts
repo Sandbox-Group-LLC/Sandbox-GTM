@@ -547,6 +547,7 @@ export interface IStorage {
   getContentAssets(organizationId: string): Promise<ContentAsset[]>;
   getContentAsset(id: string, organizationId: string): Promise<ContentAsset | undefined>;
   deleteContentAsset(id: string, organizationId: string): Promise<void>;
+  updateContentAssetBySponsorUrl(organizationId: string, url: string, sponsorId: string, sponsorTier: string): Promise<boolean>;
 
   // CFP Config operations
   getCfpConfig(eventId: string, organizationId: string): Promise<CfpConfig | undefined>;
@@ -2624,6 +2625,22 @@ export class DatabaseStorage implements IStorage {
   async deleteContentAsset(id: string, organizationId: string): Promise<void> {
     await db.delete(contentAssets)
       .where(and(eq(contentAssets.id, id), eq(contentAssets.organizationId, organizationId)));
+  }
+
+  async updateContentAssetBySponsorUrl(organizationId: string, url: string, sponsorId: string, sponsorTier: string): Promise<boolean> {
+    const result = await db
+      .update(contentAssets)
+      .set({ 
+        folder: "Sponsor Logos", 
+        sponsorId, 
+        sponsorTier 
+      })
+      .where(and(
+        eq(contentAssets.organizationId, organizationId),
+        eq(contentAssets.publicUrl, url)
+      ))
+      .returning();
+    return result.length > 0;
   }
 
   // Budget Category operations
