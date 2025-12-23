@@ -5154,7 +5154,7 @@ export async function registerRoutes(
         jobTitle: jobTitle || null,
         company: sponsor.name,
         inviteCodeId: sponsor.baseInviteCodeId,
-        registrationStatus: "confirmed",
+        registrationStatus: "pending",
         checkInCode,
       };
       
