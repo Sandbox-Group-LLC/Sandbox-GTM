@@ -102,6 +102,8 @@ import { MergeTagPicker } from "@/components/merge-tag-picker";
 import { SectionRenderer, GoogleFontsLoader, getThemeStyles, scopeCustomCss, sanitizeCustomCss } from "@/pages/public-event";
 import { EventLocaleProvider } from "@/hooks/use-event-locale";
 import { eventTemplates, TEMPLATE_CATEGORIES, type EventTemplate, type TemplateCategory } from "@/lib/site-templates";
+import { MediaLibraryPicker } from "@/components/MediaLibraryPicker";
+import type { ContentAsset } from "@shared/schema";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -3247,14 +3249,28 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId, cus
                   </Button>
                 </div>
               ))}
-              <Button
-                variant="outline"
-                onClick={() => updateConfig("images", [...galleryImages, { url: "", caption: "" }])}
-                data-testid="button-add-image"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Image
-              </Button>
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  variant="outline"
+                  onClick={() => updateConfig("images", [...galleryImages, { url: "", caption: "" }])}
+                  data-testid="button-add-image"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Image
+                </Button>
+                <MediaLibraryPicker
+                  multiple
+                  buttonText="Browse Media Library"
+                  onSelectMultiple={(assets: ContentAsset[]) => {
+                    const newImages = assets.map((asset) => ({
+                      url: asset.publicUrl,
+                      caption: asset.fileName.replace(/\.[^/.]+$/, ""),
+                    }));
+                    updateConfig("images", [...galleryImages, ...newImages]);
+                  }}
+                  onSelect={() => {}}
+                />
+              </div>
             </div>
           </>
         );
