@@ -1074,6 +1074,8 @@ export const contentAssets = pgTable("content_assets", {
   objectPath: text("object_path").notNull(),
   publicUrl: text("public_url").notNull(),
   folder: varchar("folder", { length: 100 }), // Optional folder for organization (e.g., "Sponsor Logos")
+  sponsorId: varchar("sponsor_id").references(() => eventSponsors.id), // Link to sponsor for sponsor-uploaded assets
+  sponsorTier: varchar("sponsor_tier", { length: 50 }), // Sponsor tier (platinum, gold, silver, etc.)
   uploadedBy: varchar("uploaded_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
