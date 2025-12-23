@@ -25,7 +25,7 @@ import Emails from "@/pages/emails";
 import Social from "@/pages/social";
 import Settings from "@/pages/settings";
 import CheckIn from "@/pages/check-in";
-import PublicEvent, { PublicCustomPage } from "@/pages/public-event";
+import PublicEvent, { PublicCustomPage, PublicLivePage } from "@/pages/public-event";
 import PublicRegistration from "@/pages/public-registration";
 import PublicPortal from "@/pages/public-portal";
 import AttendeeLogin from "@/pages/attendee-login";
@@ -130,6 +130,7 @@ function Router() {
         <Route path="/event/:slug/portal" component={AttendeePortal} />
         <Route path="/event/:slug/login" component={AttendeeLogin} />
         <Route path="/event/:slug/cfp" component={PublicCfp} />
+        <Route path="/event/:slug/live" component={PublicLivePage} />
         <Route path="/event/:slug/page/:pageSlug" component={PublicCustomPage} />
         <Route path="/event/:slug" component={PublicEvent} />
         <Route path="/sponsor-portal" component={SponsorPortal} />
@@ -162,6 +163,7 @@ function Router() {
         <Route path="/event/:slug/portal" component={AttendeePortal} />
         <Route path="/event/:slug/login" component={AttendeeLogin} />
         <Route path="/event/:slug/cfp" component={PublicCfp} />
+        <Route path="/event/:slug/live" component={PublicLivePage} />
         <Route path="/event/:slug/page/:pageSlug" component={PublicCustomPage} />
         <Route path="/event/:slug" component={PublicEvent} />
         <Route path="/sponsor-portal" component={SponsorPortal} />

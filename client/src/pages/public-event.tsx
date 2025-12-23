@@ -562,6 +562,14 @@ interface PublicCustomPageData {
   organizationId: string;
 }
 
+// Live page data interface
+interface PublicLivePageData {
+  event: Event;
+  livePage: EventPage;
+  landingTheme: EventPageTheme | null;
+  organizationId: string;
+}
+
 // Public custom page component for /event/:slug/page/:pageSlug routes
 export function PublicCustomPage() {
   const { slug, pageSlug } = useParams<{ slug: string; pageSlug: string }>();
@@ -629,6 +637,81 @@ export function PublicCustomPage() {
             sessions={sessions}
             speakers={speakers}
             sponsors={sponsors}
+            theme={theme}
+          />
+        ))}
+      </div>
+    </EventLocaleProvider>
+  );
+}
+
+// Public live experience page component for /event/:slug/live routes
+export function PublicLivePage() {
+  const { slug } = useParams<{ slug: string }>();
+  
+  const { data, isLoading, error } = useQuery<PublicLivePageData>({
+    queryKey: ["/api/public/event", slug, "live"],
+    queryFn: async () => {
+      const res = await fetch(`/api/public/event/${slug}/live`);
+      if (!res.ok) throw new Error("Failed to fetch live page");
+      return res.json();
+    },
+    enabled: !!slug,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background p-6">
+        <div className="max-w-4xl mx-auto space-y-6">
+          <Skeleton className="h-48" />
+          <Skeleton className="h-96" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <Card className="max-w-md w-full">
+          <CardContent className="pt-6 text-center">
+            <AlertCircle className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+            <h2 className="text-xl font-semibold mb-2">Live Page Not Found</h2>
+            <p className="text-muted-foreground">This page doesn't exist or is not available for public viewing.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const { event, livePage } = data;
+  const sections = (livePage?.sections as Section[]) || [];
+  const theme = livePage?.theme as EventPageTheme | undefined;
+  const themeStyles = getThemeStyles(theme);
+  const fontsToLoad = [theme?.headingFont, theme?.bodyFont].filter(Boolean) as string[];
+
+  return (
+    <EventLocaleProvider event={event}>
+      <GoogleFontsLoader fonts={fontsToLoad} />
+      <CustomFontsLoader slug={slug || ''} />
+      {theme?.customCss && (
+        <style dangerouslySetInnerHTML={{ __html: scopeCustomCss(sanitizeCustomCss(theme.customCss)) }} />
+      )}
+      <div 
+        className="event-page-live min-h-screen overflow-y-auto"
+        style={{
+          ...themeStyles,
+          backgroundColor: theme?.backgroundColor || undefined,
+        }}
+      >
+        {sections.map((section) => (
+          <SectionRenderer 
+            key={section.id}
+            section={section}
+            event={event}
+            sessions={[]}
+            speakers={[]}
+            sponsors={[]}
             theme={theme}
           />
         ))}

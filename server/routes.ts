@@ -7325,6 +7325,51 @@ ${urls.map(u => `  <url>
     }
   });
 
+  // Public API endpoint for live experience page
+  app.get("/api/public/event/:slug/live", async (req: any, res) => {
+    try {
+      const { slug } = req.params;
+      logInfo(`[Public Live Page] Fetching live page for event ${slug}`);
+      
+      const event = await resolveEventBySlug(req, slug);
+      
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      if (!event.isPublic && event.status !== 'published') {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      const pages = await storage.getEventPages(event.organizationId, event.id);
+      const livePage = pages.find(p => p.pageType === "live" && p.isPublished);
+      
+      if (!livePage) {
+        return res.status(404).json({ message: "Live page not found" });
+      }
+      
+      // Get landing page theme as fallback
+      const landingPage = pages.find(p => p.pageType === "landing" && p.isPublished);
+      const landingTheme = landingPage?.theme || null;
+      
+      // Use live page theme or fall back to landing theme
+      const effectivePage = {
+        ...livePage,
+        theme: livePage.theme || landingTheme
+      };
+      
+      res.json({ 
+        event, 
+        livePage: effectivePage,
+        landingTheme,
+        organizationId: event.organizationId
+      });
+    } catch (error) {
+      logError("[Public Live Page] Error fetching live page:", error);
+      res.status(500).json({ message: "Failed to fetch live page" });
+    }
+  });
+
   app.get("/api/public/event/:slug/registration", async (req: any, res) => {
     try {
       const event = await resolveEventBySlug(req, req.params.slug);
