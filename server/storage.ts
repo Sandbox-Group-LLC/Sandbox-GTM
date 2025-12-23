@@ -774,6 +774,24 @@ export interface IStorage {
   getEngagementSignals(organizationId: string, eventId: string): Promise<EngagementSignal[]>;
   getAttendeeEngagementSignal(eventId: string, attendeeId: string): Promise<EngagementSignal | undefined>;
   upsertEngagementSignal(data: InsertEngagementSignal): Promise<EngagementSignal>;
+
+  // Moments Analytics
+  getMomentsAnalytics(organizationId: string, eventId?: string): Promise<MomentsAnalytics>;
+}
+
+// Types for Moments Analytics
+export interface MomentsAnalytics {
+  totalMoments: number;
+  momentsByStatus: { status: string; count: number }[];
+  totalResponses: number;
+  responsesByType: { type: string; count: number }[];
+  topRespondents: { attendeeId: string; name: string; email: string; responseCount: number }[];
+  averageRatings: { momentId: string; title: string; avgRating: number; responseCount: number }[];
+  pollResults: { momentId: string; title: string; options: { label: string; count: number; percentage: number }[] }[];
+  recentQASubmissions: { momentId: string; title: string; attendeeName: string; response: string; createdAt: Date }[];
+  liveVsEndedDistribution: { live: number; ended: number };
+  responseRate: number;
+  totalAttendeesWithAccess: number;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -4501,6 +4519,207 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return result;
+  }
+
+  // Moments Analytics
+  async getMomentsAnalytics(organizationId: string, eventId?: string): Promise<MomentsAnalytics> {
+    // Build base condition for filtering
+    const baseCondition = eventId 
+      ? and(eq(moments.organizationId, organizationId), eq(moments.eventId, eventId))
+      : eq(moments.organizationId, organizationId);
+
+    // Get all moments for this org/event
+    const allMoments = await db.select().from(moments).where(baseCondition);
+    
+    // Get total moments count
+    const totalMoments = allMoments.length;
+    
+    // Calculate moments by status
+    const statusCounts: Record<string, number> = {};
+    allMoments.forEach(m => {
+      statusCounts[m.status] = (statusCounts[m.status] || 0) + 1;
+    });
+    const momentsByStatus = Object.entries(statusCounts).map(([status, count]) => ({ status, count }));
+    
+    // Calculate live vs ended distribution
+    const liveCount = allMoments.filter(m => m.status === 'live').length;
+    const endedCount = allMoments.filter(m => m.status === 'ended' || m.status === 'locked').length;
+    
+    // Get all moment IDs for response queries
+    const momentIds = allMoments.map(m => m.id);
+    
+    if (momentIds.length === 0) {
+      return {
+        totalMoments: 0,
+        momentsByStatus: [],
+        totalResponses: 0,
+        responsesByType: [],
+        topRespondents: [],
+        averageRatings: [],
+        pollResults: [],
+        recentQASubmissions: [],
+        liveVsEndedDistribution: { live: 0, ended: 0 },
+        responseRate: 0,
+        totalAttendeesWithAccess: 0,
+      };
+    }
+    
+    // Get all responses for these moments
+    const allResponses = await db.select().from(momentResponses)
+      .where(inArray(momentResponses.momentId, momentIds));
+    
+    const totalResponses = allResponses.length;
+    
+    // Calculate responses by moment type
+    const typeCounts: Record<string, number> = {};
+    allResponses.forEach(r => {
+      const moment = allMoments.find(m => m.id === r.momentId);
+      if (moment) {
+        typeCounts[moment.type] = (typeCounts[moment.type] || 0) + 1;
+      }
+    });
+    const responsesByType = Object.entries(typeCounts).map(([type, count]) => ({ type, count }));
+    
+    // Calculate top respondents
+    const respondentCounts: Record<string, number> = {};
+    allResponses.forEach(r => {
+      respondentCounts[r.attendeeId] = (respondentCounts[r.attendeeId] || 0) + 1;
+    });
+    
+    const topRespondentIds = Object.entries(respondentCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([id, count]) => ({ id, count }));
+    
+    // Fetch attendee details for top respondents
+    const topRespondents: MomentsAnalytics['topRespondents'] = [];
+    for (const { id, count } of topRespondentIds) {
+      const [attendee] = await db.select().from(attendees).where(eq(attendees.id, id));
+      if (attendee) {
+        topRespondents.push({
+          attendeeId: id,
+          name: `${attendee.firstName || ''} ${attendee.lastName || ''}`.trim() || 'Unknown',
+          email: attendee.email,
+          responseCount: count,
+        });
+      }
+    }
+    
+    // Calculate average ratings for rating-type moments
+    const ratingMoments = allMoments.filter(m => m.type === 'rating');
+    const averageRatings: MomentsAnalytics['averageRatings'] = [];
+    
+    for (const moment of ratingMoments) {
+      const momentRespons = allResponses.filter(r => r.momentId === moment.id);
+      if (momentRespons.length > 0) {
+        let totalRating = 0;
+        let validCount = 0;
+        for (const r of momentRespons) {
+          const payload = r.payloadJson as any;
+          if (payload?.rating !== undefined) {
+            totalRating += Number(payload.rating);
+            validCount++;
+          }
+        }
+        if (validCount > 0) {
+          averageRatings.push({
+            momentId: moment.id,
+            title: moment.title,
+            avgRating: Math.round((totalRating / validCount) * 10) / 10,
+            responseCount: validCount,
+          });
+        }
+      }
+    }
+    
+    // Calculate poll results summary
+    const pollMoments = allMoments.filter(m => m.type === 'poll_single' || m.type === 'poll_multi');
+    const pollResults: MomentsAnalytics['pollResults'] = [];
+    
+    for (const moment of pollMoments) {
+      const momentRespons = allResponses.filter(r => r.momentId === moment.id);
+      const options = (moment.optionsJson as any)?.options || [];
+      
+      if (momentRespons.length > 0 && options.length > 0) {
+        const optionCounts: Record<string, number> = {};
+        options.forEach((opt: any) => {
+          optionCounts[opt.label || opt] = 0;
+        });
+        
+        for (const r of momentRespons) {
+          const payload = r.payloadJson as any;
+          const selected = payload?.selectedOption || payload?.selectedOptions || [];
+          const selections = Array.isArray(selected) ? selected : [selected];
+          selections.forEach((s: string) => {
+            if (optionCounts[s] !== undefined) {
+              optionCounts[s]++;
+            }
+          });
+        }
+        
+        const totalForPoll = momentRespons.length;
+        pollResults.push({
+          momentId: moment.id,
+          title: moment.title,
+          options: Object.entries(optionCounts).map(([label, count]) => ({
+            label,
+            count,
+            percentage: totalForPoll > 0 ? Math.round((count / totalForPoll) * 100) : 0,
+          })),
+        });
+      }
+    }
+    
+    // Get recent Q&A submissions
+    const qaMoments = allMoments.filter(m => m.type === 'qa' || m.type === 'open_text');
+    const qaResponses = allResponses
+      .filter(r => qaMoments.some(m => m.id === r.momentId))
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime())
+      .slice(0, 10);
+    
+    const recentQASubmissions: MomentsAnalytics['recentQASubmissions'] = [];
+    for (const r of qaResponses) {
+      const moment = qaMoments.find(m => m.id === r.momentId);
+      const [attendee] = await db.select().from(attendees).where(eq(attendees.id, r.attendeeId));
+      if (moment && attendee) {
+        const payload = r.payloadJson as any;
+        recentQASubmissions.push({
+          momentId: moment.id,
+          title: moment.title,
+          attendeeName: `${attendee.firstName || ''} ${attendee.lastName || ''}`.trim() || 'Unknown',
+          response: payload?.text || payload?.answer || JSON.stringify(payload),
+          createdAt: r.createdAt!,
+        });
+      }
+    }
+    
+    // Calculate total attendees with access and response rate
+    const eventCondition = eventId 
+      ? and(eq(attendees.organizationId, organizationId), eq(attendees.eventId, eventId))
+      : eq(attendees.organizationId, organizationId);
+    
+    const [attendeeCount] = await db.select({ count: count() }).from(attendees).where(eventCondition);
+    const totalAttendeesWithAccess = attendeeCount?.count || 0;
+    
+    // Response rate: unique respondents / total attendees
+    const uniqueRespondents = new Set(allResponses.map(r => r.attendeeId)).size;
+    const responseRate = totalAttendeesWithAccess > 0 
+      ? Math.round((uniqueRespondents / totalAttendeesWithAccess) * 100) 
+      : 0;
+    
+    return {
+      totalMoments,
+      momentsByStatus,
+      totalResponses,
+      responsesByType,
+      topRespondents,
+      averageRatings,
+      pollResults,
+      recentQASubmissions,
+      liveVsEndedDistribution: { live: liveCount, ended: endedCount },
+      responseRate,
+      totalAttendeesWithAccess,
+    };
   }
 }
 

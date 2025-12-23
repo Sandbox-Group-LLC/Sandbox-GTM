@@ -8406,6 +8406,27 @@ ${urls.map(u => `  <url>
   // Moments - Live Engagement Routes
   // ============================================
 
+  // Get moments analytics for an organization (optionally filtered by event)
+  app.get("/api/organizations/:orgId/moments/analytics", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orgId } = req.params;
+      const { eventId } = req.query;
+      
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === orgId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const analytics = await storage.getMomentsAnalytics(orgId, eventId as string | undefined);
+      res.json(analytics);
+    } catch (error) {
+      logError("Error fetching moments analytics:", error);
+      res.status(500).json({ message: "Failed to fetch moments analytics" });
+    }
+  });
+
   // Get all moments for an event (admin)
   app.get("/api/organizations/:orgId/events/:eventId/moments", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
