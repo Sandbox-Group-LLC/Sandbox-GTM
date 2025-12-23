@@ -5402,33 +5402,34 @@ function StylesEditor({ theme, onUpdateTheme, isPending, seo, onUpdateSeo, custo
       toast({ title: "No styles configured", description: "Configure styles on your landing page first, then inherit them here.", variant: "destructive" });
       return;
     }
-    // Copy all typography, colors, and layout settings from landing page
-    onUpdateTheme({
-      headingFont: landingPageTheme.headingFont,
-      bodyFont: landingPageTheme.bodyFont,
-      baseFontSize: landingPageTheme.baseFontSize,
-      primaryColor: landingPageTheme.primaryColor,
-      secondaryColor: landingPageTheme.secondaryColor,
-      backgroundColor: landingPageTheme.backgroundColor,
-      textColor: landingPageTheme.textColor,
-      textSecondaryColor: landingPageTheme.textSecondaryColor,
-      borderColor: landingPageTheme.borderColor,
-      buttonColor: landingPageTheme.buttonColor,
-      buttonTextColor: landingPageTheme.buttonTextColor,
-      buttonBorderColor: landingPageTheme.buttonBorderColor,
-      buttonStyle: landingPageTheme.buttonStyle,
-      borderRadius: landingPageTheme.borderRadius,
-      cardBackground: landingPageTheme.cardBackground,
-      containerWidth: landingPageTheme.containerWidth,
-      sectionSpacing: landingPageTheme.sectionSpacing,
-      pagePadding: landingPageTheme.pagePadding,
-      textDecoration: landingPageTheme.textDecoration,
-      customCss: landingPageTheme.customCss,
-      googleTagId: landingPageTheme.googleTagId,
-    });
-    setLocalCss(landingPageTheme.customCss || "");
+    // Copy only defined typography, colors, and layout settings from landing page
+    // This ensures we don't overwrite existing settings with undefined values
+    const styleProperties = [
+      'headingFont', 'bodyFont', 'baseFontSize', 'primaryColor', 'secondaryColor',
+      'backgroundColor', 'textColor', 'textSecondaryColor', 'borderColor',
+      'buttonColor', 'buttonTextColor', 'buttonBorderColor', 'buttonStyle',
+      'borderRadius', 'cardBackground', 'containerWidth', 'sectionSpacing',
+      'pagePadding', 'textDecoration', 'customCss', 'googleTagId'
+    ] as const;
+    
+    const inheritedTheme: Partial<EventPageTheme> = {};
+    for (const prop of styleProperties) {
+      if (landingPageTheme[prop] !== undefined && landingPageTheme[prop] !== null && landingPageTheme[prop] !== '') {
+        (inheritedTheme as any)[prop] = landingPageTheme[prop];
+      }
+    }
+    
+    if (Object.keys(inheritedTheme).length === 0) {
+      toast({ title: "No styles to inherit", description: "The landing page doesn't have any style settings configured.", variant: "destructive" });
+      return;
+    }
+    
+    onUpdateTheme(inheritedTheme);
+    if (landingPageTheme.customCss) {
+      setLocalCss(landingPageTheme.customCss);
+    }
     setCssHasChanges(false);
-    toast({ title: "Styles inherited", description: "All typography, colors, and layout settings have been copied from the landing page." });
+    toast({ title: "Styles inherited", description: "Typography, colors, and layout settings have been copied from the landing page." });
   };
   
   return (
