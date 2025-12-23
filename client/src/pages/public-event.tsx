@@ -206,6 +206,18 @@ export function GoogleAnalyticsLoader({ googleTagId }: { googleTagId?: string })
   return null;
 }
 
+// Default theme colors - these match the StylesEditor defaults for consistency
+export const DEFAULT_BUTTON_COLOR = "#3b82f6";
+export const DEFAULT_BUTTON_TEXT_COLOR = "#ffffff";
+export const DEFAULT_TEXT_COLOR = "#1f2937";
+export const DEFAULT_TEXT_SECONDARY_COLOR = "#6b7280";
+export const DEFAULT_CARD_BACKGROUND = "#f9fafb";
+export const DEFAULT_BACKGROUND_COLOR = "#ffffff";
+export const DEFAULT_HEADING_FONT = "Inter";
+export const DEFAULT_BODY_FONT = "Inter";
+export const DEFAULT_PRIMARY_COLOR = "#3b82f6";
+export const DEFAULT_SECONDARY_COLOR = "#64748b";
+
 export function getThemeStyles(theme: EventPageTheme | null | undefined): React.CSSProperties {
   if (!theme) return {};
   
@@ -231,19 +243,19 @@ export function getThemeStyles(theme: EventPageTheme | null | undefined): React.
   };
   
   return {
-    "--theme-primary-color": theme.primaryColor || "#3b82f6",
-    "--theme-secondary-color": theme.secondaryColor || "#64748b",
-    "--theme-background-color": theme.backgroundColor || "#ffffff",
-    "--theme-text-color": theme.textColor || "#1f2937",
-    "--theme-text-secondary-color": theme.textSecondaryColor || "#6b7280",
-    "--theme-button-color": theme.buttonColor || "#3b82f6",
-    "--theme-button-text-color": theme.buttonTextColor || "#ffffff",
-    "--theme-card-background": theme.cardBackground || "#f9fafb",
+    "--theme-primary-color": theme.primaryColor || DEFAULT_PRIMARY_COLOR,
+    "--theme-secondary-color": theme.secondaryColor || DEFAULT_SECONDARY_COLOR,
+    "--theme-background-color": theme.backgroundColor || DEFAULT_BACKGROUND_COLOR,
+    "--theme-text-color": theme.textColor || DEFAULT_TEXT_COLOR,
+    "--theme-text-secondary-color": theme.textSecondaryColor || DEFAULT_TEXT_SECONDARY_COLOR,
+    "--theme-button-color": theme.buttonColor || DEFAULT_BUTTON_COLOR,
+    "--theme-button-text-color": theme.buttonTextColor || DEFAULT_BUTTON_TEXT_COLOR,
+    "--theme-card-background": theme.cardBackground || DEFAULT_CARD_BACKGROUND,
     "--theme-border-radius": borderRadiusMap[theme.borderRadius || "medium"],
     "--theme-container-width": containerWidthMap[theme.containerWidth || "standard"],
     "--theme-section-spacing": sectionSpacingMap[theme.sectionSpacing || "normal"],
-    "--theme-heading-font": theme.headingFont || "Inter",
-    "--theme-body-font": theme.bodyFont || "Inter",
+    "--theme-heading-font": theme.headingFont || DEFAULT_HEADING_FONT,
+    "--theme-body-font": theme.bodyFont || DEFAULT_BODY_FONT,
   } as React.CSSProperties;
 }
 
@@ -626,7 +638,9 @@ export function PublicCustomPage() {
         className="event-page-custom min-h-screen overflow-y-auto"
         style={{
           ...themeStyles,
-          backgroundColor: theme?.backgroundColor || undefined,
+          backgroundColor: theme?.backgroundColor || DEFAULT_BACKGROUND_COLOR,
+          color: theme?.textColor || DEFAULT_TEXT_COLOR,
+          fontFamily: `"${theme?.bodyFont || DEFAULT_BODY_FONT}", sans-serif`,
         }}
       >
         {sections.map((section) => (
@@ -701,7 +715,9 @@ export function PublicLivePage() {
         className="event-page-live min-h-screen overflow-y-auto"
         style={{
           ...themeStyles,
-          backgroundColor: theme?.backgroundColor || undefined,
+          backgroundColor: theme?.backgroundColor || DEFAULT_BACKGROUND_COLOR,
+          color: theme?.textColor || DEFAULT_TEXT_COLOR,
+          fontFamily: `"${theme?.bodyFont || DEFAULT_BODY_FONT}", sans-serif`,
         }}
       >
         {sections.map((section) => (
@@ -750,6 +766,11 @@ function PublicEventContent({ data, slug, isSpoof, spoofAttendee, exitSpoofMode 
     const themeStyles = getThemeStyles(theme);
     const fontsToLoad = [theme?.headingFont, theme?.bodyFont].filter(Boolean) as string[];
     
+    // Use consistent defaults matching the StylesEditor defaults
+    const backgroundColor = theme?.backgroundColor || DEFAULT_BACKGROUND_COLOR;
+    const textColor = theme?.textColor || DEFAULT_TEXT_COLOR;
+    const bodyFont = theme?.bodyFont || DEFAULT_BODY_FONT;
+    
     return (
       <>
         <GoogleFontsLoader fonts={fontsToLoad} />
@@ -762,9 +783,9 @@ function PublicEventContent({ data, slug, isSpoof, spoofAttendee, exitSpoofMode 
           className="event-page-custom min-h-screen overflow-y-auto"
           style={{
             ...themeStyles,
-            backgroundColor: theme?.backgroundColor || undefined,
-            color: theme?.textColor || undefined,
-            fontFamily: theme?.bodyFont ? `"${theme.bodyFont}", sans-serif` : undefined,
+            backgroundColor,
+            color: textColor,
+            fontFamily: `"${bodyFont}", sans-serif`,
           }}
         >
           {(isSpoof && spoofAttendee) || supportedLanguages.length > 1 ? (
@@ -1118,20 +1139,18 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
   const themeRadius = borderRadiusMap[theme?.borderRadius || "medium"];
   const isOutlineButton = theme?.buttonStyle === "outline";
 
-  // Default colors match the StylesEditor defaults for consistency
-  const defaultButtonColor = "#3b82f6";
-  const defaultButtonTextColor = "#ffffff";
+  // Use module-level defaults for consistency with StylesEditor
 
   const buttonStyles: React.CSSProperties = isOutlineButton 
     ? {
         backgroundColor: "transparent",
-        color: theme?.buttonColor || defaultButtonColor,
-        border: `2px solid ${theme?.buttonBorderColor || theme?.buttonColor || defaultButtonColor}`,
+        color: theme?.buttonColor || DEFAULT_BUTTON_COLOR,
+        border: `2px solid ${theme?.buttonBorderColor || theme?.buttonColor || DEFAULT_BUTTON_COLOR}`,
         borderRadius: themeRadius,
       }
     : {
-        backgroundColor: theme?.buttonColor || defaultButtonColor,
-        color: theme?.buttonTextColor || defaultButtonTextColor,
+        backgroundColor: theme?.buttonColor || DEFAULT_BUTTON_COLOR,
+        color: theme?.buttonTextColor || DEFAULT_BUTTON_TEXT_COLOR,
         borderRadius: themeRadius,
         border: theme?.buttonBorderColor ? `2px solid ${theme.buttonBorderColor}` : undefined,
       };
@@ -1139,17 +1158,17 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
   // Card styles - section backgroundColor takes priority over theme cardBackground
   // This ensures section background styling only affects the card, not the container
   const cardStyles: React.CSSProperties = {
-    backgroundColor: styles?.backgroundColor || theme?.cardBackground || undefined,
+    backgroundColor: styles?.backgroundColor || theme?.cardBackground || DEFAULT_CARD_BACKGROUND,
     borderRadius: themeRadius,
   };
 
   const headingStyles: React.CSSProperties = {
-    fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined,
-    color: styles?.headingColor || styles?.textColor || theme?.textColor || undefined,
+    fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : `"${DEFAULT_HEADING_FONT}", sans-serif`,
+    color: styles?.headingColor || styles?.textColor || theme?.textColor || DEFAULT_TEXT_COLOR,
   };
 
   const secondaryTextStyles: React.CSSProperties = {
-    color: styles?.textColor || theme?.textSecondaryColor || undefined,
+    color: styles?.textColor || theme?.textSecondaryColor || DEFAULT_TEXT_SECONDARY_COLOR,
   };
 
   const renderButton = (text: string, link: string, testId: string) => {
@@ -1190,7 +1209,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
     case "hero":
       const eventDate = event.startDate ? new Date(event.startDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : "";
       // Section styles?.backgroundColor takes priority over config.cardBackgroundColor
-      const heroCardBgColor = styles?.backgroundColor || (config.cardBackgroundColor as string) || theme?.cardBackground || undefined;
+      const heroCardBgColor = styles?.backgroundColor || (config.cardBackgroundColor as string) || theme?.cardBackground || DEFAULT_CARD_BACKGROUND;
       const heroStyles: React.CSSProperties = {
         backgroundColor: heroCardBgColor,
         borderRadius: themeRadius,
@@ -1738,7 +1757,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
                       <img src={col.imageUrl} alt={col.heading} className="w-full h-40 object-cover rounded-md" />
                     )}
                     <div className="flex items-start gap-3">
-                      <div className="p-2 rounded-lg" style={{ backgroundColor: theme?.primaryColor || "#3b82f6" }}>
+                      <div className="p-2 rounded-lg" style={{ backgroundColor: theme?.primaryColor || DEFAULT_PRIMARY_COLOR }}>
                         <IconComponent className="h-5 w-5 text-white" />
                       </div>
                       <div className="flex-1 space-y-2">
@@ -1865,11 +1884,11 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
                   ? `p-4 border rounded-md flex flex-col items-center gap-2 ${styles?.gridJustify === 'center' ? "w-[calc(50%-0.5rem)] md:w-[calc(33.333%-0.75rem)] lg:w-[calc(25%-0.75rem)]" : ""}`
                   : `p-4 border rounded-md flex flex-col items-center gap-2 ${tierColors[sponsor.tier] || "bg-muted"} ${styles?.gridJustify === 'center' ? "w-[calc(50%-0.5rem)] md:w-[calc(33.333%-0.75rem)] lg:w-[calc(25%-0.75rem)]" : ""}`;
                 const cardStyle: React.CSSProperties = useSectionBgColor
-                  ? { borderRadius: themeRadius, backgroundColor: styles?.backgroundColor, color: styles?.textColor || undefined }
+                  ? { borderRadius: themeRadius, backgroundColor: styles?.backgroundColor, color: styles?.textColor || DEFAULT_TEXT_COLOR }
                   : useCustomColors
-                    ? { borderRadius: themeRadius, backgroundColor: customCardBg || '#f9fafb', color: customCardText || undefined }
+                    ? { borderRadius: themeRadius, backgroundColor: customCardBg || DEFAULT_CARD_BACKGROUND, color: customCardText || DEFAULT_TEXT_COLOR }
                     : useThemeColors 
-                      ? { borderRadius: themeRadius, backgroundColor: theme?.cardBackground || '#f9fafb', color: theme?.textColor || undefined }
+                      ? { borderRadius: themeRadius, backgroundColor: theme?.cardBackground || DEFAULT_CARD_BACKGROUND, color: theme?.textColor || DEFAULT_TEXT_COLOR }
                       : { borderRadius: themeRadius };
                 return (
                 <div 
@@ -1992,7 +2011,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
       return wrapWithMargins(
         <footer 
           className="w-full py-8 px-6 bg-muted/50 mt-auto"
-          style={{ backgroundColor: styles?.backgroundColor || theme?.cardBackground || undefined, borderRadius: themeRadius }}
+          style={{ backgroundColor: styles?.backgroundColor || theme?.cardBackground || DEFAULT_CARD_BACKGROUND, borderRadius: themeRadius }}
           data-testid={`section-footer-${section.id}`}
         >
           <div className="max-w-4xl mx-auto">
@@ -2081,13 +2100,13 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
       
       // Use theme colors with fallbacks based on style preference
       const navBgColor = styles?.backgroundColor || (
-        navStyle === "dark" ? (theme?.textColor || "#1f2937") :
+        navStyle === "dark" ? (theme?.textColor || DEFAULT_TEXT_COLOR) :
         navStyle === "transparent" ? "transparent" :
-        (theme?.backgroundColor || "#ffffff")
+        (theme?.backgroundColor || DEFAULT_BACKGROUND_COLOR)
       );
       const navTextColor = styles?.textColor || (
-        navStyle === "dark" ? (theme?.backgroundColor || "#ffffff") :
-        (theme?.textColor || "#1f2937")
+        navStyle === "dark" ? (theme?.backgroundColor || DEFAULT_BACKGROUND_COLOR) :
+        (theme?.textColor || DEFAULT_TEXT_COLOR)
       );
       
       return wrapWithMargins(
@@ -2130,10 +2149,10 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
       const regDescription = config.description as string || "";
       const showRegHeading = config.showHeading !== false;
       const previewInputStyles: React.CSSProperties = {
-        backgroundColor: theme?.backgroundColor || "#ffffff",
+        backgroundColor: theme?.backgroundColor || DEFAULT_BACKGROUND_COLOR,
         borderColor: theme?.borderColor || "#e5e7eb",
         borderRadius: themeRadius,
-        color: styles?.textColor || theme?.textColor || "#1f2937",
+        color: styles?.textColor || theme?.textColor || DEFAULT_TEXT_COLOR,
       };
       
       return wrapWithMargins(
@@ -2149,7 +2168,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium" style={{ color: styles?.textColor || theme?.textColor || "#1f2937" }}>
+                    <label className="text-sm font-medium" style={{ color: styles?.textColor || theme?.textColor || DEFAULT_TEXT_COLOR }}>
                       {t.firstName}<span className="text-destructive ml-1">*</span>
                     </label>
                     <input 
@@ -2161,7 +2180,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium" style={{ color: styles?.textColor || theme?.textColor || "#1f2937" }}>
+                    <label className="text-sm font-medium" style={{ color: styles?.textColor || theme?.textColor || DEFAULT_TEXT_COLOR }}>
                       {t.lastName}<span className="text-destructive ml-1">*</span>
                     </label>
                     <input 
@@ -2174,7 +2193,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium" style={{ color: styles?.textColor || theme?.textColor || "#1f2937" }}>
+                  <label className="text-sm font-medium" style={{ color: styles?.textColor || theme?.textColor || DEFAULT_TEXT_COLOR }}>
                     {t.email}<span className="text-destructive ml-1">*</span>
                   </label>
                   <input 
@@ -2186,7 +2205,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium" style={{ color: styles?.textColor || theme?.textColor || "#1f2937" }}>
+                  <label className="text-sm font-medium" style={{ color: styles?.textColor || theme?.textColor || DEFAULT_TEXT_COLOR }}>
                     {t.company}
                   </label>
                   <input 
@@ -2202,7 +2221,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
                     <a href={`/event/${event.publicSlug}/register`}>Continue to Registration</a>
                   </Button>
                 </div>
-                <p className="text-xs text-center" style={{ color: theme?.textSecondaryColor || "#6b7280" }}>
+                <p className="text-xs text-center" style={{ color: theme?.textSecondaryColor || DEFAULT_TEXT_SECONDARY_COLOR }}>
                   This is a preview. Click the button above to access the full registration form.
                 </p>
               </div>
@@ -2364,17 +2383,17 @@ function CountdownSection({ config, event, sectionId, theme, styles }: { config:
   const themeRadius = borderRadiusMap[theme?.borderRadius || "medium"];
 
   const headingStyles: React.CSSProperties = {
-    fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined,
-    color: styles?.headingColor || styles?.textColor || theme?.textColor || undefined,
+    fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : `"${DEFAULT_HEADING_FONT}", sans-serif`,
+    color: styles?.headingColor || styles?.textColor || theme?.textColor || DEFAULT_TEXT_COLOR,
   };
 
   const secondaryTextStyles: React.CSSProperties = {
-    color: styles?.textColor || theme?.textSecondaryColor || undefined,
+    color: styles?.textColor || theme?.textSecondaryColor || DEFAULT_TEXT_SECONDARY_COLOR,
   };
 
   // Section styles?.backgroundColor takes priority over theme cardBackground
   const cardStyles: React.CSSProperties = {
-    backgroundColor: styles?.backgroundColor || theme?.cardBackground || undefined,
+    backgroundColor: styles?.backgroundColor || theme?.cardBackground || DEFAULT_CARD_BACKGROUND,
     borderRadius: themeRadius,
   };
 
@@ -2456,24 +2475,24 @@ function HousingSection({ config, section, event, theme, styles, wrapWithMargins
   const themeRadius = borderRadiusMap[theme?.borderRadius || "medium"];
 
   const headingStyles: React.CSSProperties = {
-    fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined,
-    color: styles?.headingColor || styles?.textColor || theme?.textColor || undefined,
+    fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : `"${DEFAULT_HEADING_FONT}", sans-serif`,
+    color: styles?.headingColor || styles?.textColor || theme?.textColor || DEFAULT_TEXT_COLOR,
   };
 
   const secondaryTextStyles: React.CSSProperties = {
-    fontFamily: theme?.bodyFont ? `"${theme.bodyFont}", sans-serif` : undefined,
-    color: styles?.textColor || theme?.textSecondaryColor || undefined,
+    fontFamily: theme?.bodyFont ? `"${theme.bodyFont}", sans-serif` : `"${DEFAULT_BODY_FONT}", sans-serif`,
+    color: styles?.textColor || theme?.textSecondaryColor || DEFAULT_TEXT_SECONDARY_COLOR,
   };
 
   const buttonStyles: React.CSSProperties = {
-    backgroundColor: theme?.buttonColor || undefined,
-    color: theme?.buttonTextColor || undefined,
+    backgroundColor: theme?.buttonColor || DEFAULT_BUTTON_COLOR,
+    color: theme?.buttonTextColor || DEFAULT_BUTTON_TEXT_COLOR,
     borderRadius: themeRadius,
   };
 
   // Section styles?.backgroundColor takes priority over theme cardBackground
   const cardStyles: React.CSSProperties = {
-    backgroundColor: styles?.backgroundColor || theme?.cardBackground || undefined,
+    backgroundColor: styles?.backgroundColor || theme?.cardBackground || DEFAULT_CARD_BACKGROUND,
     borderRadius: themeRadius,
   };
 
@@ -2504,8 +2523,8 @@ function HousingSection({ config, section, event, theme, styles, wrapWithMargins
   return wrapWithMargins(
     <div className="text-center" data-testid={`section-housing-${section.id}`}>
       <div className="flex flex-col items-center gap-4">
-        <div className="p-3 rounded-full" style={{ backgroundColor: `${theme?.primaryColor || "#3b82f6"}20` }}>
-          <Hotel className="h-8 w-8" style={{ color: theme?.primaryColor || "#3b82f6" }} />
+        <div className="p-3 rounded-full" style={{ backgroundColor: `${theme?.primaryColor || DEFAULT_PRIMARY_COLOR}20` }}>
+          <Hotel className="h-8 w-8" style={{ color: theme?.primaryColor || DEFAULT_PRIMARY_COLOR }} />
         </div>
         {heading && <h3 className="text-2xl font-semibold" style={headingStyles}>{heading}</h3>}
         {description && <p className="max-w-2xl" style={secondaryTextStyles}>{description}</p>}
@@ -2547,31 +2566,31 @@ function AttendeeProfileSection({ config, section, theme, styles, wrapWithMargin
 
   // Section styles?.backgroundColor takes priority over theme cardBackground
   const cardStyles: React.CSSProperties = {
-    backgroundColor: styles?.backgroundColor || theme?.cardBackground || undefined,
+    backgroundColor: styles?.backgroundColor || theme?.cardBackground || DEFAULT_CARD_BACKGROUND,
     borderRadius: themeRadius,
   };
 
   const headingStyles: React.CSSProperties = {
-    fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined,
-    color: styles?.headingColor || styles?.textColor || theme?.textColor || undefined,
+    fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : `"${DEFAULT_HEADING_FONT}", sans-serif`,
+    color: styles?.headingColor || styles?.textColor || theme?.textColor || DEFAULT_TEXT_COLOR,
   };
 
   const secondaryTextStyles: React.CSSProperties = {
-    fontFamily: theme?.bodyFont ? `"${theme.bodyFont}", sans-serif` : undefined,
-    color: styles?.textColor || theme?.textSecondaryColor || undefined,
+    fontFamily: theme?.bodyFont ? `"${theme.bodyFont}", sans-serif` : `"${DEFAULT_BODY_FONT}", sans-serif`,
+    color: styles?.textColor || theme?.textSecondaryColor || DEFAULT_TEXT_SECONDARY_COLOR,
   };
 
   const isOutlineButton = theme?.buttonStyle === "outline";
   const buttonStyles: React.CSSProperties = isOutlineButton 
     ? {
         backgroundColor: "transparent",
-        color: theme?.buttonColor || "#3b82f6",
-        border: `2px solid ${theme?.buttonBorderColor || theme?.buttonColor || "#3b82f6"}`,
+        color: theme?.buttonColor || DEFAULT_BUTTON_COLOR,
+        border: `2px solid ${theme?.buttonBorderColor || theme?.buttonColor || DEFAULT_BUTTON_COLOR}`,
         borderRadius: themeRadius,
       }
     : {
-        backgroundColor: theme?.buttonColor || undefined,
-        color: theme?.buttonTextColor || undefined,
+        backgroundColor: theme?.buttonColor || DEFAULT_BUTTON_COLOR,
+        color: theme?.buttonTextColor || DEFAULT_BUTTON_TEXT_COLOR,
         borderRadius: themeRadius,
         border: theme?.buttonBorderColor ? `2px solid ${theme.buttonBorderColor}` : undefined,
       };
@@ -2758,18 +2777,18 @@ function AttendeeQRCodeSection({ config, section, theme, styles, wrapWithMargins
 
   // Section styles?.backgroundColor takes priority over theme cardBackground
   const cardStyles: React.CSSProperties = {
-    backgroundColor: styles?.backgroundColor || theme?.cardBackground || undefined,
+    backgroundColor: styles?.backgroundColor || theme?.cardBackground || DEFAULT_CARD_BACKGROUND,
     borderRadius: themeRadius,
   };
 
   const headingStyles: React.CSSProperties = {
-    fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined,
-    color: styles?.headingColor || styles?.textColor || theme?.textColor || undefined,
+    fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : `"${DEFAULT_HEADING_FONT}", sans-serif`,
+    color: styles?.headingColor || styles?.textColor || theme?.textColor || DEFAULT_TEXT_COLOR,
   };
 
   const secondaryTextStyles: React.CSSProperties = {
-    fontFamily: theme?.bodyFont ? `"${theme.bodyFont}", sans-serif` : undefined,
-    color: styles?.textColor || theme?.textSecondaryColor || undefined,
+    fontFamily: theme?.bodyFont ? `"${theme.bodyFont}", sans-serif` : `"${DEFAULT_BODY_FONT}", sans-serif`,
+    color: styles?.textColor || theme?.textSecondaryColor || DEFAULT_TEXT_SECONDARY_COLOR,
   };
 
   if (!attendeeContext?.attendee) {
