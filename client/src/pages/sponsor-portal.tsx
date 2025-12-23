@@ -470,8 +470,11 @@ function TaskCompletionForm({
     },
   });
 
-  const isSubmitted = completion?.status === "submitted" || completion?.status === "approved";
+  // Only lock editing when approved - allow resubmission when status is "submitted" (pending review or unapproved)
+  const isApproved = completion?.status === "approved";
+  const isSubmitted = completion?.status === "submitted";
   const isRejected = completion?.status === "rejected";
+  const isLocked = isApproved; // Can only edit when not approved
 
   const renderFormFields = () => {
     switch (task.taskType) {
@@ -485,7 +488,7 @@ function TaskCompletionForm({
                 onChange={(e) => setFormData({ ...formData, companyInfo: e.target.value })}
                 placeholder="Enter your company information..."
                 className="mt-1"
-                disabled={isSubmitted}
+                disabled={isLocked}
                 data-testid={`input-task-${task.id}-company-info`}
               />
             </div>
@@ -505,7 +508,7 @@ function TaskCompletionForm({
                       className="h-20 w-auto max-w-40 object-contain border rounded-md p-2"
                       data-testid={`img-task-${task.id}-logo-preview`}
                     />
-                    {!isSubmitted && (
+                    {!isLocked && (
                       <Button
                         type="button"
                         size="icon"
@@ -523,7 +526,7 @@ function TaskCompletionForm({
                     <ImageIcon className="h-6 w-6 text-muted-foreground" />
                   </div>
                 )}
-                {!isSubmitted && (
+                {!isLocked && (
                   <ObjectUploader
                     onComplete={(result) => setFormData({ ...formData, logoUrl: result.uploadUrl })}
                     accept="image/*"
@@ -548,7 +551,7 @@ function TaskCompletionForm({
                 onChange={(e) => setFormData({ ...formData, linkedin: e.target.value })}
                 placeholder="https://linkedin.com/company/..."
                 className="mt-1"
-                disabled={isSubmitted}
+                disabled={isLocked}
                 data-testid={`input-task-${task.id}-linkedin`}
               />
             </div>
@@ -559,7 +562,7 @@ function TaskCompletionForm({
                 onChange={(e) => setFormData({ ...formData, twitter: e.target.value })}
                 placeholder="https://x.com/..."
                 className="mt-1"
-                disabled={isSubmitted}
+                disabled={isLocked}
                 data-testid={`input-task-${task.id}-twitter`}
               />
             </div>
@@ -575,7 +578,7 @@ function TaskCompletionForm({
                 onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
                 placeholder="Write a brief description of your company..."
                 className="mt-1 min-h-[150px]"
-                disabled={isSubmitted}
+                disabled={isLocked}
                 data-testid={`input-task-${task.id}-bio`}
               />
             </div>
@@ -591,7 +594,7 @@ function TaskCompletionForm({
                 onChange={(e) => setFormData({ ...formData, documentUrl: e.target.value })}
                 placeholder="https://example.com/document.pdf"
                 className="mt-1"
-                disabled={isSubmitted}
+                disabled={isLocked}
                 data-testid={`input-task-${task.id}-document-url`}
               />
               <p className="text-xs text-muted-foreground mt-1">
@@ -613,7 +616,7 @@ function TaskCompletionForm({
                   onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
                   placeholder={`Enter ${field.replace(/_/g, " ")}...`}
                   className="mt-1"
-                  disabled={isSubmitted}
+                  disabled={isLocked}
                   data-testid={`input-task-${task.id}-${field}`}
                 />
               </div>
@@ -634,7 +637,7 @@ function TaskCompletionForm({
         </div>
       )}
 
-      {!isSubmitted && (
+      {!isLocked && (
         <Button
           onClick={() => submitMutation.mutate()}
           disabled={submitMutation.isPending}
@@ -647,6 +650,8 @@ function TaskCompletionForm({
             </>
           ) : isRejected ? (
             "Resubmit"
+          ) : isSubmitted ? (
+            "Update Submission"
           ) : (
             "Submit"
           )}
