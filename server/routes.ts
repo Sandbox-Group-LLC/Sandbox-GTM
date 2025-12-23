@@ -8467,6 +8467,68 @@ ${urls.map(u => `  <url>
     }
   });
 
+  // Update moment (admin - simplified route)
+  app.patch("/api/moments/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      
+      // Get all user's organizations and find the moment
+      const members = await storage.getUserOrganizations(userId);
+      let moment = null;
+      let orgId = null;
+      
+      for (const membership of members) {
+        moment = await storage.getMoment(membership.organizationId, id);
+        if (moment) {
+          orgId = membership.organizationId;
+          break;
+        }
+      }
+      
+      if (!moment || !orgId) {
+        return res.status(404).json({ message: "Moment not found" });
+      }
+      
+      const updated = await storage.updateMoment(orgId, id, req.body);
+      res.json(updated);
+    } catch (error: any) {
+      logError("Error updating moment:", error);
+      res.status(400).json({ message: error.message || "Failed to update moment" });
+    }
+  });
+
+  // Delete moment (admin - simplified route)
+  app.delete("/api/moments/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      
+      // Get all user's organizations and find the moment
+      const members = await storage.getUserOrganizations(userId);
+      let moment = null;
+      let orgId = null;
+      
+      for (const membership of members) {
+        moment = await storage.getMoment(membership.organizationId, id);
+        if (moment) {
+          orgId = membership.organizationId;
+          break;
+        }
+      }
+      
+      if (!moment || !orgId) {
+        return res.status(404).json({ message: "Moment not found" });
+      }
+      
+      await storage.deleteMoment(orgId, id);
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting moment:", error);
+      res.status(500).json({ message: "Failed to delete moment" });
+    }
+  });
+
   // Get moments analytics for an organization (optionally filtered by event)
   app.get("/api/organizations/:orgId/moments/analytics", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
