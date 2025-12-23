@@ -4621,6 +4621,25 @@ export async function registerRoutes(
     }
   });
 
+  // Get all sponsors across all events (for content management)
+  app.get("/api/sponsors", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      // Get all events first, then get sponsors for each
+      const events = await storage.getEvents(organizationId);
+      const allSponsors: any[] = [];
+      for (const event of events) {
+        const sponsors = await storage.getEventSponsors(organizationId, event.id);
+        allSponsors.push(...sponsors);
+      }
+      res.json(allSponsors);
+    } catch (error) {
+      logError("Error fetching all sponsors:", error);
+      res.status(500).json({ message: "Failed to fetch sponsors" });
+    }
+  });
+
   // Event Sponsor routes
   app.get("/api/events/:eventId/sponsors", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
