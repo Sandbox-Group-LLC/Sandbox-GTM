@@ -229,7 +229,7 @@ export default function SponsorTasks() {
 
   const updateCompletionStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      return await apiRequest("PATCH", `/api/sponsor-task-completions/${id}`, { status });
+      return await apiRequest("PATCH", `/api/task-completions/${id}`, { status });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/events", selectedEventId, "sponsor-task-completions"] });
