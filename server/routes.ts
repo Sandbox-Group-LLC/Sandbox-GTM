@@ -396,6 +396,132 @@ export function registerPublicTrackingRoute(app: Express) {
       res.status(500).json({ message: "Failed to process link" });
     }
   });
+
+  // ============================================
+  // Public Portal Moments - Anonymous Participation
+  // ============================================
+
+  // Get live moments for an event (public - no auth required)
+  app.get("/api/portal/:eventId/moments", async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+      
+      // Find the event by ID
+      const event = await storage.getEventById(eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      // Get live moments for this event
+      const moments = await storage.getLiveMoments(event.organizationId, eventId);
+      
+      // For each moment, calculate aggregated results if showResults is true
+      const momentsWithResults = await Promise.all(moments.map(async (moment) => {
+        if (!moment.showResults) {
+          return moment;
+        }
+        
+        // Get all responses and aggregate
+        const responses = await storage.getMomentResponses(moment.id);
+        const results: Record<string, number> = {};
+        
+        responses.forEach((response) => {
+          const payload = response.payloadJson as Record<string, any>;
+          
+          if (moment.type === "poll_single" && payload.selectedOption) {
+            results[payload.selectedOption] = (results[payload.selectedOption] || 0) + 1;
+          } else if (moment.type === "poll_multi" && Array.isArray(payload.selectedOptions)) {
+            payload.selectedOptions.forEach((opt: string) => {
+              results[opt] = (results[opt] || 0) + 1;
+            });
+          } else if (moment.type === "rating" && typeof payload.rating === "number") {
+            results[String(payload.rating)] = (results[String(payload.rating)] || 0) + 1;
+          } else if (moment.type === "pulse" && payload.pulse) {
+            results[payload.pulse] = (results[payload.pulse] || 0) + 1;
+          }
+        });
+        
+        return { ...moment, results };
+      }));
+      
+      res.json(momentsWithResults);
+    } catch (error) {
+      logError("Error fetching public moments:", error);
+      res.status(500).json({ message: "Failed to fetch moments" });
+    }
+  });
+
+  // Submit moment response (public - anonymous participation)
+  app.post("/api/portal/:eventId/moments/:momentId/respond", async (req: any, res) => {
+    try {
+      const { eventId, momentId } = req.params;
+      const { attendeeId, response } = req.body;
+      
+      if (!attendeeId || !response) {
+        return res.status(400).json({ message: "attendeeId and response are required" });
+      }
+      
+      // Find the event by ID
+      const event = await storage.getEventById(eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      // Check if moment is live
+      const moment = await storage.getMoment(event.organizationId, momentId);
+      if (!moment) {
+        return res.status(404).json({ message: "Moment not found" });
+      }
+      if (moment.status !== "live") {
+        return res.status(400).json({ message: "Moment is not currently active" });
+      }
+      
+      // Check if this anonymous attendeeId already responded (stored in metadata)
+      const existingResponses = await storage.getMomentResponses(momentId);
+      const alreadyResponded = existingResponses.some((r) => {
+        const meta = r.metadataJson as Record<string, any> | null;
+        return meta?.anonymousId === attendeeId;
+      });
+      
+      if (alreadyResponded) {
+        return res.status(400).json({ message: "You have already responded to this moment" });
+      }
+      
+      // Find or create an anonymous attendee record (use a placeholder for anonymous users)
+      let attendee = await storage.getAttendeeByEmail(event.organizationId, `${attendeeId}@anonymous.local`);
+      
+      if (!attendee) {
+        // Create a temporary anonymous attendee record
+        attendee = await storage.createAttendee({
+          organizationId: event.organizationId,
+          eventId,
+          email: `${attendeeId}@anonymous.local`,
+          firstName: "Anonymous",
+          lastName: "Participant",
+          registrationStatus: "anonymous",
+        });
+      }
+      
+      // Create the response
+      const momentResponse = await storage.createMomentResponse({
+        momentId,
+        organizationId: event.organizationId,
+        eventId,
+        sessionId: moment.sessionId,
+        attendeeId: attendee.id,
+        payloadJson: response,
+        metadataJson: { 
+          anonymousId: attendeeId,
+          userAgent: req.headers["user-agent"] || "",
+        },
+      });
+      
+      res.status(201).json(momentResponse);
+    } catch (error: any) {
+      logError("Error submitting public moment response:", error);
+      res.status(400).json({ message: error.message || "Failed to submit response" });
+    }
+  });
 }
 
 export async function registerRoutes(

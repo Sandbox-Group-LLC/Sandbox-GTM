@@ -70,6 +70,8 @@ import AcceptInvitation from "@/pages/accept-invitation";
 import Pricing from "@/pages/pricing";
 import AudienceTargeting from "@/pages/audience-targeting";
 import EngagementMoments from "@/pages/engagement-moments";
+import MomentLauncher from "@/pages/moment-launcher";
+import PortalLiveMoments from "@/pages/portal-live-moments";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const sidebarStyle = {
@@ -95,7 +97,7 @@ function Router() {
   const [location, navigate] = useLocation();
   
   // Determine if this is a public event page (should render outside sidebar layout)
-  const isPublicEventPage = location.startsWith('/event/') || location === '/sponsor-portal';
+  const isPublicEventPage = location.startsWith('/event/') || location === '/sponsor-portal' || location.startsWith('/portal/');
 
   // Check for pending invite code after authentication and redirect to accept-invitation page
   useEffect(() => {
@@ -133,6 +135,7 @@ function Router() {
         <Route path="/sponsor-portal" component={SponsorPortal} />
         <Route path="/documents/shared/:token" component={SharedDocument} />
         <Route path="/accept-invitation" component={AcceptInvitation} />
+        <Route path="/portal/:eventId/live" component={PortalLiveMoments} />
         <Route component={Landing} />
       </Switch>
     );
@@ -162,6 +165,7 @@ function Router() {
         <Route path="/event/:slug/page/:pageSlug" component={PublicCustomPage} />
         <Route path="/event/:slug" component={PublicEvent} />
         <Route path="/sponsor-portal" component={SponsorPortal} />
+        <Route path="/portal/:eventId/live" component={PortalLiveMoments} />
         <Route component={NotFound} />
       </Switch>
     );
@@ -211,6 +215,7 @@ function Router() {
         <Route path="/acquisition" component={Acquisition} />
         <Route path="/audience-targeting" component={AudienceTargeting} />
         <Route path="/engagement-moments" component={EngagementMoments} />
+        <Route path="/moment-launcher" component={MomentLauncher} />
         <Route path="/engagement-signals" component={EngagementSignals} />
         <Route path="/revenue-snapshot" component={RevenueSnapshot} />
         <Route path="/pipeline" component={Pipeline} />
