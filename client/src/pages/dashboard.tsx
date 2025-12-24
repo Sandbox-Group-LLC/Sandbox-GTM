@@ -40,6 +40,10 @@ import {
   Target,
   Mail,
   TrendingUp,
+  TrendingDown,
+  AlertTriangle,
+  CheckCircle,
+  Minus,
   Plus,
   ChevronDown,
   ThumbsUp
@@ -99,6 +103,22 @@ interface AnalyticsData {
   };
 }
 
+interface MilestoneStatusData {
+  status: "on_track" | "at_risk" | "behind" | "achieved" | "no_data";
+  statusLabel: string;
+  statusColor: "green" | "yellow" | "red" | "blue" | "gray";
+  actualCount: number;
+  targetCount: number;
+  percentComplete: number;
+  delta: number;
+  daysRemaining: number | null;
+  projectedCount: number | null;
+  drivingEventId?: string | null;
+  drivingEventName?: string | null;
+  orgTotalConfirmed?: number;
+  orgTotalGoal?: number;
+}
+
 
 const eventFormSchema = insertEventSchema.extend({
   name: z.string().min(1, "Event name is required"),
@@ -125,6 +145,18 @@ export default function Dashboard() {
         : "/api/analytics/overview";
       const res = await fetch(url, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch analytics");
+      return res.json();
+    },
+  });
+
+  const { data: milestoneStatus } = useQuery<MilestoneStatusData>({
+    queryKey: ["/api/analytics/milestone-status", selectedEventId],
+    queryFn: async () => {
+      const url = selectedEventId && selectedEventId !== "all"
+        ? `/api/analytics/milestone-status?eventId=${selectedEventId}`
+        : "/api/analytics/milestone-status";
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch milestone status");
       return res.json();
     },
   });
@@ -342,9 +374,20 @@ export default function Dashboard() {
                       <p className="text-4xl font-bold" data-testid="text-total-conversions">{analytics?.attendance.total || 0}</p>
                       <p className="text-sm text-muted-foreground mt-1">Total conversions</p>
                     </div>
-                    <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
-                      <TrendingUp className="w-5 h-5" />
-                      <span className="text-sm font-medium">On track</span>
+                    <div className={`flex items-center gap-1 ${
+                      milestoneStatus?.statusColor === "green" ? "text-green-600 dark:text-green-400" :
+                      milestoneStatus?.statusColor === "yellow" ? "text-yellow-600 dark:text-yellow-400" :
+                      milestoneStatus?.statusColor === "red" ? "text-red-600 dark:text-red-400" :
+                      milestoneStatus?.statusColor === "blue" ? "text-blue-600 dark:text-blue-400" :
+                      "text-muted-foreground"
+                    }`} data-testid="milestone-status">
+                      {milestoneStatus?.status === "on_track" && <TrendingUp className="w-5 h-5" />}
+                      {milestoneStatus?.status === "at_risk" && <AlertTriangle className="w-5 h-5" />}
+                      {milestoneStatus?.status === "behind" && <TrendingDown className="w-5 h-5" />}
+                      {milestoneStatus?.status === "achieved" && <CheckCircle className="w-5 h-5" />}
+                      {milestoneStatus?.status === "no_data" && <Minus className="w-5 h-5" />}
+                      {!milestoneStatus && <Minus className="w-5 h-5" />}
+                      <span className="text-sm font-medium">{milestoneStatus?.statusLabel || "No data"}</span>
                     </div>
                   </div>
                 </CardContent>

@@ -13,11 +13,16 @@ export interface MilestoneStatusResult {
   projectedCount: number | null;
 }
 
+export interface MilestoneCalculationOptions {
+  eventStartDate?: string | Date | null;
+}
+
 export function calculateMilestoneStatus(
   milestones: AcquisitionMilestone[] | null | undefined,
   acquisitionGoal: number | null | undefined,
   actualRegistrations: number,
-  today: Date = new Date()
+  today: Date = new Date(),
+  options: MilestoneCalculationOptions = {}
 ): MilestoneStatusResult {
   const noDataResult: MilestoneStatusResult = {
     status: "no_data",
@@ -71,7 +76,9 @@ export function calculateMilestoneStatus(
   if (!currentMilestone) {
     const lastMilestone = sortedMilestones[sortedMilestones.length - 1];
     const delta = actualRegistrations - lastMilestone.targetAttendees;
-    const percentComplete = Math.round((actualRegistrations / lastMilestone.targetAttendees) * 100);
+    const percentComplete = lastMilestone.targetAttendees > 0 
+      ? Math.round((actualRegistrations / lastMilestone.targetAttendees) * 100)
+      : 100;
     
     return {
       status: actualRegistrations >= lastMilestone.targetAttendees ? "achieved" : "behind",
@@ -90,16 +97,22 @@ export function calculateMilestoneStatus(
   
   const daysRemaining = Math.ceil((milestoneDateStart.getTime() - todayStart.getTime()) / (1000 * 60 * 60 * 24));
   
-  const startDate = previousMilestone 
-    ? new Date(previousMilestone.date) 
-    : new Date(sortedMilestones[0].date);
-  startDate.setMonth(startDate.getMonth() - 1);
+  let startDate: Date;
+  if (previousMilestone) {
+    startDate = new Date(previousMilestone.date);
+  } else if (options.eventStartDate) {
+    startDate = new Date(options.eventStartDate);
+  } else {
+    startDate = new Date(sortedMilestones[0].date);
+    startDate.setDate(startDate.getDate() - 30);
+  }
+  const startDateStart = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
   
   const startCount = previousMilestone ? previousMilestone.targetAttendees : 0;
   const targetCount = currentMilestone.targetAttendees;
   
-  const totalDays = Math.ceil((milestoneDateStart.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-  const elapsedDays = Math.ceil((todayStart.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+  const totalDays = Math.max(1, Math.ceil((milestoneDateStart.getTime() - startDateStart.getTime()) / (1000 * 60 * 60 * 24)));
+  const elapsedDays = Math.max(0, Math.ceil((todayStart.getTime() - startDateStart.getTime()) / (1000 * 60 * 60 * 24)));
   
   const delta = actualRegistrations - targetCount;
   const percentComplete = targetCount > 0 
@@ -119,14 +132,14 @@ export function calculateMilestoneStatus(
     };
   }
 
-  const registrationsNeeded = targetCount - startCount;
+  const registrationsNeeded = Math.max(0, targetCount - startCount);
   const expectedProgress = totalDays > 0 ? (elapsedDays / totalDays) * registrationsNeeded : 0;
   const expectedCount = startCount + expectedProgress;
   
-  const dailyRate = elapsedDays > 0 ? (actualRegistrations - startCount) / elapsedDays : 0;
+  const dailyRate = elapsedDays > 0 ? Math.max(0, actualRegistrations - startCount) / elapsedDays : 0;
   const projectedCount = Math.round(actualRegistrations + (dailyRate * daysRemaining));
 
-  const progressRatio = expectedCount > 0 ? actualRegistrations / expectedCount : 1;
+  const progressRatio = expectedCount > startCount ? (actualRegistrations - startCount) / (expectedCount - startCount) : 1;
   
   let status: MilestoneStatus;
   if (progressRatio >= 0.9) {

@@ -4088,13 +4088,15 @@ export async function registerRoutes(
           return res.status(404).json({ message: "Event not found" });
         }
 
-        const attendees = await storage.getAttendees(eventId);
+        const attendees = await storage.getAttendees(organizationId, eventId);
         const confirmedCount = attendees.filter(a => a.registrationStatus === "confirmed").length;
 
         const milestoneStatus = calculateMilestoneStatus(
           event.acquisitionMilestones,
           event.acquisitionGoal,
-          confirmedCount
+          confirmedCount,
+          new Date(),
+          { eventStartDate: event.startDate }
         );
 
         res.json({
@@ -4104,34 +4106,79 @@ export async function registerRoutes(
         });
       } else {
         const events = await storage.getEvents(organizationId);
-        let totalConfirmed = 0;
+        const allAttendees = await storage.getAttendees(organizationId);
+        const totalConfirmed = allAttendees.filter(a => a.registrationStatus === "confirmed").length;
+        
         let totalGoal = 0;
-        const allMilestones: { date: string; targetAttendees: number }[] = [];
-
+        let worstStatus: MilestoneStatusResult | null = null;
+        let worstEventId: string | null = null;
+        let worstEventName: string | null = null;
+        
+        const statusPriority: Record<string, number> = {
+          behind: 4,
+          at_risk: 3,
+          on_track: 2,
+          achieved: 1,
+          no_data: 0,
+        };
+        
         for (const event of events) {
-          const attendees = await storage.getAttendees(event.id);
-          totalConfirmed += attendees.filter(a => a.registrationStatus === "confirmed").length;
-          
           if (event.acquisitionGoal) {
             totalGoal += event.acquisitionGoal;
           }
           
-          if (event.acquisitionMilestones) {
-            allMilestones.push(...event.acquisitionMilestones);
+          if (event.acquisitionMilestones && event.acquisitionMilestones.length > 0) {
+            const eventAttendees = allAttendees.filter(a => a.eventId === event.id);
+            const eventConfirmed = eventAttendees.filter(a => a.registrationStatus === "confirmed").length;
+            
+            const eventStatus = calculateMilestoneStatus(
+              event.acquisitionMilestones,
+              event.acquisitionGoal,
+              eventConfirmed,
+              new Date(),
+              { eventStartDate: event.startDate }
+            );
+            
+            if (!worstStatus || statusPriority[eventStatus.status] > statusPriority[worstStatus.status]) {
+              worstStatus = eventStatus;
+              worstEventId = event.id;
+              worstEventName = event.name;
+            }
           }
         }
-
-        const milestoneStatus = calculateMilestoneStatus(
-          allMilestones.length > 0 ? allMilestones : null,
-          totalGoal > 0 ? totalGoal : null,
-          totalConfirmed
-        );
-
-        res.json({
-          ...milestoneStatus,
-          statusLabel: getStatusLabel(milestoneStatus.status),
-          statusColor: getStatusColor(milestoneStatus.status),
-        });
+        
+        if (worstStatus) {
+          res.json({
+            status: worstStatus.status,
+            currentMilestone: worstStatus.currentMilestone,
+            actualCount: worstStatus.actualCount,
+            targetCount: worstStatus.targetCount,
+            percentComplete: worstStatus.percentComplete,
+            delta: worstStatus.delta,
+            daysRemaining: worstStatus.daysRemaining,
+            projectedCount: worstStatus.projectedCount,
+            statusLabel: getStatusLabel(worstStatus.status),
+            statusColor: getStatusColor(worstStatus.status),
+            drivingEventId: worstEventId,
+            drivingEventName: worstEventName,
+            orgTotalConfirmed: totalConfirmed,
+            orgTotalGoal: totalGoal,
+          });
+        } else {
+          const milestoneStatus = calculateMilestoneStatus(
+            null,
+            totalGoal > 0 ? totalGoal : null,
+            totalConfirmed
+          );
+          
+          res.json({
+            ...milestoneStatus,
+            statusLabel: getStatusLabel(milestoneStatus.status),
+            statusColor: getStatusColor(milestoneStatus.status),
+            orgTotalConfirmed: totalConfirmed,
+            orgTotalGoal: totalGoal,
+          });
+        }
       }
     } catch (error) {
       logError("Error fetching milestone status:", error);
