@@ -9,7 +9,7 @@ import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -84,7 +84,7 @@ export default function CustomFields() {
   const [editingField, setEditingField] = useState<CustomField | null>(null);
   const [optionsText, setOptionsText] = useState("");
   
-  // Local state for toggles to avoid FormField/Switch issues
+  // Local state for toggles
   const [toggles, setToggles] = useState({ required: false, isActive: true, attendeeOnly: false });
 
   const { data: customFields = [], isLoading } = useQuery<CustomField[]>({
@@ -432,32 +432,32 @@ export default function CustomFields() {
                 />
                 <div className="space-y-3 pt-2">
                   <div className="flex items-center justify-between p-3 border rounded-md">
-                    <Label htmlFor="required-switch" className="cursor-pointer">Required field</Label>
-                    <Switch
-                      id="required-switch"
+                    <Label htmlFor="required-checkbox" className="cursor-pointer">Required field</Label>
+                    <Checkbox
+                      id="required-checkbox"
                       checked={toggles.required}
-                      onCheckedChange={(checked) => setToggles({ ...toggles, required: checked })}
+                      onCheckedChange={(checked) => setToggles({ ...toggles, required: checked === true })}
                       data-testid="switch-field-required"
                     />
                   </div>
                   <div className="flex items-center justify-between p-3 border rounded-md">
-                    <Label htmlFor="active-switch" className="cursor-pointer">Active</Label>
-                    <Switch
-                      id="active-switch"
+                    <Label htmlFor="active-checkbox" className="cursor-pointer">Active</Label>
+                    <Checkbox
+                      id="active-checkbox"
                       checked={toggles.isActive}
-                      onCheckedChange={(checked) => setToggles({ ...toggles, isActive: checked })}
+                      onCheckedChange={(checked) => setToggles({ ...toggles, isActive: checked === true })}
                       data-testid="switch-field-active"
                     />
                   </div>
                   <div className="flex items-center justify-between p-3 border rounded-md">
                     <div>
-                      <Label htmlFor="attendee-only-switch" className="cursor-pointer">Attendee Only</Label>
+                      <Label htmlFor="attendee-only-checkbox" className="cursor-pointer">Attendee Only</Label>
                       <p className="text-sm text-muted-foreground">Only shown in attendee registration, not admin forms</p>
                     </div>
-                    <Switch
-                      id="attendee-only-switch"
+                    <Checkbox
+                      id="attendee-only-checkbox"
                       checked={toggles.attendeeOnly}
-                      onCheckedChange={(checked) => setToggles({ ...toggles, attendeeOnly: checked })}
+                      onCheckedChange={(checked) => setToggles({ ...toggles, attendeeOnly: checked === true })}
                       data-testid="switch-field-attendee-only"
                     />
                   </div>
