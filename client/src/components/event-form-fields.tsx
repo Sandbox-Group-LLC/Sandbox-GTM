@@ -411,45 +411,42 @@ export function EventFormFields({ form, testIdPrefix = "" }: EventFormFieldsProp
             <p className="text-sm font-medium">Milestones</p>
             {[0, 1, 2].map((index) => (
               <div key={index} className="grid grid-cols-2 gap-3">
-                <FormItem>
-                  <FormLabel className="text-xs">Milestone {index + 1} Date</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="date"
-                      value={form.watch(`acquisitionMilestones.${index}.date`) || ""}
-                      onChange={(e) => {
-                        const milestones = form.getValues("acquisitionMilestones") || [];
-                        const updated = [...milestones];
-                        if (!updated[index]) {
-                          updated[index] = { date: "", targetAttendees: 0 };
-                        }
-                        updated[index].date = e.target.value;
-                        form.setValue("acquisitionMilestones", updated);
-                      }}
-                      data-testid={`input-${prefix}event-milestone-${index + 1}-date`}
-                    />
-                  </FormControl>
-                </FormItem>
-                <FormItem>
-                  <FormLabel className="text-xs">Target Attendees</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      placeholder="0"
-                      value={form.watch(`acquisitionMilestones.${index}.targetAttendees`) || ""}
-                      onChange={(e) => {
-                        const milestones = form.getValues("acquisitionMilestones") || [];
-                        const updated = [...milestones];
-                        if (!updated[index]) {
-                          updated[index] = { date: "", targetAttendees: 0 };
-                        }
-                        updated[index].targetAttendees = e.target.value ? Number(e.target.value) : 0;
-                        form.setValue("acquisitionMilestones", updated);
-                      }}
-                      data-testid={`input-${prefix}event-milestone-${index + 1}-target`}
-                    />
-                  </FormControl>
-                </FormItem>
+                <FormField
+                  control={form.control}
+                  name={`acquisitionMilestones.${index}.date`}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs">Milestone {index + 1} Date</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="date"
+                          {...field}
+                          value={field.value || ""}
+                          data-testid={`input-${prefix}event-milestone-${index + 1}-date`}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name={`acquisitionMilestones.${index}.targetAttendees`}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs">Target Attendees</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          placeholder="0"
+                          {...field}
+                          value={field.value ?? ""}
+                          onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : 0)}
+                          data-testid={`input-${prefix}event-milestone-${index + 1}-target`}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
               </div>
             ))}
           </div>
