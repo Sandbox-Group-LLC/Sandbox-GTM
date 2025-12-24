@@ -1166,14 +1166,14 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
   const isFullWidth = theme?.containerWidth === "full";
   const isHtmlSection = section.type === "html";
 
-  // Fetch saved sessions for hydration
-  const { data: savedSessions } = useQuery<EventSession[]>({
+  // Fetch saved sessions for hydration (API returns enriched saved session objects)
+  const { data: savedSessions } = useQuery<{ id: string; sessionId: string; attendeeId: string; session: EventSession }[]>({
     queryKey: ["/api/portal", event.id, "saved-sessions"],
     enabled: !!attendeeContext?.attendee && !!event?.id,
   });
 
   const savedSessionIds = useMemo(() => 
-    savedSessions?.map(s => s.id) || [], 
+    savedSessions?.map(s => s.sessionId) || [], 
     [savedSessions]
   );
   

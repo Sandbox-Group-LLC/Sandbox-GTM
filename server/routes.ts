@@ -8163,7 +8163,7 @@ ${urls.map(u => `  <url>
       // Fetch full session data for each saved session
       const sessionsWithData = await Promise.all(
         savedSessions.map(async (saved) => {
-          const session = await storage.getEventSession(attendee.organizationId, saved.sessionId);
+          const session = await storage.getSession(attendee.organizationId, saved.sessionId);
           return {
             ...saved,
             session: session || null,
