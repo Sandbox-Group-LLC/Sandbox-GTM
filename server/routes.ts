@@ -6020,6 +6020,72 @@ export async function registerRoutes(
   });
 
   // Sponsor portal team invitation routes
+  
+  // Helper function to validate sponsor portal token (works with both sponsor and sponsor contact tokens)
+  async function validateSponsorPortalToken(token: string, sponsorId: string): Promise<{
+    valid: boolean;
+    sponsor?: typeof eventSponsors.$inferSelect;
+    sponsorContact?: typeof sponsorContacts.$inferSelect | null;
+    permissions: string[];
+    invitedBy: string;
+    error?: string;
+    status?: number;
+  }> {
+    // First try sponsor contact token
+    const sponsorContact = await storage.getSponsorContactByToken(token);
+    if (sponsorContact) {
+      if (sponsorContact.sponsorId !== sponsorId) {
+        return { valid: false, permissions: [], invitedBy: '', error: "Access denied to this sponsor", status: 403 };
+      }
+      
+      // Check token expiration
+      if (sponsorContact.portalTokenExpiresAt && new Date(sponsorContact.portalTokenExpiresAt) < new Date()) {
+        return { valid: false, permissions: [], invitedBy: '', error: "Token has expired", status: 401 };
+      }
+      
+      const sponsor = await storage.getEventSponsor(sponsorContact.organizationId, sponsorId);
+      if (!sponsor) {
+        return { valid: false, permissions: [], invitedBy: '', error: "Sponsor not found", status: 404 };
+      }
+      
+      return {
+        valid: true,
+        sponsor,
+        sponsorContact,
+        permissions: sponsorContact.permissions || [],
+        invitedBy: sponsorContact.id,
+      };
+    }
+    
+    // Try sponsor's main portal token (for primary contacts)
+    const sponsor = await storage.getEventSponsorByToken(token);
+    if (sponsor) {
+      if (sponsor.id !== sponsorId) {
+        return { valid: false, permissions: [], invitedBy: '', error: "Access denied to this sponsor", status: 403 };
+      }
+      
+      // Check token expiration
+      if (sponsor.portalTokenExpiresAt && new Date(sponsor.portalTokenExpiresAt) < new Date()) {
+        return { valid: false, permissions: [], invitedBy: '', error: "Token has expired", status: 401 };
+      }
+      
+      // Primary contacts (using sponsor token) have all permissions
+      return {
+        valid: true,
+        sponsor,
+        sponsorContact: null,
+        permissions: [
+          SPONSOR_CONTACT_PERMISSIONS.LEAD_CAPTURE,
+          SPONSOR_CONTACT_PERMISSIONS.VIEW_LEADS,
+          SPONSOR_CONTACT_PERMISSIONS.EXPORT_LEADS,
+          SPONSOR_CONTACT_PERMISSIONS.INVITE_TEAM,
+        ],
+        invitedBy: 'primary-contact',
+      };
+    }
+    
+    return { valid: false, permissions: [], invitedBy: '', error: "Invalid or expired token", status: 401 };
+  }
 
   // POST /api/sponsor-portal/invitations/:sponsorId - Create team invitation
   app.post("/api/sponsor-portal/invitations/:sponsorId", async (req: any, res) => {
@@ -6027,28 +6093,17 @@ export async function registerRoutes(
       const { sponsorId } = req.params;
       const token = req.query.token as string;
       
-      // Get sponsor first to get organizationId and eventId
       if (!token) {
         return res.status(400).json({ message: "Token is required" });
       }
       
-      const sponsorContact = await storage.getSponsorContactByToken(token);
-      if (!sponsorContact) {
-        return res.status(401).json({ message: "Invalid or expired token" });
-      }
-      
-      if (sponsorContact.sponsorId !== sponsorId) {
-        return res.status(403).json({ message: "Access denied to this sponsor" });
-      }
-      
-      const sponsor = await storage.getEventSponsor(sponsorContact.organizationId, sponsorId);
-      if (!sponsor) {
-        return res.status(404).json({ message: "Sponsor not found" });
+      const auth = await validateSponsorPortalToken(token, sponsorId);
+      if (!auth.valid) {
+        return res.status(auth.status || 401).json({ message: auth.error });
       }
       
       // Check invite_team permission
-      const contactPermissions = sponsorContact.permissions || [];
-      if (!contactPermissions.includes(SPONSOR_CONTACT_PERMISSIONS.INVITE_TEAM)) {
+      if (!auth.permissions.includes(SPONSOR_CONTACT_PERMISSIONS.INVITE_TEAM)) {
         return res.status(403).json({ message: "Insufficient permissions" });
       }
       
@@ -6066,14 +6121,14 @@ export async function registerRoutes(
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
       
       const invitation = await storage.createSponsorContactInvitation({
-        organizationId: sponsor.organizationId,
+        organizationId: auth.sponsor!.organizationId,
         sponsorId,
         email,
         firstName: firstName || null,
         lastName: lastName || null,
         permissions,
         inviteCode,
-        invitedBy: sponsorContact.id,
+        invitedBy: auth.invitedBy,
         status: 'pending',
         expiresAt,
       });
@@ -6095,22 +6150,17 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Token is required" });
       }
       
-      const sponsorContact = await storage.getSponsorContactByToken(token);
-      if (!sponsorContact) {
-        return res.status(401).json({ message: "Invalid or expired token" });
-      }
-      
-      if (sponsorContact.sponsorId !== sponsorId) {
-        return res.status(403).json({ message: "Access denied to this sponsor" });
+      const auth = await validateSponsorPortalToken(token, sponsorId);
+      if (!auth.valid) {
+        return res.status(auth.status || 401).json({ message: auth.error });
       }
       
       // Check invite_team permission
-      const contactPermissions = sponsorContact.permissions || [];
-      if (!contactPermissions.includes(SPONSOR_CONTACT_PERMISSIONS.INVITE_TEAM)) {
+      if (!auth.permissions.includes(SPONSOR_CONTACT_PERMISSIONS.INVITE_TEAM)) {
         return res.status(403).json({ message: "Insufficient permissions" });
       }
       
-      const invitations = await storage.getSponsorContactInvitations(sponsorContact.organizationId, sponsorId);
+      const invitations = await storage.getSponsorContactInvitations(auth.sponsor!.organizationId, sponsorId);
       res.json(invitations);
     } catch (error) {
       logError("Error fetching sponsor contact invitations:", error);
@@ -6128,23 +6178,18 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Token is required" });
       }
       
-      const sponsorContact = await storage.getSponsorContactByToken(token);
-      if (!sponsorContact) {
-        return res.status(401).json({ message: "Invalid or expired token" });
-      }
-      
-      if (sponsorContact.sponsorId !== sponsorId) {
-        return res.status(403).json({ message: "Access denied to this sponsor" });
+      const auth = await validateSponsorPortalToken(token, sponsorId);
+      if (!auth.valid) {
+        return res.status(auth.status || 401).json({ message: auth.error });
       }
       
       // Check invite_team permission
-      const contactPermissions = sponsorContact.permissions || [];
-      if (!contactPermissions.includes(SPONSOR_CONTACT_PERMISSIONS.INVITE_TEAM)) {
+      if (!auth.permissions.includes(SPONSOR_CONTACT_PERMISSIONS.INVITE_TEAM)) {
         return res.status(403).json({ message: "Insufficient permissions" });
       }
       
       // Verify invitation belongs to this sponsor
-      const invitation = await storage.getSponsorContactInvitation(sponsorContact.organizationId, invitationId);
+      const invitation = await storage.getSponsorContactInvitation(auth.sponsor!.organizationId, invitationId);
       if (!invitation || invitation.sponsorId !== sponsorId) {
         return res.status(404).json({ message: "Invitation not found" });
       }
