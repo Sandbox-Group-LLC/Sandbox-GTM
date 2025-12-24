@@ -402,6 +402,7 @@ export default function Attendees() {
       ticketType: "",
       registrationStatus: "pending",
       notes: "",
+      customData: {},
     },
   });
 
