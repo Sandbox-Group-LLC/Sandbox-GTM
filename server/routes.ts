@@ -4089,12 +4089,13 @@ export async function registerRoutes(
         }
 
         const attendees = await storage.getAttendees(organizationId, eventId);
-        const confirmedCount = attendees.filter(a => a.registrationStatus === "confirmed").length;
+        // Count all non-cancelled registrations towards acquisition goal
+        const registrationCount = attendees.filter(a => a.registrationStatus !== "cancelled").length;
 
         const milestoneStatus = calculateMilestoneStatus(
           event.acquisitionMilestones,
           event.acquisitionGoal,
-          confirmedCount,
+          registrationCount,
           new Date(),
           { eventStartDate: event.startDate }
         );
@@ -4107,7 +4108,8 @@ export async function registerRoutes(
       } else {
         const events = await storage.getEvents(organizationId);
         const allAttendees = await storage.getAttendees(organizationId);
-        const totalConfirmed = allAttendees.filter(a => a.registrationStatus === "confirmed").length;
+        // Count all non-cancelled registrations towards acquisition goal
+        const totalRegistrations = allAttendees.filter(a => a.registrationStatus !== "cancelled").length;
         
         let totalGoal = 0;
         let worstStatus: MilestoneStatusResult | null = null;
@@ -4135,13 +4137,14 @@ export async function registerRoutes(
           
           // Calculate status for events with milestones OR with a goal
           const eventAttendees = allAttendees.filter(a => a.eventId === event.id);
-          const eventConfirmed = eventAttendees.filter(a => a.registrationStatus === "confirmed").length;
+          // Count all non-cancelled registrations
+          const eventRegistrations = eventAttendees.filter(a => a.registrationStatus !== "cancelled").length;
           
           if (event.acquisitionMilestones && event.acquisitionMilestones.length > 0) {
             const eventStatus = calculateMilestoneStatus(
               event.acquisitionMilestones,
               event.acquisitionGoal,
-              eventConfirmed,
+              eventRegistrations,
               new Date(),
               { eventStartDate: event.startDate }
             );
@@ -4156,7 +4159,7 @@ export async function registerRoutes(
             const eventStatus = calculateMilestoneStatus(
               null,
               eventGoal,
-              eventConfirmed
+              eventRegistrations
             );
             
             if (!worstStatus || statusPriority[eventStatus.status] > statusPriority[worstStatus.status]) {
@@ -4181,21 +4184,21 @@ export async function registerRoutes(
             statusColor: getStatusColor(worstStatus.status),
             drivingEventId: worstEventId,
             drivingEventName: worstEventName,
-            orgTotalConfirmed: totalConfirmed,
+            orgTotalRegistrations: totalRegistrations,
             orgTotalGoal: totalGoal,
           });
         } else {
           const milestoneStatus = calculateMilestoneStatus(
             null,
             totalGoal > 0 ? totalGoal : null,
-            totalConfirmed
+            totalRegistrations
           );
           
           res.json({
             ...milestoneStatus,
             statusLabel: getStatusLabel(milestoneStatus.status),
             statusColor: getStatusColor(milestoneStatus.status),
-            orgTotalConfirmed: totalConfirmed,
+            orgTotalRegistrations: totalRegistrations,
             orgTotalGoal: totalGoal,
           });
         }

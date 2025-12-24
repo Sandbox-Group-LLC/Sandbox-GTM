@@ -115,7 +115,7 @@ interface MilestoneStatusData {
   projectedCount: number | null;
   drivingEventId?: string | null;
   drivingEventName?: string | null;
-  orgTotalConfirmed?: number;
+  orgTotalRegistrations?: number;
   orgTotalGoal?: number;
 }
 
