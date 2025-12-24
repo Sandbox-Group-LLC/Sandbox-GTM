@@ -1229,6 +1229,9 @@ export class DatabaseStorage implements IStorage {
     await db.delete(inviteCodes).where(eq(inviteCodes.eventId, id));
     await db.delete(eventSponsors).where(eq(eventSponsors.eventId, id));
     await db.delete(speakers).where(eq(speakers.eventId, id));
+    
+    // Delete moments before sessions (moments reference sessions)
+    await db.delete(moments).where(eq(moments.eventId, id));
     await db.delete(eventSessions).where(eq(eventSessions.eventId, id));
     await db.delete(contentItems).where(eq(contentItems.eventId, id));
     await db.delete(budgetItems).where(eq(budgetItems.eventId, id));
@@ -1271,9 +1274,6 @@ export class DatabaseStorage implements IStorage {
     
     // Delete page views
     await db.delete(pageViews).where(eq(pageViews.eventId, id));
-    
-    // Delete engagement moments (responses already deleted earlier before attendees)
-    await db.delete(moments).where(eq(moments.eventId, id));
     
     // Delete engagement signals
     await db.delete(engagementSignals).where(eq(engagementSignals.eventId, id));
