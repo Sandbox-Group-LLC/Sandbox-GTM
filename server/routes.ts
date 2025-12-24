@@ -4083,25 +4083,13 @@ export async function registerRoutes(
       const eventId = req.query.eventId as string | undefined;
 
       if (eventId && eventId !== "all") {
-        // Debug logging - before getEvent
-        console.log("[milestone-status] Looking up eventId:", eventId);
-        
-        const event = await storage.getEvent(eventId);
-        console.log("[milestone-status] getEvent returned:", event ? event.name : "null");
-        console.log("[milestone-status] event.organizationId:", event?.organizationId, "user organizationId:", organizationId);
-        
-        if (!event || event.organizationId !== organizationId) {
+        const event = await storage.getEvent(organizationId, eventId);
+        if (!event) {
           return res.status(404).json({ message: "Event not found" });
         }
 
         const attendees = await storage.getAttendees(organizationId, eventId);
         const confirmedCount = attendees.filter(a => a.registrationStatus === "confirmed").length;
-
-        // Debug logging
-        console.log("[milestone-status] Event:", event.name);
-        console.log("[milestone-status] acquisitionMilestones:", JSON.stringify(event.acquisitionMilestones));
-        console.log("[milestone-status] acquisitionGoal:", event.acquisitionGoal);
-        console.log("[milestone-status] confirmedCount:", confirmedCount);
 
         const milestoneStatus = calculateMilestoneStatus(
           event.acquisitionMilestones,
@@ -4110,8 +4098,6 @@ export async function registerRoutes(
           new Date(),
           { eventStartDate: event.startDate }
         );
-
-        console.log("[milestone-status] Result:", JSON.stringify(milestoneStatus));
 
         res.json({
           ...milestoneStatus,
