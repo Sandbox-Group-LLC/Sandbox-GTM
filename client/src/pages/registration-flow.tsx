@@ -408,7 +408,7 @@ export default function RegistrationFlow() {
           <div className="space-y-6">
             <div>
               <h3 className="text-lg font-medium mb-4">Profile Fields</h3>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                 <div className="flex items-center justify-between p-3 border rounded-md">
                   <Label htmlFor="firstName" className="cursor-pointer">First Name</Label>
                   <Switch
@@ -504,12 +504,12 @@ export default function RegistrationFlow() {
       case 2:
         return (
           <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h3 className="text-lg font-medium">Validation Rules</h3>
                 <p className="text-sm text-muted-foreground">Define rules to control who can proceed with registration</p>
               </div>
-              <Button onClick={addValidationRule} size="sm" data-testid="button-add-rule">
+              <Button onClick={addValidationRule} size="sm" className="w-full sm:w-auto" data-testid="button-add-rule">
                 <Plus className="h-4 w-4 mr-2" />
                 Add Rule
               </Button>
@@ -517,60 +517,64 @@ export default function RegistrationFlow() {
 
             <div className="space-y-3">
               {validationRules.map((rule, index) => (
-                <div key={rule.id} className="flex items-center gap-3 p-3 border rounded-md">
-                  <GripVertical className="h-4 w-4 text-muted-foreground cursor-move" />
-                  
-                  <Select
-                    value={rule.field}
-                    onValueChange={(value) => updateValidationRule(rule.id, "field", value)}
-                  >
-                    <SelectTrigger className="w-40" data-testid={`select-field-${index}`}>
-                      <SelectValue placeholder="Field" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {validationFields.map((field) => (
-                        <SelectItem key={field.value} value={field.value}>
-                          {field.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div key={rule.id} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 border rounded-md">
+                  <div className="flex items-center gap-3 w-full sm:w-auto">
+                    <GripVertical className="h-4 w-4 text-muted-foreground cursor-move hidden sm:block" />
+                    
+                    <Select
+                      value={rule.field}
+                      onValueChange={(value) => updateValidationRule(rule.id, "field", value)}
+                    >
+                      <SelectTrigger className="flex-1 sm:w-40" data-testid={`select-field-${index}`}>
+                        <SelectValue placeholder="Field" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {validationFields.map((field) => (
+                          <SelectItem key={field.value} value={field.value}>
+                            {field.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
 
-                  <Select
-                    value={rule.operator}
-                    onValueChange={(value) => updateValidationRule(rule.id, "operator", value)}
-                  >
-                    <SelectTrigger className="w-40" data-testid={`select-operator-${index}`}>
-                      <SelectValue placeholder="Operator" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {validationOperators.map((op) => (
-                        <SelectItem key={op.value} value={op.value}>
-                          {op.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    <Select
+                      value={rule.operator}
+                      onValueChange={(value) => updateValidationRule(rule.id, "operator", value)}
+                    >
+                      <SelectTrigger className="flex-1 sm:w-40" data-testid={`select-operator-${index}`}>
+                        <SelectValue placeholder="Operator" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {validationOperators.map((op) => (
+                          <SelectItem key={op.value} value={op.value}>
+                            {op.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                  {!["exists", "not_exists"].includes(rule.operator) && (
-                    <Input
-                      placeholder="Value"
-                      value={rule.value}
-                      onChange={(e) => updateValidationRule(rule.id, "value", e.target.value)}
-                      className="flex-1"
-                      data-testid={`input-value-${index}`}
-                    />
-                  )}
+                  <div className="flex items-center gap-3 w-full sm:flex-1">
+                    {!["exists", "not_exists"].includes(rule.operator) && (
+                      <Input
+                        placeholder="Value"
+                        value={rule.value}
+                        onChange={(e) => updateValidationRule(rule.id, "value", e.target.value)}
+                        className="flex-1"
+                        data-testid={`input-value-${index}`}
+                      />
+                    )}
 
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeValidationRule(rule.id)}
-                    disabled={validationRules.length === 1}
-                    data-testid={`button-remove-rule-${index}`}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeValidationRule(rule.id)}
+                      disabled={validationRules.length === 1}
+                      data-testid={`button-remove-rule-${index}`}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -581,9 +585,9 @@ export default function RegistrationFlow() {
               </CardHeader>
               <CardContent>
                 <Tabs defaultValue="all" className="w-full">
-                  <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="all" data-testid="tab-all-rules">All rules must match</TabsTrigger>
-                    <TabsTrigger value="any" data-testid="tab-any-rules">Any rule must match</TabsTrigger>
+                  <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 h-auto">
+                    <TabsTrigger value="all" className="text-xs sm:text-sm" data-testid="tab-all-rules">All rules must match</TabsTrigger>
+                    <TabsTrigger value="any" className="text-xs sm:text-sm" data-testid="tab-any-rules">Any rule must match</TabsTrigger>
                   </TabsList>
                 </Tabs>
               </CardContent>
@@ -1023,9 +1027,9 @@ export default function RegistrationFlow() {
         title="Registration Flow"
         breadcrumbs={[{ label: "Events" }, { label: "Registration" }]}
         actions={
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3">
             <Select value={selectedEventId} onValueChange={setSelectedEventId}>
-              <SelectTrigger className="w-48" data-testid="select-event-header">
+              <SelectTrigger className="w-32 md:w-48" data-testid="select-event-header">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -1047,10 +1051,34 @@ export default function RegistrationFlow() {
         }
       />
 
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto p-3 md:p-6">
         <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-12 gap-6">
-            <div className="col-span-4">
+          {/* Mobile step selector - horizontal scrollable */}
+          <div className="md:hidden mb-4">
+            <div className="flex gap-2 overflow-x-auto pb-2 -mx-3 px-3">
+              {steps.map((step, index) => (
+                <button
+                  key={step.id}
+                  onClick={() => setActiveStep(step.id)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-md whitespace-nowrap flex-shrink-0 transition-colors ${
+                    activeStep === step.id 
+                      ? "bg-primary text-primary-foreground" 
+                      : step.enabled 
+                        ? "bg-muted hover-elevate" 
+                        : "bg-muted/50 text-muted-foreground"
+                  }`}
+                  data-testid={`mobile-step-${step.id}`}
+                >
+                  <span className="text-sm font-medium">{index + 1}. {step.title}</span>
+                  {!step.enabled && <span className="text-xs">(off)</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-6">
+            {/* Desktop sidebar - hidden on mobile */}
+            <div className="hidden md:block md:col-span-4">
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base">Registration Steps</CardTitle>
@@ -1096,29 +1124,39 @@ export default function RegistrationFlow() {
               </Card>
             </div>
 
-            <div className="col-span-8">
+            <div className="md:col-span-8">
               <Card className="h-full">
-                <CardHeader>
-                  <div className="flex items-center gap-3">
-                    {(() => {
-                      const step = steps.find(s => s.id === activeStep);
-                      if (step) {
-                        const Icon = step.icon;
-                        return <Icon className="h-5 w-5" />;
-                      }
-                      return null;
-                    })()}
-                    <div>
-                      <CardTitle className="text-base">
-                        {steps.find(s => s.id === activeStep)?.title || "Step Configuration"}
-                      </CardTitle>
-                      <CardDescription>
-                        {steps.find(s => s.id === activeStep)?.description || "Configure this step"}
-                      </CardDescription>
+                <CardHeader className="p-4 md:p-6">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      {(() => {
+                        const step = steps.find(s => s.id === activeStep);
+                        if (step) {
+                          const Icon = step.icon;
+                          return <Icon className="h-5 w-5" />;
+                        }
+                        return null;
+                      })()}
+                      <div>
+                        <CardTitle className="text-base">
+                          {steps.find(s => s.id === activeStep)?.title || "Step Configuration"}
+                        </CardTitle>
+                        <CardDescription className="hidden sm:block">
+                          {steps.find(s => s.id === activeStep)?.description || "Configure this step"}
+                        </CardDescription>
+                      </div>
+                    </div>
+                    {/* Mobile step toggle */}
+                    <div className="md:hidden">
+                      <Switch
+                        checked={steps.find(s => s.id === activeStep)?.enabled ?? false}
+                        onCheckedChange={() => handleStepToggle(activeStep)}
+                        data-testid="mobile-step-toggle"
+                      />
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-4 md:p-6 pt-0 md:pt-0">
                   {renderStepConfig()}
                 </CardContent>
               </Card>
