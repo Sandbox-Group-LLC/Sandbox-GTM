@@ -678,7 +678,8 @@ export default function EngagementMoments() {
                           <Input
                             type="number"
                             {...field}
-                            onChange={(e) => field.onChange(parseInt(e.target.value))}
+                            value={field.value ?? 1}
+                            onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
                             data-testid="input-min-value"
                           />
                         </FormControl>
@@ -695,7 +696,8 @@ export default function EngagementMoments() {
                           <Input
                             type="number"
                             {...field}
-                            onChange={(e) => field.onChange(parseInt(e.target.value))}
+                            value={field.value ?? 5}
+                            onChange={(e) => field.onChange(parseInt(e.target.value) || 5)}
                             data-testid="input-max-value"
                           />
                         </FormControl>
@@ -714,7 +716,7 @@ export default function EngagementMoments() {
                       <FormItem>
                         <FormLabel>Button Label</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="Learn More" data-testid="input-cta-label" />
+                          <Input {...field} value={field.value || ""} placeholder="Learn More" data-testid="input-cta-label" />
                         </FormControl>
                       </FormItem>
                     )}
@@ -726,7 +728,7 @@ export default function EngagementMoments() {
                       <FormItem>
                         <FormLabel>Button URL</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="https://example.com" data-testid="input-cta-url" />
+                          <Input {...field} value={field.value || ""} placeholder="https://example.com" data-testid="input-cta-url" />
                         </FormControl>
                       </FormItem>
                     )}
