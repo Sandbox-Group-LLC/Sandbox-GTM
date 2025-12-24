@@ -64,6 +64,8 @@ import {
   moments,
   momentResponses,
   engagementSignals,
+  eventLeads,
+  sessionCheckIns,
   type User,
   type UpsertUser,
   type Event,
@@ -233,6 +235,10 @@ import {
   type InsertMomentResponse,
   type EngagementSignal,
   type InsertEngagementSignal,
+  type EventLead,
+  type InsertEventLead,
+  type SessionCheckIn,
+  type InsertSessionCheckIn,
 } from "@shared/schema";
 import crypto from "crypto";
 import { encrypt, decrypt } from "./encryption";
@@ -784,6 +790,21 @@ export interface IStorage {
   getEngagementSignals(organizationId: string, eventId: string): Promise<EngagementSignal[]>;
   getAttendeeEngagementSignal(eventId: string, attendeeId: string): Promise<EngagementSignal | undefined>;
   upsertEngagementSignal(data: InsertEngagementSignal): Promise<EngagementSignal>;
+
+  // Event Leads (Lead Capture)
+  getEventLeads(organizationId: string, eventId: string): Promise<EventLead[]>;
+  getEventLead(organizationId: string, id: string): Promise<EventLead | undefined>;
+  createEventLead(data: InsertEventLead): Promise<EventLead>;
+  updateEventLead(organizationId: string, id: string, updates: Partial<InsertEventLead>): Promise<EventLead | undefined>;
+  deleteEventLead(organizationId: string, id: string): Promise<void>;
+  getEventLeadStats(organizationId: string, eventId: string): Promise<{ total: number; today: number; byMethod: { qr_scan: number; manual: number } }>;
+
+  // Session Check-Ins
+  getSessionCheckIns(organizationId: string, sessionId: string): Promise<SessionCheckIn[]>;
+  getSessionCheckIn(organizationId: string, sessionId: string, attendeeId: string): Promise<SessionCheckIn | undefined>;
+  createSessionCheckIn(data: InsertSessionCheckIn): Promise<SessionCheckIn>;
+  getSessionCheckInStats(organizationId: string, eventId: string): Promise<{ totalCheckIns: number; uniqueAttendees: number; sessionsWithCheckIns: number }>;
+  getSessionCheckInsByEvent(organizationId: string, eventId: string): Promise<SessionCheckIn[]>;
 
   // Moments Analytics
   getMomentsAnalytics(organizationId: string, eventId?: string): Promise<MomentsAnalytics>;
@@ -4844,6 +4865,116 @@ export class DatabaseStorage implements IStorage {
       responseRate,
       totalAttendeesWithAccess,
     };
+  }
+
+  // Event Leads (Lead Capture)
+  async getEventLeads(organizationId: string, eventId: string): Promise<EventLead[]> {
+    return await db.select().from(eventLeads)
+      .where(and(
+        eq(eventLeads.organizationId, organizationId),
+        eq(eventLeads.eventId, eventId)
+      ))
+      .orderBy(desc(eventLeads.createdAt));
+  }
+
+  async getEventLead(organizationId: string, id: string): Promise<EventLead | undefined> {
+    const [result] = await db.select().from(eventLeads)
+      .where(and(
+        eq(eventLeads.organizationId, organizationId),
+        eq(eventLeads.id, id)
+      ));
+    return result;
+  }
+
+  async createEventLead(data: InsertEventLead): Promise<EventLead> {
+    const [result] = await db.insert(eventLeads).values(data).returning();
+    return result;
+  }
+
+  async updateEventLead(organizationId: string, id: string, updates: Partial<InsertEventLead>): Promise<EventLead | undefined> {
+    const [result] = await db.update(eventLeads)
+      .set(updates)
+      .where(and(
+        eq(eventLeads.organizationId, organizationId),
+        eq(eventLeads.id, id)
+      ))
+      .returning();
+    return result;
+  }
+
+  async deleteEventLead(organizationId: string, id: string): Promise<void> {
+    await db.delete(eventLeads)
+      .where(and(
+        eq(eventLeads.organizationId, organizationId),
+        eq(eventLeads.id, id)
+      ));
+  }
+
+  async getEventLeadStats(organizationId: string, eventId: string): Promise<{ total: number; today: number; byMethod: { qr_scan: number; manual: number } }> {
+    const allLeads = await db.select().from(eventLeads)
+      .where(and(
+        eq(eventLeads.organizationId, organizationId),
+        eq(eventLeads.eventId, eventId)
+      ));
+
+    const total = allLeads.length;
+
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const today = allLeads.filter(lead => lead.createdAt && new Date(lead.createdAt) >= startOfToday).length;
+
+    const qr_scan = allLeads.filter(lead => lead.captureMethod === 'qr_scan').length;
+    const manual = allLeads.filter(lead => lead.captureMethod === 'manual').length;
+
+    return { total, today, byMethod: { qr_scan, manual } };
+  }
+
+  // Session Check-Ins
+  async getSessionCheckIns(organizationId: string, sessionId: string): Promise<SessionCheckIn[]> {
+    return await db.select().from(sessionCheckIns)
+      .where(and(
+        eq(sessionCheckIns.organizationId, organizationId),
+        eq(sessionCheckIns.sessionId, sessionId)
+      ))
+      .orderBy(desc(sessionCheckIns.checkedInAt));
+  }
+
+  async getSessionCheckIn(organizationId: string, sessionId: string, attendeeId: string): Promise<SessionCheckIn | undefined> {
+    const [result] = await db.select().from(sessionCheckIns)
+      .where(and(
+        eq(sessionCheckIns.organizationId, organizationId),
+        eq(sessionCheckIns.sessionId, sessionId),
+        eq(sessionCheckIns.attendeeId, attendeeId)
+      ));
+    return result;
+  }
+
+  async createSessionCheckIn(data: InsertSessionCheckIn): Promise<SessionCheckIn> {
+    const [result] = await db.insert(sessionCheckIns).values(data).returning();
+    return result;
+  }
+
+  async getSessionCheckInStats(organizationId: string, eventId: string): Promise<{ totalCheckIns: number; uniqueAttendees: number; sessionsWithCheckIns: number }> {
+    const allCheckIns = await db.select().from(sessionCheckIns)
+      .where(and(
+        eq(sessionCheckIns.organizationId, organizationId),
+        eq(sessionCheckIns.eventId, eventId)
+      ));
+
+    const totalCheckIns = allCheckIns.length;
+    const uniqueAttendees = new Set(allCheckIns.map(c => c.attendeeId)).size;
+    const sessionsWithCheckIns = new Set(allCheckIns.map(c => c.sessionId)).size;
+
+    return { totalCheckIns, uniqueAttendees, sessionsWithCheckIns };
+  }
+
+  async getSessionCheckInsByEvent(organizationId: string, eventId: string): Promise<SessionCheckIn[]> {
+    return await db.select().from(sessionCheckIns)
+      .where(and(
+        eq(sessionCheckIns.organizationId, organizationId),
+        eq(sessionCheckIns.eventId, eventId)
+      ))
+      .orderBy(desc(sessionCheckIns.checkedInAt));
   }
 }
 
