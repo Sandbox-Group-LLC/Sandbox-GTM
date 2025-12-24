@@ -1267,6 +1267,28 @@ export class DatabaseStorage implements IStorage {
     // Delete page views
     await db.delete(pageViews).where(eq(pageViews.eventId, id));
     
+    // Delete engagement moments and responses
+    await db.delete(momentResponses).where(eq(momentResponses.eventId, id));
+    await db.delete(moments).where(eq(moments.eventId, id));
+    
+    // Delete engagement signals
+    await db.delete(engagementSignals).where(eq(engagementSignals.eventId, id));
+    
+    // Delete CFP-related records (in order of dependencies)
+    await db.delete(cfpReviews).where(
+      sql`submission_id IN (SELECT id FROM cfp_submissions WHERE cfp_config_id IN (SELECT id FROM cfp_configs WHERE event_id = ${id}))`
+    );
+    await db.delete(cfpSubmissions).where(
+      sql`cfp_config_id IN (SELECT id FROM cfp_configs WHERE event_id = ${id})`
+    );
+    await db.delete(cfpTopics).where(
+      sql`cfp_config_id IN (SELECT id FROM cfp_configs WHERE event_id = ${id})`
+    );
+    await db.delete(cfpReviewers).where(
+      sql`cfp_config_id IN (SELECT id FROM cfp_configs WHERE event_id = ${id})`
+    );
+    await db.delete(cfpConfigs).where(eq(cfpConfigs.eventId, id));
+    
     // Now delete the event itself
     await db.delete(events).where(and(eq(events.organizationId, organizationId), eq(events.id, id)));
   }
