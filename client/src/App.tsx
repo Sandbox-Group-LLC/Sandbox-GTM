@@ -55,6 +55,7 @@ import Signup from "@/pages/signup";
 import Sponsors from "@/pages/sponsors";
 import SponsorTasks from "@/pages/sponsor-tasks";
 import SponsorPortal from "@/pages/sponsor-portal";
+import SponsorPortalAcceptInvite from "@/pages/sponsor-portal-accept-invite";
 import Documents from "@/pages/documents";
 import SharedDocument from "@/pages/shared-document";
 import Acquisition from "@/pages/acquisition";
@@ -100,7 +101,7 @@ function Router() {
   const [location, navigate] = useLocation();
   
   // Determine if this is a public event page (should render outside sidebar layout)
-  const isPublicEventPage = location.startsWith('/event/') || location === '/sponsor-portal' || location.startsWith('/portal/');
+  const isPublicEventPage = location.startsWith('/event/') || location.startsWith('/sponsor-portal') || location.startsWith('/portal/');
 
   // Check for pending invite code after authentication and redirect to accept-invitation page
   useEffect(() => {
@@ -137,6 +138,7 @@ function Router() {
         <Route path="/event/:slug/moment/:momentId" component={PublicMoment} />
         <Route path="/event/:slug/page/:pageSlug" component={PublicCustomPage} />
         <Route path="/event/:slug" component={PublicEvent} />
+        <Route path="/sponsor-portal/accept-invite" component={SponsorPortalAcceptInvite} />
         <Route path="/sponsor-portal" component={SponsorPortal} />
         <Route path="/documents/shared/:token" component={SharedDocument} />
         <Route path="/accept-invitation" component={AcceptInvitation} />
@@ -172,6 +174,7 @@ function Router() {
         <Route path="/event/:slug/moment/:momentId" component={PublicMoment} />
         <Route path="/event/:slug/page/:pageSlug" component={PublicCustomPage} />
         <Route path="/event/:slug" component={PublicEvent} />
+        <Route path="/sponsor-portal/accept-invite" component={SponsorPortalAcceptInvite} />
         <Route path="/sponsor-portal" component={SponsorPortal} />
         <Route path="/portal/:eventId/moment/:momentId" component={PortalMoment} />
         <Route path="/portal/:eventId/live" component={PortalLiveMoments} />
