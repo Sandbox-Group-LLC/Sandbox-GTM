@@ -6133,6 +6133,61 @@ export async function registerRoutes(
         expiresAt,
       });
       
+      // Send invitation email
+      if (process.env.RESEND_API_KEY) {
+        try {
+          const { Resend } = await import('resend');
+          const resend = new Resend(process.env.RESEND_API_KEY);
+          
+          // Get organization and event info for email
+          const organization = await storage.getOrganization(auth.sponsor!.organizationId);
+          const event = await storage.getEvent(auth.sponsor!.eventId);
+          
+          const baseUrl = process.env.REPLIT_DEV_DOMAIN 
+            ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+            : process.env.BASE_URL || 'http://localhost:5000';
+          
+          const acceptUrl = `${baseUrl}/sponsor-portal/accept-invite?code=${inviteCode}`;
+          const recipientName = firstName ? `${firstName}${lastName ? ` ${lastName}` : ''}` : '';
+          
+          const emailHtml = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2>You've Been Invited to the ${auth.sponsor!.name} Sponsor Portal</h2>
+              <p>Hello${recipientName ? ` ${recipientName}` : ''},</p>
+              <p>You have been invited to access the sponsor portal for <strong>${auth.sponsor!.name}</strong>${event ? ` at ${event.name}` : ''}.</p>
+              <p>With this invitation, you'll be able to:</p>
+              <ul>
+                ${permissions.includes(SPONSOR_CONTACT_PERMISSIONS.LEAD_CAPTURE) ? '<li>Capture leads at the event</li>' : ''}
+                ${permissions.includes(SPONSOR_CONTACT_PERMISSIONS.VIEW_LEADS) ? '<li>View captured leads</li>' : ''}
+                ${permissions.includes(SPONSOR_CONTACT_PERMISSIONS.EXPORT_LEADS) ? '<li>Export lead data</li>' : ''}
+              </ul>
+              <p style="margin: 30px 0;">
+                <a href="${acceptUrl}" style="background-color: #0066cc; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                  Accept Invitation
+                </a>
+              </p>
+              <p style="color: #666; font-size: 14px;">This invitation expires on ${expiresAt.toLocaleDateString()}.</p>
+              <p style="color: #666; font-size: 14px;">If you have any questions, please contact ${auth.sponsor!.contactEmail || 'the event organizer'}.</p>
+            </div>
+          `;
+          
+          const fromEmail = organization?.fromEmailAddress || `noreply@${organization?.slug || 'events'}.com`;
+          const fromName = organization?.name || 'Event Platform';
+          
+          await resend.emails.send({
+            from: `${fromName} <${fromEmail}>`,
+            to: email,
+            subject: `You're invited to the ${auth.sponsor!.name} Sponsor Portal`,
+            html: emailHtml,
+          });
+          
+          logInfo("Sponsor portal invitation email sent to", email);
+        } catch (emailError) {
+          logError("Failed to send sponsor portal invitation email:", emailError);
+          // Don't fail the invitation creation if email fails
+        }
+      }
+      
       res.status(201).json(invitation);
     } catch (error) {
       logError("Error creating sponsor contact invitation:", error);
