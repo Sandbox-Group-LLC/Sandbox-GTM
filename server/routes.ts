@@ -3574,6 +3574,26 @@ export async function registerRoutes(
         createdBy: userId,
       });
       const event = await storage.createEvent(data);
+      
+      // Auto-create default session topics for the new event
+      const defaultTopics = [
+        { name: "Strategy", description: "Strategic planning and direction", displayOrder: 1 },
+        { name: "Technology", description: "Technical topics and innovations", displayOrder: 2 },
+        { name: "Leadership", description: "Leadership and management", displayOrder: 3 },
+        { name: "Innovation", description: "New ideas and approaches", displayOrder: 4 },
+        { name: "Best Practices", description: "Proven methods and techniques", displayOrder: 5 },
+      ];
+      
+      for (const topic of defaultTopics) {
+        await storage.createSessionTopic({
+          name: topic.name,
+          description: topic.description,
+          displayOrder: topic.displayOrder,
+          organizationId: event.organizationId,
+          eventId: event.id,
+        });
+      }
+      
       res.status(201).json(event);
     } catch (error: any) {
       logError("Error creating event:", error);
