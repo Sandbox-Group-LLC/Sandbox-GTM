@@ -6254,7 +6254,7 @@ export async function registerRoutes(
       }
       
       const updated = await storage.updateSponsorContactInvitation(
-        sponsorContact.organizationId, 
+        auth.sponsor!.organizationId, 
         invitationId, 
         { status: 'revoked' }
       );
