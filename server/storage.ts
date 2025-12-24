@@ -1210,6 +1210,19 @@ export class DatabaseStorage implements IStorage {
       sql`budget_item_id IN (SELECT id FROM budget_items WHERE event_id = ${id})`
     );
     
+    // Delete email events before email messages (emailEvents reference emailMessages)
+    await db.delete(emailEvents).where(
+      sql`message_id IN (SELECT id FROM email_messages WHERE attendee_id IN (SELECT id FROM attendees WHERE event_id = ${id}))`
+    );
+    
+    // Delete email messages (references attendees and emailCampaigns)
+    await db.delete(emailMessages).where(
+      sql`attendee_id IN (SELECT id FROM attendees WHERE event_id = ${id})`
+    );
+    
+    // Delete passkey reservations (references events and attendees)
+    await db.delete(passkeyReservations).where(eq(passkeyReservations.eventId, id));
+    
     // Delete moment responses before attendees (momentResponses reference attendees)
     await db.delete(momentResponses).where(eq(momentResponses.eventId, id));
     
@@ -1240,6 +1253,15 @@ export class DatabaseStorage implements IStorage {
     await db.delete(budgetPayments).where(eq(budgetPayments.eventId, id));
     await db.delete(milestones).where(eq(milestones.eventId, id));
     await db.delete(deliverables).where(eq(deliverables.eventId, id));
+    
+    // Delete email events and messages linked to campaigns before deleting campaigns
+    await db.delete(emailEvents).where(
+      sql`message_id IN (SELECT id FROM email_messages WHERE campaign_id IN (SELECT id FROM email_campaigns WHERE event_id = ${id}))`
+    );
+    await db.delete(emailMessages).where(
+      sql`campaign_id IN (SELECT id FROM email_campaigns WHERE event_id = ${id})`
+    );
+    
     await db.delete(emailCampaigns).where(eq(emailCampaigns.eventId, id));
     await db.delete(socialPosts).where(eq(socialPosts.eventId, id));
     await db.delete(emailTemplates).where(eq(emailTemplates.eventId, id));
