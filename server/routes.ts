@@ -9065,6 +9065,259 @@ ${urls.map(u => `  <url>
     }
   });
 
+  // ============================================
+  // Event Leads (Lead Capture) Routes
+  // ============================================
+
+  // Get all leads for an event (admin)
+  app.get("/api/organizations/:orgId/events/:eventId/leads", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orgId, eventId } = req.params;
+      const organizationId = await getOrganizationId(userId, orgId);
+      const leads = await storage.getEventLeads(organizationId, eventId);
+      res.json(leads);
+    } catch (error) {
+      logError("Error fetching leads:", error);
+      res.status(500).json({ message: "Failed to fetch leads" });
+    }
+  });
+
+  // Get lead stats for an event (admin)
+  app.get("/api/organizations/:orgId/events/:eventId/leads/stats", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orgId, eventId } = req.params;
+      const organizationId = await getOrganizationId(userId, orgId);
+      const stats = await storage.getEventLeadStats(organizationId, eventId);
+      res.json(stats);
+    } catch (error) {
+      logError("Error fetching lead stats:", error);
+      res.status(500).json({ message: "Failed to fetch lead stats" });
+    }
+  });
+
+  // Create a new lead (admin - from QR scan or manual entry)
+  app.post("/api/organizations/:orgId/events/:eventId/leads", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orgId, eventId } = req.params;
+      const organizationId = await getOrganizationId(userId, orgId);
+      
+      // Get the current user for capturedByUserId
+      const user = await storage.getUser(userId);
+      
+      const lead = await storage.createEventLead({
+        organizationId,
+        eventId,
+        capturedByUserId: userId,
+        captureMethod: req.body.captureMethod || 'manual',
+        firstName: req.body.firstName,
+        lastName: req.body.lastName,
+        email: req.body.email,
+        company: req.body.company,
+        phone: req.body.phone,
+        jobTitle: req.body.jobTitle,
+        notes: req.body.notes,
+        tags: req.body.tags,
+        sourceCode: req.body.sourceCode,
+      });
+      
+      res.status(201).json(lead);
+    } catch (error) {
+      logError("Error creating lead:", error);
+      res.status(500).json({ message: "Failed to create lead" });
+    }
+  });
+
+  // Update a lead (admin)
+  app.patch("/api/organizations/:orgId/leads/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orgId, id } = req.params;
+      const organizationId = await getOrganizationId(userId, orgId);
+      
+      const lead = await storage.updateEventLead(organizationId, id, req.body);
+      if (!lead) {
+        return res.status(404).json({ message: "Lead not found" });
+      }
+      res.json(lead);
+    } catch (error) {
+      logError("Error updating lead:", error);
+      res.status(500).json({ message: "Failed to update lead" });
+    }
+  });
+
+  // Delete a lead (admin)
+  app.delete("/api/organizations/:orgId/leads/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orgId, id } = req.params;
+      const organizationId = await getOrganizationId(userId, orgId);
+      
+      await storage.deleteEventLead(organizationId, id);
+      res.json({ success: true });
+    } catch (error) {
+      logError("Error deleting lead:", error);
+      res.status(500).json({ message: "Failed to delete lead" });
+    }
+  });
+
+  // ============================================
+  // Session Check-Ins Routes
+  // ============================================
+
+  // Get all check-ins for a session (admin)
+  app.get("/api/organizations/:orgId/sessions/:sessionId/check-ins", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orgId, sessionId } = req.params;
+      const organizationId = await getOrganizationId(userId, orgId);
+      const checkIns = await storage.getSessionCheckIns(organizationId, sessionId);
+      res.json(checkIns);
+    } catch (error) {
+      logError("Error fetching session check-ins:", error);
+      res.status(500).json({ message: "Failed to fetch session check-ins" });
+    }
+  });
+
+  // Get all check-ins for an event (admin)
+  app.get("/api/organizations/:orgId/events/:eventId/session-check-ins", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orgId, eventId } = req.params;
+      const organizationId = await getOrganizationId(userId, orgId);
+      const checkIns = await storage.getSessionCheckInsByEvent(organizationId, eventId);
+      res.json(checkIns);
+    } catch (error) {
+      logError("Error fetching event session check-ins:", error);
+      res.status(500).json({ message: "Failed to fetch session check-ins" });
+    }
+  });
+
+  // Get session check-in stats for an event (admin)
+  app.get("/api/organizations/:orgId/events/:eventId/session-check-ins/stats", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orgId, eventId } = req.params;
+      const organizationId = await getOrganizationId(userId, orgId);
+      const stats = await storage.getSessionCheckInStats(organizationId, eventId);
+      res.json(stats);
+    } catch (error) {
+      logError("Error fetching session check-in stats:", error);
+      res.status(500).json({ message: "Failed to fetch session check-in stats" });
+    }
+  });
+
+  // Create a session check-in (admin - from QR scan or manual)
+  app.post("/api/organizations/:orgId/events/:eventId/sessions/:sessionId/check-in", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orgId, eventId, sessionId } = req.params;
+      const { attendeeId, checkInMethod, sourceCode } = req.body;
+      const organizationId = await getOrganizationId(userId, orgId);
+      
+      // Check if attendee is already checked in for this session
+      const existingCheckIn = await storage.getSessionCheckIn(organizationId, sessionId, attendeeId);
+      if (existingCheckIn) {
+        return res.status(409).json({ message: "Attendee already checked in to this session", checkIn: existingCheckIn });
+      }
+      
+      const checkIn = await storage.createSessionCheckIn({
+        organizationId,
+        eventId,
+        sessionId,
+        attendeeId,
+        scannedByUserId: userId,
+        checkInMethod: checkInMethod || 'manual',
+        sourceCode,
+      });
+      
+      res.status(201).json(checkIn);
+    } catch (error: any) {
+      // Handle unique constraint violation
+      if (error.code === '23505') {
+        return res.status(409).json({ message: "Attendee already checked in to this session" });
+      }
+      logError("Error creating session check-in:", error);
+      res.status(500).json({ message: "Failed to create session check-in" });
+    }
+  });
+
+  // Mode-aware check-in scan endpoint - handles all three modes
+  app.post("/api/organizations/:orgId/events/:eventId/check-in/scan", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orgId, eventId } = req.params;
+      const { code, mode, sessionId } = req.body;
+      const organizationId = await getOrganizationId(userId, orgId);
+      
+      // Find attendee by check-in code
+      const attendees = await storage.getAttendees(organizationId, eventId);
+      const attendee = attendees.find(a => a.checkInCode === code);
+      
+      if (!attendee) {
+        return res.status(404).json({ message: "Attendee not found with this code" });
+      }
+      
+      if (mode === 'program') {
+        // Standard check-in flow - mark attendee as checked in
+        if (attendee.checkedIn) {
+          return res.status(409).json({ message: "Attendee already checked in", attendee });
+        }
+        const updated = await storage.updateAttendee(organizationId, attendee.id, {
+          checkedIn: true,
+          checkInTime: new Date(),
+          registrationStatus: 'checked_in'
+        });
+        return res.json({ success: true, attendee: updated, mode: 'program' });
+      } else if (mode === 'session') {
+        // Session check-in mode
+        if (!sessionId) {
+          return res.status(400).json({ message: "Session ID required for session check-in mode" });
+        }
+        
+        // Check if already checked into this session
+        const existingCheckIn = await storage.getSessionCheckIn(organizationId, sessionId, attendee.id);
+        if (existingCheckIn) {
+          return res.status(409).json({ message: "Attendee already checked in to this session", checkIn: existingCheckIn, attendee });
+        }
+        
+        const checkIn = await storage.createSessionCheckIn({
+          organizationId,
+          eventId,
+          sessionId,
+          attendeeId: attendee.id,
+          scannedByUserId: userId,
+          checkInMethod: 'qr_scan',
+          sourceCode: code,
+        });
+        return res.json({ success: true, checkIn, attendee, mode: 'session' });
+      } else if (mode === 'lead') {
+        // Lead capture mode - return attendee data for pre-filling lead form
+        return res.json({ 
+          success: true, 
+          attendee, 
+          mode: 'lead',
+          leadData: {
+            firstName: attendee.firstName,
+            lastName: attendee.lastName,
+            email: attendee.email,
+            company: attendee.company,
+            phone: attendee.phone,
+            jobTitle: attendee.jobTitle,
+            attendeeId: attendee.id,
+          }
+        });
+      } else {
+        return res.status(400).json({ message: "Invalid mode. Must be 'program', 'session', or 'lead'" });
+      }
+    } catch (error) {
+      logError("Error processing check-in scan:", error);
+      res.status(500).json({ message: "Failed to process scan" });
+    }
+  });
+
   // Analytics routes
   app.get("/api/analytics/overview", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
