@@ -6183,7 +6183,7 @@ export async function registerRoutes(
           });
           
           if (emailResult.error) {
-            logError("Resend API error for sponsor invitation:", emailResult.error);
+            logError("Resend API error for sponsor invitation:", JSON.stringify(emailResult.error));
           } else {
             logInfo("Sponsor portal invitation email sent successfully to", email, "ID:", emailResult.data?.id);
           }
