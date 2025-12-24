@@ -1969,6 +1969,72 @@ export const sessionCheckIns = pgTable("session_check_ins", {
   uniqueIndex("session_check_ins_session_attendee_idx").on(table.sessionId, table.attendeeId),
 ]);
 
+// API Key scopes for external integrations
+export const API_KEY_SCOPES = [
+  'events.read',       // Read event information
+  'attendees.read',    // Read attendee data
+  'leads.read',        // Read lead data
+  'sessions.read',     // Read session/agenda data
+  'speakers.read',     // Read speaker data
+  'analytics.read',    // Read analytics data
+  'sponsors.read',     // Read sponsor data
+] as const;
+
+export type ApiKeyScope = typeof API_KEY_SCOPES[number];
+
+// API Keys table - for external application access
+export const apiKeys = pgTable("api_keys", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description"),
+  keyPrefix: varchar("key_prefix", { length: 12 }).notNull(), // First 8 chars of key for identification
+  hashedSecret: varchar("hashed_secret", { length: 255 }).notNull(), // Argon2 hash of full key
+  scopes: text("scopes").array().notNull(), // Array of API_KEY_SCOPES
+  status: varchar("status", { length: 20 }).default("active").notNull(), // 'active', 'paused', 'revoked'
+  rateLimitPerMinute: integer("rate_limit_per_minute").default(60),
+  rateLimitPerDay: integer("rate_limit_per_day").default(10000),
+  expiresAt: timestamp("expires_at"), // Optional expiration
+  lastUsedAt: timestamp("last_used_at"),
+  lastRotatedAt: timestamp("last_rotated_at"),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("api_keys_org_idx").on(table.organizationId),
+  index("api_keys_prefix_idx").on(table.keyPrefix),
+]);
+
+// API Key Audit Logs - track usage of each key
+export const apiKeyAuditLogs = pgTable("api_key_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  apiKeyId: varchar("api_key_id").references(() => apiKeys.id).notNull(),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  occurredAt: timestamp("occurred_at").defaultNow().notNull(),
+  route: varchar("route", { length: 255 }).notNull(),
+  method: varchar("method", { length: 10 }).notNull(),
+  statusCode: integer("status_code").notNull(),
+  ipHash: varchar("ip_hash", { length: 64 }), // Hashed IP for privacy
+  userAgent: varchar("user_agent", { length: 500 }),
+  latencyMs: integer("latency_ms"),
+  metadata: jsonb("metadata"), // Additional context
+}, (table) => [
+  index("api_key_audit_key_idx").on(table.apiKeyId),
+  index("api_key_audit_occurred_idx").on(table.occurredAt),
+]);
+
+// API Keys relations
+export const apiKeysRelations = relations(apiKeys, ({ one, many }) => ({
+  organization: one(organizations, { fields: [apiKeys.organizationId], references: [organizations.id] }),
+  createdByUser: one(users, { fields: [apiKeys.createdBy], references: [users.id] }),
+  auditLogs: many(apiKeyAuditLogs),
+}));
+
+export const apiKeyAuditLogsRelations = relations(apiKeyAuditLogs, ({ one }) => ({
+  apiKey: one(apiKeys, { fields: [apiKeyAuditLogs.apiKeyId], references: [apiKeys.id] }),
+  organization: one(organizations, { fields: [apiKeyAuditLogs.organizationId], references: [organizations.id] }),
+}));
+
 // Moments relations
 export const momentsRelations = relations(moments, ({ one, many }) => ({
   organization: one(organizations, { fields: [moments.organizationId], references: [organizations.id] }),
@@ -2076,6 +2142,8 @@ export const insertMomentResponseSchema = createInsertSchema(momentResponses).om
 export const insertEngagementSignalSchema = createInsertSchema(engagementSignals).omit({ id: true, updatedAt: true });
 export const insertEventLeadSchema = createInsertSchema(eventLeads).omit({ id: true, createdAt: true });
 export const insertSessionCheckInSchema = createInsertSchema(sessionCheckIns).omit({ id: true, checkedInAt: true });
+export const insertApiKeySchema = createInsertSchema(apiKeys).omit({ id: true, createdAt: true, updatedAt: true, lastUsedAt: true, lastRotatedAt: true });
+export const insertApiKeyAuditLogSchema = createInsertSchema(apiKeyAuditLogs).omit({ id: true, occurredAt: true });
 
 // Types
 export type UpsertUser = typeof users.$inferInsert;
@@ -2240,3 +2308,7 @@ export type InsertEventLead = z.infer<typeof insertEventLeadSchema>;
 export type EventLead = typeof eventLeads.$inferSelect;
 export type InsertSessionCheckIn = z.infer<typeof insertSessionCheckInSchema>;
 export type SessionCheckIn = typeof sessionCheckIns.$inferSelect;
+export type InsertApiKey = z.infer<typeof insertApiKeySchema>;
+export type ApiKey = typeof apiKeys.$inferSelect;
+export type InsertApiKeyAuditLog = z.infer<typeof insertApiKeyAuditLogSchema>;
+export type ApiKeyAuditLog = typeof apiKeyAuditLogs.$inferSelect;

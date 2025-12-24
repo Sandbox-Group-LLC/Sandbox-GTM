@@ -67,6 +67,8 @@ import {
   engagementSignals,
   eventLeads,
   sessionCheckIns,
+  apiKeys,
+  apiKeyAuditLogs,
   type User,
   type UpsertUser,
   type Event,
@@ -242,6 +244,10 @@ import {
   type InsertEventLead,
   type SessionCheckIn,
   type InsertSessionCheckIn,
+  type ApiKey,
+  type InsertApiKey,
+  type ApiKeyAuditLog,
+  type InsertApiKeyAuditLog,
 } from "@shared/schema";
 import crypto from "crypto";
 import { encrypt, decrypt } from "./encryption";
@@ -822,6 +828,20 @@ export interface IStorage {
 
   // Moments Analytics
   getMomentsAnalytics(organizationId: string, eventId?: string): Promise<MomentsAnalytics>;
+
+  // API Keys
+  getApiKeys(organizationId: string): Promise<ApiKey[]>;
+  getApiKey(organizationId: string, id: string): Promise<ApiKey | undefined>;
+  getApiKeyByPrefix(keyPrefix: string): Promise<ApiKey | undefined>;
+  createApiKey(data: InsertApiKey): Promise<ApiKey>;
+  updateApiKey(organizationId: string, id: string, updates: Partial<InsertApiKey>): Promise<ApiKey | undefined>;
+  rotateApiKey(organizationId: string, id: string, newHashedSecret: string): Promise<ApiKey | undefined>;
+  revokeApiKey(organizationId: string, id: string): Promise<ApiKey | undefined>;
+  updateApiKeyLastUsed(id: string): Promise<void>;
+  
+  // API Key Audit Logs
+  createApiKeyAuditLog(data: InsertApiKeyAuditLog): Promise<ApiKeyAuditLog>;
+  getApiKeyAuditLogs(organizationId: string, apiKeyId?: string, limit?: number): Promise<ApiKeyAuditLog[]>;
 }
 
 // Types for Moments Analytics
@@ -5061,6 +5081,98 @@ export class DatabaseStorage implements IStorage {
         eq(sessionCheckIns.eventId, eventId)
       ))
       .orderBy(desc(sessionCheckIns.checkedInAt));
+  }
+
+  // API Keys
+  async getApiKeys(organizationId: string): Promise<ApiKey[]> {
+    return await db.select().from(apiKeys)
+      .where(eq(apiKeys.organizationId, organizationId))
+      .orderBy(desc(apiKeys.createdAt));
+  }
+
+  async getApiKey(organizationId: string, id: string): Promise<ApiKey | undefined> {
+    const [result] = await db.select().from(apiKeys)
+      .where(and(
+        eq(apiKeys.organizationId, organizationId),
+        eq(apiKeys.id, id)
+      ));
+    return result;
+  }
+
+  async getApiKeyByPrefix(keyPrefix: string): Promise<ApiKey | undefined> {
+    const [result] = await db.select().from(apiKeys)
+      .where(eq(apiKeys.keyPrefix, keyPrefix));
+    return result;
+  }
+
+  async createApiKey(data: InsertApiKey): Promise<ApiKey> {
+    const [result] = await db.insert(apiKeys).values(data).returning();
+    return result;
+  }
+
+  async updateApiKey(organizationId: string, id: string, updates: Partial<InsertApiKey>): Promise<ApiKey | undefined> {
+    const [result] = await db.update(apiKeys)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(
+        eq(apiKeys.organizationId, organizationId),
+        eq(apiKeys.id, id)
+      ))
+      .returning();
+    return result;
+  }
+
+  async rotateApiKey(organizationId: string, id: string, newHashedSecret: string): Promise<ApiKey | undefined> {
+    const [result] = await db.update(apiKeys)
+      .set({ 
+        hashedSecret: newHashedSecret, 
+        lastRotatedAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(and(
+        eq(apiKeys.organizationId, organizationId),
+        eq(apiKeys.id, id)
+      ))
+      .returning();
+    return result;
+  }
+
+  async revokeApiKey(organizationId: string, id: string): Promise<ApiKey | undefined> {
+    const [result] = await db.update(apiKeys)
+      .set({ status: 'revoked', updatedAt: new Date() })
+      .where(and(
+        eq(apiKeys.organizationId, organizationId),
+        eq(apiKeys.id, id)
+      ))
+      .returning();
+    return result;
+  }
+
+  async updateApiKeyLastUsed(id: string): Promise<void> {
+    await db.update(apiKeys)
+      .set({ lastUsedAt: new Date() })
+      .where(eq(apiKeys.id, id));
+  }
+
+  // API Key Audit Logs
+  async createApiKeyAuditLog(data: InsertApiKeyAuditLog): Promise<ApiKeyAuditLog> {
+    const [result] = await db.insert(apiKeyAuditLogs).values(data).returning();
+    return result;
+  }
+
+  async getApiKeyAuditLogs(organizationId: string, apiKeyId?: string, limit: number = 100): Promise<ApiKeyAuditLog[]> {
+    if (apiKeyId) {
+      return await db.select().from(apiKeyAuditLogs)
+        .where(and(
+          eq(apiKeyAuditLogs.organizationId, organizationId),
+          eq(apiKeyAuditLogs.apiKeyId, apiKeyId)
+        ))
+        .orderBy(desc(apiKeyAuditLogs.occurredAt))
+        .limit(limit);
+    }
+    return await db.select().from(apiKeyAuditLogs)
+      .where(eq(apiKeyAuditLogs.organizationId, organizationId))
+      .orderBy(desc(apiKeyAuditLogs.occurredAt))
+      .limit(limit);
   }
 }
 

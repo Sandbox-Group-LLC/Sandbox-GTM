@@ -96,6 +96,8 @@ import {
   emailSyncJobs,
   FEATURE_PERMISSIONS,
   SPONSOR_CONTACT_PERMISSIONS,
+  API_KEY_SCOPES,
+  insertApiKeySchema,
 } from "@shared/schema";
 import { createMailchimpProvider } from "./integrations/mailchimp";
 import { decrypt, encrypt } from "./encryption";
@@ -1814,6 +1816,303 @@ export async function registerRoutes(
     } catch (error) {
       logError("Error removing member:", error);
       res.status(500).json({ message: "Failed to remove member" });
+    }
+  });
+
+  // =====================================================
+  // API Key Management Routes
+  // =====================================================
+
+  // GET /api/organization/api-keys - List all API keys for the organization
+  app.get('/api/organization/api-keys', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      
+      if (!await isOrganizationOwner(userId, organizationId)) {
+        return res.status(403).json({ message: "Only organization owners can manage API keys" });
+      }
+      
+      const keys = await storage.getApiKeys(organizationId);
+      
+      // Return keys without the hashed secret
+      const sanitizedKeys = keys.map(key => ({
+        id: key.id,
+        name: key.name,
+        description: key.description,
+        keyPrefix: key.keyPrefix,
+        scopes: key.scopes,
+        status: key.status,
+        rateLimitPerMinute: key.rateLimitPerMinute,
+        rateLimitPerDay: key.rateLimitPerDay,
+        expiresAt: key.expiresAt,
+        lastUsedAt: key.lastUsedAt,
+        lastRotatedAt: key.lastRotatedAt,
+        createdAt: key.createdAt,
+      }));
+      
+      res.json(sanitizedKeys);
+    } catch (error) {
+      logError("Error fetching API keys:", error);
+      res.status(500).json({ message: "Failed to fetch API keys" });
+    }
+  });
+
+  // POST /api/organization/api-keys - Create a new API key
+  app.post('/api/organization/api-keys', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      
+      if (!await isOrganizationOwner(userId, organizationId)) {
+        return res.status(403).json({ message: "Only organization owners can create API keys" });
+      }
+      
+      const { name, description, scopes, rateLimitPerMinute, rateLimitPerDay, expiresAt } = req.body;
+      
+      if (!name || typeof name !== 'string') {
+        return res.status(400).json({ message: "Name is required" });
+      }
+      
+      if (!scopes || !Array.isArray(scopes) || scopes.length === 0) {
+        return res.status(400).json({ message: "At least one scope is required" });
+      }
+      
+      // Validate scopes
+      const validScopes = scopes.every((scope: string) => API_KEY_SCOPES.includes(scope as any));
+      if (!validScopes) {
+        return res.status(400).json({ message: "Invalid scope(s) provided", validScopes: API_KEY_SCOPES });
+      }
+      
+      // Generate a secure key: prefix.secret format
+      const prefix = randomBytes(4).toString('hex'); // 8 chars
+      const secret = randomBytes(24).toString('hex'); // 48 chars
+      const fullKey = `${prefix}.${secret}`;
+      
+      // Hash the secret for storage using scrypt
+      const salt = randomBytes(16).toString("hex");
+      const derivedKey = (await scryptAsync(secret, salt, 64)) as Buffer;
+      const hashedSecret = `${salt}:${derivedKey.toString("hex")}`;
+      
+      const apiKey = await storage.createApiKey({
+        organizationId,
+        name: name.substring(0, 100),
+        description: description?.substring(0, 500) || null,
+        keyPrefix: prefix,
+        hashedSecret,
+        scopes,
+        status: 'active',
+        rateLimitPerMinute: rateLimitPerMinute || 60,
+        rateLimitPerDay: rateLimitPerDay || 10000,
+        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        createdBy: userId,
+      });
+      
+      logInfo(`API key created: ${prefix}... for org ${organizationId}`, 'ApiKeys');
+      
+      // Return the full key ONCE - it won't be shown again
+      res.status(201).json({
+        id: apiKey.id,
+        name: apiKey.name,
+        description: apiKey.description,
+        keyPrefix: apiKey.keyPrefix,
+        scopes: apiKey.scopes,
+        status: apiKey.status,
+        rateLimitPerMinute: apiKey.rateLimitPerMinute,
+        rateLimitPerDay: apiKey.rateLimitPerDay,
+        expiresAt: apiKey.expiresAt,
+        createdAt: apiKey.createdAt,
+        // IMPORTANT: This is the only time the full key is shown
+        secret: fullKey,
+      });
+    } catch (error) {
+      logError("Error creating API key:", error);
+      res.status(500).json({ message: "Failed to create API key" });
+    }
+  });
+
+  // PATCH /api/organization/api-keys/:id - Update an API key
+  app.patch('/api/organization/api-keys/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { id } = req.params;
+      
+      if (!await isOrganizationOwner(userId, organizationId)) {
+        return res.status(403).json({ message: "Only organization owners can update API keys" });
+      }
+      
+      const existingKey = await storage.getApiKey(organizationId, id);
+      if (!existingKey) {
+        return res.status(404).json({ message: "API key not found" });
+      }
+      
+      if (existingKey.status === 'revoked') {
+        return res.status(400).json({ message: "Cannot update a revoked API key" });
+      }
+      
+      const { name, description, scopes, status, rateLimitPerMinute, rateLimitPerDay, expiresAt } = req.body;
+      
+      const updates: any = {};
+      if (name) updates.name = name.substring(0, 100);
+      if (description !== undefined) updates.description = description?.substring(0, 500) || null;
+      if (scopes && Array.isArray(scopes) && scopes.length > 0) {
+        const validScopes = scopes.every((scope: string) => API_KEY_SCOPES.includes(scope as any));
+        if (!validScopes) {
+          return res.status(400).json({ message: "Invalid scope(s) provided" });
+        }
+        updates.scopes = scopes;
+      }
+      if (status && ['active', 'paused'].includes(status)) {
+        updates.status = status;
+      }
+      if (rateLimitPerMinute) updates.rateLimitPerMinute = rateLimitPerMinute;
+      if (rateLimitPerDay) updates.rateLimitPerDay = rateLimitPerDay;
+      if (expiresAt !== undefined) updates.expiresAt = expiresAt ? new Date(expiresAt) : null;
+      
+      const updatedKey = await storage.updateApiKey(organizationId, id, updates);
+      
+      res.json({
+        id: updatedKey!.id,
+        name: updatedKey!.name,
+        description: updatedKey!.description,
+        keyPrefix: updatedKey!.keyPrefix,
+        scopes: updatedKey!.scopes,
+        status: updatedKey!.status,
+        rateLimitPerMinute: updatedKey!.rateLimitPerMinute,
+        rateLimitPerDay: updatedKey!.rateLimitPerDay,
+        expiresAt: updatedKey!.expiresAt,
+        lastUsedAt: updatedKey!.lastUsedAt,
+        createdAt: updatedKey!.createdAt,
+      });
+    } catch (error) {
+      logError("Error updating API key:", error);
+      res.status(500).json({ message: "Failed to update API key" });
+    }
+  });
+
+  // POST /api/organization/api-keys/:id/rotate - Rotate an API key's secret
+  app.post('/api/organization/api-keys/:id/rotate', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { id } = req.params;
+      
+      if (!await isOrganizationOwner(userId, organizationId)) {
+        return res.status(403).json({ message: "Only organization owners can rotate API keys" });
+      }
+      
+      const existingKey = await storage.getApiKey(organizationId, id);
+      if (!existingKey) {
+        return res.status(404).json({ message: "API key not found" });
+      }
+      
+      if (existingKey.status === 'revoked') {
+        return res.status(400).json({ message: "Cannot rotate a revoked API key" });
+      }
+      
+      // Generate new secret
+      const newSecret = randomBytes(24).toString('hex');
+      const fullKey = `${existingKey.keyPrefix}.${newSecret}`;
+      
+      // Hash the new secret
+      const salt = randomBytes(16).toString("hex");
+      const derivedKey = (await scryptAsync(newSecret, salt, 64)) as Buffer;
+      const hashedSecret = `${salt}:${derivedKey.toString("hex")}`;
+      
+      const rotatedKey = await storage.rotateApiKey(organizationId, id, hashedSecret);
+      
+      logInfo(`API key rotated: ${existingKey.keyPrefix}... for org ${organizationId}`, 'ApiKeys');
+      
+      res.json({
+        id: rotatedKey!.id,
+        name: rotatedKey!.name,
+        keyPrefix: rotatedKey!.keyPrefix,
+        scopes: rotatedKey!.scopes,
+        status: rotatedKey!.status,
+        lastRotatedAt: rotatedKey!.lastRotatedAt,
+        // IMPORTANT: This is the only time the new key is shown
+        secret: fullKey,
+      });
+    } catch (error) {
+      logError("Error rotating API key:", error);
+      res.status(500).json({ message: "Failed to rotate API key" });
+    }
+  });
+
+  // DELETE /api/organization/api-keys/:id - Revoke an API key
+  app.delete('/api/organization/api-keys/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { id } = req.params;
+      
+      if (!await isOrganizationOwner(userId, organizationId)) {
+        return res.status(403).json({ message: "Only organization owners can revoke API keys" });
+      }
+      
+      const existingKey = await storage.getApiKey(organizationId, id);
+      if (!existingKey) {
+        return res.status(404).json({ message: "API key not found" });
+      }
+      
+      await storage.revokeApiKey(organizationId, id);
+      
+      logInfo(`API key revoked: ${existingKey.keyPrefix}... for org ${organizationId}`, 'ApiKeys');
+      
+      res.status(204).send();
+    } catch (error) {
+      logError("Error revoking API key:", error);
+      res.status(500).json({ message: "Failed to revoke API key" });
+    }
+  });
+
+  // GET /api/organization/api-keys/:id/logs - Get audit logs for an API key
+  app.get('/api/organization/api-keys/:id/logs', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { id } = req.params;
+      const limit = Math.min(parseInt(req.query.limit) || 100, 1000);
+      
+      if (!await isOrganizationOwner(userId, organizationId)) {
+        return res.status(403).json({ message: "Only organization owners can view API key logs" });
+      }
+      
+      const existingKey = await storage.getApiKey(organizationId, id);
+      if (!existingKey) {
+        return res.status(404).json({ message: "API key not found" });
+      }
+      
+      const logs = await storage.getApiKeyAuditLogs(organizationId, id, limit);
+      
+      res.json(logs);
+    } catch (error) {
+      logError("Error fetching API key logs:", error);
+      res.status(500).json({ message: "Failed to fetch API key logs" });
+    }
+  });
+
+  // GET /api/organization/api-keys/scopes - Get available scopes
+  app.get('/api/organization/api-keys/scopes', isAuthenticated, async (req: any, res) => {
+    try {
+      const scopeDescriptions = {
+        'events.read': 'Read event information (name, dates, venue, settings)',
+        'attendees.read': 'Read attendee data (names, emails, registration info)',
+        'leads.read': 'Read lead capture data',
+        'sessions.read': 'Read session/agenda data (schedule, speakers, tracks)',
+        'speakers.read': 'Read speaker profiles and bios',
+        'analytics.read': 'Read analytics and statistics',
+        'sponsors.read': 'Read sponsor information',
+      };
+      
+      res.json(API_KEY_SCOPES.map(scope => ({
+        scope,
+        description: scopeDescriptions[scope] || scope,
+      })));
+    } catch (error) {
+      logError("Error fetching scopes:", error);
+      res.status(500).json({ message: "Failed to fetch scopes" });
     }
   });
 
