@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -82,6 +83,9 @@ export default function CustomFields() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingField, setEditingField] = useState<CustomField | null>(null);
   const [optionsText, setOptionsText] = useState("");
+  
+  // Local state for toggles to avoid FormField/Switch issues
+  const [toggles, setToggles] = useState({ required: false, isActive: true, attendeeOnly: false });
 
   const { data: customFields = [], isLoading } = useQuery<CustomField[]>({
     queryKey: ["/api/custom-fields"],
@@ -177,6 +181,11 @@ export default function CustomFields() {
       isActive: field.isActive ?? true,
       attendeeOnly: field.attendeeOnly ?? false,
     });
+    setToggles({
+      required: field.required ?? false,
+      isActive: field.isActive ?? true,
+      attendeeOnly: field.attendeeOnly ?? false,
+    });
     setOptionsText((field.options ?? []).join("\n"));
     setIsDialogOpen(true);
   };
@@ -192,7 +201,8 @@ export default function CustomFields() {
       ? optionsText.split("\n").map(o => o.trim()).filter(o => o.length > 0)
       : [];
     
-    const submitData = { ...data, options };
+    // Merge toggle state with form data
+    const submitData = { ...data, ...toggles, options };
 
     if (editingField) {
       updateMutation.mutate({ id: editingField.id, data: submitData });
@@ -206,6 +216,7 @@ export default function CustomFields() {
       setEditingField(null);
       form.reset();
       setOptionsText("");
+      setToggles({ required: false, isActive: true, attendeeOnly: false });
     }
     setIsDialogOpen(open);
   };
@@ -420,59 +431,36 @@ export default function CustomFields() {
                   )}
                 />
                 <div className="space-y-3 pt-2">
-                  <FormField
-                    control={form.control}
-                    name="required"
-                    render={({ field }) => (
-                      <FormItem className="flex items-center justify-between">
-                        <FormLabel className="text-sm font-normal">Required field</FormLabel>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            data-testid="switch-field-required"
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="isActive"
-                    render={({ field }) => (
-                      <FormItem className="flex items-center justify-between">
-                        <FormLabel className="text-sm font-normal">Active</FormLabel>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            data-testid="switch-field-active"
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="attendeeOnly"
-                    render={({ field }) => (
-                      <FormItem className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-sm font-normal">Attendee Only</FormLabel>
-                          <FormDescription className="text-xs">
-                            Only shown in attendee registration, not admin forms
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            data-testid="switch-field-attendee-only"
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
+                  <div className="flex items-center justify-between p-3 border rounded-md">
+                    <Label htmlFor="required-switch" className="cursor-pointer">Required field</Label>
+                    <Switch
+                      id="required-switch"
+                      checked={toggles.required}
+                      onCheckedChange={(checked) => setToggles({ ...toggles, required: checked })}
+                      data-testid="switch-field-required"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-3 border rounded-md">
+                    <Label htmlFor="active-switch" className="cursor-pointer">Active</Label>
+                    <Switch
+                      id="active-switch"
+                      checked={toggles.isActive}
+                      onCheckedChange={(checked) => setToggles({ ...toggles, isActive: checked })}
+                      data-testid="switch-field-active"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-3 border rounded-md">
+                    <div>
+                      <Label htmlFor="attendee-only-switch" className="cursor-pointer">Attendee Only</Label>
+                      <p className="text-sm text-muted-foreground">Only shown in attendee registration, not admin forms</p>
+                    </div>
+                    <Switch
+                      id="attendee-only-switch"
+                      checked={toggles.attendeeOnly}
+                      onCheckedChange={(checked) => setToggles({ ...toggles, attendeeOnly: checked })}
+                      data-testid="switch-field-attendee-only"
+                    />
+                  </div>
                 </div>
                 <div className="flex justify-end gap-2 pt-4">
                   <Button
