@@ -1240,11 +1240,24 @@ export class DatabaseStorage implements IStorage {
     // Delete packages and invite codes
     await db.delete(eventPackages).where(eq(eventPackages.eventId, id));
     await db.delete(inviteCodes).where(eq(inviteCodes.eventId, id));
+    
+    // Delete sponsor-related records before eventSponsors (in order of FK dependencies)
+    await db.delete(sponsorTaskCompletions).where(
+      sql`task_id IN (SELECT id FROM sponsor_tasks WHERE event_id = ${id})`
+    );
+    await db.delete(sponsorContacts).where(
+      sql`sponsor_id IN (SELECT id FROM event_sponsors WHERE event_id = ${id})`
+    );
+    await db.delete(sponsorTasks).where(eq(sponsorTasks.eventId, id));
     await db.delete(eventSponsors).where(eq(eventSponsors.eventId, id));
     await db.delete(speakers).where(eq(speakers.eventId, id));
     
     // Delete moments before sessions (moments reference sessions)
     await db.delete(moments).where(eq(moments.eventId, id));
+    
+    // Delete session tracks and rooms before sessions
+    await db.delete(sessionTracks).where(eq(sessionTracks.eventId, id));
+    await db.delete(sessionRooms).where(eq(sessionRooms.eventId, id));
     await db.delete(eventSessions).where(eq(eventSessions.eventId, id));
     await db.delete(contentItems).where(eq(contentItems.eventId, id));
     await db.delete(budgetItems).where(eq(budgetItems.eventId, id));
@@ -1265,6 +1278,7 @@ export class DatabaseStorage implements IStorage {
     await db.delete(emailCampaigns).where(eq(emailCampaigns.eventId, id));
     await db.delete(socialPosts).where(eq(socialPosts.eventId, id));
     await db.delete(emailTemplates).where(eq(emailTemplates.eventId, id));
+    await db.delete(emailSyncJobs).where(eq(emailSyncJobs.eventId, id));
     
     // Delete page_versions before event_pages (page_versions references event_pages)
     await db.delete(pageVersions).where(
