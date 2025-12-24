@@ -293,8 +293,8 @@ export function EventFormFields({ form, testIdPrefix = "" }: EventFormFieldsProp
             </div>
             <FormControl>
               <Switch
-                checked={Boolean(field.value)}
-                onCheckedChange={field.onChange}
+                checked={field.value === true}
+                onCheckedChange={(checked) => field.onChange(checked === true)}
                 data-testid={`switch-${prefix}event-is-public`}
               />
             </FormControl>
@@ -312,8 +312,8 @@ export function EventFormFields({ form, testIdPrefix = "" }: EventFormFieldsProp
             </div>
             <FormControl>
               <Switch
-                checked={Boolean(field.value)}
-                onCheckedChange={field.onChange}
+                checked={field.value === true}
+                onCheckedChange={(checked) => field.onChange(checked === true)}
                 data-testid={`switch-${prefix}event-registration-open`}
               />
             </FormControl>
