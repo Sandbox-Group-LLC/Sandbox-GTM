@@ -1,28 +1,84 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { LogOut, User, Shield, Bell, Palette, FileText, Plug, Building2, Globe, Loader2, CheckCircle2, Copy, RefreshCw, AlertCircle } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
+import { LogOut, User, Shield, Bell, Palette, FileText, Plug, Building2, Globe, Loader2, CheckCircle2, Copy, RefreshCw, AlertCircle, Key, Plus, Edit2, RotateCcw, Trash2, Eye, AlertTriangle, Clock, Calendar, Activity } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { CustomFontsManager } from "@/components/custom-fonts-manager";
-import type { Organization } from "@shared/schema";
+import type { Organization, ApiKey, ApiKeyAuditLog } from "@shared/schema";
+import { format } from "date-fns";
+
+// Types for API responses
+interface ApiKeyScope {
+  scope: string;
+  description: string;
+}
+
+interface ApiKeyWithSecret extends Omit<ApiKey, 'hashedSecret' | 'organizationId' | 'createdBy' | 'updatedAt'> {
+  secret?: string;
+}
+
+// Form schemas
+const createApiKeySchema = z.object({
+  name: z.string().min(1, "Name is required").max(100),
+  description: z.string().max(500).optional(),
+  scopes: z.array(z.string()).min(1, "Select at least one scope"),
+  rateLimitPerMinute: z.coerce.number().int().min(1).max(10000).default(60),
+  rateLimitPerDay: z.coerce.number().int().min(1).max(1000000).default(10000),
+  expiresAt: z.string().optional(),
+});
+
+const editApiKeySchema = z.object({
+  name: z.string().min(1, "Name is required").max(100),
+  description: z.string().max(500).optional(),
+  scopes: z.array(z.string()).min(1, "Select at least one scope"),
+  status: z.enum(["active", "paused"]),
+  rateLimitPerMinute: z.coerce.number().int().min(1).max(10000),
+  rateLimitPerDay: z.coerce.number().int().min(1).max(1000000),
+  expiresAt: z.string().optional(),
+});
+
+type CreateApiKeyFormData = z.infer<typeof createApiKeySchema>;
+type EditApiKeyFormData = z.infer<typeof editApiKeySchema>;
 
 export default function Settings() {
-  const { user, organization } = useAuth();
+  const { user, organization, isOwner } = useAuth();
   const { toast } = useToast();
   const [customDomain, setCustomDomain] = useState("");
   const [isEditingDomain, setIsEditingDomain] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+
+  // API Key Management State
+  const [createKeyDialogOpen, setCreateKeyDialogOpen] = useState(false);
+  const [editKeyDialogOpen, setEditKeyDialogOpen] = useState(false);
+  const [logsDialogOpen, setLogsDialogOpen] = useState(false);
+  const [secretDialogOpen, setSecretDialogOpen] = useState(false);
+  const [revokeDialogOpen, setRevokeDialogOpen] = useState(false);
+  const [rotateDialogOpen, setRotateDialogOpen] = useState(false);
+  const [selectedKey, setSelectedKey] = useState<ApiKeyWithSecret | null>(null);
+  const [newSecret, setNewSecret] = useState<string | null>(null);
 
   // Fetch current organization data
   const { data: orgData } = useQuery<Organization>({
@@ -156,6 +212,196 @@ export default function Settings() {
         description: "Verification token copied to clipboard.",
       });
     }
+  };
+
+  // API Key Queries and Mutations
+  const { data: apiKeys, isLoading: apiKeysLoading } = useQuery<ApiKeyWithSecret[]>({
+    queryKey: ["/api/organization/api-keys"],
+    enabled: !!orgData && isOwner,
+  });
+
+  const { data: availableScopes } = useQuery<ApiKeyScope[]>({
+    queryKey: ["/api/organization/api-keys/scopes"],
+    enabled: !!orgData && isOwner,
+  });
+
+  const { data: keyLogs, isLoading: keyLogsLoading } = useQuery<ApiKeyAuditLog[]>({
+    queryKey: ["/api/organization/api-keys", selectedKey?.id, "logs"],
+    enabled: !!selectedKey?.id && logsDialogOpen,
+  });
+
+  // Create API Key Form
+  const createKeyForm = useForm<CreateApiKeyFormData>({
+    resolver: zodResolver(createApiKeySchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      scopes: [],
+      rateLimitPerMinute: 60,
+      rateLimitPerDay: 10000,
+      expiresAt: "",
+    },
+  });
+
+  // Edit API Key Form
+  const editKeyForm = useForm<EditApiKeyFormData>({
+    resolver: zodResolver(editApiKeySchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      scopes: [],
+      status: "active",
+      rateLimitPerMinute: 60,
+      rateLimitPerDay: 10000,
+      expiresAt: "",
+    },
+  });
+
+  // Create API Key Mutation
+  const createKeyMutation = useMutation({
+    mutationFn: async (data: CreateApiKeyFormData) => {
+      const res = await apiRequest("POST", "/api/organization/api-keys", {
+        ...data,
+        expiresAt: data.expiresAt || undefined,
+      });
+      return res.json();
+    },
+    onSuccess: (data: ApiKeyWithSecret) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/organization/api-keys"] });
+      setNewSecret(data.secret || null);
+      setCreateKeyDialogOpen(false);
+      setSecretDialogOpen(true);
+      createKeyForm.reset();
+      toast({
+        title: "API Key Created",
+        description: "Your new API key has been created successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create API key",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Update API Key Mutation
+  const updateKeyMutation = useMutation({
+    mutationFn: async (data: EditApiKeyFormData & { id: string }) => {
+      const { id, ...updates } = data;
+      const res = await apiRequest("PATCH", `/api/organization/api-keys/${id}`, {
+        ...updates,
+        expiresAt: updates.expiresAt || null,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/organization/api-keys"] });
+      setEditKeyDialogOpen(false);
+      setSelectedKey(null);
+      editKeyForm.reset();
+      toast({
+        title: "API Key Updated",
+        description: "The API key has been updated successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update API key",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Rotate API Key Mutation
+  const rotateKeyMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("POST", `/api/organization/api-keys/${id}/rotate`, {});
+      return res.json();
+    },
+    onSuccess: (data: ApiKeyWithSecret) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/organization/api-keys"] });
+      setNewSecret(data.secret || null);
+      setRotateDialogOpen(false);
+      setSecretDialogOpen(true);
+      toast({
+        title: "API Key Rotated",
+        description: "A new secret has been generated for this API key.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to rotate API key",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Revoke API Key Mutation
+  const revokeKeyMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/organization/api-keys/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/organization/api-keys"] });
+      setRevokeDialogOpen(false);
+      setSelectedKey(null);
+      toast({
+        title: "API Key Revoked",
+        description: "The API key has been permanently revoked.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to revoke API key",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Helper functions for API keys
+  const copyApiKey = (key: string) => {
+    navigator.clipboard.writeText(key);
+    toast({
+      title: "Copied",
+      description: "API key copied to clipboard.",
+    });
+  };
+
+  const openEditDialog = (key: ApiKeyWithSecret) => {
+    setSelectedKey(key);
+    editKeyForm.reset({
+      name: key.name,
+      description: key.description || "",
+      scopes: key.scopes as string[],
+      status: key.status as "active" | "paused",
+      rateLimitPerMinute: key.rateLimitPerMinute || 60,
+      rateLimitPerDay: key.rateLimitPerDay || 10000,
+      expiresAt: key.expiresAt ? format(new Date(key.expiresAt), "yyyy-MM-dd") : "",
+    });
+    setEditKeyDialogOpen(true);
+  };
+
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case "active":
+        return "default";
+      case "paused":
+        return "secondary";
+      case "revoked":
+        return "destructive";
+      default:
+        return "outline";
+    }
+  };
+
+  const formatDate = (date: string | Date | null | undefined) => {
+    if (!date) return "Never";
+    return format(new Date(date), "MMM d, yyyy");
   };
 
   const getInitials = () => {
@@ -530,6 +776,172 @@ export default function Settings() {
               </Button>
             </CardContent>
           </Card>
+
+          {/* API Keys Section - Only visible to organization owners */}
+          {isOwner && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Key className="h-5 w-5" />
+                      API Keys
+                    </CardTitle>
+                    <CardDescription>Manage API keys for external integrations</CardDescription>
+                  </div>
+                  <Button
+                    onClick={() => setCreateKeyDialogOpen(true)}
+                    data-testid="button-create-api-key"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create API Key
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {apiKeysLoading ? (
+                  <div className="space-y-4">
+                    {[1, 2].map((i) => (
+                      <div key={i} className="space-y-2">
+                        <Skeleton className="h-5 w-48" />
+                        <Skeleton className="h-4 w-full" />
+                      </div>
+                    ))}
+                  </div>
+                ) : !apiKeys || apiKeys.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Key className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground mb-2">No API keys yet</p>
+                    <p className="text-sm text-muted-foreground">
+                      Create an API key to integrate with external applications.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {apiKeys.map((apiKey) => (
+                      <div
+                        key={apiKey.id}
+                        className="border rounded-lg p-4 space-y-3"
+                        data-testid={`api-key-item-${apiKey.id}`}
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div className="space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-medium" data-testid={`api-key-name-${apiKey.id}`}>
+                                {apiKey.name}
+                              </span>
+                              <Badge
+                                variant={getStatusBadgeVariant(apiKey.status)}
+                                data-testid={`api-key-status-${apiKey.id}`}
+                              >
+                                {apiKey.status}
+                              </Badge>
+                            </div>
+                            {apiKey.description && (
+                              <p className="text-sm text-muted-foreground" data-testid={`api-key-description-${apiKey.id}`}>
+                                {apiKey.description}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {apiKey.status !== "revoked" && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => openEditDialog(apiKey)}
+                                  data-testid={`button-edit-api-key-${apiKey.id}`}
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setSelectedKey(apiKey);
+                                    setRotateDialogOpen(true);
+                                  }}
+                                  data-testid={`button-rotate-api-key-${apiKey.id}`}
+                                >
+                                  <RotateCcw className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setSelectedKey(apiKey);
+                                    setRevokeDialogOpen(true);
+                                  }}
+                                  data-testid={`button-revoke-api-key-${apiKey.id}`}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setSelectedKey(apiKey);
+                                setLogsDialogOpen(true);
+                              }}
+                              data-testid={`button-logs-api-key-${apiKey.id}`}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-4 text-sm">
+                          <div className="flex items-center gap-1">
+                            <span className="text-muted-foreground">Key:</span>
+                            <code className="bg-muted px-2 py-0.5 rounded text-xs font-mono" data-testid={`api-key-prefix-${apiKey.id}`}>
+                              {apiKey.keyPrefix}...
+                            </code>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-muted-foreground">Rate:</span>
+                            <span data-testid={`api-key-rate-${apiKey.id}`}>
+                              {apiKey.rateLimitPerMinute}/min, {apiKey.rateLimitPerDay}/day
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-1">
+                          {(apiKey.scopes as string[]).map((scope) => (
+                            <Badge key={scope} variant="outline" className="text-xs" data-testid={`api-key-scope-${apiKey.id}-${scope}`}>
+                              {scope}
+                            </Badge>
+                          ))}
+                        </div>
+
+                        <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            <span>Created: {formatDate(apiKey.createdAt)}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Activity className="h-3 w-3" />
+                            <span data-testid={`api-key-last-used-${apiKey.id}`}>
+                              Last used: {formatDate(apiKey.lastUsedAt)}
+                            </span>
+                          </div>
+                          {apiKey.expiresAt && (
+                            <div className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              <span data-testid={`api-key-expires-${apiKey.id}`}>
+                                Expires: {formatDate(apiKey.expiresAt)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
           
           <Card>
             <CardHeader>
@@ -612,6 +1024,545 @@ export default function Settings() {
           </Card>
         </div>
       </div>
+
+      {/* Create API Key Dialog */}
+      <Dialog open={createKeyDialogOpen} onOpenChange={setCreateKeyDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Create API Key</DialogTitle>
+            <DialogDescription>
+              Create a new API key for external integrations. The key will only be shown once after creation.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...createKeyForm}>
+            <form onSubmit={createKeyForm.handleSubmit((data) => createKeyMutation.mutate(data))} className="space-y-4">
+              <FormField
+                control={createKeyForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Name *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="My API Key" {...field} data-testid="input-api-key-name" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={createKeyForm.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Optional description for this API key"
+                        {...field}
+                        data-testid="input-api-key-description"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={createKeyForm.control}
+                name="scopes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Scopes *</FormLabel>
+                    <FormDescription>Select the permissions for this API key</FormDescription>
+                    <div className="space-y-2 max-h-48 overflow-y-auto border rounded-md p-3">
+                      {availableScopes?.map((scope) => (
+                        <div key={scope.scope} className="flex items-start gap-2">
+                          <Checkbox
+                            id={`create-scope-${scope.scope}`}
+                            checked={field.value.includes(scope.scope)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                field.onChange([...field.value, scope.scope]);
+                              } else {
+                                field.onChange(field.value.filter((s) => s !== scope.scope));
+                              }
+                            }}
+                            data-testid={`checkbox-scope-${scope.scope}`}
+                          />
+                          <Label
+                            htmlFor={`create-scope-${scope.scope}`}
+                            className="text-sm leading-tight cursor-pointer"
+                          >
+                            <span className="font-medium">{scope.scope}</span>
+                            <span className="text-muted-foreground block text-xs">{scope.description}</span>
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={createKeyForm.control}
+                  name="rateLimitPerMinute"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Rate Limit (per minute)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          {...field}
+                          onChange={(e) => field.onChange(parseInt(e.target.value) || 60)}
+                          data-testid="input-rate-limit-minute"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={createKeyForm.control}
+                  name="rateLimitPerDay"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Rate Limit (per day)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          {...field}
+                          onChange={(e) => field.onChange(parseInt(e.target.value) || 10000)}
+                          data-testid="input-rate-limit-day"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={createKeyForm.control}
+                name="expiresAt"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Expiration Date (optional)</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} data-testid="input-api-key-expires" />
+                    </FormControl>
+                    <FormDescription>Leave empty for no expiration</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setCreateKeyDialogOpen(false);
+                    createKeyForm.reset();
+                  }}
+                  data-testid="button-cancel-create-key"
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={createKeyMutation.isPending} data-testid="button-submit-create-key">
+                  {createKeyMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    "Create API Key"
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit API Key Dialog */}
+      <Dialog open={editKeyDialogOpen} onOpenChange={setEditKeyDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit API Key</DialogTitle>
+            <DialogDescription>Update the settings for this API key.</DialogDescription>
+          </DialogHeader>
+          <Form {...editKeyForm}>
+            <form
+              onSubmit={editKeyForm.handleSubmit((data) =>
+                selectedKey && updateKeyMutation.mutate({ ...data, id: selectedKey.id })
+              )}
+              className="space-y-4"
+            >
+              <FormField
+                control={editKeyForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Name *</FormLabel>
+                    <FormControl>
+                      <Input {...field} data-testid="input-edit-api-key-name" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={editKeyForm.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Textarea {...field} data-testid="input-edit-api-key-description" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={editKeyForm.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Status</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-api-key-status">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="paused">Paused</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={editKeyForm.control}
+                name="scopes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Scopes *</FormLabel>
+                    <div className="space-y-2 max-h-48 overflow-y-auto border rounded-md p-3">
+                      {availableScopes?.map((scope) => (
+                        <div key={scope.scope} className="flex items-start gap-2">
+                          <Checkbox
+                            id={`edit-scope-${scope.scope}`}
+                            checked={field.value.includes(scope.scope)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                field.onChange([...field.value, scope.scope]);
+                              } else {
+                                field.onChange(field.value.filter((s) => s !== scope.scope));
+                              }
+                            }}
+                            data-testid={`checkbox-edit-scope-${scope.scope}`}
+                          />
+                          <Label htmlFor={`edit-scope-${scope.scope}`} className="text-sm leading-tight cursor-pointer">
+                            <span className="font-medium">{scope.scope}</span>
+                            <span className="text-muted-foreground block text-xs">{scope.description}</span>
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={editKeyForm.control}
+                  name="rateLimitPerMinute"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Rate Limit (per minute)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          {...field}
+                          onChange={(e) => field.onChange(parseInt(e.target.value) || 60)}
+                          data-testid="input-edit-rate-limit-minute"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editKeyForm.control}
+                  name="rateLimitPerDay"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Rate Limit (per day)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          {...field}
+                          onChange={(e) => field.onChange(parseInt(e.target.value) || 10000)}
+                          data-testid="input-edit-rate-limit-day"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={editKeyForm.control}
+                name="expiresAt"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Expiration Date</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} data-testid="input-edit-api-key-expires" />
+                    </FormControl>
+                    <FormDescription>Leave empty for no expiration</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setEditKeyDialogOpen(false);
+                    setSelectedKey(null);
+                    editKeyForm.reset();
+                  }}
+                  data-testid="button-cancel-edit-key"
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={updateKeyMutation.isPending} data-testid="button-submit-edit-key">
+                  {updateKeyMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    "Save Changes"
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* One-Time Secret Display Dialog */}
+      <Dialog open={secretDialogOpen} onOpenChange={setSecretDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Save Your API Key
+            </DialogTitle>
+            <DialogDescription>
+              This is the only time you will see this API key. Copy it now and store it securely.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-muted p-4 rounded-lg">
+              <div className="flex items-center justify-between gap-2">
+                <code
+                  className="text-sm font-mono break-all flex-1"
+                  data-testid="text-new-api-key"
+                >
+                  {newSecret}
+                </code>
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={() => newSecret && copyApiKey(newSecret)}
+                  data-testid="button-copy-new-api-key"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+              <div className="flex gap-2">
+                <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div className="text-sm text-amber-800 dark:text-amber-200">
+                  <p className="font-medium">Important</p>
+                  <p className="mt-1">
+                    This API key will not be shown again. If you lose it, you will need to rotate
+                    the key to generate a new one.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                setSecretDialogOpen(false);
+                setNewSecret(null);
+                setSelectedKey(null);
+              }}
+              data-testid="button-close-secret-dialog"
+            >
+              I've Saved My Key
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rotate Key Confirmation Dialog */}
+      <AlertDialog open={rotateDialogOpen} onOpenChange={setRotateDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Rotate API Key?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will generate a new secret for "{selectedKey?.name}". The old secret will stop
+              working immediately. Any applications using this key will need to be updated.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-rotate-key">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => selectedKey && rotateKeyMutation.mutate(selectedKey.id)}
+              disabled={rotateKeyMutation.isPending}
+              data-testid="button-confirm-rotate-key"
+            >
+              {rotateKeyMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Rotating...
+                </>
+              ) : (
+                "Rotate Key"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Revoke Key Confirmation Dialog */}
+      <AlertDialog open={revokeDialogOpen} onOpenChange={setRevokeDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Revoke API Key?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently revoke "{selectedKey?.name}". This action cannot be undone.
+              Any applications using this key will immediately stop working.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-revoke-key">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => selectedKey && revokeKeyMutation.mutate(selectedKey.id)}
+              disabled={revokeKeyMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-revoke-key"
+            >
+              {revokeKeyMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Revoking...
+                </>
+              ) : (
+                "Revoke Key"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* View Logs Dialog */}
+      <Dialog open={logsDialogOpen} onOpenChange={setLogsDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>API Key Logs</DialogTitle>
+            <DialogDescription>
+              Recent usage logs for "{selectedKey?.name}" ({selectedKey?.keyPrefix}...)
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="h-[400px] pr-4">
+            {keyLogsLoading ? (
+              <div className="space-y-3">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="space-y-2">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-3 w-3/4" />
+                  </div>
+                ))}
+              </div>
+            ) : !keyLogs || keyLogs.length === 0 ? (
+              <div className="text-center py-8">
+                <Activity className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">No logs yet</p>
+                <p className="text-sm text-muted-foreground">
+                  Logs will appear here once the API key is used.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {keyLogs.map((log) => (
+                  <div
+                    key={log.id}
+                    className="border rounded-lg p-3 text-sm space-y-1"
+                    data-testid={`api-key-log-${log.id}`}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge
+                          variant={log.statusCode < 400 ? "default" : "destructive"}
+                          className="text-xs"
+                        >
+                          {log.statusCode}
+                        </Badge>
+                        <code className="text-xs bg-muted px-2 py-0.5 rounded">
+                          {log.method}
+                        </code>
+                        <span className="text-muted-foreground">{log.route}</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {log.latencyMs}ms
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {format(new Date(log.occurredAt), "MMM d, yyyy HH:mm:ss")}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setLogsDialogOpen(false);
+                setSelectedKey(null);
+              }}
+              data-testid="button-close-logs-dialog"
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
