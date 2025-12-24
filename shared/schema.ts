@@ -1902,6 +1902,41 @@ export const engagementSignals = pgTable("engagement_signals", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Event Leads - Capturing leads at events via QR scan or manual entry
+export const eventLeads = pgTable("event_leads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id).notNull(),
+  capturedByUserId: varchar("captured_by_user_id").references(() => users.id),
+  captureMethod: varchar("capture_method", { length: 50 }), // 'qr_scan' or 'manual'
+  firstName: varchar("first_name", { length: 100 }).notNull(),
+  lastName: varchar("last_name", { length: 100 }).notNull(),
+  email: varchar("email", { length: 255 }).notNull(),
+  company: varchar("company", { length: 255 }),
+  phone: varchar("phone", { length: 50 }),
+  jobTitle: varchar("job_title", { length: 255 }),
+  notes: text("notes"),
+  tags: text("tags").array(),
+  attendeeId: varchar("attendee_id").references(() => attendees.id), // Link if converted to attendee
+  sourceCode: varchar("source_code", { length: 50 }), // QR code if scanned
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Session Check-Ins - Tracking session attendance via QR scan or manual entry
+export const sessionCheckIns = pgTable("session_check_ins", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id).notNull(),
+  sessionId: varchar("session_id").references(() => eventSessions.id).notNull(),
+  attendeeId: varchar("attendee_id").references(() => attendees.id).notNull(),
+  scannedByUserId: varchar("scanned_by_user_id").references(() => users.id),
+  checkInMethod: varchar("check_in_method", { length: 50 }), // 'qr_scan' or 'manual'
+  sourceCode: varchar("source_code", { length: 50 }), // The code that was scanned
+  checkedInAt: timestamp("checked_in_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("session_check_ins_session_attendee_idx").on(table.sessionId, table.attendeeId),
+]);
+
 // Moments relations
 export const momentsRelations = relations(moments, ({ one, many }) => ({
   organization: one(organizations, { fields: [moments.organizationId], references: [organizations.id] }),
@@ -2006,6 +2041,8 @@ export const insertCustomFontVariantSchema = createInsertSchema(customFontVarian
 export const insertMomentSchema = createInsertSchema(moments).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertMomentResponseSchema = createInsertSchema(momentResponses).omit({ id: true, createdAt: true });
 export const insertEngagementSignalSchema = createInsertSchema(engagementSignals).omit({ id: true, updatedAt: true });
+export const insertEventLeadSchema = createInsertSchema(eventLeads).omit({ id: true, createdAt: true });
+export const insertSessionCheckInSchema = createInsertSchema(sessionCheckIns).omit({ id: true, checkedInAt: true });
 
 // Types
 export type UpsertUser = typeof users.$inferInsert;
@@ -2164,3 +2201,7 @@ export type InsertMomentResponse = z.infer<typeof insertMomentResponseSchema>;
 export type MomentResponse = typeof momentResponses.$inferSelect;
 export type InsertEngagementSignal = z.infer<typeof insertEngagementSignalSchema>;
 export type EngagementSignal = typeof engagementSignals.$inferSelect;
+export type InsertEventLead = z.infer<typeof insertEventLeadSchema>;
+export type EventLead = typeof eventLeads.$inferSelect;
+export type InsertSessionCheckIn = z.infer<typeof insertSessionCheckInSchema>;
+export type SessionCheckIn = typeof sessionCheckIns.$inferSelect;
