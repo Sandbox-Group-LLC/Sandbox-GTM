@@ -1226,26 +1226,35 @@ export class DatabaseStorage implements IStorage {
     // Delete moment responses before attendees (momentResponses reference attendees)
     await db.delete(momentResponses).where(eq(momentResponses.eventId, id));
     
-    // Delete attendees (attendees reference activation_links and packages)
-    await db.delete(attendees).where(eq(attendees.eventId, id));
-    await db.delete(attendeeTypes).where(eq(attendeeTypes.eventId, id));
-    
-    // Now delete activation link clicks (references activation_links)
+    // Delete activation link clicks BEFORE attendees (activationLinkClicks.convertedToAttendeeId references attendees.id)
     await db.delete(activationLinkClicks).where(
       sql`${activationLinkClicks.activationLinkId} IN (SELECT id FROM activation_links WHERE event_id = ${id})`
     );
+    
+    // Delete engagement signals BEFORE attendees (engagementSignals.attendeeId references attendees.id)
+    await db.delete(engagementSignals).where(eq(engagementSignals.eventId, id));
+    
+    // Delete attendees (attendees reference activation_links and packages)
+    await db.delete(attendees).where(eq(attendees.eventId, id));
+    
     // Delete activation links after attendees (attendees reference activation_links)
     await db.delete(activationLinks).where(eq(activationLinks.eventId, id));
     
-    // Delete packages and invite codes
+    // Delete packages and invite codes (inviteCodes references attendeeTypes)
     await db.delete(eventPackages).where(eq(eventPackages.eventId, id));
     await db.delete(inviteCodes).where(eq(inviteCodes.eventId, id));
+    
+    // Delete attendeeTypes after inviteCodes (inviteCodes.attendeeTypeId references attendeeTypes.id)
+    await db.delete(attendeeTypes).where(eq(attendeeTypes.eventId, id));
     
     // Delete sponsor-related records before eventSponsors (in order of FK dependencies)
     await db.delete(sponsorTaskCompletions).where(
       sql`task_id IN (SELECT id FROM sponsor_tasks WHERE event_id = ${id})`
     );
     await db.delete(sponsorContacts).where(
+      sql`sponsor_id IN (SELECT id FROM event_sponsors WHERE event_id = ${id})`
+    );
+    await db.delete(contentAssets).where(
       sql`sponsor_id IN (SELECT id FROM event_sponsors WHERE event_id = ${id})`
     );
     await db.delete(sponsorTasks).where(eq(sponsorTasks.eventId, id));
@@ -1310,9 +1319,6 @@ export class DatabaseStorage implements IStorage {
     
     // Delete page views
     await db.delete(pageViews).where(eq(pageViews.eventId, id));
-    
-    // Delete engagement signals
-    await db.delete(engagementSignals).where(eq(engagementSignals.eventId, id));
     
     // Delete CFP-related records (in order of dependencies)
     await db.delete(cfpReviews).where(

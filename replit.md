@@ -41,6 +41,7 @@ Preferred communication style: Simple, everyday language.
 - **Shared Schema**: Single source of truth for database types.
 - **API Request Helper**: Centralized function for API calls with error handling.
 - **Component Composition**: Reusable UI components for consistent design.
+- **Cascade Delete**: Event deletion follows strict FK dependency order - child tables must be deleted before parent tables. Key order: activationLinkClicks → engagementSignals → momentResponses → attendees → inviteCodes → attendeeTypes → contentAssets → eventSponsors. When adding new tables with FK references, update `deleteEvent` in storage.ts accordingly.
 
 ### Feature Specifications
 - **Site Builder**: Visual page builder for custom public-facing event pages (Landing, Registration, Portal) with configurable sections including "Layout Columns".
