@@ -1934,28 +1934,30 @@ function LeadsTab({
               </Button>
             </div>
 
-            {/* Camera Scanner Dialog */}
-            <Dialog open={showCameraScanner} onOpenChange={setShowCameraScanner}>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2">
-                    <Camera className="w-5 h-5" />
-                    Scan QR Code
-                  </DialogTitle>
-                  <DialogDescription>
-                    Point your camera at an attendee's badge QR code
-                  </DialogDescription>
-                </DialogHeader>
-                <CameraScanner
-                  onScan={(code) => {
-                    setShowCameraScanner(false);
-                    setQrValue(code);
-                    scanQrMutation.mutate(code);
-                  }}
-                  onClose={() => setShowCameraScanner(false)}
-                />
-              </DialogContent>
-            </Dialog>
+            {/* Camera Scanner Dialog - only render scanner when dialog is open */}
+            {showCameraScanner && (
+              <Dialog open={showCameraScanner} onOpenChange={setShowCameraScanner}>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <Camera className="w-5 h-5" />
+                      Scan QR Code
+                    </DialogTitle>
+                    <DialogDescription>
+                      Point your camera at an attendee's badge QR code
+                    </DialogDescription>
+                  </DialogHeader>
+                  <CameraScanner
+                    onScan={(code) => {
+                      setShowCameraScanner(false);
+                      setQrValue(code);
+                      scanQrMutation.mutate(code);
+                    }}
+                    onClose={() => setShowCameraScanner(false)}
+                  />
+                </DialogContent>
+              </Dialog>
+            )}
 
             {showManualForm && (
               <Form {...form}>
