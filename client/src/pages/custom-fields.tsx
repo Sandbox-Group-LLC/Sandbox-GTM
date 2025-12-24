@@ -400,22 +400,6 @@ export default function CustomFields() {
                 )}
                 <FormField
                   control={form.control}
-                  name="required"
-                  render={({ field }) => (
-                    <FormItem className="flex items-center gap-3">
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                          data-testid="switch-field-required"
-                        />
-                      </FormControl>
-                      <FormLabel className="!mt-0">Required field</FormLabel>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
                   name="displayOrder"
                   render={({ field }) => (
                     <FormItem>
@@ -435,28 +419,50 @@ export default function CustomFields() {
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="isActive"
-                  render={({ field }) => (
-                    <FormItem className="flex items-center gap-3">
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                          data-testid="switch-field-active"
-                        />
-                      </FormControl>
-                      <FormLabel className="!mt-0">Active</FormLabel>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="attendeeOnly"
-                  render={({ field }) => (
-                    <FormItem>
-                      <div className="flex items-center gap-3">
+                <div className="space-y-3 pt-2">
+                  <FormField
+                    control={form.control}
+                    name="required"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center justify-between">
+                        <FormLabel className="text-sm font-normal">Required field</FormLabel>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                            data-testid="switch-field-required"
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="isActive"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center justify-between">
+                        <FormLabel className="text-sm font-normal">Active</FormLabel>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                            data-testid="switch-field-active"
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="attendeeOnly"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-sm font-normal">Attendee Only</FormLabel>
+                          <FormDescription className="text-xs">
+                            Only shown in attendee registration, not admin forms
+                          </FormDescription>
+                        </div>
                         <FormControl>
                           <Switch
                             checked={field.value}
@@ -464,14 +470,10 @@ export default function CustomFields() {
                             data-testid="switch-field-attendee-only"
                           />
                         </FormControl>
-                        <FormLabel className="!mt-0 cursor-pointer">Attendee Only</FormLabel>
-                      </div>
-                      <FormDescription className="text-xs">
-                        Only shown in attendee registration forms, not in admin forms
-                      </FormDescription>
-                    </FormItem>
-                  )}
-                />
+                      </FormItem>
+                    )}
+                  />
+                </div>
                 <div className="flex justify-end gap-2 pt-4">
                   <Button
                     type="button"
