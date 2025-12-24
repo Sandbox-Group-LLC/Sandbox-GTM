@@ -650,9 +650,8 @@ export default function CheckIn() {
               </SelectContent>
             </Select>
             {mode === 'lead' && (
-              <Button onClick={handleOpenLeadForm} data-testid="button-add-lead">
-                <UserPlus className="w-4 h-4 mr-2" />
-                Add Lead
+              <Button size="icon" onClick={handleOpenLeadForm} data-testid="button-add-lead">
+                <UserPlus className="w-4 h-4" />
               </Button>
             )}
           </div>
