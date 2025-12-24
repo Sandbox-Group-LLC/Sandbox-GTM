@@ -1973,7 +1973,13 @@ function LeadsTab({
 }
 
 function SponsorPortalTabs({ sponsor, token }: { sponsor: SponsorWithEvent; token: string }) {
-  const permissions = sponsor.sponsorContact?.permissions || [];
+  // Primary contacts (sponsorContact is null) get all permissions
+  const permissions = sponsor.sponsorContact?.permissions || [
+    SPONSOR_CONTACT_PERMISSIONS.LEAD_CAPTURE,
+    SPONSOR_CONTACT_PERMISSIONS.VIEW_LEADS,
+    SPONSOR_CONTACT_PERMISSIONS.EXPORT_LEADS,
+    SPONSOR_CONTACT_PERMISSIONS.INVITE_TEAM,
+  ];
   const hasLeadsAccess = permissions.includes(SPONSOR_CONTACT_PERMISSIONS.LEAD_CAPTURE) || 
                          permissions.includes(SPONSOR_CONTACT_PERMISSIONS.VIEW_LEADS);
 
