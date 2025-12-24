@@ -2,7 +2,7 @@ import { db } from "./db";
 import { 
   events, packages, eventPackages, inviteCodes, activationLinks, activationLinkClicks,
   speakers, eventSessions, sessionSpeakers, attendees, emailTemplates, emailCampaigns,
-  eventFeedback
+  eventFeedback, eventPages, pageVersions
 } from "@shared/schema";
 import { sql } from "drizzle-orm";
 
@@ -63,6 +63,10 @@ function generateCheckInCode(): string {
 
 function randomDate(start: Date, end: Date): Date {
   return new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
+}
+
+function generateSectionId(pageType: string, sectionType: string, index: number): string {
+  return `section-${pageType}-${sectionType}-${index}`;
 }
 
 export async function seedAIGTMSummit(organizationId: string, createdBy: string): Promise<{ eventId: string; message: string }> {
@@ -639,10 +643,524 @@ export async function seedAIGTMSummit(organizationId: string, createdBy: string)
   
   console.log(`Created ${feedbackData.length} event feedback responses`);
 
+  // 14. Create beautiful event pages for site builder
+  const aiGtmTheme = {
+    headingFont: 'Inter',
+    bodyFont: 'Inter',
+    baseFontSize: '16px',
+    primaryColor: '#6366f1',
+    secondaryColor: '#8b5cf6',
+    backgroundColor: '#0f0f23',
+    textColor: '#f8fafc',
+    textSecondaryColor: '#94a3b8',
+    buttonColor: '#6366f1',
+    buttonTextColor: '#ffffff',
+    cardBackground: '#1a1a2e',
+    borderColor: '#2d2d44',
+    borderRadius: 'medium' as const,
+    buttonStyle: 'filled' as const,
+    containerWidth: 'wide' as const,
+    sectionSpacing: 'relaxed' as const,
+    textDecoration: 'none' as const,
+  };
+
+  // Landing page sections
+  const landingSections = [
+    {
+      id: generateSectionId('landing', 'navigation', 0),
+      type: 'navigation',
+      order: 0,
+      config: {
+        logoText: 'AI GTM Summit',
+        links: [
+          { label: 'Speakers', href: '#speakers' },
+          { label: 'Agenda', href: '#agenda' },
+          { label: 'Sponsors', href: '#sponsors' },
+          { label: 'Register', href: '#register' },
+        ],
+        sticky: true,
+        showCta: true,
+        ctaText: 'Register Now',
+        ctaLink: '#register',
+      },
+    },
+    {
+      id: generateSectionId('landing', 'hero', 1),
+      type: 'hero',
+      order: 1,
+      config: {
+        title: 'AI GTM Summit 2025',
+        subtitle: 'Where Innovation Meets Go-To-Market Excellence',
+        description: 'Join 1,200+ marketing, revenue, and product leaders exploring how AI is transforming go-to-market strategy, demand generation, and customer engagement.',
+        buttonText: 'Register Now',
+        buttonLink: '#register',
+        secondaryButtonText: 'View Agenda',
+        secondaryButtonLink: '#agenda',
+        alignment: 'center',
+        overlayOpacity: 70,
+      },
+      styles: {
+        paddingTop: 'large',
+        paddingBottom: 'large',
+      },
+    },
+    {
+      id: generateSectionId('landing', 'countdown', 2),
+      type: 'countdown',
+      order: 2,
+      config: {
+        heading: 'Event Starts In',
+        targetDate: eventStartDate,
+        showDays: true,
+        showHours: true,
+        showMinutes: true,
+        showSeconds: true,
+      },
+      styles: {
+        paddingTop: 'medium',
+        paddingBottom: 'medium',
+      },
+    },
+    {
+      id: generateSectionId('landing', 'features', 3),
+      type: 'features',
+      order: 3,
+      config: {
+        heading: 'Why Attend AI GTM Summit?',
+        subheading: 'Three days of insights, connections, and actionable strategies',
+        features: [
+          { icon: 'Zap', title: 'AI-Powered Strategies', description: 'Learn how leading companies are using AI to transform their GTM motions' },
+          { icon: 'Users', title: 'Expert Speakers', description: 'Hear from CEOs, CMOs, and CROs of the fastest-growing AI companies' },
+          { icon: 'Target', title: 'Hands-on Workshops', description: 'Build real AI-powered marketing tools in interactive sessions' },
+          { icon: 'Network', title: 'Executive Networking', description: 'Connect with 1,200+ marketing, revenue, and product leaders' },
+          { icon: 'BookOpen', title: 'Best Practices', description: 'Take home proven playbooks for AI-driven demand generation' },
+          { icon: 'Trophy', title: 'Innovation Awards', description: 'Celebrate the best AI GTM innovations of the year' },
+        ],
+        columns: 3,
+      },
+      styles: {
+        paddingTop: 'large',
+        paddingBottom: 'large',
+      },
+    },
+    {
+      id: generateSectionId('landing', 'speakers', 4),
+      type: 'speakers',
+      order: 4,
+      config: {
+        heading: 'Featured Speakers',
+        subheading: 'Learn from the best minds in AI and Go-To-Market',
+        showBio: true,
+        showCompany: true,
+        showTitle: true,
+        columns: 4,
+        featuredOnly: true,
+      },
+      styles: {
+        paddingTop: 'large',
+        paddingBottom: 'large',
+      },
+    },
+    {
+      id: generateSectionId('landing', 'agenda', 5),
+      type: 'agenda',
+      order: 5,
+      config: {
+        heading: 'Conference Schedule',
+        subheading: 'Three days of transformative content',
+        showRoom: true,
+        showTrack: true,
+        showSpeakers: true,
+        groupByDate: true,
+        showFilters: true,
+      },
+      styles: {
+        paddingTop: 'large',
+        paddingBottom: 'large',
+      },
+    },
+    {
+      id: generateSectionId('landing', 'testimonials', 6),
+      type: 'testimonials',
+      order: 6,
+      config: {
+        heading: 'What Past Attendees Say',
+        items: [
+          { name: 'Sarah Chen', role: 'CEO, AI Ventures', quote: 'The most actionable AI marketing conference I have ever attended. Left with 3 new strategies we implemented immediately.', image: '' },
+          { name: 'Marcus Johnson', role: 'CRO, RevOps Labs', quote: 'Incredible networking and cutting-edge content. Made connections that led to our next major partnership.', image: '' },
+          { name: 'Elena Rodriguez', role: 'VP Product, GrowthAI', quote: 'The workshops alone were worth the trip. Our product-led growth metrics improved 40% after implementing what we learned.', image: '' },
+        ],
+        layout: 'grid',
+      },
+      styles: {
+        paddingTop: 'large',
+        paddingBottom: 'large',
+      },
+    },
+    {
+      id: generateSectionId('landing', 'sponsors', 7),
+      type: 'sponsors',
+      order: 7,
+      config: {
+        heading: 'Our Partners & Sponsors',
+        subheading: 'Thank you to our amazing sponsors',
+        showTierLabels: true,
+      },
+      styles: {
+        paddingTop: 'large',
+        paddingBottom: 'large',
+      },
+    },
+    {
+      id: generateSectionId('landing', 'map', 8),
+      type: 'map',
+      order: 8,
+      config: {
+        heading: 'Event Location',
+        address: '747 Howard St, San Francisco, CA 94103',
+        venue: 'Moscone Center',
+        showDirectionsLink: true,
+        zoom: 15,
+      },
+      styles: {
+        paddingTop: 'large',
+        paddingBottom: 'medium',
+      },
+    },
+    {
+      id: generateSectionId('landing', 'cta', 9),
+      type: 'cta',
+      order: 9,
+      config: {
+        heading: 'Ready to Transform Your GTM Strategy?',
+        description: 'Join 1,200+ leaders at the premier AI GTM event of the year. Early bird pricing ends soon.',
+        buttonText: 'Register Now',
+        buttonLink: '#register',
+        secondaryButtonText: 'Download Brochure',
+        secondaryButtonLink: '#',
+      },
+      styles: {
+        paddingTop: 'large',
+        paddingBottom: 'large',
+      },
+    },
+    {
+      id: generateSectionId('landing', 'footer', 10),
+      type: 'footer',
+      order: 10,
+      config: {
+        showContactInfo: true,
+        email: 'info@aigtmsummit.com',
+        phone: '+1 (415) 555-0123',
+        showSocialIcons: true,
+        twitterUrl: 'https://twitter.com/aigtmsummit',
+        linkedinUrl: 'https://linkedin.com/company/aigtmsummit',
+        copyright: '2025 AI GTM Summit. All rights reserved.',
+        links: [
+          { label: 'Privacy Policy', href: '/privacy' },
+          { label: 'Terms of Service', href: '/terms' },
+          { label: 'Contact Us', href: 'mailto:info@aigtmsummit.com' },
+        ],
+      },
+    },
+  ];
+
+  // Registration page sections
+  const registrationSections = [
+    {
+      id: generateSectionId('registration', 'navigation', 0),
+      type: 'navigation',
+      order: 0,
+      config: {
+        logoText: 'AI GTM Summit',
+        links: [
+          { label: 'Back to Home', href: '/' },
+        ],
+        sticky: true,
+      },
+    },
+    {
+      id: generateSectionId('registration', 'hero', 1),
+      type: 'hero',
+      order: 1,
+      config: {
+        title: 'Register for AI GTM Summit 2025',
+        subtitle: 'March 12-14, 2025 | San Francisco, CA',
+        alignment: 'center',
+        compact: true,
+      },
+      styles: {
+        paddingTop: 'medium',
+        paddingBottom: 'small',
+      },
+    },
+    {
+      id: generateSectionId('registration', 'registration-form', 2),
+      type: 'registration-form',
+      order: 2,
+      config: {
+        heading: 'Complete Your Registration',
+        showPackages: true,
+        showPayment: true,
+      },
+      styles: {
+        paddingTop: 'medium',
+        paddingBottom: 'large',
+      },
+    },
+    {
+      id: generateSectionId('registration', 'footer', 3),
+      type: 'footer',
+      order: 3,
+      config: {
+        showContactInfo: true,
+        email: 'registration@aigtmsummit.com',
+        copyright: '2025 AI GTM Summit',
+      },
+    },
+  ];
+
+  // Portal page sections
+  const portalSections = [
+    {
+      id: generateSectionId('portal', 'navigation', 0),
+      type: 'navigation',
+      order: 0,
+      config: {
+        logoText: 'AI GTM Summit',
+        links: [
+          { label: 'My Schedule', href: '#schedule' },
+          { label: 'Recommendations', href: '#recommendations' },
+          { label: 'Feedback', href: '#feedback' },
+        ],
+        sticky: true,
+        showLogout: true,
+      },
+    },
+    {
+      id: generateSectionId('portal', 'hero', 1),
+      type: 'hero',
+      order: 1,
+      config: {
+        title: 'Welcome to Your Attendee Portal',
+        subtitle: 'AI GTM Summit 2025 | March 12-14',
+        alignment: 'center',
+        compact: true,
+      },
+      styles: {
+        paddingTop: 'medium',
+        paddingBottom: 'small',
+      },
+    },
+    {
+      id: generateSectionId('portal', 'attendee-profile', 2),
+      type: 'attendee-profile',
+      order: 2,
+      config: {
+        heading: 'Your Profile',
+        showQrCode: true,
+      },
+      styles: {
+        paddingTop: 'medium',
+        paddingBottom: 'medium',
+      },
+    },
+    {
+      id: generateSectionId('portal', 'attendee-qrcode', 3),
+      type: 'attendee-qrcode',
+      order: 3,
+      config: {
+        heading: 'Your Check-In QR Code',
+        description: 'Show this at registration for fast check-in',
+      },
+      styles: {
+        paddingTop: 'small',
+        paddingBottom: 'medium',
+      },
+    },
+    {
+      id: generateSectionId('portal', 'attendee-interests', 4),
+      type: 'attendee-interests',
+      order: 4,
+      config: {
+        heading: 'Your Interests',
+        description: 'Tell us what topics interest you for personalized recommendations',
+      },
+      styles: {
+        paddingTop: 'medium',
+        paddingBottom: 'medium',
+      },
+    },
+    {
+      id: generateSectionId('portal', 'personal-schedule', 5),
+      type: 'personal-schedule',
+      order: 5,
+      config: {
+        heading: 'My Schedule',
+        description: 'Sessions you have saved to your personal agenda',
+        showAddToCalendar: true,
+      },
+      styles: {
+        paddingTop: 'medium',
+        paddingBottom: 'medium',
+      },
+    },
+    {
+      id: generateSectionId('portal', 'recommendations', 6),
+      type: 'recommendations',
+      order: 6,
+      config: {
+        heading: 'Recommended For You',
+        description: 'AI-powered session recommendations based on your interests',
+        maxItems: 6,
+      },
+      styles: {
+        paddingTop: 'medium',
+        paddingBottom: 'medium',
+      },
+    },
+    {
+      id: generateSectionId('portal', 'agenda', 7),
+      type: 'agenda',
+      order: 7,
+      config: {
+        heading: 'Full Conference Schedule',
+        showRoom: true,
+        showTrack: true,
+        showSpeakers: true,
+        groupByDate: true,
+        showFilters: true,
+        enableSave: true,
+      },
+      styles: {
+        paddingTop: 'medium',
+        paddingBottom: 'large',
+      },
+    },
+    {
+      id: generateSectionId('portal', 'session-feedback', 8),
+      type: 'session-feedback',
+      order: 8,
+      config: {
+        heading: 'Session Feedback',
+        description: 'Rate the sessions you attended',
+      },
+      styles: {
+        paddingTop: 'medium',
+        paddingBottom: 'medium',
+      },
+    },
+    {
+      id: generateSectionId('portal', 'event-feedback', 9),
+      type: 'event-feedback',
+      order: 9,
+      config: {
+        heading: 'Event Feedback',
+        description: 'Share your overall experience to help us improve',
+      },
+      styles: {
+        paddingTop: 'medium',
+        paddingBottom: 'large',
+      },
+    },
+    {
+      id: generateSectionId('portal', 'footer', 10),
+      type: 'footer',
+      order: 10,
+      config: {
+        showContactInfo: true,
+        email: 'support@aigtmsummit.com',
+        copyright: '2025 AI GTM Summit',
+      },
+    },
+  ];
+
+  // Live page sections
+  const liveSections = [
+    {
+      id: generateSectionId('live', 'navigation', 0),
+      type: 'navigation',
+      order: 0,
+      config: {
+        logoText: 'AI GTM Summit Live',
+        sticky: true,
+      },
+    },
+    {
+      id: generateSectionId('live', 'hero', 1),
+      type: 'hero',
+      order: 1,
+      config: {
+        title: 'Live Engagement',
+        subtitle: 'Participate in real-time polls, Q&A, and more',
+        alignment: 'center',
+        compact: true,
+      },
+      styles: {
+        paddingTop: 'medium',
+        paddingBottom: 'small',
+      },
+    },
+    {
+      id: generateSectionId('live', 'live-moments', 2),
+      type: 'live-moments',
+      order: 2,
+      config: {
+        heading: 'Live Moments',
+        description: 'Engage with the current session',
+        showResults: true,
+      },
+      styles: {
+        paddingTop: 'medium',
+        paddingBottom: 'large',
+      },
+    },
+    {
+      id: generateSectionId('live', 'footer', 3),
+      type: 'footer',
+      order: 3,
+      config: {
+        copyright: '2025 AI GTM Summit',
+      },
+    },
+  ];
+
+  // Create the pages and their initial versions
+  const pageData = [
+    { pageType: 'landing', name: 'Landing Page', sections: landingSections },
+    { pageType: 'registration', name: 'Registration Page', sections: registrationSections },
+    { pageType: 'portal', name: 'Attendee Portal', sections: portalSections },
+    { pageType: 'live', name: 'Live Experience', sections: liveSections },
+  ];
+
+  for (const pageInfo of pageData) {
+    const [createdPage] = await db.insert(eventPages).values({
+      organizationId,
+      eventId,
+      pageType: pageInfo.pageType,
+      name: pageInfo.name,
+      isPublished: true,
+      theme: aiGtmTheme,
+      sections: pageInfo.sections,
+    }).returning();
+
+    // Create initial page version for version history
+    await db.insert(pageVersions).values({
+      organizationId,
+      eventPageId: createdPage.id,
+      version: 1,
+      label: 'Initial Version',
+      sections: pageInfo.sections,
+      theme: aiGtmTheme,
+    });
+  }
+
+  console.log("Created 4 beautiful event pages with version history (landing, registration, portal, live)");
+
   console.log("AI GTM Summit demo data seed completed successfully!");
 
   return {
     eventId,
-    message: `Successfully created AI GTM Summit with ${attendeeCount} attendees, ${createdSessions.length} sessions, ${createdSpeakers.length} speakers, 4 activation links, and ${feedbackData.length} feedback responses.`
+    message: `Successfully created AI GTM Summit with ${attendeeCount} attendees, ${createdSessions.length} sessions, ${createdSpeakers.length} speakers, 4 activation links, ${feedbackData.length} feedback responses, and 4 beautiful event pages.`
   };
 }
