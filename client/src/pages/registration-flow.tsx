@@ -149,6 +149,8 @@ export default function RegistrationFlow() {
     collectPhone: false,
     collectCompany: false,
     collectJobTitle: false,
+    collectActivationKey: false,
+    requireActivationKey: false,
     requirePassword: true,
     allowGoogleAuth: false,
   });
@@ -276,6 +278,8 @@ export default function RegistrationFlow() {
         collectPhone: false,
         collectCompany: false,
         collectJobTitle: false,
+        collectActivationKey: false,
+        requireActivationKey: false,
         requirePassword: true,
         allowGoogleAuth: false,
       });
@@ -463,6 +467,26 @@ export default function RegistrationFlow() {
                     data-testid="switch-job-title"
                   />
                 </div>
+                <div className="flex items-center justify-between p-3 border rounded-md">
+                  <Label htmlFor="activationKey" className="cursor-pointer">Activation Key</Label>
+                  <Switch
+                    id="activationKey"
+                    checked={step1Config.collectActivationKey}
+                    onCheckedChange={(checked) => setStep1Config({ ...step1Config, collectActivationKey: checked, requireActivationKey: checked ? step1Config.requireActivationKey : false })}
+                    data-testid="switch-activation-key"
+                  />
+                </div>
+                {step1Config.collectActivationKey && (
+                  <div className="flex items-center justify-between p-3 border rounded-md ml-6">
+                    <Label htmlFor="requireActivationKey" className="cursor-pointer">Require Activation Key</Label>
+                    <Switch
+                      id="requireActivationKey"
+                      checked={step1Config.requireActivationKey}
+                      onCheckedChange={(checked) => setStep1Config({ ...step1Config, requireActivationKey: checked })}
+                      data-testid="switch-require-activation-key"
+                    />
+                  </div>
+                )}
               </div>
             </div>
 

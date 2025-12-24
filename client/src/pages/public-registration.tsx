@@ -348,6 +348,8 @@ interface Step1Config {
   collectCompany?: boolean;
   collectJobTitle?: boolean;
   requirePassword?: boolean;
+  collectActivationKey?: boolean;
+  requireActivationKey?: boolean;
 }
 
 interface PublicRegistrationData {
@@ -408,6 +410,9 @@ function buildDynamicSchema(customFields: CustomField[], registrationConfig?: St
       : z.string().optional(),
     confirmPassword: requirePassword
       ? z.string().min(1, "Please confirm your password")
+      : z.string().optional(),
+    activationKey: (registrationConfig?.requireActivationKey)
+      ? z.string().trim().min(1, "Activation key is required")
       : z.string().optional(),
   });
   
@@ -484,6 +489,7 @@ type RegistrationFormData = {
   inviteCode?: string;
   password?: string;
   confirmPassword?: string;
+  activationKey?: string;
   customData?: Record<string, string | boolean>;
 };
 
@@ -859,6 +865,7 @@ export default function PublicRegistration() {
       inviteCode: "",
       password: "",
       confirmPassword: "",
+      activationKey: "",
       customData: defaultCustomData,
     },
   });
@@ -970,6 +977,10 @@ export default function PublicRegistration() {
     const fieldsToValidate: (keyof RegistrationFormData)[] = ["firstName", "lastName", "email", "phone", "company", "jobTitle"];
     if (requirePassword) {
       fieldsToValidate.push("password", "confirmPassword");
+    }
+    // Include activation key in validation if being collected
+    if (data?.registrationConfig?.collectActivationKey) {
+      fieldsToValidate.push("activationKey");
     }
     const isValid = await form.trigger(fieldsToValidate);
     if (isValid) {
@@ -1407,11 +1418,29 @@ export default function PublicRegistration() {
                         )}
                       />
 
+                      {data?.registrationConfig?.collectActivationKey && (
+                        <FormField
+                          control={form.control}
+                          name="activationKey"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel style={labelStyles}>
+                                Activation Key{data?.registrationConfig?.requireActivationKey ? <span className="text-destructive ml-1">*</span> : " (optional)"}
+                              </FormLabel>
+                              <FormControl>
+                                <Input data-testid="input-activation-key" style={inputStyles} {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      )}
+
                       <div className="space-y-2">
-                        <FormLabel style={labelStyles}>Activation Key (optional)</FormLabel>
+                        <FormLabel style={labelStyles}>Invite Code (optional)</FormLabel>
                         <div className="flex gap-2">
                           <Input
-                            placeholder="Enter activation key"
+                            placeholder="Enter invite code"
                             value={inviteCodeInput}
                             onChange={(e) => setInviteCodeInput(e.target.value)}
                             disabled={!!validatedCode}
