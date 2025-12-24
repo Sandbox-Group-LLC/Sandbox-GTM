@@ -67,6 +67,7 @@ Preferred communication style: Simple, everyday language.
 - **Session & Event Feedback**: Comprehensive feedback collection system for sessions and overall event experience, including NPS, ratings, and comments.
 - **NPS (Net Promoter Score) Analytics**: Integration of NPS calculation from event feedback into the GTM Overview dashboard.
 - **Engagement Moments with QR Codes**: Live engagement moments (polls, ratings, Q&A, pulse checks, CTAs) with dedicated moment pages (`/event/:slug/moment/:momentId` and `/portal/:eventId/moment/:momentId`) supporting QR code generation for instant audience participation.
+- **API Key Management**: Secure API key system for external integrations with scrypt hashing, scope-based permissions (events.read, attendees.read, leads.read, sessions.read, speakers.read, analytics.read, sponsors.read), rate limiting per minute/day, audit logging, and owner-only access. Keys use prefix.secret format with one-time secret display. Authentication middleware (`server/apiAuth.ts`) supports Bearer token validation with timing-safe comparison.
 
 ### Deployment Strategy
 Supports a hybrid multi-tenant (default) and dedicated instance model for enterprise customers, ensuring data isolation and flexible deployment options.
