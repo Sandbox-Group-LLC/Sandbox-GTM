@@ -39,7 +39,17 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { titleCase } from "@/lib/utils";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Plus, Calendar, Clock, MapPin, Users, Search, FileText, ExternalLink } from "lucide-react";
+import { Plus, Calendar, Clock, MapPin, Users, Search, FileText, ExternalLink, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { EventSelectField } from "@/components/event-select-field";
 import { Link } from "wouter";
 import type { EventSession, SessionRoom, SessionTrack, SessionTopic, Speaker, SessionSpeaker, ContentItem } from "@shared/schema";
@@ -77,6 +87,7 @@ const sessionTypeColors: Record<string, "default" | "secondary" | "outline"> = {
 export default function Sessions() {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [editingSession, setEditingSession] = useState<EventSession | null>(null);
   const [selectedSpeakerIds, setSelectedSpeakerIds] = useState<string[]>([]);
@@ -202,6 +213,32 @@ export default function Sessions() {
         return;
       }
       toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/sessions/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      toast({ title: "Content experience deleted successfully" });
+      setIsDeleteDialogOpen(false);
+      setIsDialogOpen(false);
+      setEditingSession(null);
+      form.reset();
+      setSelectedSpeakerIds([]);
+      setSelectedTopicIds([]);
+    },
+    onError: (error: Error) => {
+      setIsDeleteDialogOpen(false);
+      if (isUnauthorizedError(error)) {
+        toast({ title: "Unauthorized", description: "You are logged out. Logging in again...", variant: "destructive" });
+        setTimeout(() => { window.location.href = "/api/login"; }, 500);
+        return;
+      }
+      toast({ title: "Error deleting content experience", description: error.message, variant: "destructive" });
     },
   });
 
@@ -587,21 +624,60 @@ export default function Sessions() {
                     </div>
                   )}
 
-                  <div className="flex justify-end gap-2 pt-4">
-                    <Button type="button" variant="outline" onClick={handleDialogClose}>
-                      Cancel
-                    </Button>
-                    <Button
-                      type="submit"
-                      disabled={createMutation.isPending || updateMutation.isPending}
-                      data-testid="button-submit-session"
-                    >
-                      {createMutation.isPending || updateMutation.isPending
-                        ? "Saving..."
-                        : editingSession
-                        ? "Update"
-                        : "Create Content Experience"}
-                    </Button>
+                  <div className="flex justify-between gap-2 pt-4">
+                    {editingSession ? (
+                      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            disabled={deleteMutation.isPending}
+                            data-testid="button-delete-session"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Content Experience</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete "{editingSession.title}"? This action cannot be undone.
+                              Any associated content, speakers, and feedback will be unlinked from this session.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancel</AlertDialogCancel>
+                            <Button
+                              variant="destructive"
+                              onClick={() => deleteMutation.mutate(editingSession.id)}
+                              disabled={deleteMutation.isPending}
+                              data-testid="button-confirm-delete-session"
+                            >
+                              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+                            </Button>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    ) : (
+                      <div />
+                    )}
+                    <div className="flex gap-2">
+                      <Button type="button" variant="outline" onClick={handleDialogClose}>
+                        Cancel
+                      </Button>
+                      <Button
+                        type="submit"
+                        disabled={createMutation.isPending || updateMutation.isPending}
+                        data-testid="button-submit-session"
+                      >
+                        {createMutation.isPending || updateMutation.isPending
+                          ? "Saving..."
+                          : editingSession
+                          ? "Update"
+                          : "Create Content Experience"}
+                      </Button>
+                    </div>
                   </div>
                 </form>
               </Form>
