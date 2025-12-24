@@ -168,9 +168,9 @@ export function AppSidebar() {
 
   const isPerformanceActive = location === "/" || location === "/acquisition" || location === "/engagement-signals" || location === "/revenue-snapshot";
   const isGtmActive = location === "/attendees" || location === "/import-attendees" || location === "/attendee-types" || location === "/invite-codes" || location === "/activation-links" || location === "/packages" || location === "/emails" || location === "/email-analytics" || location === "/social";
-  const isEngagementActive = location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/topics" || location === "/rooms" || location === "/engagement-moments";
+  const isEngagementActive = location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/topics" || location === "/rooms" || location === "/engagement-moments" || location === "/check-in";
   const isRevenueActive = location === "/pipeline" || location === "/sales-handoff" || location === "/follow-up" || location === "/roi";
-  const isExecutionActive = location === "/run-of-show" || location === "/deliverables" || location === "/vendors" || location === "/budget" || location === "/sponsors" || location === "/sponsor-tasks" || location === "/check-in";
+  const isExecutionActive = location === "/run-of-show" || location === "/deliverables" || location === "/vendors" || location === "/budget" || location === "/sponsors" || location === "/sponsor-tasks";
   const isProgramActive = location === "/events" || location === "/registration" || location === "/site-builder" || location === "/custom-fields";
   const isContentActive = location === "/content" || location === "/documents";
   
@@ -520,6 +520,19 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location === "/check-in"}
+                  data-testid="nav-engagement-capture"
+                >
+                  <Link href="/check-in">
+                    <QrCode className="h-4 w-4" />
+                    <span>Engagement Capture</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -635,18 +648,6 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={location === "/check-in"}
-                  data-testid="nav-check-in"
-                >
-                  <Link href="/check-in">
-                    <QrCode className="h-4 w-4" />
-                    <span>Program Check-In</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
