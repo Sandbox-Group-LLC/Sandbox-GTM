@@ -63,14 +63,48 @@ import { SPONSOR_CONTACT_PERMISSIONS } from "@shared/schema";
 function CameraScanner({ onScan, onClose }: { onScan: (code: string) => void; onClose: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(true);
+  const [isScanning, setIsScanning] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const isMountedRef = useRef(true);
+  const isStoppingRef = useRef(false);
+
+  const stopScanner = async () => {
+    if (isStoppingRef.current) return;
+    isStoppingRef.current = true;
+    
+    try {
+      if (scannerRef.current) {
+        const scanner = scannerRef.current;
+        scannerRef.current = null;
+        
+        // Check if scanner is actually running before stopping
+        if (scanner.isScanning) {
+          await scanner.stop();
+        }
+        // Clear the scanner to release camera
+        scanner.clear();
+      }
+    } catch (err) {
+      // Ignore cleanup errors
+      console.log("Scanner cleanup:", err);
+    } finally {
+      isStoppingRef.current = false;
+    }
+  };
+
+  const handleClose = async () => {
+    await stopScanner();
+    onClose();
+  };
 
   useEffect(() => {
+    isMountedRef.current = true;
     const containerId = "qr-reader-container";
     
     const startScanner = async () => {
       try {
+        if (!isMountedRef.current) return;
+        
         setIsStarting(true);
         setError(null);
 
@@ -79,10 +113,22 @@ function CameraScanner({ onScan, onClose }: { onScan: (code: string) => void; on
           formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
           verbose: false,
         });
+        
+        if (!isMountedRef.current) {
+          html5QrCode.clear();
+          return;
+        }
+        
         scannerRef.current = html5QrCode;
 
         // Get available cameras
         const devices = await Html5Qrcode.getCameras();
+        
+        if (!isMountedRef.current) {
+          html5QrCode.clear();
+          return;
+        }
+        
         if (devices && devices.length > 0) {
           // Prefer back camera if available
           const backCamera = devices.find(d => 
@@ -99,34 +145,44 @@ function CameraScanner({ onScan, onClose }: { onScan: (code: string) => void; on
               qrbox: { width: 250, height: 250 },
               aspectRatio: 1.0,
             },
-            (decodedText) => {
-              // Success callback
-              html5QrCode.stop().catch(() => {});
-              onScan(decodedText);
+            async (decodedText) => {
+              // Success callback - stop scanner first, then callback
+              await stopScanner();
+              if (isMountedRef.current) {
+                onScan(decodedText);
+              }
             },
             () => {
               // Error callback (scan failure) - ignore silently
             }
           );
-          setIsStarting(false);
+          
+          if (isMountedRef.current) {
+            setIsScanning(true);
+            setIsStarting(false);
+          }
         } else {
-          setError("No cameras found. Please ensure camera access is allowed.");
-          setIsStarting(false);
+          if (isMountedRef.current) {
+            setError("No cameras found. Please ensure camera access is allowed.");
+            setIsStarting(false);
+          }
         }
       } catch (err: unknown) {
         console.error("Camera error:", err);
-        if (err instanceof Error) {
-          if (err.message.includes("NotAllowedError") || err.message.includes("Permission denied")) {
-            setError("Camera access denied. Please allow camera permissions in your browser settings.");
-          } else if (err.message.includes("NotFoundError")) {
-            setError("No camera found on this device.");
+        if (isMountedRef.current) {
+          if (err instanceof Error) {
+            if (err.message.includes("NotAllowedError") || err.message.includes("Permission denied")) {
+              setError("Camera access denied. Please allow camera permissions in your browser settings.");
+            } else if (err.message.includes("NotFoundError")) {
+              setError("No camera found on this device.");
+            } else {
+              setError(err.message || "Failed to start camera. Please try again.");
+            }
           } else {
-            setError(err.message || "Failed to start camera. Please try again.");
+            setError("Failed to start camera. Please try again.");
           }
-        } else {
-          setError("Failed to start camera. Please try again.");
+          setIsStarting(false);
         }
-        setIsStarting(false);
       }
     };
 
@@ -134,19 +190,14 @@ function CameraScanner({ onScan, onClose }: { onScan: (code: string) => void; on
 
     // Cleanup on unmount
     return () => {
-      if (scannerRef.current) {
-        scannerRef.current.stop().catch(() => {});
-        scannerRef.current = null;
-      }
+      isMountedRef.current = false;
+      stopScanner();
     };
   }, [onScan]);
 
   return (
     <div className="space-y-4">
-      <div 
-        ref={containerRef}
-        className="relative w-full aspect-square bg-muted rounded-md overflow-hidden"
-      >
+      <div className="relative w-full aspect-square bg-muted rounded-md overflow-hidden">
         <div id="qr-reader-container" className="w-full h-full" />
         
         {isStarting && (
@@ -167,7 +218,7 @@ function CameraScanner({ onScan, onClose }: { onScan: (code: string) => void; on
       )}
 
       <div className="flex justify-end">
-        <Button variant="outline" onClick={onClose} data-testid="button-close-camera">
+        <Button variant="outline" onClick={handleClose} data-testid="button-close-camera">
           Cancel
         </Button>
       </div>
