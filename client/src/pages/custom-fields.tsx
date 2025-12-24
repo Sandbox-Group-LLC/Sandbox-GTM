@@ -84,8 +84,9 @@ export default function CustomFields() {
   const [editingField, setEditingField] = useState<CustomField | null>(null);
   const [optionsText, setOptionsText] = useState("");
   
-  // Local state for toggles
+  // Local state for toggles and field type to avoid form.watch issues
   const [toggles, setToggles] = useState({ required: false, isActive: true, attendeeOnly: false });
+  const [selectedFieldType, setSelectedFieldType] = useState<string>("text");
 
   const { data: customFields = [], isLoading } = useQuery<CustomField[]>({
     queryKey: ["/api/custom-fields"],
@@ -105,7 +106,6 @@ export default function CustomFields() {
     },
   });
 
-  const watchFieldType = form.watch("fieldType");
 
   const createMutation = useMutation({
     mutationFn: async (data: CustomFieldFormData) => {
@@ -186,6 +186,7 @@ export default function CustomFields() {
       isActive: field.isActive ?? true,
       attendeeOnly: field.attendeeOnly ?? false,
     });
+    setSelectedFieldType(field.fieldType);
     setOptionsText((field.options ?? []).join("\n"));
     setIsDialogOpen(true);
   };
@@ -197,7 +198,7 @@ export default function CustomFields() {
   };
 
   const onSubmit = (data: CustomFieldFormData) => {
-    const options = data.fieldType === "select"
+    const options = selectedFieldType === "select"
       ? optionsText.split("\n").map(o => o.trim()).filter(o => o.length > 0)
       : [];
     
@@ -217,6 +218,7 @@ export default function CustomFields() {
       form.reset();
       setOptionsText("");
       setToggles({ required: false, isActive: true, attendeeOnly: false });
+      setSelectedFieldType("text");
     }
     setIsDialogOpen(open);
   };
@@ -376,7 +378,13 @@ export default function CustomFields() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Field Type</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select 
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          setSelectedFieldType(value);
+                        }} 
+                        value={field.value}
+                      >
                         <FormControl>
                           <SelectTrigger data-testid="select-field-type">
                             <SelectValue placeholder="Select field type" />
@@ -394,7 +402,7 @@ export default function CustomFields() {
                     </FormItem>
                   )}
                 />
-                {watchFieldType === "select" && (
+                {selectedFieldType === "select" && (
                   <FormItem>
                     <FormLabel>Options</FormLabel>
                     <Textarea
