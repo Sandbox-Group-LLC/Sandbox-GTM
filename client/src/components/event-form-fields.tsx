@@ -291,13 +291,11 @@ export function EventFormFields({ form, testIdPrefix = "" }: EventFormFieldsProp
               <FormLabel>Make Event Public</FormLabel>
               <p className="text-sm text-muted-foreground">Allow public access to event page</p>
             </div>
-            <FormControl>
-              <Switch
-                checked={field.value === true}
-                onCheckedChange={(checked) => field.onChange(checked === true)}
-                data-testid={`switch-${prefix}event-is-public`}
-              />
-            </FormControl>
+            <Switch
+              checked={field.value === true}
+              onCheckedChange={(checked) => field.onChange(checked === true)}
+              data-testid={`switch-${prefix}event-is-public`}
+            />
           </FormItem>
         )}
       />
@@ -310,13 +308,11 @@ export function EventFormFields({ form, testIdPrefix = "" }: EventFormFieldsProp
               <FormLabel>Open Registration</FormLabel>
               <p className="text-sm text-muted-foreground">Allow public registration for this event</p>
             </div>
-            <FormControl>
-              <Switch
-                checked={field.value === true}
-                onCheckedChange={(checked) => field.onChange(checked === true)}
-                data-testid={`switch-${prefix}event-registration-open`}
-              />
-            </FormControl>
+            <Switch
+              checked={field.value === true}
+              onCheckedChange={(checked) => field.onChange(checked === true)}
+              data-testid={`switch-${prefix}event-registration-open`}
+            />
           </FormItem>
         )}
       />
