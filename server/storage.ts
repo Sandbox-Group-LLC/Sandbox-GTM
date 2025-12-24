@@ -1190,13 +1190,6 @@ export class DatabaseStorage implements IStorage {
     // Delete all related records first (cascade delete)
     // Order matters - delete child records before parent records they reference
     
-    // Delete activation link clicks first (references activation_links)
-    await db.delete(activationLinkClicks).where(
-      sql`${activationLinkClicks.activationLinkId} IN (SELECT id FROM activation_links WHERE event_id = ${id})`
-    );
-    // Delete activation links before invite_codes (activation_links references invite_codes)
-    await db.delete(activationLinks).where(eq(activationLinks.eventId, id));
-    
     // Delete feedback records (references attendees and sessions)
     await db.delete(eventFeedback).where(eq(eventFeedback.eventId, id));
     await db.delete(sessionFeedback).where(eq(sessionFeedback.eventId, id));
@@ -1217,9 +1210,18 @@ export class DatabaseStorage implements IStorage {
       sql`budget_item_id IN (SELECT id FROM budget_items WHERE event_id = ${id})`
     );
     
-    // Now delete main records
+    // Delete attendees first (attendees reference activation_links and packages)
     await db.delete(attendees).where(eq(attendees.eventId, id));
     await db.delete(attendeeTypes).where(eq(attendeeTypes.eventId, id));
+    
+    // Now delete activation link clicks (references activation_links)
+    await db.delete(activationLinkClicks).where(
+      sql`${activationLinkClicks.activationLinkId} IN (SELECT id FROM activation_links WHERE event_id = ${id})`
+    );
+    // Delete activation links after attendees (attendees reference activation_links)
+    await db.delete(activationLinks).where(eq(activationLinks.eventId, id));
+    
+    // Delete packages and invite codes
     await db.delete(eventPackages).where(eq(eventPackages.eventId, id));
     await db.delete(inviteCodes).where(eq(inviteCodes.eventId, id));
     await db.delete(eventSponsors).where(eq(eventSponsors.eventId, id));
