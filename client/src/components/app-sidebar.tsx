@@ -102,7 +102,7 @@ const contentSubItems = [
   { title: "All Experiences", path: "/sessions" },
   { title: "Contributors", path: "/speakers" },
   { title: "Content Pillars", path: "/tracks" },
-  { title: "Topics", path: "/topics" },
+  { title: "Content Topics", path: "/topics" },
   { title: "Rooms", path: "/rooms" },
   { title: "Call for Papers", path: "/call-for-papers" },
 ];
