@@ -7,7 +7,7 @@ export default function PrivacyPolicy() {
         <Card>
           <CardContent className="prose dark:prose-invert max-w-none p-8">
             <h1 className="text-3xl font-bold mb-2">Privacy Policy</h1>
-            <p className="text-muted-foreground mb-8">Last updated: December 21, 2024</p>
+            <p className="text-muted-foreground mb-8">Last updated: December 24, 2024</p>
 
             <section className="mb-8">
               <h2 className="text-xl font-semibold mb-4">1. Introduction</h2>
@@ -87,6 +87,20 @@ export default function PrivacyPolicy() {
                 When you register for an event, your registration information is shared with the event organizer to facilitate your participation.
               </p>
 
+              <h3 className="text-lg font-medium mb-2">API Access and Third-Party Integrations</h3>
+              <p>
+                Organization owners may create API keys that allow authorized third-party applications to access certain organizational data. This access is governed by:
+              </p>
+              <ul className="list-disc pl-6 mb-4">
+                <li><strong>Scope-based permissions:</strong> API keys are granted specific scopes (e.g., events, attendees, sessions, speakers, leads, sponsors, analytics) that limit what data can be accessed</li>
+                <li><strong>Rate limiting:</strong> API access is subject to rate limits to prevent abuse</li>
+                <li><strong>Audit logging:</strong> All API key usage is logged for security and compliance purposes</li>
+                <li><strong>Owner control:</strong> Only organization owners can create, modify, or revoke API keys</li>
+              </ul>
+              <p>
+                If you are an attendee or participant, your data may be accessed by third-party systems that event organizers have integrated with the Platform. Contact the event organizer for information about their specific integrations.
+              </p>
+
               <h3 className="text-lg font-medium mb-2">Legal Requirements</h3>
               <p>
                 We may disclose your information if required by law, legal process, or government request, or to protect the rights, property, or safety of our users or others.
@@ -134,6 +148,8 @@ export default function PrivacyPolicy() {
                 <li>Secure authentication and access controls</li>
                 <li>Regular security assessments and monitoring</li>
                 <li>Employee training on data protection practices</li>
+                <li>Cryptographic hashing of API keys using industry-standard algorithms</li>
+                <li>Timing-safe comparison for authentication to prevent timing attacks</li>
               </ul>
               <p className="mt-4">
                 Security scanning powered by Semgrep and privacy scanning powered by HoundDog.ai, both running locally on Sandbox infrastructure. No code or data is transmitted to any third party, including Semgrep or HoundDog.ai.
