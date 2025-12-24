@@ -966,7 +966,12 @@ export default function PublicRegistration() {
   };
 
   const handleStep1Continue = async () => {
-    const isValid = await form.trigger(["firstName", "lastName", "email", "phone", "company", "jobTitle"]);
+    // Include password fields in validation if password is required
+    const fieldsToValidate: (keyof RegistrationFormData)[] = ["firstName", "lastName", "email", "phone", "company", "jobTitle"];
+    if (requirePassword) {
+      fieldsToValidate.push("password", "confirmPassword");
+    }
+    const isValid = await form.trigger(fieldsToValidate);
     if (isValid) {
       setCurrentStep(2);
     }

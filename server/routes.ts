@@ -7765,11 +7765,24 @@ ${urls.map(u => `  <url>
       // Generate a unique check-in code
       const checkInCode = Math.random().toString(36).substring(2, 10).toUpperCase();
       
-      // Hash password if provided (requirePassword is enabled in registration config)
+      // Handle password based on registration config
+      const requirePasswordConfig = step1Config?.requirePassword || false;
       let passwordHash: string | undefined;
-      if (registrationData.password && typeof registrationData.password === 'string' && registrationData.password.length >= 8) {
+      
+      if (requirePasswordConfig) {
+        // Password is required - validate and hash it
+        if (!registrationData.password || typeof registrationData.password !== 'string' || registrationData.password.length < 8) {
+          return res.status(400).json({ message: "Password is required and must be at least 8 characters" });
+        }
+        passwordHash = await hashPassword(registrationData.password);
+      } else if (registrationData.password && typeof registrationData.password === 'string' && registrationData.password.length >= 8) {
+        // Password is optional but was provided with valid length - hash it
         passwordHash = await hashPassword(registrationData.password);
       }
+      
+      // Remove plaintext password from registrationData before schema parsing to avoid Zod issues
+      delete registrationData.password;
+      delete registrationData.confirmPassword;
       
       // Extract activation link attribution data
       const activationLinkId = registrationData.activationLinkId || undefined;
