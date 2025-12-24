@@ -7282,10 +7282,12 @@ export async function registerRoutes(
     }
   });
 
-  // Check-in routes (code-based access - no organizationId verification needed for scan)
-  app.post("/api/check-in/scan", isAuthenticated, requireInviteRedemption, async (req, res) => {
+  // Check-in routes - mode-aware (program, lead, session)
+  app.post("/api/check-in/scan", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
-      const { code } = req.body;
+      const { code, mode = 'program', sessionId, eventId } = req.body;
+      const userId = req.user.claims.sub;
+      
       if (!code) {
         return res.status(400).json({ message: "Check-in code is required" });
       }
@@ -7295,13 +7297,63 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Invalid check-in code" });
       }
       
-      if (attendee.checkedIn) {
-        return res.status(400).json({ message: "Already checked in", attendee });
+      // Optionally filter by event
+      if (eventId && attendee.eventId !== eventId) {
+        return res.status(404).json({ message: "Attendee not found for this event" });
       }
       
-      const checkedInAttendee = await storage.checkInAttendee(attendee.id);
-      res.json({ message: "Check-in successful", attendee: checkedInAttendee });
-    } catch (error) {
+      if (mode === 'program') {
+        // Standard check-in flow
+        if (attendee.checkedIn) {
+          return res.status(409).json({ message: "Already checked in", attendee });
+        }
+        const checkedInAttendee = await storage.checkInAttendee(attendee.id);
+        return res.json({ message: "Check-in successful", attendee: checkedInAttendee, mode: 'program' });
+      } else if (mode === 'session') {
+        // Session check-in mode
+        if (!sessionId) {
+          return res.status(400).json({ message: "Session ID required for session check-in mode" });
+        }
+        
+        // Check if already checked into this session
+        const existingCheckIn = await storage.getSessionCheckIn(attendee.organizationId, sessionId, attendee.id);
+        if (existingCheckIn) {
+          return res.status(409).json({ message: "Attendee already checked in to this session", checkIn: existingCheckIn, attendee });
+        }
+        
+        const checkIn = await storage.createSessionCheckIn({
+          organizationId: attendee.organizationId,
+          eventId: attendee.eventId,
+          sessionId,
+          attendeeId: attendee.id,
+          scannedByUserId: userId,
+          checkInMethod: 'qr_scan',
+          sourceCode: code,
+        });
+        return res.json({ success: true, checkIn, attendee, mode: 'session' });
+      } else if (mode === 'lead') {
+        // Lead capture mode - return attendee data for pre-filling lead form
+        return res.json({ 
+          success: true, 
+          attendee, 
+          mode: 'lead',
+          attendeeData: {
+            firstName: attendee.firstName,
+            lastName: attendee.lastName,
+            email: attendee.email,
+            company: attendee.company,
+            phone: attendee.phone,
+            jobTitle: attendee.jobTitle,
+            attendeeId: attendee.id,
+          }
+        });
+      } else {
+        return res.status(400).json({ message: "Invalid mode. Must be 'program', 'session', or 'lead'" });
+      }
+    } catch (error: any) {
+      if (error.code === '23505') {
+        return res.status(409).json({ message: "Duplicate check-in detected" });
+      }
       logError("Error during check-in:", error);
       res.status(500).json({ message: "Failed to process check-in" });
     }
@@ -7311,20 +7363,121 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId, req.session);
-      const attendees = await storage.getAttendees(organizationId);
-      const totalAttendees = attendees.length;
-      const checkedIn = attendees.filter(a => a.checkedIn).length;
-      const pending = totalAttendees - checkedIn;
+      const { eventId, mode = 'program' } = req.query;
       
-      res.json({
-        totalAttendees,
-        checkedIn,
-        pending,
-        checkInRate: totalAttendees > 0 ? Math.round((checkedIn / totalAttendees) * 100) : 0,
-      });
+      if (mode === 'program') {
+        // Program check-in stats
+        const attendees = eventId 
+          ? await storage.getAttendees(organizationId, eventId as string)
+          : await storage.getAttendees(organizationId);
+        const totalAttendees = attendees.length;
+        const checkedIn = attendees.filter(a => a.checkedIn).length;
+        const pending = totalAttendees - checkedIn;
+        
+        res.json({
+          totalAttendees,
+          checkedIn,
+          pending,
+          checkInRate: totalAttendees > 0 ? Math.round((checkedIn / totalAttendees) * 100) : 0,
+        });
+      } else if (mode === 'lead') {
+        // Lead capture stats
+        if (!eventId) {
+          return res.json({ leadsToday: 0, totalLeads: 0, qrScanned: 0, manualEntry: 0 });
+        }
+        const stats = await storage.getEventLeadStats(organizationId, eventId as string);
+        res.json({
+          leadsToday: stats.today,
+          totalLeads: stats.total,
+          qrScanned: stats.byMethod.qr_scan,
+          manualEntry: stats.byMethod.manual,
+        });
+      } else if (mode === 'session') {
+        // Session check-in stats
+        if (!eventId) {
+          return res.json({ sessionAttendance: 0, checkInsToday: 0, uniqueAttendees: 0, sessionsCovered: 0 });
+        }
+        const stats = await storage.getSessionCheckInStats(organizationId, eventId as string);
+        res.json({
+          sessionAttendance: stats.totalCheckIns,
+          checkInsToday: stats.totalCheckIns, // Could add today filter later
+          uniqueAttendees: stats.uniqueAttendees,
+          sessionsCovered: stats.sessionsWithCheckIns,
+        });
+      } else {
+        res.status(400).json({ message: "Invalid mode" });
+      }
     } catch (error) {
       logError("Error fetching check-in stats:", error);
       res.status(500).json({ message: "Failed to fetch check-in stats" });
+    }
+  });
+
+  // Simple leads endpoint for lead capture
+  app.post("/api/leads", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { eventId, firstName, lastName, email, company, phone, jobTitle, notes, captureMethod = 'manual' } = req.body;
+      
+      if (!eventId) {
+        return res.status(400).json({ message: "Event ID is required" });
+      }
+      
+      const lead = await storage.createEventLead({
+        organizationId,
+        eventId,
+        capturedByUserId: userId,
+        captureMethod,
+        firstName,
+        lastName,
+        email,
+        company,
+        phone,
+        jobTitle,
+        notes,
+      });
+      
+      res.status(201).json(lead);
+    } catch (error) {
+      logError("Error creating lead:", error);
+      res.status(500).json({ message: "Failed to create lead" });
+    }
+  });
+
+  // Simple session check-ins endpoint
+  app.post("/api/session-check-ins", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { sessionId, attendeeId, eventId, checkInMethod = 'manual' } = req.body;
+      
+      if (!sessionId || !attendeeId || !eventId) {
+        return res.status(400).json({ message: "Session ID, attendee ID, and event ID are required" });
+      }
+      
+      // Check for existing check-in
+      const existingCheckIn = await storage.getSessionCheckIn(organizationId, sessionId, attendeeId);
+      if (existingCheckIn) {
+        return res.status(409).json({ message: "Attendee already checked in to this session", checkIn: existingCheckIn });
+      }
+      
+      const checkIn = await storage.createSessionCheckIn({
+        organizationId,
+        eventId,
+        sessionId,
+        attendeeId,
+        scannedByUserId: userId,
+        checkInMethod,
+      });
+      
+      res.status(201).json(checkIn);
+    } catch (error: any) {
+      if (error.code === '23505') {
+        return res.status(409).json({ message: "Attendee already checked in to this session" });
+      }
+      logError("Error creating session check-in:", error);
+      res.status(500).json({ message: "Failed to create session check-in" });
     }
   });
 
