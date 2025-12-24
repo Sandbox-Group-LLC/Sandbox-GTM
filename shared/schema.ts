@@ -110,6 +110,12 @@ export const DEFAULT_AUDIENCE_TARGETING: AudienceTargeting = {
   accountFocus: 'open',
 };
 
+// Acquisition Milestone type for registration goals tracking
+export interface AcquisitionMilestone {
+  date: string; // ISO date string YYYY-MM-DD
+  targetAttendees: number;
+}
+
 // Organization Members table
 export const organizationMembers = pgTable("organization_members", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -249,6 +255,9 @@ export const events = pgTable("events", {
   defaultLanguage: varchar("default_language", { length: 10 }).default("en"),
   // Audience Targeting for ICP Match Rate calculation
   audienceTargeting: jsonb("audience_targeting").$type<AudienceTargeting>(),
+  // Acquisition Milestones for registration goals
+  acquisitionGoal: integer("acquisition_goal"), // Total target attendees
+  acquisitionMilestones: jsonb("acquisition_milestones").$type<AcquisitionMilestone[]>(),
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
