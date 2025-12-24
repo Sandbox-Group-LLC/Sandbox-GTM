@@ -3617,9 +3617,26 @@ export async function registerRoutes(
       const organizationId = await getOrganizationId(userId, req.session);
       await storage.deleteEvent(organizationId, req.params.id);
       res.status(204).send();
-    } catch (error) {
+    } catch (error: any) {
+      // Log detailed Postgres error information for debugging FK constraint violations
       logError("Error deleting event:", error);
-      res.status(500).json({ message: "Failed to delete event" });
+      if (error.code) {
+        logError("Postgres error code:", error.code);
+      }
+      if (error.constraint) {
+        logError("Postgres constraint name:", error.constraint);
+      }
+      if (error.table) {
+        logError("Postgres table:", error.table);
+      }
+      if (error.detail) {
+        logError("Postgres detail:", error.detail);
+      }
+      res.status(500).json({ 
+        message: "Failed to delete event",
+        constraint: error.constraint || undefined,
+        table: error.table || undefined 
+      });
     }
   });
 

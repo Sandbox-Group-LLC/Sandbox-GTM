@@ -1193,9 +1193,15 @@ export class DatabaseStorage implements IStorage {
     // Delete feedback records (references attendees and sessions)
     await db.delete(eventFeedback).where(eq(eventFeedback.eventId, id));
     await db.delete(sessionFeedback).where(eq(sessionFeedback.eventId, id));
+    
+    // Delete attendeeSavedSessions by BOTH attendeeId AND sessionId to cover both FK references
     await db.delete(attendeeSavedSessions).where(
       sql`attendee_id IN (SELECT id FROM attendees WHERE event_id = ${id})`
     );
+    await db.delete(attendeeSavedSessions).where(
+      sql`session_id IN (SELECT id FROM event_sessions WHERE event_id = ${id})`
+    );
+    
     await db.delete(attendeeInterests).where(
       sql`attendee_id IN (SELECT id FROM attendees WHERE event_id = ${id})`
     );
@@ -1261,14 +1267,32 @@ export class DatabaseStorage implements IStorage {
     await db.delete(eventSponsors).where(eq(eventSponsors.eventId, id));
     await db.delete(speakers).where(eq(speakers.eventId, id));
     
-    // Delete moments before sessions (moments reference sessions)
+    // Delete moments before sessions (moments.sessionId references eventSessions.id)
     await db.delete(moments).where(eq(moments.eventId, id));
+    
+    // Delete contentItems before sessions (contentItems.sessionId references eventSessions.id)
+    await db.delete(contentItems).where(eq(contentItems.eventId, id));
+    
+    // Delete CFP-related records before sessions (cfpSubmissions.sessionId references eventSessions.id)
+    await db.delete(cfpReviews).where(
+      sql`submission_id IN (SELECT id FROM cfp_submissions WHERE cfp_config_id IN (SELECT id FROM cfp_configs WHERE event_id = ${id}))`
+    );
+    await db.delete(cfpSubmissions).where(
+      sql`cfp_config_id IN (SELECT id FROM cfp_configs WHERE event_id = ${id})`
+    );
+    await db.delete(cfpTopics).where(
+      sql`cfp_config_id IN (SELECT id FROM cfp_configs WHERE event_id = ${id})`
+    );
+    await db.delete(cfpReviewers).where(
+      sql`cfp_config_id IN (SELECT id FROM cfp_configs WHERE event_id = ${id})`
+    );
+    await db.delete(cfpConfigs).where(eq(cfpConfigs.eventId, id));
     
     // Delete session tracks and rooms before sessions
     await db.delete(sessionTracks).where(eq(sessionTracks.eventId, id));
     await db.delete(sessionRooms).where(eq(sessionRooms.eventId, id));
     await db.delete(eventSessions).where(eq(eventSessions.eventId, id));
-    await db.delete(contentItems).where(eq(contentItems.eventId, id));
+    
     await db.delete(budgetItems).where(eq(budgetItems.eventId, id));
     await db.delete(budgetOffsets).where(eq(budgetOffsets.eventId, id));
     await db.delete(eventBudgetSettings).where(eq(eventBudgetSettings.eventId, id));
@@ -1319,21 +1343,6 @@ export class DatabaseStorage implements IStorage {
     
     // Delete page views
     await db.delete(pageViews).where(eq(pageViews.eventId, id));
-    
-    // Delete CFP-related records (in order of dependencies)
-    await db.delete(cfpReviews).where(
-      sql`submission_id IN (SELECT id FROM cfp_submissions WHERE cfp_config_id IN (SELECT id FROM cfp_configs WHERE event_id = ${id}))`
-    );
-    await db.delete(cfpSubmissions).where(
-      sql`cfp_config_id IN (SELECT id FROM cfp_configs WHERE event_id = ${id})`
-    );
-    await db.delete(cfpTopics).where(
-      sql`cfp_config_id IN (SELECT id FROM cfp_configs WHERE event_id = ${id})`
-    );
-    await db.delete(cfpReviewers).where(
-      sql`cfp_config_id IN (SELECT id FROM cfp_configs WHERE event_id = ${id})`
-    );
-    await db.delete(cfpConfigs).where(eq(cfpConfigs.eventId, id));
     
     // Now delete the event itself
     await db.delete(events).where(and(eq(events.organizationId, organizationId), eq(events.id, id)));
