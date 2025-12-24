@@ -139,7 +139,7 @@ function PollMoment({ moment, onRespond, isSubmitting, hasResponded, theme }: Mo
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       <div className="space-y-2">
         {options.map((option, idx) => {
           const isSelected = isMulti ? selectedOptions.has(option) : selectedOption === option;
@@ -147,7 +147,7 @@ function PollMoment({ moment, onRespond, isSubmitting, hasResponded, theme }: Mo
             <Button
               key={idx}
               variant={isSelected ? "default" : "outline"}
-              className="w-full justify-start text-left"
+              className="w-full justify-start text-left min-h-11 text-sm sm:text-base"
               onClick={() => toggleOption(option)}
               disabled={isSubmitting}
               data-testid={`option-${idx}`}
@@ -161,7 +161,7 @@ function PollMoment({ moment, onRespond, isSubmitting, hasResponded, theme }: Mo
       <Button
         onClick={handleSubmit}
         disabled={isSubmitting || (isMulti ? selectedOptions.size === 0 : !selectedOption)}
-        className="w-full"
+        className="w-full min-h-11 sm:min-h-10"
         data-testid="button-submit-poll"
         style={buttonStyle}
       >
@@ -195,13 +195,14 @@ function RatingMoment({ moment, onRespond, isSubmitting, hasResponded, theme }: 
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-center gap-2 flex-wrap">
+    <div className="space-y-3 sm:space-y-4">
+      <div className="flex items-center justify-center gap-1.5 sm:gap-2 flex-wrap">
         {Array.from({ length: maxValue - minValue + 1 }, (_, i) => i + minValue).map((value) => (
           <Button
             key={value}
             variant={rating === value ? "default" : "outline"}
             size="icon"
+            className="w-9 h-9 sm:w-10 sm:h-10 text-sm"
             onClick={() => setRating(value)}
             disabled={isSubmitting}
             data-testid={`rating-${value}`}
@@ -211,14 +212,14 @@ function RatingMoment({ moment, onRespond, isSubmitting, hasResponded, theme }: 
           </Button>
         ))}
       </div>
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
+      <div className="flex items-center justify-between text-xs sm:text-sm text-muted-foreground px-1">
         <span>{minValue} - Low</span>
         <span>{maxValue} - High</span>
       </div>
       <Button
         onClick={handleSubmit}
         disabled={isSubmitting || rating === null}
-        className="w-full"
+        className="w-full min-h-11 sm:min-h-10"
         data-testid="button-submit-rating"
         style={buttonStyle}
       >
@@ -249,19 +250,19 @@ function OpenTextMoment({ moment, onRespond, isSubmitting, hasResponded, theme }
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       <Textarea
         placeholder="Share your thoughts..."
         value={text}
         onChange={(e) => setText(e.target.value)}
-        className="min-h-[100px]"
+        className="min-h-[100px] text-base"
         disabled={isSubmitting}
         data-testid="input-open-text"
       />
       <Button
         onClick={handleSubmit}
         disabled={isSubmitting || !text.trim()}
-        className="w-full"
+        className="w-full min-h-11 sm:min-h-10"
         data-testid="button-submit-text"
         style={buttonStyle}
       >
@@ -292,19 +293,19 @@ function QAMoment({ moment, onRespond, isSubmitting, hasResponded, theme }: Mome
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       <Textarea
         placeholder="Ask a question..."
         value={question}
         onChange={(e) => setQuestion(e.target.value)}
-        className="min-h-[100px]"
+        className="min-h-[100px] text-base"
         disabled={isSubmitting}
         data-testid="input-qa"
       />
       <Button
         onClick={handleSubmit}
         disabled={isSubmitting || !question.trim()}
-        className="w-full"
+        className="w-full min-h-11 sm:min-h-10"
         data-testid="button-submit-question"
         style={buttonStyle}
       >
@@ -327,12 +328,12 @@ function PulseMoment({ moment, onRespond, isSubmitting, hasResponded, theme }: M
   };
 
   return (
-    <div className="flex items-center justify-center gap-4 py-4">
+    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2 sm:gap-4 py-3 sm:py-4">
       <Button
         size="lg"
         onClick={() => onRespond(moment.id, { pulse: "positive" })}
         disabled={isSubmitting}
-        className="flex-1 gap-2"
+        className="flex-1 gap-2 min-h-12 sm:min-h-11"
         data-testid="button-pulse-positive"
         style={buttonStyle}
       >
@@ -343,7 +344,7 @@ function PulseMoment({ moment, onRespond, isSubmitting, hasResponded, theme }: M
         size="lg"
         onClick={() => onRespond(moment.id, { pulse: "negative" })}
         disabled={isSubmitting}
-        className="flex-1 gap-2"
+        className="flex-1 gap-2 min-h-12 sm:min-h-11"
         data-testid="button-pulse-negative"
         style={buttonStyle}
       >
@@ -569,17 +570,17 @@ function MomentCard({ moment, respondedMoments, onRespond, isSubmitting, theme }
 
   return (
     <Card className="w-full" style={cardStyle} data-testid={`moment-card-${moment.id}`}>
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6 pt-3 sm:pt-6">
         <div className="flex items-center gap-2 flex-wrap">
           {getMomentIcon()}
-          <Badge variant="secondary">{getMomentTypeLabel()}</Badge>
+          <Badge variant="secondary" className="text-xs">{getMomentTypeLabel()}</Badge>
         </div>
-        <CardTitle className="text-lg" style={{ color: theme?.textColor || DEFAULT_TEXT_COLOR }}>{moment.title}</CardTitle>
+        <CardTitle className="text-base sm:text-lg leading-tight" style={{ color: theme?.textColor || DEFAULT_TEXT_COLOR }}>{moment.title}</CardTitle>
         {moment.prompt && (
-          <p className="text-sm" style={{ color: theme?.textSecondaryColor || DEFAULT_TEXT_SECONDARY_COLOR }}>{moment.prompt}</p>
+          <p className="text-xs sm:text-sm" style={{ color: theme?.textSecondaryColor || DEFAULT_TEXT_SECONDARY_COLOR }}>{moment.prompt}</p>
         )}
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
         {renderMomentContent()}
         {showResults && <ResultsVisualization moment={moment} />}
       </CardContent>
