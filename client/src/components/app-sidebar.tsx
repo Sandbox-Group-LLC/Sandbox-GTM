@@ -264,7 +264,6 @@ export function AppSidebar() {
           </div>
         )}
       </SidebarHeader>
-
       <SidebarContent>
         {canViewPerformance && (
         <SidebarGroup>
@@ -617,7 +616,7 @@ export function AppSidebar() {
                 >
                   <Link href="/budget">
                     <Wallet className="h-4 w-4" />
-                    <span>Investment Health</span>
+                    <span>Budget & Spend</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -736,9 +735,7 @@ export function AppSidebar() {
         
         <OnboardingChecklist onOpenWizard={() => setWizardOpen(true)} />
       </SidebarContent>
-
       <OnboardingWizard open={wizardOpen} onOpenChange={setWizardOpen} />
-      
       <SidebarFooter className="border-t border-sidebar-border p-4">
         <div className="flex items-center gap-3 mb-3">
           <Avatar className="h-9 w-9">
