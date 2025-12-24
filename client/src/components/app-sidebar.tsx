@@ -41,6 +41,7 @@ import {
   Wallet,
   Check,
   X,
+  DoorOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -103,7 +104,6 @@ const contentSubItems = [
   { title: "Contributors", path: "/speakers" },
   { title: "Content Pillars", path: "/tracks" },
   { title: "Content Topics", path: "/topics" },
-  { title: "Rooms", path: "/rooms" },
   { title: "Call for Papers", path: "/call-for-papers" },
 ];
 
@@ -168,9 +168,9 @@ export function AppSidebar() {
 
   const isPerformanceActive = location === "/" || location === "/acquisition" || location === "/engagement-signals" || location === "/revenue-snapshot";
   const isGtmActive = location === "/attendees" || location === "/import-attendees" || location === "/attendee-types" || location === "/invite-codes" || location === "/activation-links" || location === "/packages" || location === "/emails" || location === "/email-analytics" || location === "/social";
-  const isEngagementActive = location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/topics" || location === "/rooms" || location === "/engagement-moments" || location === "/check-in";
+  const isEngagementActive = location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/topics" || location === "/engagement-moments" || location === "/check-in";
   const isRevenueActive = location === "/pipeline" || location === "/sales-handoff" || location === "/follow-up" || location === "/roi";
-  const isExecutionActive = location === "/run-of-show" || location === "/deliverables" || location === "/vendors" || location === "/budget" || location === "/sponsors" || location === "/sponsor-tasks";
+  const isExecutionActive = location === "/run-of-show" || location === "/deliverables" || location === "/vendors" || location === "/budget" || location === "/sponsors" || location === "/sponsor-tasks" || location === "/rooms";
   const isProgramActive = location === "/events" || location === "/registration" || location === "/site-builder" || location === "/custom-fields";
   const isContentActive = location === "/content" || location === "/documents";
   
@@ -473,11 +473,11 @@ export function AppSidebar() {
           <SidebarGroupLabel>Engagement</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              <Collapsible defaultOpen={location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/topics" || location === "/rooms" || location === "/call-for-papers"} className="group/collapsible">
+              <Collapsible defaultOpen={location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/topics" || location === "/call-for-papers"} className="group/collapsible">
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton
-                      isActive={location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/topics" || location === "/rooms" || location === "/call-for-papers"}
+                      isActive={location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/topics" || location === "/call-for-papers"}
                       data-testid="nav-content-experiences"
                     >
                       <Presentation className="h-4 w-4" />
@@ -644,6 +644,19 @@ export function AppSidebar() {
                   <Link href="/sponsor-tasks">
                     <ClipboardList className="h-4 w-4" />
                     <span>Sponsor Tasks</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location === "/rooms"}
+                  data-testid="nav-rooms"
+                >
+                  <Link href="/rooms">
+                    <DoorOpen className="h-4 w-4" />
+                    <span>Rooms</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
