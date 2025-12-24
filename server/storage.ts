@@ -2139,6 +2139,28 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteSession(organizationId: string, id: string): Promise<void> {
+    // Delete from child tables first (cascade order matters for FK constraints)
+    // Tables referencing eventSessions: sessionSpeakers, attendeeSavedSessions, sessionFeedback, 
+    // contentItems, cfpSubmissions, moments, momentResponses, engagementSignals, sessionCheckIns
+    
+    // Delete moment responses first (references moments and sessions)
+    await db.delete(momentResponses).where(eq(momentResponses.sessionId, id));
+    
+    // Delete moments (references sessions)
+    await db.delete(moments).where(eq(moments.sessionId, id));
+    
+    // Delete other direct session references
+    await db.delete(sessionCheckIns).where(eq(sessionCheckIns.sessionId, id));
+    await db.delete(engagementSignals).where(eq(engagementSignals.sessionId, id));
+    await db.delete(sessionFeedback).where(eq(sessionFeedback.sessionId, id));
+    await db.delete(attendeeSavedSessions).where(eq(attendeeSavedSessions.sessionId, id));
+    await db.delete(sessionSpeakers).where(eq(sessionSpeakers.sessionId, id));
+    
+    // Unlink content items and CFP submissions (set sessionId to null instead of deleting)
+    await db.update(contentItems).set({ sessionId: null }).where(eq(contentItems.sessionId, id));
+    await db.update(cfpSubmissions).set({ sessionId: null }).where(eq(cfpSubmissions.sessionId, id));
+    
+    // Finally delete the session
     await db.delete(eventSessions).where(and(eq(eventSessions.organizationId, organizationId), eq(eventSessions.id, id)));
   }
 
