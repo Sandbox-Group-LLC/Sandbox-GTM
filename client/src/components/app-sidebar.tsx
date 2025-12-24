@@ -127,7 +127,6 @@ const programSubItems = [
   { title: "Acquisition Flow", path: "/registration" },
   { title: "Properties", path: "/custom-fields" },
   { title: "Program Hub", path: "/site-builder" },
-  { title: "Engagement Moments", path: "/engagement-moments" },
 ];
 
 const myTasksItems = [
@@ -169,10 +168,10 @@ export function AppSidebar() {
 
   const isPerformanceActive = location === "/" || location === "/acquisition" || location === "/engagement-signals" || location === "/revenue-snapshot";
   const isGtmActive = location === "/attendees" || location === "/import-attendees" || location === "/attendee-types" || location === "/invite-codes" || location === "/activation-links" || location === "/packages" || location === "/emails" || location === "/email-analytics" || location === "/social";
-  const isEngagementActive = location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/topics" || location === "/rooms";
+  const isEngagementActive = location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/topics" || location === "/rooms" || location === "/engagement-moments";
   const isRevenueActive = location === "/pipeline" || location === "/sales-handoff" || location === "/follow-up" || location === "/roi";
   const isExecutionActive = location === "/run-of-show" || location === "/deliverables" || location === "/vendors" || location === "/budget" || location === "/sponsors" || location === "/sponsor-tasks" || location === "/check-in";
-  const isProgramActive = location === "/events" || location === "/registration" || location === "/site-builder" || location === "/custom-fields" || location === "/engagement-moments";
+  const isProgramActive = location === "/events" || location === "/registration" || location === "/site-builder" || location === "/custom-fields";
   const isContentActive = location === "/content" || location === "/documents";
   
   const isSuperAdmin = user?.email?.toLowerCase().endsWith("@makemysandbox.com") ?? false;
@@ -507,6 +506,19 @@ export function AppSidebar() {
                   </CollapsibleContent>
                 </SidebarMenuItem>
               </Collapsible>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location === "/engagement-moments"}
+                  data-testid="nav-engagement-moments"
+                >
+                  <Link href="/engagement-moments">
+                    <Zap className="h-4 w-4" />
+                    <span>Engagement Moments</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
 
             </SidebarMenu>
           </SidebarGroupContent>
