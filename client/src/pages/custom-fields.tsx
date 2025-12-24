@@ -455,20 +455,20 @@ export default function CustomFields() {
                   control={form.control}
                   name="attendeeOnly"
                   render={({ field }) => (
-                    <FormItem className="flex flex-row items-start gap-3 space-y-0">
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                          data-testid="switch-field-attendee-only"
-                        />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel>Attendee Only</FormLabel>
-                        <FormDescription className="text-xs">
-                          Only shown in attendee registration forms, not in admin forms
-                        </FormDescription>
+                    <FormItem>
+                      <div className="flex items-center gap-3">
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                            data-testid="switch-field-attendee-only"
+                          />
+                        </FormControl>
+                        <FormLabel className="!mt-0 cursor-pointer">Attendee Only</FormLabel>
                       </div>
+                      <FormDescription className="text-xs">
+                        Only shown in attendee registration forms, not in admin forms
+                      </FormDescription>
                     </FormItem>
                   )}
                 />
