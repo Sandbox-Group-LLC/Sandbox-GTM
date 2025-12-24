@@ -4083,7 +4083,13 @@ export async function registerRoutes(
       const eventId = req.query.eventId as string | undefined;
 
       if (eventId && eventId !== "all") {
+        // Debug logging - before getEvent
+        console.log("[milestone-status] Looking up eventId:", eventId);
+        
         const event = await storage.getEvent(eventId);
+        console.log("[milestone-status] getEvent returned:", event ? event.name : "null");
+        console.log("[milestone-status] event.organizationId:", event?.organizationId, "user organizationId:", organizationId);
+        
         if (!event || event.organizationId !== organizationId) {
           return res.status(404).json({ message: "Event not found" });
         }
