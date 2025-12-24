@@ -38,7 +38,7 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { Plus, Tag, Trash2, Pencil, Search } from "lucide-react";
 import { ColorPicker } from "@/components/color-picker";
 import { EventSelectField } from "@/components/event-select-field";
-import type { SessionTrack } from "@shared/schema";
+import type { Event, SessionTrack } from "@shared/schema";
 
 const trackFormSchema = z.object({
   eventId: z.string().min(1, "Event is required"),
@@ -54,6 +54,11 @@ export default function Tracks() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTrack, setEditingTrack] = useState<SessionTrack | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterEventId, setFilterEventId] = useState<string>("");
+
+  const { data: events = [] } = useQuery<Event[]>({
+    queryKey: ["/api/events"],
+  });
 
   const { data: tracks = [], isLoading } = useQuery<SessionTrack[]>({
     queryKey: ["/api/session-tracks"],
@@ -171,6 +176,11 @@ export default function Tracks() {
   };
 
   const filteredTracks = tracks.filter((track) => {
+    // Filter by event
+    if (filterEventId && filterEventId !== "all" && track.eventId !== filterEventId) {
+      return false;
+    }
+    // Filter by search
     const searchLower = searchQuery.toLowerCase();
     return (
       track.name.toLowerCase().includes(searchLower) ||
@@ -201,15 +211,30 @@ export default function Tracks() {
 
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-7xl mx-auto space-y-6">
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search content pillars..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-              data-testid="input-search"
-            />
+          <div className="flex flex-wrap gap-4 items-center">
+            <div className="relative flex-1 min-w-[200px] max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search content pillars..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+                data-testid="input-search"
+              />
+            </div>
+            <Select value={filterEventId} onValueChange={setFilterEventId}>
+              <SelectTrigger className="w-[200px]" data-testid="select-filter-event">
+                <SelectValue placeholder="All Programs" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Programs</SelectItem>
+                {events.map((event) => (
+                  <SelectItem key={event.id} value={event.id}>
+                    {event.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {tracks.length === 0 ? (

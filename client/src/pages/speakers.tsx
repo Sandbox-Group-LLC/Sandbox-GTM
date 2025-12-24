@@ -42,7 +42,7 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { Plus, Mic2, Search, Mail, Building, Linkedin, Twitter, Globe, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { EventSelectField } from "@/components/event-select-field";
-import type { Speaker, EventSession, SessionSpeaker } from "@shared/schema";
+import type { Event, Speaker, EventSession, SessionSpeaker } from "@shared/schema";
 
 const speakerFormSchema = z.object({
   eventId: z.string().min(1, "Event is required"),
@@ -69,8 +69,13 @@ export default function Speakers() {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterEventId, setFilterEventId] = useState<string>("");
   const [editingSpeaker, setEditingSpeaker] = useState<Speaker | null>(null);
   const [selectedSessionIds, setSelectedSessionIds] = useState<string[]>([]);
+
+  const { data: events = [] } = useQuery<Event[]>({
+    queryKey: ["/api/events"],
+  });
 
   const { data: speakers = [], isLoading } = useQuery<Speaker[]>({
     queryKey: ["/api/speakers"],
@@ -238,6 +243,11 @@ export default function Speakers() {
   };
 
   const filteredSpeakers = speakers.filter((speaker) => {
+    // Filter by event
+    if (filterEventId && filterEventId !== "all" && speaker.eventId !== filterEventId) {
+      return false;
+    }
+    // Filter by search
     const searchLower = searchQuery.toLowerCase();
     return (
       speaker.firstName.toLowerCase().includes(searchLower) ||
@@ -532,15 +542,30 @@ export default function Speakers() {
 
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-7xl mx-auto space-y-6">
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search contributors..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-              data-testid="input-search"
-            />
+          <div className="flex flex-wrap gap-4 items-center">
+            <div className="relative flex-1 min-w-[200px] max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search contributors..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+                data-testid="input-search"
+              />
+            </div>
+            <Select value={filterEventId} onValueChange={setFilterEventId}>
+              <SelectTrigger className="w-[200px]" data-testid="select-filter-event">
+                <SelectValue placeholder="All Programs" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Programs</SelectItem>
+                {events.map((event) => (
+                  <SelectItem key={event.id} value={event.id}>
+                    {event.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {isLoading ? (

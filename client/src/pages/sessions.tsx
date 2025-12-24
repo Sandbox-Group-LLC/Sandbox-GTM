@@ -52,7 +52,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { EventSelectField } from "@/components/event-select-field";
 import { Link } from "wouter";
-import type { EventSession, SessionRoom, SessionTrack, SessionTopic, Speaker, SessionSpeaker, ContentItem } from "@shared/schema";
+import type { Event, EventSession, SessionRoom, SessionTrack, SessionTopic, Speaker, SessionSpeaker, ContentItem } from "@shared/schema";
 
 const sessionFormSchema = z.object({
   eventId: z.string().min(1, "Event is required"),
@@ -89,9 +89,14 @@ export default function Sessions() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterEventId, setFilterEventId] = useState<string>("");
   const [editingSession, setEditingSession] = useState<EventSession | null>(null);
   const [selectedSpeakerIds, setSelectedSpeakerIds] = useState<string[]>([]);
   const [selectedTopicIds, setSelectedTopicIds] = useState<string[]>([]);
+
+  const { data: events = [] } = useQuery<Event[]>({
+    queryKey: ["/api/events"],
+  });
 
   const { data: sessions = [], isLoading } = useQuery<EventSession[]>({
     queryKey: ["/api/sessions"],
@@ -305,6 +310,11 @@ export default function Sessions() {
   };
 
   const filteredSessions = sessions.filter((session) => {
+    // Filter by event
+    if (filterEventId && filterEventId !== "all" && session.eventId !== filterEventId) {
+      return false;
+    }
+    // Filter by search
     const searchLower = searchQuery.toLowerCase();
     return (
       session.title.toLowerCase().includes(searchLower) ||
@@ -688,15 +698,30 @@ export default function Sessions() {
 
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-7xl mx-auto space-y-6">
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search content experiences..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-              data-testid="input-search"
-            />
+          <div className="flex flex-wrap gap-4 items-center">
+            <div className="relative flex-1 min-w-[200px] max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search content experiences..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+                data-testid="input-search"
+              />
+            </div>
+            <Select value={filterEventId} onValueChange={setFilterEventId}>
+              <SelectTrigger className="w-[200px]" data-testid="select-filter-event">
+                <SelectValue placeholder="All Programs" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Programs</SelectItem>
+                {events.map((event) => (
+                  <SelectItem key={event.id} value={event.id}>
+                    {event.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {isLoading ? (
