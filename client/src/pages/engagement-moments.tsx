@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { QRCodeSVG } from "qrcode.react";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -75,6 +76,8 @@ import {
   BarChart3,
   Users,
   Copy,
+  QrCode,
+  Download,
 } from "lucide-react";
 import type { Event, Moment, EventSession } from "@shared/schema";
 
@@ -125,6 +128,8 @@ export default function EngagementMoments() {
   const [editingMoment, setEditingMoment] = useState<Moment | null>(null);
   const [deletingMoment, setDeletingMoment] = useState<Moment | null>(null);
   const [pollOptions, setPollOptions] = useState<string[]>(["", ""]);
+  const [qrCodeMoment, setQrCodeMoment] = useState<Moment | null>(null);
+  const qrCodeRef = useRef<HTMLDivElement>(null);
 
   const { data: events = [], isLoading: eventsLoading } = useQuery<Event[]>({
     queryKey: ["/api/events"],
@@ -306,6 +311,53 @@ export default function EngagementMoments() {
     return session?.title || "Unknown Session";
   };
 
+  const getQrCodeUrl = (moment: Moment) => {
+    const selectedEvent = events.find(e => e.id === selectedEventId);
+    const baseUrl = window.location.origin;
+    if (selectedEvent?.publicSlug) {
+      return `${baseUrl}/event/${selectedEvent.publicSlug}/live?moment=${moment.id}`;
+    }
+    return `${baseUrl}/portal/${selectedEventId}/live?moment=${moment.id}`;
+  };
+
+  const downloadQrCode = () => {
+    if (!qrCodeRef.current || !qrCodeMoment) return;
+    
+    const svg = qrCodeRef.current.querySelector('svg');
+    if (!svg) return;
+    
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    
+    img.onload = () => {
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx?.drawImage(img, 0, 0);
+      
+      const pngUrl = canvas.toDataURL('image/png');
+      const downloadLink = document.createElement('a');
+      downloadLink.href = pngUrl;
+      downloadLink.download = `moment-qr-${qrCodeMoment.title.replace(/\s+/g, '-').toLowerCase()}.png`;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+    };
+    
+    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+  };
+
+  const copyQrCodeUrl = () => {
+    if (!qrCodeMoment) return;
+    const url = getQrCodeUrl(qrCodeMoment);
+    navigator.clipboard.writeText(url);
+    toast({
+      title: "Link copied",
+      description: "The moment link has been copied to your clipboard.",
+    });
+  };
+
   return (
     <div className="flex flex-col h-full">
       <PageHeader
@@ -447,6 +499,13 @@ export default function EngagementMoments() {
                               >
                                 <Copy className="h-4 w-4 mr-2" />
                                 Duplicate
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => setQrCodeMoment(moment)}
+                                data-testid={`menu-qr-code-${moment.id}`}
+                              >
+                                <QrCode className="h-4 w-4 mr-2" />
+                                QR Code
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
@@ -807,6 +866,66 @@ export default function EngagementMoments() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!qrCodeMoment} onOpenChange={(open) => !open && setQrCodeMoment(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>QR Code</DialogTitle>
+            <DialogDescription>
+              Scan this QR code to participate in "{qrCodeMoment?.title}"
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-4">
+            <div ref={qrCodeRef} className="bg-white p-4 rounded-lg">
+              {qrCodeMoment && (
+                <QRCodeSVG
+                  value={getQrCodeUrl(qrCodeMoment)}
+                  size={200}
+                  level="H"
+                  includeMargin={true}
+                />
+              )}
+            </div>
+            <div className="w-full space-y-2">
+              <Label className="text-xs text-muted-foreground">Direct Link</Label>
+              <div className="flex gap-2">
+                <Input
+                  readOnly
+                  value={qrCodeMoment ? getQrCodeUrl(qrCodeMoment) : ""}
+                  className="text-xs"
+                  data-testid="input-qr-url"
+                />
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={copyQrCodeUrl}
+                  data-testid="button-copy-url"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setQrCodeMoment(null)}
+              className="w-full sm:w-auto"
+              data-testid="button-close-qr"
+            >
+              Close
+            </Button>
+            <Button
+              onClick={downloadQrCode}
+              className="w-full sm:w-auto"
+              data-testid="button-download-qr"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download PNG
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
