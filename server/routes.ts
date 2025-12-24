@@ -6171,8 +6171,8 @@ export async function registerRoutes(
             </div>
           `;
           
-          // Use organization's verified from email or fall back to Resend's default
-          const fromEmail = organization?.fromEmailAddress || 'onboarding@resend.dev';
+          // Use organization slug to construct from email (matches pattern in other email sending)
+          const fromEmail = `noreply@${organization?.slug || 'events'}.com`;
           const fromName = organization?.name || 'Event Platform';
           
           const emailResult = await resend.emails.send({
