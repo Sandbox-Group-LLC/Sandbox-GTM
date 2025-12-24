@@ -1210,7 +1210,10 @@ export class DatabaseStorage implements IStorage {
       sql`budget_item_id IN (SELECT id FROM budget_items WHERE event_id = ${id})`
     );
     
-    // Delete attendees first (attendees reference activation_links and packages)
+    // Delete moment responses before attendees (momentResponses reference attendees)
+    await db.delete(momentResponses).where(eq(momentResponses.eventId, id));
+    
+    // Delete attendees (attendees reference activation_links and packages)
     await db.delete(attendees).where(eq(attendees.eventId, id));
     await db.delete(attendeeTypes).where(eq(attendeeTypes.eventId, id));
     
@@ -1269,8 +1272,7 @@ export class DatabaseStorage implements IStorage {
     // Delete page views
     await db.delete(pageViews).where(eq(pageViews.eventId, id));
     
-    // Delete engagement moments and responses
-    await db.delete(momentResponses).where(eq(momentResponses.eventId, id));
+    // Delete engagement moments (responses already deleted earlier before attendees)
     await db.delete(moments).where(eq(moments.eventId, id));
     
     // Delete engagement signals
