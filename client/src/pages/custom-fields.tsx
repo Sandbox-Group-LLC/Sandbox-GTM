@@ -444,7 +444,9 @@ export default function CustomFields() {
                     <Checkbox
                       id="required-checkbox"
                       checked={toggles.required}
-                      onCheckedChange={(checked) => setToggles({ ...toggles, required: checked === true })}
+                      onCheckedChange={(checked) => {
+                        requestAnimationFrame(() => setToggles(prev => ({ ...prev, required: checked === true })));
+                      }}
                       data-testid="switch-field-required"
                     />
                   </div>
@@ -453,7 +455,9 @@ export default function CustomFields() {
                     <Checkbox
                       id="active-checkbox"
                       checked={toggles.isActive}
-                      onCheckedChange={(checked) => setToggles({ ...toggles, isActive: checked === true })}
+                      onCheckedChange={(checked) => {
+                        requestAnimationFrame(() => setToggles(prev => ({ ...prev, isActive: checked === true })));
+                      }}
                       data-testid="switch-field-active"
                     />
                   </div>
@@ -465,7 +469,9 @@ export default function CustomFields() {
                     <Checkbox
                       id="attendee-only-checkbox"
                       checked={toggles.attendeeOnly}
-                      onCheckedChange={(checked) => setToggles({ ...toggles, attendeeOnly: checked === true })}
+                      onCheckedChange={(checked) => {
+                        requestAnimationFrame(() => setToggles(prev => ({ ...prev, attendeeOnly: checked === true })));
+                      }}
                       data-testid="switch-field-attendee-only"
                     />
                   </div>
