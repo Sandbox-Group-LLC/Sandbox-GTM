@@ -250,7 +250,7 @@ export function PersonalScheduleSection({
         <div className="mb-4">
           <h4 className="text-lg font-medium flex items-center gap-2" style={headingStyles}>
             <Calendar className="h-5 w-5" />
-            {formatEventDate(sortedDates[0], 'long')}
+            {formatEventDate(sortedDates[0], 'full')}
           </h4>
         </div>
         <div className="space-y-3">

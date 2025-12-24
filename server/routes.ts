@@ -8149,7 +8149,7 @@ ${urls.map(u => `  <url>
 
   // --- ATTENDEE SAVED SESSIONS ---
 
-  // Get saved sessions for logged-in attendee
+  // Get saved sessions for logged-in attendee (with full session data)
   app.get("/api/portal/:eventId/saved-sessions", async (req: any, res) => {
     try {
       const { eventId } = req.params;
@@ -8159,7 +8159,22 @@ ${urls.map(u => `  <url>
       }
       
       const savedSessions = await storage.getAttendeeSavedSessions(attendee.id);
-      res.json(savedSessions);
+      
+      // Fetch full session data for each saved session
+      const sessionsWithData = await Promise.all(
+        savedSessions.map(async (saved) => {
+          const session = await storage.getEventSession(attendee.organizationId, saved.sessionId);
+          return {
+            ...saved,
+            session: session || null,
+          };
+        })
+      );
+      
+      // Filter out any saved sessions where the session no longer exists
+      const validSessions = sessionsWithData.filter(s => s.session !== null);
+      
+      res.json(validSessions);
     } catch (error) {
       logError("Error fetching saved sessions:", error);
       res.status(500).json({ message: "Failed to fetch saved sessions" });
