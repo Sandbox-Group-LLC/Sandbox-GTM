@@ -19,33 +19,37 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, breadcrumbs = [], actions }: PageHeaderProps) {
   return (
-    <header className="flex h-14 items-center gap-2 sm:gap-4 border-b border-border px-2 sm:px-4 shrink-0">
-      <SidebarTrigger data-testid="button-sidebar-toggle" />
-      <Separator orientation="vertical" className="h-6 hidden sm:block" />
-      
-      <Breadcrumb className="hidden sm:flex">
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink href="/">Home</BreadcrumbLink>
-          </BreadcrumbItem>
-          {breadcrumbs.map((crumb, index) => (
-            <span key={index} className="flex items-center gap-2">
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                {index === breadcrumbs.length - 1 || !crumb.href ? (
-                  <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
-                ) : (
-                  <BreadcrumbLink href={crumb.href}>{crumb.label}</BreadcrumbLink>
-                )}
-              </BreadcrumbItem>
-            </span>
-          ))}
-        </BreadcrumbList>
-      </Breadcrumb>
+    <header className="flex flex-wrap min-h-14 py-2 items-center gap-2 sm:gap-4 border-b border-border px-2 sm:px-4 shrink-0">
+      <div className="flex items-center gap-2 sm:gap-4">
+        <SidebarTrigger data-testid="button-sidebar-toggle" />
+        <Separator orientation="vertical" className="h-6 hidden sm:block" />
+        
+        <Breadcrumb className="hidden sm:flex">
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink href="/">Home</BreadcrumbLink>
+            </BreadcrumbItem>
+            {breadcrumbs.map((crumb, index) => (
+              <span key={index} className="flex items-center gap-2">
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  {index === breadcrumbs.length - 1 || !crumb.href ? (
+                    <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
+                  ) : (
+                    <BreadcrumbLink href={crumb.href}>{crumb.label}</BreadcrumbLink>
+                  )}
+                </BreadcrumbItem>
+              </span>
+            ))}
+          </BreadcrumbList>
+        </Breadcrumb>
+      </div>
       
       <div className="flex-1" />
       
-      <CommandPaletteTrigger />
+      <div className="hidden sm:block">
+        <CommandPaletteTrigger />
+      </div>
 
       <div className="flex items-center gap-1 sm:gap-2">
         {actions}

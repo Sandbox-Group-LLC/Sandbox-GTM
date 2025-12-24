@@ -312,9 +312,9 @@ export default function EngagementMoments() {
         title="Engagement Moments"
         breadcrumbs={[{ label: "Programs" }, { label: "Engagement Moments" }]}
         actions={
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+          <div className="hidden sm:flex items-center gap-2">
             <Select value={selectedEventId} onValueChange={setSelectedEventId}>
-              <SelectTrigger className="w-full sm:w-[240px] min-h-10" data-testid="select-event">
+              <SelectTrigger className="w-[240px]" data-testid="select-event">
                 <SelectValue placeholder="Select a program" />
               </SelectTrigger>
               <SelectContent>
@@ -328,7 +328,6 @@ export default function EngagementMoments() {
             {selectedEventId && (
               <Button
                 onClick={() => setCreateDialogOpen(true)}
-                className="w-full sm:w-auto min-h-10"
                 data-testid="button-create-moment"
               >
                 <Plus className="h-4 w-4 mr-2" />
@@ -341,6 +340,33 @@ export default function EngagementMoments() {
 
       <div className="flex-1 overflow-auto p-3 sm:p-6">
         <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
+          {/* Mobile controls - shown only on small screens */}
+          <div className="flex flex-col gap-3 sm:hidden">
+            <h1 className="text-lg font-semibold">Engagement Moments</h1>
+            <Select value={selectedEventId} onValueChange={setSelectedEventId}>
+              <SelectTrigger className="w-full min-h-11" data-testid="select-event-mobile">
+                <SelectValue placeholder="Select a program" />
+              </SelectTrigger>
+              <SelectContent>
+                {events.map((event) => (
+                  <SelectItem key={event.id} value={event.id} data-testid={`select-event-option-mobile-${event.id}`}>
+                    {event.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedEventId && (
+              <Button
+                onClick={() => setCreateDialogOpen(true)}
+                className="w-full min-h-11"
+                data-testid="button-create-moment-mobile"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                New Moment
+              </Button>
+            )}
+          </div>
+          
           <p className="text-muted-foreground text-xs sm:text-sm">
             Create interactive moments to engage your audience during live sessions. Launch polls, Q&As, and pulse checks in real-time.
           </p>
