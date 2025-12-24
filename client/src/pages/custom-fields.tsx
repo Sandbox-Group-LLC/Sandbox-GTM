@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, memo, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -70,6 +70,50 @@ const customFieldFormSchema = z.object({
 
 type CustomFieldFormData = z.infer<typeof customFieldFormSchema>;
 
+type ToggleState = { required: boolean; isActive: boolean; attendeeOnly: boolean };
+
+interface ToggleSectionProps {
+  toggles: ToggleState;
+  onToggleChange: (key: keyof ToggleState, value: boolean) => void;
+}
+
+const ToggleSection = memo(function ToggleSection({ toggles, onToggleChange }: ToggleSectionProps) {
+  return (
+    <div className="space-y-3 pt-2">
+      <div className="flex items-center justify-between p-3 border rounded-md">
+        <Label htmlFor="required-checkbox" className="cursor-pointer">Required field</Label>
+        <Checkbox
+          id="required-checkbox"
+          checked={toggles.required}
+          onCheckedChange={(checked) => onToggleChange('required', checked === true)}
+          data-testid="switch-field-required"
+        />
+      </div>
+      <div className="flex items-center justify-between p-3 border rounded-md">
+        <Label htmlFor="active-checkbox" className="cursor-pointer">Active</Label>
+        <Checkbox
+          id="active-checkbox"
+          checked={toggles.isActive}
+          onCheckedChange={(checked) => onToggleChange('isActive', checked === true)}
+          data-testid="switch-field-active"
+        />
+      </div>
+      <div className="flex items-center justify-between p-3 border rounded-md">
+        <div>
+          <Label htmlFor="attendee-only-checkbox" className="cursor-pointer">Attendee Only</Label>
+          <p className="text-sm text-muted-foreground">Only shown in attendee registration, not admin forms</p>
+        </div>
+        <Checkbox
+          id="attendee-only-checkbox"
+          checked={toggles.attendeeOnly}
+          onCheckedChange={(checked) => onToggleChange('attendeeOnly', checked === true)}
+          data-testid="switch-field-attendee-only"
+        />
+      </div>
+    </div>
+  );
+});
+
 const fieldTypeLabels: Record<string, string> = {
   text: "Text",
   textarea: "Textarea",
@@ -85,8 +129,12 @@ export default function CustomFields() {
   const [optionsText, setOptionsText] = useState("");
   
   // Local state for toggles and field type to avoid form.watch issues
-  const [toggles, setToggles] = useState({ required: false, isActive: true, attendeeOnly: false });
+  const [toggles, setToggles] = useState<ToggleState>({ required: false, isActive: true, attendeeOnly: false });
   const [selectedFieldType, setSelectedFieldType] = useState<string>("text");
+  
+  const handleToggleChange = useCallback((key: keyof ToggleState, value: boolean) => {
+    setToggles(prev => ({ ...prev, [key]: value }));
+  }, []);
 
   const { data: customFields = [], isLoading } = useQuery<CustomField[]>({
     queryKey: ["/api/custom-fields"],
@@ -438,44 +486,7 @@ export default function CustomFields() {
                     </FormItem>
                   )}
                 />
-                <div className="space-y-3 pt-2">
-                  <div className="flex items-center justify-between p-3 border rounded-md">
-                    <Label htmlFor="required-checkbox" className="cursor-pointer">Required field</Label>
-                    <Checkbox
-                      id="required-checkbox"
-                      checked={toggles.required}
-                      onCheckedChange={(checked) => {
-                        requestAnimationFrame(() => setToggles(prev => ({ ...prev, required: checked === true })));
-                      }}
-                      data-testid="switch-field-required"
-                    />
-                  </div>
-                  <div className="flex items-center justify-between p-3 border rounded-md">
-                    <Label htmlFor="active-checkbox" className="cursor-pointer">Active</Label>
-                    <Checkbox
-                      id="active-checkbox"
-                      checked={toggles.isActive}
-                      onCheckedChange={(checked) => {
-                        requestAnimationFrame(() => setToggles(prev => ({ ...prev, isActive: checked === true })));
-                      }}
-                      data-testid="switch-field-active"
-                    />
-                  </div>
-                  <div className="flex items-center justify-between p-3 border rounded-md">
-                    <div>
-                      <Label htmlFor="attendee-only-checkbox" className="cursor-pointer">Attendee Only</Label>
-                      <p className="text-sm text-muted-foreground">Only shown in attendee registration, not admin forms</p>
-                    </div>
-                    <Checkbox
-                      id="attendee-only-checkbox"
-                      checked={toggles.attendeeOnly}
-                      onCheckedChange={(checked) => {
-                        requestAnimationFrame(() => setToggles(prev => ({ ...prev, attendeeOnly: checked === true })));
-                      }}
-                      data-testid="switch-field-attendee-only"
-                    />
-                  </div>
-                </div>
+                <ToggleSection toggles={toggles} onToggleChange={handleToggleChange} />
                 <div className="flex justify-end gap-2 pt-4">
                   <Button
                     type="button"
