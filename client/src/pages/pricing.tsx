@@ -183,7 +183,7 @@ export default function Pricing() {
               <p className="text-[#b8b8b8] max-w-2xl mx-auto">
                 Sandbox works out of the box. Professional services help teams accelerate impact.
               </p>
-              <Badge variant="outline" className="mt-4 bg-[#2b333b]">Optional</Badge>
+              <Badge variant="outline" className="mt-4 bg-[#2b333b] text-[#dbe0e6]">Optional</Badge>
             </div>
 
             <div className="grid md:grid-cols-2 gap-8">
