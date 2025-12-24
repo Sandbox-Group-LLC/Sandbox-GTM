@@ -4123,20 +4123,40 @@ export async function registerRoutes(
         };
         
         for (const event of events) {
-          if (event.acquisitionGoal) {
-            totalGoal += event.acquisitionGoal;
+          // Get goal from acquisitionGoal field, or from last milestone if not set
+          let eventGoal = event.acquisitionGoal || 0;
+          if (!eventGoal && event.acquisitionMilestones && event.acquisitionMilestones.length > 0) {
+            const sortedMilestones = [...event.acquisitionMilestones].sort(
+              (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+            );
+            eventGoal = sortedMilestones[sortedMilestones.length - 1].targetAttendees;
           }
+          totalGoal += eventGoal;
+          
+          // Calculate status for events with milestones OR with a goal
+          const eventAttendees = allAttendees.filter(a => a.eventId === event.id);
+          const eventConfirmed = eventAttendees.filter(a => a.registrationStatus === "confirmed").length;
           
           if (event.acquisitionMilestones && event.acquisitionMilestones.length > 0) {
-            const eventAttendees = allAttendees.filter(a => a.eventId === event.id);
-            const eventConfirmed = eventAttendees.filter(a => a.registrationStatus === "confirmed").length;
-            
             const eventStatus = calculateMilestoneStatus(
               event.acquisitionMilestones,
               event.acquisitionGoal,
               eventConfirmed,
               new Date(),
               { eventStartDate: event.startDate }
+            );
+            
+            if (!worstStatus || statusPriority[eventStatus.status] > statusPriority[worstStatus.status]) {
+              worstStatus = eventStatus;
+              worstEventId = event.id;
+              worstEventName = event.name;
+            }
+          } else if (eventGoal > 0) {
+            // Event has goal but no milestones - still evaluate status
+            const eventStatus = calculateMilestoneStatus(
+              null,
+              eventGoal,
+              eventConfirmed
             );
             
             if (!worstStatus || statusPriority[eventStatus.status] > statusPriority[worstStatus.status]) {
