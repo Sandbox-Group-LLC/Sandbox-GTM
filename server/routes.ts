@@ -51,6 +51,7 @@ import {
   insertSessionSchema,
   insertSessionTrackSchema,
   insertSessionRoomSchema,
+  insertSessionTopicSchema,
   insertContentItemSchema,
   insertBudgetItemSchema,
   insertBudgetCategorySchema,
@@ -5894,6 +5895,61 @@ export async function registerRoutes(
     } catch (error) {
       logError("Error deleting session room:", error);
       res.status(500).json({ message: "Failed to delete session room" });
+    }
+  });
+
+  // Session Topics routes
+  app.get("/api/session-topics", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const eventId = req.query.eventId as string | undefined;
+      const topics = await storage.getSessionTopics(organizationId, eventId);
+      res.json(topics);
+    } catch (error) {
+      logError("Error fetching session topics:", error);
+      res.status(500).json({ message: "Failed to fetch session topics" });
+    }
+  });
+
+  app.post("/api/session-topics", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const data = insertSessionTopicSchema.parse({ ...req.body, organizationId });
+      const topic = await storage.createSessionTopic(data);
+      res.status(201).json(topic);
+    } catch (error) {
+      logError("Error creating session topic:", error);
+      res.status(400).json({ message: "Invalid session topic data" });
+    }
+  });
+
+  app.patch("/api/session-topics/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const updateData = insertSessionTopicSchema.partial().parse(req.body);
+      const topic = await storage.updateSessionTopic(organizationId, req.params.id, updateData);
+      if (!topic) {
+        return res.status(404).json({ message: "Session topic not found" });
+      }
+      res.json(topic);
+    } catch (error) {
+      logError("Error updating session topic:", error);
+      res.status(400).json({ message: "Failed to update session topic" });
+    }
+  });
+
+  app.delete("/api/session-topics/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      await storage.deleteSessionTopic(organizationId, req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting session topic:", error);
+      res.status(500).json({ message: "Failed to delete session topic" });
     }
   });
 
