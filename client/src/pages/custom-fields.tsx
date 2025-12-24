@@ -310,7 +310,7 @@ export default function CustomFields() {
       />
 
       <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md w-[calc(100%-2rem)] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingField ? "Edit Property" : "Add Property"}</DialogTitle>
               <DialogDescription>
@@ -497,7 +497,7 @@ export default function CustomFields() {
           </DialogContent>
         </Dialog>
 
-      <div className="flex-1 overflow-auto p-6 space-y-6">
+      <div className="flex-1 overflow-auto p-4 md:p-6 space-y-6">
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
@@ -509,7 +509,29 @@ export default function CustomFields() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border">
+            {/* Mobile card view */}
+            <div className="md:hidden space-y-3">
+              {SYSTEM_PROPERTIES.map((prop) => (
+                <div key={prop.name} className="p-3 border rounded-md space-y-2" data-testid={`card-system-property-${prop.name}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-sm">{prop.label}</span>
+                    {prop.required ? (
+                      <Badge variant="default" className="text-xs">Required</Badge>
+                    ) : (
+                      <Badge variant="secondary" className="text-xs">Optional</Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <code className="bg-muted px-1.5 py-0.5 rounded">{prop.name}</code>
+                    <Badge variant="outline" className="text-xs">
+                      {fieldTypeLabels[prop.fieldType] || titleCase(prop.fieldType)}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Desktop table view */}
+            <div className="hidden md:block rounded-md border overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-muted/50">
@@ -566,11 +588,63 @@ export default function CustomFields() {
               }}
             />
           ) : (
-            <DataTable
-              data={customFields}
-              columns={columns}
-              getRowKey={(field) => field.id}
-            />
+            <>
+              {/* Mobile card view */}
+              <div className="md:hidden space-y-3">
+                {customFields.map((field) => (
+                  <div key={field.id} className="p-3 border rounded-md space-y-3" data-testid={`card-custom-field-${field.id}`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-1 min-w-0 flex-1">
+                        <span className="font-medium text-sm block truncate">{field.label}</span>
+                        <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{field.name}</code>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEdit(field)}
+                          data-testid={`button-edit-field-mobile-${field.id}`}
+                        >
+                          <Settings2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDelete(field.id)}
+                          data-testid={`button-delete-field-mobile-${field.id}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="secondary" className="text-xs">
+                        {fieldTypeLabels[field.fieldType] || titleCase(field.fieldType)}
+                      </Badge>
+                      {field.required && (
+                        <Badge variant="default" className="text-xs">Required</Badge>
+                      )}
+                      {field.isActive ? (
+                        <Badge variant="outline" className="text-xs">Active</Badge>
+                      ) : (
+                        <Badge variant="secondary" className="text-xs">Inactive</Badge>
+                      )}
+                      {field.attendeeOnly && (
+                        <Badge variant="outline" className="text-xs">Attendee Only</Badge>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {/* Desktop table view */}
+              <div className="hidden md:block">
+                <DataTable
+                  data={customFields}
+                  columns={columns}
+                  getRowKey={(field) => field.id}
+                />
+              </div>
+            </>
           )}
         </div>
       </div>
