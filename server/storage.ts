@@ -11,6 +11,7 @@ import {
   sessionSpeakers,
   sessionTracks,
   sessionRooms,
+  sessionTopics,
   contentItems,
   budgetItems,
   budgetCategories,
@@ -91,6 +92,8 @@ import {
   type InsertSessionTrack,
   type SessionRoom,
   type InsertSessionRoom,
+  type SessionTopic,
+  type InsertSessionTopic,
   type SessionSpeaker,
   type InsertSessionSpeaker,
   type ContentItem,
@@ -415,6 +418,13 @@ export interface IStorage {
   createSessionRoom(room: InsertSessionRoom): Promise<SessionRoom>;
   updateSessionRoom(organizationId: string, id: string, room: Partial<InsertSessionRoom>): Promise<SessionRoom | undefined>;
   deleteSessionRoom(organizationId: string, id: string): Promise<void>;
+
+  // Session Topic operations
+  getSessionTopics(organizationId: string, eventId?: string): Promise<SessionTopic[]>;
+  getSessionTopic(organizationId: string, id: string): Promise<SessionTopic | undefined>;
+  createSessionTopic(topic: InsertSessionTopic): Promise<SessionTopic>;
+  updateSessionTopic(organizationId: string, id: string, topic: Partial<InsertSessionTopic>): Promise<SessionTopic | undefined>;
+  deleteSessionTopic(organizationId: string, id: string): Promise<void>;
 
   // Session Speaker operations (junction table)
   getSessionSpeakersBySession(organizationId: string, sessionId: string): Promise<SessionSpeaker[]>;
@@ -2133,6 +2143,42 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSessionRoom(organizationId: string, id: string): Promise<void> {
     await db.delete(sessionRooms).where(and(eq(sessionRooms.organizationId, organizationId), eq(sessionRooms.id, id)));
+  }
+
+  // Session Topic operations
+  async getSessionTopics(organizationId: string, eventId?: string): Promise<SessionTopic[]> {
+    if (eventId) {
+      return db.select().from(sessionTopics)
+        .where(and(eq(sessionTopics.organizationId, organizationId), eq(sessionTopics.eventId, eventId)))
+        .orderBy(sessionTopics.displayOrder, sessionTopics.name);
+    }
+    return db.select().from(sessionTopics)
+      .where(eq(sessionTopics.organizationId, organizationId))
+      .orderBy(sessionTopics.displayOrder, sessionTopics.name);
+  }
+
+  async getSessionTopic(organizationId: string, id: string): Promise<SessionTopic | undefined> {
+    const [topic] = await db.select().from(sessionTopics)
+      .where(and(eq(sessionTopics.organizationId, organizationId), eq(sessionTopics.id, id)));
+    return topic;
+  }
+
+  async createSessionTopic(topic: InsertSessionTopic): Promise<SessionTopic> {
+    const [newTopic] = await db.insert(sessionTopics).values(topic).returning();
+    return newTopic;
+  }
+
+  async updateSessionTopic(organizationId: string, id: string, topic: Partial<InsertSessionTopic>): Promise<SessionTopic | undefined> {
+    const [updated] = await db
+      .update(sessionTopics)
+      .set({ ...topic, updatedAt: new Date() })
+      .where(and(eq(sessionTopics.organizationId, organizationId), eq(sessionTopics.id, id)))
+      .returning();
+    return updated;
+  }
+
+  async deleteSessionTopic(organizationId: string, id: string): Promise<void> {
+    await db.delete(sessionTopics).where(and(eq(sessionTopics.organizationId, organizationId), eq(sessionTopics.id, id)));
   }
 
   // Session Speaker operations
