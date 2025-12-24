@@ -21,6 +21,12 @@ import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { COUNTRIES } from "@/lib/countries";
 
+// Schema for acquisition milestone
+const acquisitionMilestoneSchema = z.object({
+  date: z.string(),
+  targetAttendees: z.number().min(0),
+});
+
 export const eventFormSchema = z.object({
   name: z.string().min(1, "Event name is required"),
   description: z.string().optional(),
@@ -38,6 +44,10 @@ export const eventFormSchema = z.object({
   isPublic: z.boolean().default(false),
   registrationOpen: z.boolean().default(false),
   status: z.enum(["draft", "published", "cancelled", "completed"]),
+  // Acquisition milestones
+  setAcquisitionMilestones: z.boolean().default(false),
+  acquisitionGoal: z.coerce.number().min(0).optional().nullable(),
+  acquisitionMilestones: z.array(acquisitionMilestoneSchema).optional().nullable(),
 });
 
 export type EventFormValues = z.infer<typeof eventFormSchema>;
@@ -339,6 +349,106 @@ export function EventFormFields({ form, testIdPrefix = "" }: EventFormFieldsProp
           </FormItem>
         )}
       />
+      <FormField
+        control={form.control}
+        name="setAcquisitionMilestones"
+        render={({ field }) => (
+          <FormItem className="flex items-center justify-between">
+            <div>
+              <FormLabel>Set Acquisition Milestones</FormLabel>
+              <p className="text-sm text-muted-foreground">Track registration goals with target dates</p>
+            </div>
+            <Switch
+              checked={field.value === true}
+              onCheckedChange={(checked) => {
+                field.onChange(checked === true);
+                if (!checked) {
+                  form.setValue("acquisitionGoal", null);
+                  form.setValue("acquisitionMilestones", null);
+                } else {
+                  form.setValue("acquisitionMilestones", [
+                    { date: "", targetAttendees: 0 },
+                    { date: "", targetAttendees: 0 },
+                    { date: "", targetAttendees: 0 },
+                  ]);
+                }
+              }}
+              data-testid={`switch-${prefix}event-acquisition-milestones`}
+            />
+          </FormItem>
+        )}
+      />
+      {form.watch("setAcquisitionMilestones") && (
+        <div className="space-y-4 p-4 rounded-md bg-muted/50">
+          <FormField
+            control={form.control}
+            name="acquisitionGoal"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Acquisition Goal</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    placeholder="Total target attendees"
+                    {...field}
+                    value={field.value ?? ""}
+                    onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
+                    data-testid={`input-${prefix}event-acquisition-goal`}
+                  />
+                </FormControl>
+                <p className="text-sm text-muted-foreground">Your total attendee target for this program</p>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <div className="space-y-3">
+            <p className="text-sm font-medium">Milestones</p>
+            {[0, 1, 2].map((index) => (
+              <div key={index} className="grid grid-cols-2 gap-3">
+                <FormItem>
+                  <FormLabel className="text-xs">Milestone {index + 1} Date</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="date"
+                      value={form.watch(`acquisitionMilestones.${index}.date`) || ""}
+                      onChange={(e) => {
+                        const milestones = form.getValues("acquisitionMilestones") || [];
+                        const updated = [...milestones];
+                        if (!updated[index]) {
+                          updated[index] = { date: "", targetAttendees: 0 };
+                        }
+                        updated[index].date = e.target.value;
+                        form.setValue("acquisitionMilestones", updated);
+                      }}
+                      data-testid={`input-${prefix}event-milestone-${index + 1}-date`}
+                    />
+                  </FormControl>
+                </FormItem>
+                <FormItem>
+                  <FormLabel className="text-xs">Target Attendees</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      placeholder="0"
+                      value={form.watch(`acquisitionMilestones.${index}.targetAttendees`) || ""}
+                      onChange={(e) => {
+                        const milestones = form.getValues("acquisitionMilestones") || [];
+                        const updated = [...milestones];
+                        if (!updated[index]) {
+                          updated[index] = { date: "", targetAttendees: 0 };
+                        }
+                        updated[index].targetAttendees = e.target.value ? Number(e.target.value) : 0;
+                        form.setValue("acquisitionMilestones", updated);
+                      }}
+                      data-testid={`input-${prefix}event-milestone-${index + 1}-target`}
+                    />
+                  </FormControl>
+                </FormItem>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </>
   );
 }
