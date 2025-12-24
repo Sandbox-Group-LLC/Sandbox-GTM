@@ -1700,19 +1700,19 @@ function LeadsTab({
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card>
             <CardContent className="pt-4">
-              <div className="text-2xl font-bold" data-testid="stat-total-leads">{stats.total}</div>
+              <div className="text-2xl font-bold" data-testid="stat-total-leads">{stats.totalLeads ?? 0}</div>
               <p className="text-sm text-muted-foreground">Total Leads</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-4">
-              <div className="text-2xl font-bold" data-testid="stat-today-leads">{stats.today}</div>
+              <div className="text-2xl font-bold" data-testid="stat-today-leads">{stats.leadsToday ?? 0}</div>
               <p className="text-sm text-muted-foreground">Today</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-4">
-              <div className="text-2xl font-bold" data-testid="stat-qr-scans">{stats.byMethod.qr_scan}</div>
+              <div className="text-2xl font-bold" data-testid="stat-qr-scans">{stats.qrScanned ?? 0}</div>
               <p className="text-sm text-muted-foreground flex items-center gap-1">
                 <QrCode className="w-3 h-3" /> QR Scanned
               </p>
@@ -1720,7 +1720,7 @@ function LeadsTab({
           </Card>
           <Card>
             <CardContent className="pt-4">
-              <div className="text-2xl font-bold" data-testid="stat-manual-entries">{stats.byMethod.manual}</div>
+              <div className="text-2xl font-bold" data-testid="stat-manual-entries">{stats.manualEntry ?? 0}</div>
               <p className="text-sm text-muted-foreground flex items-center gap-1">
                 <User className="w-3 h-3" /> Manual Entry
               </p>
