@@ -4091,6 +4091,12 @@ export async function registerRoutes(
         const attendees = await storage.getAttendees(organizationId, eventId);
         const confirmedCount = attendees.filter(a => a.registrationStatus === "confirmed").length;
 
+        // Debug logging
+        console.log("[milestone-status] Event:", event.name);
+        console.log("[milestone-status] acquisitionMilestones:", JSON.stringify(event.acquisitionMilestones));
+        console.log("[milestone-status] acquisitionGoal:", event.acquisitionGoal);
+        console.log("[milestone-status] confirmedCount:", confirmedCount);
+
         const milestoneStatus = calculateMilestoneStatus(
           event.acquisitionMilestones,
           event.acquisitionGoal,
@@ -4098,6 +4104,8 @@ export async function registerRoutes(
           new Date(),
           { eventStartDate: event.startDate }
         );
+
+        console.log("[milestone-status] Result:", JSON.stringify(milestoneStatus));
 
         res.json({
           ...milestoneStatus,
