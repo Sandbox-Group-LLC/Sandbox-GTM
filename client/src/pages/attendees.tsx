@@ -972,12 +972,12 @@ export default function Attendees() {
                     )}
                   />
 
-                  {customFields.filter(cf => cf.isActive).length > 0 && (
+                  {customFields.filter(cf => cf.isActive && !cf.attendeeOnly).length > 0 && (
                     <div className="space-y-4 pt-4 border-t">
                       <h4 className="font-medium text-sm">Properties</h4>
                       <div className="grid grid-cols-2 gap-4">
                         {customFields
-                          .filter(cf => cf.isActive)
+                          .filter(cf => cf.isActive && !cf.attendeeOnly)
                           .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
                           .map((cf) => {
                             const currentValue = form.watch(`customData.${cf.name}`);

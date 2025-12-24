@@ -610,6 +610,7 @@ export const customFields = pgTable("custom_fields", {
   options: text("options").array(),
   displayOrder: integer("display_order").default(0),
   isActive: boolean("is_active").default(true),
+  attendeeOnly: boolean("attendee_only").default(false), // Fields that should only be visible in attendee-facing forms, not admin forms
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

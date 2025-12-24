@@ -64,6 +64,7 @@ const customFieldFormSchema = z.object({
   options: z.array(z.string()).default([]),
   displayOrder: z.coerce.number().int().min(0).default(0),
   isActive: z.boolean().default(true),
+  attendeeOnly: z.boolean().default(false),
 });
 
 type CustomFieldFormData = z.infer<typeof customFieldFormSchema>;
@@ -96,6 +97,7 @@ export default function CustomFields() {
       options: [],
       displayOrder: 0,
       isActive: true,
+      attendeeOnly: false,
     },
   });
 
@@ -173,6 +175,7 @@ export default function CustomFields() {
       options: field.options ?? [],
       displayOrder: field.displayOrder ?? 0,
       isActive: field.isActive ?? true,
+      attendeeOnly: field.attendeeOnly ?? false,
     });
     setOptionsText((field.options ?? []).join("\n"));
     setIsDialogOpen(true);
@@ -242,6 +245,17 @@ export default function CustomFields() {
           <Badge variant="default" className="text-xs">Active</Badge>
         ) : (
           <Badge variant="secondary" className="text-xs">Inactive</Badge>
+        )
+      ),
+    },
+    {
+      key: "attendeeOnly",
+      header: "Visibility",
+      cell: (field: CustomField) => (
+        field.attendeeOnly ? (
+          <Badge variant="outline" className="text-xs">Attendee Only</Badge>
+        ) : (
+          <span className="text-muted-foreground text-sm">All Forms</span>
         )
       ),
     },
@@ -434,6 +448,27 @@ export default function CustomFields() {
                         />
                       </FormControl>
                       <FormLabel className="!mt-0">Active</FormLabel>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="attendeeOnly"
+                  render={({ field }) => (
+                    <FormItem className="flex items-center gap-3">
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          data-testid="switch-field-attendee-only"
+                        />
+                      </FormControl>
+                      <div>
+                        <FormLabel className="!mt-0">Attendee Only</FormLabel>
+                        <FormDescription className="text-xs">
+                          Only shown in attendee registration forms, not in admin forms
+                        </FormDescription>
+                      </div>
                     </FormItem>
                   )}
                 />
