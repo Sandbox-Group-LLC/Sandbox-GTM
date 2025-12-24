@@ -1060,10 +1060,10 @@ export default function PublicRegistration() {
     none: "0px", small: "4px", medium: "8px", large: "16px", pill: "9999px",
   };
   const inputStyles: React.CSSProperties = {
-    backgroundColor: theme?.backgroundColor || DEFAULT_BACKGROUND_COLOR,
+    backgroundColor: theme?.inputBackgroundColor || theme?.cardBackground || "#ffffff",
     borderColor: theme?.borderColor || DEFAULT_BORDER_COLOR,
     borderRadius: borderRadiusMap[theme?.borderRadius || "medium"],
-    color: sectionFontColor,
+    color: theme?.inputTextColor || sectionFontColor,
   };
   const labelStyles: React.CSSProperties = {
     color: sectionFontColor,

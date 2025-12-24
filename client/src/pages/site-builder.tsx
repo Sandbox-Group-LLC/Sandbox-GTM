@@ -5645,6 +5645,28 @@ function StylesEditor({ theme, onUpdateTheme, isPending, seo, onUpdateSeo, custo
               testId="input-border-color"
             />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="inputBackgroundColor">Input Background</Label>
+            <DebouncedColorInput
+              id="inputBackgroundColor"
+              value={theme.inputBackgroundColor}
+              defaultValue="#ffffff"
+              onChange={(value) => onUpdateTheme({ inputBackgroundColor: value })}
+              disabled={isPending}
+              testId="input-input-background-color"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="inputTextColor">Input Text</Label>
+            <DebouncedColorInput
+              id="inputTextColor"
+              value={theme.inputTextColor}
+              defaultValue=""
+              onChange={(value) => onUpdateTheme({ inputTextColor: value })}
+              disabled={isPending}
+              testId="input-input-text-color"
+            />
+          </div>
         </div>
       </div>
 
