@@ -43,6 +43,7 @@ import MyOrganization from "@/pages/my-organization";
 import CustomFields from "@/pages/custom-fields";
 import PrivacyPolicy from "@/pages/privacy-policy";
 import Tracks from "@/pages/tracks";
+import Topics from "@/pages/topics";
 import Rooms from "@/pages/rooms";
 import ImportAttendees from "@/pages/import-attendees";
 import CallForPapers from "@/pages/call-for-papers";
@@ -196,6 +197,7 @@ function Router() {
         <Route path="/check-in" component={CheckIn} />
         <Route path="/sessions" component={Sessions} />
         <Route path="/tracks" component={Tracks} />
+        <Route path="/topics" component={Topics} />
         <Route path="/rooms" component={Rooms} />
         <Route path="/call-for-papers" component={CallForPapers} />
         <Route path="/reviewer/portal" component={ReviewerPortal} />

@@ -102,6 +102,7 @@ const contentSubItems = [
   { title: "All Experiences", path: "/sessions" },
   { title: "Contributors", path: "/speakers" },
   { title: "Content Pillars", path: "/tracks" },
+  { title: "Topics", path: "/topics" },
   { title: "Rooms", path: "/rooms" },
   { title: "Call for Papers", path: "/call-for-papers" },
 ];
@@ -168,7 +169,7 @@ export function AppSidebar() {
 
   const isPerformanceActive = location === "/" || location === "/acquisition" || location === "/engagement-signals" || location === "/revenue-snapshot";
   const isGtmActive = location === "/attendees" || location === "/import-attendees" || location === "/attendee-types" || location === "/invite-codes" || location === "/activation-links" || location === "/packages" || location === "/emails" || location === "/email-analytics" || location === "/social";
-  const isEngagementActive = location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/rooms";
+  const isEngagementActive = location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/topics" || location === "/rooms";
   const isRevenueActive = location === "/pipeline" || location === "/sales-handoff" || location === "/follow-up" || location === "/roi";
   const isExecutionActive = location === "/run-of-show" || location === "/deliverables" || location === "/vendors" || location === "/budget" || location === "/sponsors" || location === "/sponsor-tasks" || location === "/check-in";
   const isProgramActive = location === "/events" || location === "/registration" || location === "/site-builder" || location === "/custom-fields" || location === "/engagement-moments";
@@ -473,11 +474,11 @@ export function AppSidebar() {
           <SidebarGroupLabel>Engagement</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              <Collapsible defaultOpen={location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/rooms" || location === "/call-for-papers"} className="group/collapsible">
+              <Collapsible defaultOpen={location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/topics" || location === "/rooms" || location === "/call-for-papers"} className="group/collapsible">
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton
-                      isActive={location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/rooms" || location === "/call-for-papers"}
+                      isActive={location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/topics" || location === "/rooms" || location === "/call-for-papers"}
                       data-testid="nav-content-experiences"
                     >
                       <Presentation className="h-4 w-4" />
