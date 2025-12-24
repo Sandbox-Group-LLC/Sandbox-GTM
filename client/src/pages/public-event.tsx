@@ -2099,7 +2099,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
       const footerEmail = (config.email as string) || "";
       const footerPhone = (config.phone as string) || "";
       const footerAddress = (config.address as string) || "";
-      const footerLinks = (config.links as Array<{ label: string; url: string }>) || [];
+      const footerLinks = ((config.links as Array<{ label: string; url?: string; href?: string }>) || []).map(l => ({ ...l, url: l.url || l.href || '' }));
       const showSocialIcons = config.showSocialIcons !== false;
       const facebookUrl = (config.facebookUrl as string) || "";
       const twitterUrl = (config.twitterUrl as string) || "";
@@ -2191,7 +2191,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
 
     case "navigation":
       const navLogo = (config.logo as string) || "";
-      const navLinks = (config.links as Array<{ label: string; url: string }>) || [];
+      const navLinks = ((config.links as Array<{ label: string; url?: string; href?: string }>) || []).map(l => ({ ...l, url: l.url || l.href || '' }));
       const showEventTitle = config.showEventTitle !== false;
       const isSticky = config.sticky === true;
       const navStyle = (config.style as string) || "light";
