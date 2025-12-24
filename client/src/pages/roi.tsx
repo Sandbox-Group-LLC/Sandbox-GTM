@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { LineChart, DollarSign, TrendingUp, Calculator, PieChart } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { LineChart, DollarSign, TrendingUp, Calculator, PieChart, Info } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Select,
@@ -42,6 +43,14 @@ export default function ROI() {
       />
 
       <div className="flex-1 overflow-auto p-6">
+        <Alert className="mb-6" data-testid="alert-crm-required">
+          <Info className="h-4 w-4" />
+          <AlertTitle>CRM Integration Required</AlertTitle>
+          <AlertDescription>
+            Connect your CRM (Salesforce, HubSpot, etc.) to activate ROI calculations and revenue attribution. Contact your administrator to set up the integration.
+          </AlertDescription>
+        </Alert>
+        
         <p className="text-muted-foreground text-sm mb-4">Measure and report on program return on investment</p>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
           <Card>
