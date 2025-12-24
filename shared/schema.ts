@@ -571,8 +571,6 @@ export const registrationConfigs = pgTable("registration_configs", {
     collectJobTitle?: boolean;
     requirePassword?: boolean;
     allowGoogleAuth?: boolean;
-    collectActivationKey?: boolean;
-    requireActivationKey?: boolean;
   }>(),
   step2Config: jsonb("step2_config").$type<{
     rules?: Array<{
