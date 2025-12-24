@@ -219,6 +219,63 @@ export const DEFAULT_PRIMARY_COLOR = "#3b82f6";
 export const DEFAULT_SECONDARY_COLOR = "#64748b";
 export const DEFAULT_BORDER_COLOR = "#e5e7eb";
 
+// Helper to convert hex color to HSL format for Tailwind CSS variables
+function hexToHsl(hex: string): string {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if (!result) return "0 0% 0%";
+  
+  let r = parseInt(result[1], 16) / 255;
+  let g = parseInt(result[2], 16) / 255;
+  let b = parseInt(result[3], 16) / 255;
+  
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0;
+  let s = 0;
+  const l = (max + min) / 2;
+
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+      case g: h = ((b - r) / d + 2) / 6; break;
+      case b: h = ((r - g) / d + 4) / 6; break;
+    }
+  }
+  
+  return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
+}
+
+// Helper to create a slightly lighter/darker shade for muted colors
+function adjustLightness(hex: string, amount: number): string {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if (!result) return hex;
+  
+  let r = parseInt(result[1], 16) / 255;
+  let g = parseInt(result[2], 16) / 255;
+  let b = parseInt(result[3], 16) / 255;
+  
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0;
+  let s = 0;
+  let l = (max + min) / 2;
+
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+      case g: h = ((b - r) / d + 2) / 6; break;
+      case b: h = ((r - g) / d + 4) / 6; break;
+    }
+  }
+  
+  l = Math.max(0, Math.min(1, l + amount));
+  return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
+}
+
 export function getThemeStyles(theme: EventPageTheme | null | undefined): React.CSSProperties {
   if (!theme) return {};
   
@@ -243,20 +300,50 @@ export function getThemeStyles(theme: EventPageTheme | null | undefined): React.
     relaxed: "5rem",
   };
   
+  // Calculate derived colors for Tailwind CSS variable overrides
+  const bgColor = theme.backgroundColor || DEFAULT_BACKGROUND_COLOR;
+  const textColor = theme.textColor || DEFAULT_TEXT_COLOR;
+  const cardBg = theme.cardBackground || DEFAULT_CARD_BACKGROUND;
+  const borderColor = theme.borderColor || DEFAULT_BORDER_COLOR;
+  const primaryColor = theme.primaryColor || DEFAULT_PRIMARY_COLOR;
+  const secondaryTextColor = theme.textSecondaryColor || DEFAULT_TEXT_SECONDARY_COLOR;
+  
+  // Determine if this is a dark theme (lightness < 50%)
+  const bgHsl = hexToHsl(bgColor);
+  const bgLightness = parseInt(bgHsl.split(' ')[2]) || 50;
+  const isDark = bgLightness < 50;
+  
+  // Create muted color as a slight variation of card background
+  const mutedHsl = isDark 
+    ? adjustLightness(cardBg, 0.05)  // Slightly lighter for dark themes
+    : adjustLightness(cardBg, -0.03); // Slightly darker for light themes
+  
   return {
+    // Site builder theme variables
     "--theme-primary-color": theme.primaryColor || DEFAULT_PRIMARY_COLOR,
     "--theme-secondary-color": theme.secondaryColor || DEFAULT_SECONDARY_COLOR,
-    "--theme-background-color": theme.backgroundColor || DEFAULT_BACKGROUND_COLOR,
-    "--theme-text-color": theme.textColor || DEFAULT_TEXT_COLOR,
-    "--theme-text-secondary-color": theme.textSecondaryColor || DEFAULT_TEXT_SECONDARY_COLOR,
+    "--theme-background-color": bgColor,
+    "--theme-text-color": textColor,
+    "--theme-text-secondary-color": secondaryTextColor,
     "--theme-button-color": theme.buttonColor || DEFAULT_BUTTON_COLOR,
     "--theme-button-text-color": theme.buttonTextColor || DEFAULT_BUTTON_TEXT_COLOR,
-    "--theme-card-background": theme.cardBackground || DEFAULT_CARD_BACKGROUND,
+    "--theme-card-background": cardBg,
     "--theme-border-radius": borderRadiusMap[theme.borderRadius || "medium"],
     "--theme-container-width": containerWidthMap[theme.containerWidth || "standard"],
     "--theme-section-spacing": sectionSpacingMap[theme.sectionSpacing || "normal"],
     "--theme-heading-font": theme.headingFont || DEFAULT_HEADING_FONT,
     "--theme-body-font": theme.bodyFont || DEFAULT_BODY_FONT,
+    // Override Tailwind CSS variables to match the theme
+    "--background": hexToHsl(bgColor),
+    "--foreground": hexToHsl(textColor),
+    "--card": hexToHsl(cardBg),
+    "--card-foreground": hexToHsl(textColor),
+    "--card-border": hexToHsl(borderColor),
+    "--muted": mutedHsl,
+    "--muted-foreground": hexToHsl(secondaryTextColor),
+    "--primary": hexToHsl(primaryColor),
+    "--primary-foreground": hexToHsl(theme.buttonTextColor || DEFAULT_BUTTON_TEXT_COLOR),
+    "--border": hexToHsl(borderColor),
   } as React.CSSProperties;
 }
 
