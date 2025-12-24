@@ -348,6 +348,8 @@ interface Step1Config {
   collectCompany?: boolean;
   collectJobTitle?: boolean;
   requirePassword?: boolean;
+  collectActivationKey?: boolean;
+  requireActivationKey?: boolean;
 }
 
 interface PublicRegistrationData {
@@ -972,6 +974,13 @@ export default function PublicRegistration() {
       fieldsToValidate.push("password", "confirmPassword");
     }
     const isValid = await form.trigger(fieldsToValidate);
+    
+    // Check if activation key is required and not validated
+    if (data?.registrationConfig?.requireActivationKey && !validatedCode) {
+      toast({ title: "Activation Key Required", description: "Please enter and validate your activation key to continue.", variant: "destructive" });
+      return;
+    }
+    
     if (isValid) {
       setCurrentStep(2);
     }
@@ -1407,23 +1416,26 @@ export default function PublicRegistration() {
                         )}
                       />
 
-                      <div className="space-y-2">
-                        <FormLabel style={labelStyles}>Activation Key (optional)</FormLabel>
-                        <div className="flex gap-2">
-                          <Input
-                            placeholder="Enter activation key"
-                            value={inviteCodeInput}
-                            onChange={(e) => setInviteCodeInput(e.target.value)}
-                            disabled={!!validatedCode}
-                            style={inputStyles}
-                            data-testid="input-invite-code"
-                          />
-                          <Button
-                            type="button"
-                            variant={validatedCode ? "secondary" : "outline"}
-                            onClick={() => validateInviteCode()}
-                            disabled={!inviteCodeInput.trim() || isValidatingCode || !!validatedCode}
-                            data-testid="button-validate-code"
+                      {(data?.registrationConfig?.collectActivationKey ?? true) && (
+                        <div className="space-y-2">
+                          <FormLabel style={labelStyles}>
+                            Activation Key{data?.registrationConfig?.requireActivationKey ? <span className="text-destructive ml-1">*</span> : " (optional)"}
+                          </FormLabel>
+                          <div className="flex gap-2">
+                            <Input
+                              placeholder="Enter activation key"
+                              value={inviteCodeInput}
+                              onChange={(e) => setInviteCodeInput(e.target.value)}
+                              disabled={!!validatedCode}
+                              style={inputStyles}
+                              data-testid="input-activation-key"
+                            />
+                            <Button
+                              type="button"
+                              variant={validatedCode ? "secondary" : "outline"}
+                              onClick={() => validateInviteCode()}
+                              disabled={!inviteCodeInput.trim() || isValidatingCode || !!validatedCode}
+                              data-testid="button-validate-code"
                           >
                             {isValidatingCode ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
@@ -1440,7 +1452,8 @@ export default function PublicRegistration() {
                             <span>Code applied{validatedCode.discountType && ` - ${validatedCode.discountType === "percentage" ? `${validatedCode.discountValue}% off` : `${formatPrice(validatedCode.discountValue)} off`}`}</span>
                           </div>
                         )}
-                      </div>
+                        </div>
+                      )}
 
                       <Button
                         type="button"
