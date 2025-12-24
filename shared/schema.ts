@@ -700,6 +700,16 @@ export const eventSponsors = pgTable("event_sponsors", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Sponsor Contact Permissions - feature keys that sponsor contacts can have access to
+export const SPONSOR_CONTACT_PERMISSIONS = {
+  LEAD_CAPTURE: 'lead_capture',
+  VIEW_LEADS: 'view_leads',
+  EXPORT_LEADS: 'export_leads',
+  INVITE_TEAM: 'invite_team',
+} as const;
+
+export type SponsorContactPermission = typeof SPONSOR_CONTACT_PERMISSIONS[keyof typeof SPONSOR_CONTACT_PERMISSIONS];
+
 // Sponsor Contacts table (people from sponsor company with portal access)
 export const sponsorContacts = pgTable("sponsor_contacts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -711,11 +721,31 @@ export const sponsorContacts = pgTable("sponsor_contacts", {
   jobTitle: varchar("job_title", { length: 255 }),
   phone: varchar("phone", { length: 50 }),
   isPrimary: boolean("is_primary").default(false),
+  permissions: text("permissions").array(), // Array of SponsorContactPermission keys
+  invitedBy: varchar("invited_by").references(() => sponsorContacts.id), // For team member invitations
   portalAccessToken: varchar("portal_access_token", { length: 255 }),
   portalTokenExpiresAt: timestamp("portal_token_expires_at"),
   lastLoginAt: timestamp("last_login_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Sponsor Contact Invitations table - for pending team invitations from sponsor contacts
+export const sponsorContactInvitations = pgTable("sponsor_contact_invitations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  sponsorId: varchar("sponsor_id").references(() => eventSponsors.id).notNull(),
+  email: varchar("email", { length: 255 }).notNull(),
+  firstName: varchar("first_name", { length: 100 }),
+  lastName: varchar("last_name", { length: 100 }),
+  permissions: text("permissions").array(), // Permissions to grant when accepted
+  inviteCode: varchar("invite_code", { length: 64 }).unique().notNull(),
+  invitedBy: varchar("invited_by").references(() => sponsorContacts.id).notNull(),
+  status: varchar("status", { length: 20 }).default("pending"), // 'pending', 'accepted', 'expired', 'revoked'
+  expiresAt: timestamp("expires_at"),
+  invitedAt: timestamp("invited_at").defaultNow(),
+  acceptedAt: timestamp("accepted_at"),
+  acceptedBy: varchar("accepted_by").references(() => sponsorContacts.id),
 });
 
 // Sponsor Tasks table (tasks that organizers assign to sponsors)
@@ -1907,7 +1937,9 @@ export const eventLeads = pgTable("event_leads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
   eventId: varchar("event_id").references(() => events.id).notNull(),
+  sponsorId: varchar("sponsor_id").references(() => eventSponsors.id), // Link to sponsor if captured by sponsor
   capturedByUserId: varchar("captured_by_user_id").references(() => users.id),
+  capturedBySponsorContactId: varchar("captured_by_sponsor_contact_id").references(() => sponsorContacts.id), // Sponsor contact who captured
   captureMethod: varchar("capture_method", { length: 50 }), // 'qr_scan' or 'manual'
   firstName: varchar("first_name", { length: 100 }).notNull(),
   lastName: varchar("last_name", { length: 100 }).notNull(),
@@ -2011,6 +2043,7 @@ export const insertCustomFieldSchema = createInsertSchema(customFields).omit({ i
 export const insertContentAssetSchema = createInsertSchema(contentAssets).omit({ id: true, createdAt: true });
 export const insertEventSponsorSchema = createInsertSchema(eventSponsors).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSponsorContactSchema = createInsertSchema(sponsorContacts).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertSponsorContactInvitationSchema = createInsertSchema(sponsorContactInvitations).omit({ id: true, invitedAt: true, acceptedAt: true, acceptedBy: true });
 export const insertSponsorTaskSchema = createInsertSchema(sponsorTasks).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSponsorTaskCompletionSchema = createInsertSchema(sponsorTaskCompletions).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertCfpConfigSchema = createInsertSchema(cfpConfigs).omit({ createdAt: true });
@@ -2135,6 +2168,8 @@ export type InsertEventSponsor = z.infer<typeof insertEventSponsorSchema>;
 export type EventSponsor = typeof eventSponsors.$inferSelect;
 export type InsertSponsorContact = z.infer<typeof insertSponsorContactSchema>;
 export type SponsorContact = typeof sponsorContacts.$inferSelect;
+export type InsertSponsorContactInvitation = z.infer<typeof insertSponsorContactInvitationSchema>;
+export type SponsorContactInvitation = typeof sponsorContactInvitations.$inferSelect;
 export type InsertSponsorTask = z.infer<typeof insertSponsorTaskSchema>;
 export type SponsorTask = typeof sponsorTasks.$inferSelect;
 export type InsertSponsorTaskCompletion = z.infer<typeof insertSponsorTaskCompletionSchema>;
