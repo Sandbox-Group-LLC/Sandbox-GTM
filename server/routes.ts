@@ -95,6 +95,7 @@ import {
   emailPlatformAudiences,
   emailSyncJobs,
   FEATURE_PERMISSIONS,
+  SPONSOR_CONTACT_PERMISSIONS,
 } from "@shared/schema";
 import { createMailchimpProvider } from "./integrations/mailchimp";
 import { decrypt, encrypt } from "./encryption";
@@ -5358,16 +5359,39 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Token is required" });
       }
       
-      const sponsor = await storage.getEventSponsorByToken(token);
-      if (!sponsor) {
-        return res.status(401).json({ message: "Invalid or expired token" });
+      // First try sponsor token
+      let sponsor = await storage.getEventSponsorByToken(token);
+      let sponsorContact = null;
+      
+      if (sponsor) {
+        if (sponsor.portalTokenExpiresAt && new Date(sponsor.portalTokenExpiresAt) < new Date()) {
+          return res.status(401).json({ message: "Token has expired" });
+        }
+      } else {
+        // Try sponsor contact token
+        sponsorContact = await storage.getSponsorContactByToken(token);
+        if (!sponsorContact) {
+          return res.status(401).json({ message: "Invalid or expired token" });
+        }
+        
+        // Get the sponsor for this contact
+        sponsor = await storage.getEventSponsor(sponsorContact.organizationId, sponsorContact.sponsorId);
+        if (!sponsor) {
+          return res.status(401).json({ message: "Sponsor not found" });
+        }
       }
       
-      if (sponsor.portalTokenExpiresAt && new Date(sponsor.portalTokenExpiresAt) < new Date()) {
-        return res.status(401).json({ message: "Token has expired" });
-      }
-      
-      res.json(sponsor);
+      // Return sponsor with optional sponsorContact info
+      res.json({
+        ...sponsor,
+        sponsorContact: sponsorContact ? {
+          id: sponsorContact.id,
+          firstName: sponsorContact.firstName,
+          lastName: sponsorContact.lastName,
+          email: sponsorContact.email,
+          permissions: sponsorContact.permissions || [],
+        } : null,
+      });
     } catch (error) {
       logError("Error validating sponsor portal token:", error);
       res.status(500).json({ message: "Failed to validate token" });
@@ -5753,6 +5777,522 @@ export async function registerRoutes(
     } catch (error) {
       logError("Error sending team member invite:", error);
       res.status(500).json({ message: "Failed to send invitation email" });
+    }
+  });
+
+  // Sponsor portal lead capture routes (sponsor contact token-based auth)
+  
+  // Helper function to validate sponsor contact token and permissions
+  async function validateSponsorContactAccess(
+    token: string | undefined,
+    sponsorId: string,
+    eventId: string,
+    requiredPermissions: string[]
+  ): Promise<{ sponsorContact: any; sponsor: any; error?: { status: number; message: string } }> {
+    if (!token) {
+      return { sponsorContact: null, sponsor: null, error: { status: 400, message: "Token is required" } };
+    }
+    
+    const sponsorContact = await storage.getSponsorContactByToken(token);
+    if (!sponsorContact) {
+      return { sponsorContact: null, sponsor: null, error: { status: 401, message: "Invalid or expired token" } };
+    }
+    
+    // Verify the contact belongs to the requested sponsor
+    if (sponsorContact.sponsorId !== sponsorId) {
+      return { sponsorContact: null, sponsor: null, error: { status: 403, message: "Access denied to this sponsor" } };
+    }
+    
+    // Get the sponsor to verify eventId
+    const sponsor = await storage.getEventSponsor(sponsorContact.organizationId, sponsorId);
+    if (!sponsor || sponsor.eventId !== eventId) {
+      return { sponsorContact: null, sponsor: null, error: { status: 404, message: "Sponsor or event not found" } };
+    }
+    
+    // Check required permissions
+    const contactPermissions = sponsorContact.permissions || [];
+    const hasPermission = requiredPermissions.some(p => contactPermissions.includes(p));
+    if (!hasPermission) {
+      return { sponsorContact, sponsor, error: { status: 403, message: "Insufficient permissions" } };
+    }
+    
+    return { sponsorContact, sponsor };
+  }
+
+  // GET /api/sponsor-portal/leads/:sponsorId/:eventId - List leads captured by a sponsor
+  app.get("/api/sponsor-portal/leads/:sponsorId/:eventId", async (req: any, res) => {
+    try {
+      const { sponsorId, eventId } = req.params;
+      const token = req.query.token as string;
+      
+      const { sponsorContact, sponsor, error } = await validateSponsorContactAccess(
+        token, sponsorId, eventId, 
+        [SPONSOR_CONTACT_PERMISSIONS.VIEW_LEADS, SPONSOR_CONTACT_PERMISSIONS.LEAD_CAPTURE]
+      );
+      
+      if (error) {
+        return res.status(error.status).json({ message: error.message });
+      }
+      
+      const leads = await storage.getSponsorEventLeads(sponsor.organizationId, eventId, sponsorId);
+      res.json(leads);
+    } catch (error) {
+      logError("Error fetching sponsor leads:", error);
+      res.status(500).json({ message: "Failed to fetch leads" });
+    }
+  });
+
+  // GET /api/sponsor-portal/leads/:sponsorId/:eventId/stats - Get lead capture stats
+  app.get("/api/sponsor-portal/leads/:sponsorId/:eventId/stats", async (req: any, res) => {
+    try {
+      const { sponsorId, eventId } = req.params;
+      const token = req.query.token as string;
+      
+      const { sponsorContact, sponsor, error } = await validateSponsorContactAccess(
+        token, sponsorId, eventId,
+        [SPONSOR_CONTACT_PERMISSIONS.VIEW_LEADS, SPONSOR_CONTACT_PERMISSIONS.LEAD_CAPTURE]
+      );
+      
+      if (error) {
+        return res.status(error.status).json({ message: error.message });
+      }
+      
+      const stats = await storage.getSponsorEventLeadStats(sponsor.organizationId, eventId, sponsorId);
+      res.json({
+        leadsToday: stats.today,
+        totalLeads: stats.total,
+        qrScanned: stats.byMethod.qr_scan,
+        manualEntry: stats.byMethod.manual,
+      });
+    } catch (error) {
+      logError("Error fetching sponsor lead stats:", error);
+      res.status(500).json({ message: "Failed to fetch lead stats" });
+    }
+  });
+
+  // POST /api/sponsor-portal/leads/:sponsorId/:eventId - Create a new lead (manual entry)
+  app.post("/api/sponsor-portal/leads/:sponsorId/:eventId", async (req: any, res) => {
+    try {
+      const { sponsorId, eventId } = req.params;
+      const token = req.query.token as string;
+      
+      const { sponsorContact, sponsor, error } = await validateSponsorContactAccess(
+        token, sponsorId, eventId,
+        [SPONSOR_CONTACT_PERMISSIONS.LEAD_CAPTURE]
+      );
+      
+      if (error) {
+        return res.status(error.status).json({ message: error.message });
+      }
+      
+      const { firstName, lastName, email, company, phone, jobTitle, notes, tags } = req.body;
+      
+      if (!firstName || !lastName || !email) {
+        return res.status(400).json({ message: "First name, last name, and email are required" });
+      }
+      
+      const leadData = {
+        organizationId: sponsor.organizationId,
+        eventId,
+        sponsorId,
+        capturedBySponsorContactId: sponsorContact.id,
+        captureMethod: 'manual',
+        firstName,
+        lastName,
+        email,
+        company: company || null,
+        phone: phone || null,
+        jobTitle: jobTitle || null,
+        notes: notes || null,
+        tags: tags || null,
+      };
+      
+      const lead = await storage.createEventLead(leadData);
+      res.status(201).json(lead);
+    } catch (error) {
+      logError("Error creating sponsor lead:", error);
+      res.status(400).json({ message: "Failed to create lead" });
+    }
+  });
+
+  // POST /api/sponsor-portal/leads/:sponsorId/:eventId/scan - Process QR scan for lead capture
+  app.post("/api/sponsor-portal/leads/:sponsorId/:eventId/scan", async (req: any, res) => {
+    try {
+      const { sponsorId, eventId } = req.params;
+      const token = req.query.token as string;
+      
+      const { sponsorContact, sponsor, error } = await validateSponsorContactAccess(
+        token, sponsorId, eventId,
+        [SPONSOR_CONTACT_PERMISSIONS.LEAD_CAPTURE]
+      );
+      
+      if (error) {
+        return res.status(error.status).json({ message: error.message });
+      }
+      
+      const { code, notes } = req.body;
+      
+      if (!code) {
+        return res.status(400).json({ message: "QR code is required" });
+      }
+      
+      // Lookup attendee by check-in code (QR code)
+      const attendee = await storage.getAttendeeByCheckInCode(code);
+      if (!attendee) {
+        return res.status(404).json({ message: "Attendee not found for this QR code" });
+      }
+      
+      // Verify the attendee belongs to the same event
+      if (attendee.eventId !== eventId) {
+        return res.status(400).json({ message: "Attendee does not belong to this event" });
+      }
+      
+      // Create the lead from attendee data
+      const leadData = {
+        organizationId: sponsor.organizationId,
+        eventId,
+        sponsorId,
+        capturedBySponsorContactId: sponsorContact.id,
+        captureMethod: 'qr_scan',
+        firstName: attendee.firstName,
+        lastName: attendee.lastName,
+        email: attendee.email,
+        company: attendee.company || null,
+        phone: attendee.phone || null,
+        jobTitle: attendee.jobTitle || null,
+        notes: notes || null,
+        attendeeId: attendee.id,
+        sourceCode: code,
+      };
+      
+      const lead = await storage.createEventLead(leadData);
+      res.status(201).json(lead);
+    } catch (error) {
+      logError("Error processing sponsor lead scan:", error);
+      res.status(400).json({ message: "Failed to process scan" });
+    }
+  });
+
+  // GET /api/sponsor-portal/leads/:sponsorId/:eventId/export - Export leads as CSV
+  app.get("/api/sponsor-portal/leads/:sponsorId/:eventId/export", async (req: any, res) => {
+    try {
+      const { sponsorId, eventId } = req.params;
+      const token = req.query.token as string;
+      
+      const { sponsorContact, sponsor, error } = await validateSponsorContactAccess(
+        token, sponsorId, eventId,
+        [SPONSOR_CONTACT_PERMISSIONS.EXPORT_LEADS]
+      );
+      
+      if (error) {
+        return res.status(error.status).json({ message: error.message });
+      }
+      
+      const leads = await storage.getSponsorEventLeads(sponsor.organizationId, eventId, sponsorId);
+      
+      // Generate CSV content
+      const csvHeaders = ['First Name', 'Last Name', 'Email', 'Company', 'Job Title', 'Phone', 'Notes', 'Tags', 'Capture Method', 'Created At'];
+      const csvRows = leads.map(lead => [
+        lead.firstName || '',
+        lead.lastName || '',
+        lead.email || '',
+        lead.company || '',
+        lead.jobTitle || '',
+        lead.phone || '',
+        (lead.notes || '').replace(/"/g, '""'),
+        (lead.tags || []).join('; '),
+        lead.captureMethod || '',
+        lead.createdAt ? new Date(lead.createdAt).toISOString() : '',
+      ]);
+      
+      const csvContent = [
+        csvHeaders.join(','),
+        ...csvRows.map(row => row.map(cell => `"${cell}"`).join(','))
+      ].join('\n');
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="leads-${sponsorId}-${new Date().toISOString().split('T')[0]}.csv"`);
+      res.send(csvContent);
+    } catch (error) {
+      logError("Error exporting sponsor leads:", error);
+      res.status(500).json({ message: "Failed to export leads" });
+    }
+  });
+
+  // Sponsor portal team invitation routes
+
+  // POST /api/sponsor-portal/invitations/:sponsorId - Create team invitation
+  app.post("/api/sponsor-portal/invitations/:sponsorId", async (req: any, res) => {
+    try {
+      const { sponsorId } = req.params;
+      const token = req.query.token as string;
+      
+      // Get sponsor first to get organizationId and eventId
+      if (!token) {
+        return res.status(400).json({ message: "Token is required" });
+      }
+      
+      const sponsorContact = await storage.getSponsorContactByToken(token);
+      if (!sponsorContact) {
+        return res.status(401).json({ message: "Invalid or expired token" });
+      }
+      
+      if (sponsorContact.sponsorId !== sponsorId) {
+        return res.status(403).json({ message: "Access denied to this sponsor" });
+      }
+      
+      const sponsor = await storage.getEventSponsor(sponsorContact.organizationId, sponsorId);
+      if (!sponsor) {
+        return res.status(404).json({ message: "Sponsor not found" });
+      }
+      
+      // Check invite_team permission
+      const contactPermissions = sponsorContact.permissions || [];
+      if (!contactPermissions.includes(SPONSOR_CONTACT_PERMISSIONS.INVITE_TEAM)) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+      
+      const { email, firstName, lastName, permissions } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+      
+      if (!permissions || !Array.isArray(permissions) || permissions.length === 0) {
+        return res.status(400).json({ message: "Permissions array is required" });
+      }
+      
+      const inviteCode = randomBytes(16).toString("hex");
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+      
+      const invitation = await storage.createSponsorContactInvitation({
+        organizationId: sponsor.organizationId,
+        sponsorId,
+        email,
+        firstName: firstName || null,
+        lastName: lastName || null,
+        permissions,
+        inviteCode,
+        invitedBy: sponsorContact.id,
+        status: 'pending',
+        expiresAt,
+      });
+      
+      res.status(201).json(invitation);
+    } catch (error) {
+      logError("Error creating sponsor contact invitation:", error);
+      res.status(500).json({ message: "Failed to create invitation" });
+    }
+  });
+
+  // GET /api/sponsor-portal/invitations/:sponsorId - List invitations for sponsor
+  app.get("/api/sponsor-portal/invitations/:sponsorId", async (req: any, res) => {
+    try {
+      const { sponsorId } = req.params;
+      const token = req.query.token as string;
+      
+      if (!token) {
+        return res.status(400).json({ message: "Token is required" });
+      }
+      
+      const sponsorContact = await storage.getSponsorContactByToken(token);
+      if (!sponsorContact) {
+        return res.status(401).json({ message: "Invalid or expired token" });
+      }
+      
+      if (sponsorContact.sponsorId !== sponsorId) {
+        return res.status(403).json({ message: "Access denied to this sponsor" });
+      }
+      
+      // Check invite_team permission
+      const contactPermissions = sponsorContact.permissions || [];
+      if (!contactPermissions.includes(SPONSOR_CONTACT_PERMISSIONS.INVITE_TEAM)) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+      
+      const invitations = await storage.getSponsorContactInvitations(sponsorContact.organizationId, sponsorId);
+      res.json(invitations);
+    } catch (error) {
+      logError("Error fetching sponsor contact invitations:", error);
+      res.status(500).json({ message: "Failed to fetch invitations" });
+    }
+  });
+
+  // POST /api/sponsor-portal/invitations/:sponsorId/:invitationId/revoke - Revoke an invitation
+  app.post("/api/sponsor-portal/invitations/:sponsorId/:invitationId/revoke", async (req: any, res) => {
+    try {
+      const { sponsorId, invitationId } = req.params;
+      const token = req.query.token as string;
+      
+      if (!token) {
+        return res.status(400).json({ message: "Token is required" });
+      }
+      
+      const sponsorContact = await storage.getSponsorContactByToken(token);
+      if (!sponsorContact) {
+        return res.status(401).json({ message: "Invalid or expired token" });
+      }
+      
+      if (sponsorContact.sponsorId !== sponsorId) {
+        return res.status(403).json({ message: "Access denied to this sponsor" });
+      }
+      
+      // Check invite_team permission
+      const contactPermissions = sponsorContact.permissions || [];
+      if (!contactPermissions.includes(SPONSOR_CONTACT_PERMISSIONS.INVITE_TEAM)) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+      
+      // Verify invitation belongs to this sponsor
+      const invitation = await storage.getSponsorContactInvitation(sponsorContact.organizationId, invitationId);
+      if (!invitation || invitation.sponsorId !== sponsorId) {
+        return res.status(404).json({ message: "Invitation not found" });
+      }
+      
+      if (invitation.status !== 'pending') {
+        return res.status(400).json({ message: "Only pending invitations can be revoked" });
+      }
+      
+      const updated = await storage.updateSponsorContactInvitation(
+        sponsorContact.organizationId, 
+        invitationId, 
+        { status: 'revoked' }
+      );
+      
+      res.json(updated);
+    } catch (error) {
+      logError("Error revoking sponsor contact invitation:", error);
+      res.status(500).json({ message: "Failed to revoke invitation" });
+    }
+  });
+
+  // GET /api/sponsor-portal/invitations/accept/:inviteCode - Get invitation details by code (public)
+  app.get("/api/sponsor-portal/invitations/accept/:inviteCode", async (req: any, res) => {
+    try {
+      const { inviteCode } = req.params;
+      
+      const invitation = await storage.getSponsorContactInvitationByCode(inviteCode);
+      if (!invitation) {
+        return res.status(404).json({ message: "Invitation not found" });
+      }
+      
+      if (invitation.status !== 'pending') {
+        return res.status(400).json({ message: `Invitation has already been ${invitation.status}` });
+      }
+      
+      if (invitation.expiresAt && new Date(invitation.expiresAt) < new Date()) {
+        return res.status(400).json({ message: "Invitation has expired" });
+      }
+      
+      // Get sponsor and event info for context
+      const sponsor = await storage.getEventSponsor(invitation.organizationId, invitation.sponsorId);
+      if (!sponsor) {
+        return res.status(404).json({ message: "Sponsor not found" });
+      }
+      
+      const event = await storage.getEvent(invitation.organizationId, sponsor.eventId);
+      
+      res.json({
+        invitation: {
+          id: invitation.id,
+          email: invitation.email,
+          firstName: invitation.firstName,
+          lastName: invitation.lastName,
+          permissions: invitation.permissions,
+          expiresAt: invitation.expiresAt,
+        },
+        sponsor: {
+          id: sponsor.id,
+          name: sponsor.name,
+        },
+        event: event ? {
+          id: event.id,
+          name: event.name,
+        } : null,
+      });
+    } catch (error) {
+      logError("Error fetching invitation by code:", error);
+      res.status(500).json({ message: "Failed to fetch invitation" });
+    }
+  });
+
+  // POST /api/sponsor-portal/invitations/accept/:inviteCode - Accept invitation (public)
+  app.post("/api/sponsor-portal/invitations/accept/:inviteCode", async (req: any, res) => {
+    try {
+      const { inviteCode } = req.params;
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+      
+      const invitation = await storage.getSponsorContactInvitationByCode(inviteCode);
+      if (!invitation) {
+        return res.status(404).json({ message: "Invitation not found" });
+      }
+      
+      if (invitation.status !== 'pending') {
+        return res.status(400).json({ message: `Invitation has already been ${invitation.status}` });
+      }
+      
+      if (invitation.expiresAt && new Date(invitation.expiresAt) < new Date()) {
+        return res.status(400).json({ message: "Invitation has expired" });
+      }
+      
+      // Verify email matches invitation
+      if (email.toLowerCase() !== invitation.email.toLowerCase()) {
+        return res.status(400).json({ message: "Email does not match invitation" });
+      }
+      
+      // Generate access token for new contact
+      const accessToken = randomBytes(32).toString("hex");
+      const tokenExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+      
+      // Create the sponsor contact
+      const newContact = await storage.createSponsorContact({
+        organizationId: invitation.organizationId,
+        sponsorId: invitation.sponsorId,
+        firstName: invitation.firstName || '',
+        lastName: invitation.lastName || '',
+        email: invitation.email,
+        permissions: invitation.permissions || [],
+        isPrimary: false,
+        invitedBy: invitation.invitedBy,
+        portalAccessToken: accessToken,
+        portalTokenExpiresAt: tokenExpiresAt,
+      });
+      
+      // Update invitation status
+      await storage.updateSponsorContactInvitation(
+        invitation.organizationId,
+        invitation.id,
+        {
+          status: 'accepted',
+          acceptedAt: new Date(),
+          acceptedBy: newContact.id,
+        }
+      );
+      
+      // Get sponsor info for response
+      const sponsor = await storage.getEventSponsor(invitation.organizationId, invitation.sponsorId);
+      
+      res.json({
+        success: true,
+        contact: {
+          id: newContact.id,
+          firstName: newContact.firstName,
+          lastName: newContact.lastName,
+          email: newContact.email,
+        },
+        accessToken,
+        sponsor: sponsor ? {
+          id: sponsor.id,
+          name: sponsor.name,
+        } : null,
+      });
+    } catch (error) {
+      logError("Error accepting sponsor contact invitation:", error);
+      res.status(500).json({ message: "Failed to accept invitation" });
     }
   });
 

@@ -34,6 +34,7 @@ import {
   contentAssets,
   eventSponsors,
   sponsorContacts,
+  sponsorContactInvitations,
   sponsorTasks,
   sponsorTaskCompletions,
   emailMessages,
@@ -142,6 +143,8 @@ import {
   type InsertEventSponsor,
   type SponsorContact,
   type InsertSponsorContact,
+  type SponsorContactInvitation,
+  type InsertSponsorContactInvitation,
   type SponsorTask,
   type InsertSponsorTask,
   type SponsorTaskCompletion,
@@ -798,6 +801,17 @@ export interface IStorage {
   updateEventLead(organizationId: string, id: string, updates: Partial<InsertEventLead>): Promise<EventLead | undefined>;
   deleteEventLead(organizationId: string, id: string): Promise<void>;
   getEventLeadStats(organizationId: string, eventId: string): Promise<{ total: number; today: number; byMethod: { qr_scan: number; manual: number } }>;
+  
+  // Sponsor-specific Lead Capture operations
+  getSponsorEventLeads(organizationId: string, eventId: string, sponsorId: string): Promise<EventLead[]>;
+  getSponsorEventLeadStats(organizationId: string, eventId: string, sponsorId: string): Promise<{ total: number; today: number; byMethod: { qr_scan: number; manual: number } }>;
+  
+  // Sponsor Contact Invitation operations
+  getSponsorContactInvitations(organizationId: string, sponsorId: string): Promise<SponsorContactInvitation[]>;
+  getSponsorContactInvitation(organizationId: string, id: string): Promise<SponsorContactInvitation | undefined>;
+  getSponsorContactInvitationByCode(inviteCode: string): Promise<SponsorContactInvitation | undefined>;
+  createSponsorContactInvitation(data: InsertSponsorContactInvitation): Promise<SponsorContactInvitation>;
+  updateSponsorContactInvitation(organizationId: string, id: string, updates: Partial<InsertSponsorContactInvitation>): Promise<SponsorContactInvitation | undefined>;
 
   // Session Check-Ins
   getSessionCheckIns(organizationId: string, sessionId: string): Promise<SessionCheckIn[]>;
@@ -4927,6 +4941,78 @@ export class DatabaseStorage implements IStorage {
     const manual = allLeads.filter(lead => lead.captureMethod === 'manual').length;
 
     return { total, today, byMethod: { qr_scan, manual } };
+  }
+
+  // Sponsor-specific Lead Capture operations
+  async getSponsorEventLeads(organizationId: string, eventId: string, sponsorId: string): Promise<EventLead[]> {
+    return await db.select().from(eventLeads)
+      .where(and(
+        eq(eventLeads.organizationId, organizationId),
+        eq(eventLeads.eventId, eventId),
+        eq(eventLeads.sponsorId, sponsorId)
+      ))
+      .orderBy(desc(eventLeads.createdAt));
+  }
+
+  async getSponsorEventLeadStats(organizationId: string, eventId: string, sponsorId: string): Promise<{ total: number; today: number; byMethod: { qr_scan: number; manual: number } }> {
+    const allLeads = await db.select().from(eventLeads)
+      .where(and(
+        eq(eventLeads.organizationId, organizationId),
+        eq(eventLeads.eventId, eventId),
+        eq(eventLeads.sponsorId, sponsorId)
+      ));
+
+    const total = allLeads.length;
+
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const today = allLeads.filter(lead => lead.createdAt && new Date(lead.createdAt) >= startOfToday).length;
+
+    const qr_scan = allLeads.filter(lead => lead.captureMethod === 'qr_scan').length;
+    const manual = allLeads.filter(lead => lead.captureMethod === 'manual').length;
+
+    return { total, today, byMethod: { qr_scan, manual } };
+  }
+
+  // Sponsor Contact Invitation operations
+  async getSponsorContactInvitations(organizationId: string, sponsorId: string): Promise<SponsorContactInvitation[]> {
+    return await db.select().from(sponsorContactInvitations)
+      .where(and(
+        eq(sponsorContactInvitations.organizationId, organizationId),
+        eq(sponsorContactInvitations.sponsorId, sponsorId)
+      ))
+      .orderBy(desc(sponsorContactInvitations.invitedAt));
+  }
+
+  async getSponsorContactInvitation(organizationId: string, id: string): Promise<SponsorContactInvitation | undefined> {
+    const [result] = await db.select().from(sponsorContactInvitations)
+      .where(and(
+        eq(sponsorContactInvitations.organizationId, organizationId),
+        eq(sponsorContactInvitations.id, id)
+      ));
+    return result;
+  }
+
+  async getSponsorContactInvitationByCode(inviteCode: string): Promise<SponsorContactInvitation | undefined> {
+    const [result] = await db.select().from(sponsorContactInvitations)
+      .where(eq(sponsorContactInvitations.inviteCode, inviteCode));
+    return result;
+  }
+
+  async createSponsorContactInvitation(data: InsertSponsorContactInvitation): Promise<SponsorContactInvitation> {
+    const [result] = await db.insert(sponsorContactInvitations).values(data).returning();
+    return result;
+  }
+
+  async updateSponsorContactInvitation(organizationId: string, id: string, updates: Partial<InsertSponsorContactInvitation>): Promise<SponsorContactInvitation | undefined> {
+    const [result] = await db.update(sponsorContactInvitations)
+      .set(updates)
+      .where(and(
+        eq(sponsorContactInvitations.organizationId, organizationId),
+        eq(sponsorContactInvitations.id, id)
+      ))
+      .returning();
+    return result;
   }
 
   // Session Check-Ins

@@ -13,6 +13,9 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import {
   Form,
@@ -43,9 +46,27 @@ import {
   Send,
   X,
   FileText,
+  UserPlus,
+  Download,
+  QrCode,
+  Calendar,
+  Briefcase,
 } from "lucide-react";
 import { SiLinkedin, SiX, SiFacebook, SiInstagram } from "react-icons/si";
-import type { EventSponsor, SponsorTask, SponsorTaskCompletion } from "@shared/schema";
+import type { EventSponsor, SponsorTask, SponsorTaskCompletion, EventLead, SponsorContactInvitation } from "@shared/schema";
+import { SPONSOR_CONTACT_PERMISSIONS } from "@shared/schema";
+
+interface SponsorInvitation extends SponsorContactInvitation {
+  inviterName?: string;
+}
+
+interface SponsorContactInfo {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  permissions: string[];
+}
 
 interface SponsorWithEvent extends EventSponsor {
   event?: {
@@ -53,6 +74,7 @@ interface SponsorWithEvent extends EventSponsor {
     name: string;
     publicSlug: string;
   };
+  sponsorContact?: SponsorContactInfo | null;
 }
 
 interface TasksResponse {
@@ -854,9 +876,272 @@ function SendInviteButton({ attendeeId, memberName }: { attendeeId: string; memb
   );
 }
 
-function TeamTab({ sponsor, token }: { sponsor: SponsorWithEvent; token: string }) {
+const inviteFormSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
+  permissions: z.array(z.string()).default([]),
+});
+
+type InviteFormData = z.infer<typeof inviteFormSchema>;
+
+function InviteTeamMemberDialog({
+  sponsorId,
+  token,
+  onSuccess,
+}: {
+  sponsorId: string;
+  token: string;
+  onSuccess: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const { toast } = useToast();
+
+  const form = useForm<InviteFormData>({
+    resolver: zodResolver(inviteFormSchema),
+    defaultValues: {
+      email: "",
+      firstName: "",
+      lastName: "",
+      permissions: [],
+    },
+  });
+
+  const createInvitationMutation = useMutation({
+    mutationFn: async (data: InviteFormData) => {
+      const res = await fetch(`/api/sponsor-portal/invitations/${sponsorId}?token=${token}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Failed to create invitation");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Invitation sent",
+        description: "The team member invitation has been sent successfully.",
+      });
+      form.reset();
+      setOpen(false);
+      onSuccess();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to send invitation",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmit = (data: InviteFormData) => {
+    createInvitationMutation.mutate(data);
+  };
+
+  const permissionOptions = [
+    { value: SPONSOR_CONTACT_PERMISSIONS.LEAD_CAPTURE, label: "Lead Capture" },
+    { value: SPONSOR_CONTACT_PERMISSIONS.VIEW_LEADS, label: "View Leads" },
+    { value: SPONSOR_CONTACT_PERMISSIONS.EXPORT_LEADS, label: "Export Leads" },
+  ];
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button data-testid="button-invite-team-member">
+          <UserPlus className="w-4 h-4 mr-2" />
+          Invite Team Member
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Invite Team Member</DialogTitle>
+          <DialogDescription>
+            Invite a colleague to access the sponsor portal for your team.
+          </DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email *</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input 
+                        type="email" 
+                        placeholder="colleague@company.com" 
+                        className="pl-10" 
+                        {...field} 
+                        data-testid="input-invite-email" 
+                      />
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="firstName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>First Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="John" {...field} data-testid="input-invite-firstname" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="lastName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Last Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Doe" {...field} data-testid="input-invite-lastname" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <FormField
+              control={form.control}
+              name="permissions"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Permissions</FormLabel>
+                  <div className="space-y-2">
+                    {permissionOptions.map((permission) => (
+                      <div key={permission.value} className="flex items-center gap-2">
+                        <Checkbox
+                          id={`permission-${permission.value}`}
+                          checked={field.value?.includes(permission.value)}
+                          onCheckedChange={(checked) => {
+                            const current = field.value || [];
+                            if (checked) {
+                              field.onChange([...current, permission.value]);
+                            } else {
+                              field.onChange(current.filter((v) => v !== permission.value));
+                            }
+                          }}
+                          data-testid={`checkbox-permission-${permission.value}`}
+                        />
+                        <Label 
+                          htmlFor={`permission-${permission.value}`} 
+                          className="text-sm font-normal cursor-pointer"
+                        >
+                          {permission.label}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <DialogFooter>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setOpen(false)}
+                data-testid="button-cancel-invite"
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={createInvitationMutation.isPending}
+                data-testid="button-send-invitation"
+              >
+                {createInvitationMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4 mr-2" />
+                    Send Invitation
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function InvitationStatusBadge({ status }: { status: string }) {
+  switch (status) {
+    case "accepted":
+      return (
+        <Badge variant="default" className="bg-green-600">
+          <CheckCircle className="w-3 h-3 mr-1" />
+          Accepted
+        </Badge>
+      );
+    case "pending":
+      return (
+        <Badge variant="secondary">
+          <Clock className="w-3 h-3 mr-1" />
+          Pending
+        </Badge>
+      );
+    case "expired":
+      return (
+        <Badge variant="outline" className="text-muted-foreground">
+          <AlertCircle className="w-3 h-3 mr-1" />
+          Expired
+        </Badge>
+      );
+    case "revoked":
+      return (
+        <Badge variant="destructive">
+          <XCircle className="w-3 h-3 mr-1" />
+          Revoked
+        </Badge>
+      );
+    default:
+      return (
+        <Badge variant="secondary">
+          {status}
+        </Badge>
+      );
+  }
+}
+
+function getPermissionLabel(permission: string): string {
+  switch (permission) {
+    case SPONSOR_CONTACT_PERMISSIONS.LEAD_CAPTURE:
+      return "Lead Capture";
+    case SPONSOR_CONTACT_PERMISSIONS.VIEW_LEADS:
+      return "View Leads";
+    case SPONSOR_CONTACT_PERMISSIONS.EXPORT_LEADS:
+      return "Export Leads";
+    case SPONSOR_CONTACT_PERMISSIONS.INVITE_TEAM:
+      return "Invite Team";
+    default:
+      return permission;
+  }
+}
+
+function TeamTab({ sponsor, token, permissions }: { sponsor: SponsorWithEvent; token: string; permissions: string[] }) {
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
+  const canInviteTeam = permissions.includes(SPONSOR_CONTACT_PERMISSIONS.INVITE_TEAM);
 
   const { data: teamData, isLoading: teamLoading, refetch: refetchTeam } = useQuery<TeamMembersResponse>({
     queryKey: ["/api/sponsor-portal/team-members", token],
@@ -864,6 +1149,43 @@ function TeamTab({ sponsor, token }: { sponsor: SponsorWithEvent; token: string 
       const res = await fetch(`/api/sponsor-portal/team-members?token=${token}`);
       if (!res.ok) throw new Error("Failed to fetch team members");
       return res.json();
+    },
+  });
+
+  const { data: invitationsData, isLoading: invitationsLoading, refetch: refetchInvitations } = useQuery<SponsorInvitation[]>({
+    queryKey: ["/api/sponsor-portal/invitations", sponsor.id, token],
+    queryFn: async () => {
+      const res = await fetch(`/api/sponsor-portal/invitations/${sponsor.id}?token=${token}`);
+      if (!res.ok) throw new Error("Failed to fetch invitations");
+      return res.json();
+    },
+    enabled: canInviteTeam,
+  });
+
+  const revokeInvitationMutation = useMutation({
+    mutationFn: async (invitationId: string) => {
+      const res = await fetch(`/api/sponsor-portal/invitations/${sponsor.id}/${invitationId}/revoke?token=${token}`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Failed to revoke invitation");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Invitation revoked",
+        description: "The invitation has been revoked successfully.",
+      });
+      refetchInvitations();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to revoke invitation",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
@@ -876,6 +1198,8 @@ function TeamTab({ sponsor, token }: { sponsor: SponsorWithEvent; token: string 
   const totalSeats = currentSponsor.registrationSeats || 0;
   const seatsRemaining = Math.max(0, totalSeats - seatsUsed);
   const progressPercent = totalSeats > 0 ? (seatsUsed / totalSeats) * 100 : 0;
+
+  const invitations = invitationsData || [];
 
   const form = useForm<TeamMemberFormData>({
     resolver: zodResolver(teamMemberFormSchema),
@@ -1147,7 +1471,568 @@ function TeamTab({ sponsor, token }: { sponsor: SponsorWithEvent; token: string 
           )}
         </CardContent>
       </Card>
+
+      {canInviteTeam && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <UserPlus className="w-5 h-5" />
+                  Team Invitations
+                </CardTitle>
+                <CardDescription>
+                  Invite colleagues to access the sponsor portal
+                </CardDescription>
+              </div>
+              <InviteTeamMemberDialog
+                sponsorId={sponsor.id}
+                token={token}
+                onSuccess={() => refetchInvitations()}
+              />
+            </div>
+          </CardHeader>
+          <CardContent>
+            {invitationsLoading ? (
+              <div className="space-y-3">
+                <Skeleton className="h-16" />
+                <Skeleton className="h-16" />
+              </div>
+            ) : invitations.length === 0 ? (
+              <div className="py-8 text-center text-muted-foreground">
+                <Mail className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>No invitations sent yet</p>
+                <p className="text-sm mt-2">
+                  Invite team members to collaborate on the sponsor portal
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {invitations.map((invitation) => (
+                  <div
+                    key={invitation.id}
+                    className="flex items-center gap-4 p-3 rounded-md border bg-muted/30"
+                    data-testid={`invitation-${invitation.id}`}
+                  >
+                    <div className="flex-shrink-0">
+                      <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                        <Mail className="w-5 h-5 text-muted-foreground" />
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate" data-testid={`text-invitation-name-${invitation.id}`}>
+                        {invitation.firstName && invitation.lastName 
+                          ? `${invitation.firstName} ${invitation.lastName}`
+                          : invitation.email}
+                      </p>
+                      <p className="text-sm text-muted-foreground truncate" data-testid={`text-invitation-email-${invitation.id}`}>
+                        {invitation.email}
+                      </p>
+                      {invitation.permissions && invitation.permissions.length > 0 && (
+                        <div className="flex gap-1 mt-1 flex-wrap">
+                          {invitation.permissions.map((perm) => (
+                            <Badge key={perm} variant="outline" className="text-xs">
+                              {getPermissionLabel(perm)}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <InvitationStatusBadge status={invitation.status || "pending"} />
+                    {invitation.status === "pending" && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => revokeInvitationMutation.mutate(invitation.id)}
+                        disabled={revokeInvitationMutation.isPending}
+                        data-testid={`button-revoke-${invitation.id}`}
+                        title="Revoke invitation"
+                      >
+                        {revokeInvitationMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-destructive" />
+                        )}
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
+  );
+}
+
+interface LeadStats {
+  total: number;
+  today: number;
+  byMethod: { qr_scan: number; manual: number };
+}
+
+const leadFormSchema = z.object({
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+  email: z.string().email("Invalid email address"),
+  company: z.string().optional(),
+  jobTitle: z.string().optional(),
+  phone: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+type LeadFormData = z.infer<typeof leadFormSchema>;
+
+function LeadsTab({ 
+  sponsor, 
+  token, 
+  permissions 
+}: { 
+  sponsor: SponsorWithEvent; 
+  token: string; 
+  permissions: string[];
+}) {
+  const { toast } = useToast();
+  const [showManualForm, setShowManualForm] = useState(false);
+  const [qrValue, setQrValue] = useState("");
+
+  const canCapture = permissions.includes(SPONSOR_CONTACT_PERMISSIONS.LEAD_CAPTURE);
+  const canViewLeads = permissions.includes(SPONSOR_CONTACT_PERMISSIONS.VIEW_LEADS) || canCapture;
+  const canExport = permissions.includes(SPONSOR_CONTACT_PERMISSIONS.EXPORT_LEADS);
+
+  const { data: leads = [], isLoading: leadsLoading } = useQuery<EventLead[]>({
+    queryKey: ["/api/sponsor-portal/leads", sponsor.id, sponsor.eventId, token],
+    queryFn: async () => {
+      const res = await fetch(`/api/sponsor-portal/leads/${sponsor.id}/${sponsor.eventId}?token=${token}`);
+      if (!res.ok) throw new Error("Failed to fetch leads");
+      return res.json();
+    },
+    enabled: canViewLeads,
+  });
+
+  const { data: stats } = useQuery<LeadStats>({
+    queryKey: ["/api/sponsor-portal/leads/stats", sponsor.id, sponsor.eventId, token],
+    queryFn: async () => {
+      const res = await fetch(`/api/sponsor-portal/leads/${sponsor.id}/${sponsor.eventId}/stats?token=${token}`);
+      if (!res.ok) throw new Error("Failed to fetch stats");
+      return res.json();
+    },
+    enabled: canViewLeads,
+  });
+
+  const form = useForm<LeadFormData>({
+    resolver: zodResolver(leadFormSchema),
+    defaultValues: {
+      firstName: "",
+      lastName: "",
+      email: "",
+      company: "",
+      jobTitle: "",
+      phone: "",
+      notes: "",
+    },
+  });
+
+  const createLeadMutation = useMutation({
+    mutationFn: async (data: LeadFormData) => {
+      const res = await fetch(`/api/sponsor-portal/leads/${sponsor.id}/${sponsor.eventId}?token=${token}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Failed to create lead");
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Lead captured", description: "Lead has been added successfully." });
+      form.reset();
+      setShowManualForm(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/sponsor-portal/leads", sponsor.id, sponsor.eventId, token] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sponsor-portal/leads/stats", sponsor.id, sponsor.eventId, token] });
+    },
+    onError: () => {
+      toast({ title: "Failed to capture lead", description: "Please try again.", variant: "destructive" });
+    },
+  });
+
+  const scanQrMutation = useMutation({
+    mutationFn: async (badgeCode: string) => {
+      const res = await fetch(`/api/sponsor-portal/leads/${sponsor.id}/${sponsor.eventId}/scan?token=${token}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ badgeCode }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Failed to scan badge");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({ title: "Lead captured", description: `${data.firstName} ${data.lastName} has been added.` });
+      setQrValue("");
+      queryClient.invalidateQueries({ queryKey: ["/api/sponsor-portal/leads", sponsor.id, sponsor.eventId, token] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sponsor-portal/leads/stats", sponsor.id, sponsor.eventId, token] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Scan failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleExport = () => {
+    window.open(`/api/sponsor-portal/leads/${sponsor.id}/${sponsor.eventId}/export?token=${token}`, "_blank");
+  };
+
+  const handleQrScan = () => {
+    if (qrValue.trim()) {
+      scanQrMutation.mutate(qrValue.trim());
+    }
+  };
+
+  const onSubmit = (data: LeadFormData) => {
+    createLeadMutation.mutate(data);
+  };
+
+  return (
+    <div className="space-y-6">
+      {stats && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="pt-4">
+              <div className="text-2xl font-bold" data-testid="stat-total-leads">{stats.total}</div>
+              <p className="text-sm text-muted-foreground">Total Leads</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4">
+              <div className="text-2xl font-bold" data-testid="stat-today-leads">{stats.today}</div>
+              <p className="text-sm text-muted-foreground">Today</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4">
+              <div className="text-2xl font-bold" data-testid="stat-qr-scans">{stats.byMethod.qr_scan}</div>
+              <p className="text-sm text-muted-foreground flex items-center gap-1">
+                <QrCode className="w-3 h-3" /> QR Scanned
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4">
+              <div className="text-2xl font-bold" data-testid="stat-manual-entries">{stats.byMethod.manual}</div>
+              <p className="text-sm text-muted-foreground flex items-center gap-1">
+                <User className="w-3 h-3" /> Manual Entry
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {canCapture && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <QrCode className="w-5 h-5" />
+              Capture Leads
+            </CardTitle>
+            <CardDescription>Scan attendee badges or manually enter lead information</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Input
+                placeholder="Enter or scan badge code..."
+                value={qrValue}
+                onChange={(e) => setQrValue(e.target.value)}
+                className="flex-1 min-w-[200px]"
+                onKeyDown={(e) => e.key === "Enter" && handleQrScan()}
+                data-testid="input-badge-code"
+              />
+              <Button onClick={handleQrScan} disabled={!qrValue.trim() || scanQrMutation.isPending} data-testid="button-scan-badge">
+                {scanQrMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <QrCode className="w-4 h-4 mr-2" />}
+                Scan
+              </Button>
+              <Button variant="outline" onClick={() => setShowManualForm(!showManualForm)} data-testid="button-manual-entry">
+                <UserPlus className="w-4 h-4 mr-2" />
+                {showManualForm ? "Hide Form" : "Manual Entry"}
+              </Button>
+            </div>
+
+            {showManualForm && (
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4 p-4 border rounded-md bg-muted/30">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="firstName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>First Name *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="John" {...field} data-testid="input-lead-firstname" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="lastName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Last Name *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Doe" {...field} data-testid="input-lead-lastname" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email *</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            <Input type="email" placeholder="john@company.com" className="pl-10" {...field} data-testid="input-lead-email" />
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="company"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Company</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                              <Input placeholder="Acme Corp" className="pl-10" {...field} data-testid="input-lead-company" />
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="jobTitle"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Job Title</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                              <Input placeholder="Marketing Manager" className="pl-10" {...field} data-testid="input-lead-jobtitle" />
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            <Input type="tel" placeholder="+1 (555) 123-4567" className="pl-10" {...field} data-testid="input-lead-phone" />
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="notes"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Notes</FormLabel>
+                        <FormControl>
+                          <Textarea placeholder="Add any notes about this lead..." {...field} data-testid="input-lead-notes" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="flex gap-2">
+                    <Button type="submit" disabled={createLeadMutation.isPending} data-testid="button-save-lead">
+                      {createLeadMutation.isPending ? (
+                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</>
+                      ) : (
+                        "Save Lead"
+                      )}
+                    </Button>
+                    <Button type="button" variant="outline" onClick={() => setShowManualForm(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                Captured Leads
+              </CardTitle>
+              <CardDescription>All leads captured at your booth</CardDescription>
+            </div>
+            {canExport && leads.length > 0 && (
+              <Button variant="outline" onClick={handleExport} data-testid="button-export-leads">
+                <Download className="w-4 h-4 mr-2" />
+                Export CSV
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {leadsLoading ? (
+            <div className="space-y-3">
+              <Skeleton className="h-16" />
+              <Skeleton className="h-16" />
+              <Skeleton className="h-16" />
+            </div>
+          ) : leads.length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground">
+              <UserPlus className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>No leads captured yet</p>
+              {canCapture && (
+                <p className="text-sm mt-2">
+                  Use the QR scanner or manual entry form above to capture leads
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {leads.map((lead) => (
+                <div
+                  key={lead.id}
+                  className="flex items-center gap-4 p-3 rounded-md border bg-muted/30"
+                  data-testid={`lead-${lead.id}`}
+                >
+                  <div className="flex-shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <User className="w-5 h-5 text-primary" />
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate" data-testid={`lead-name-${lead.id}`}>
+                      {lead.firstName} {lead.lastName}
+                    </p>
+                    <p className="text-sm text-muted-foreground truncate" data-testid={`lead-email-${lead.id}`}>
+                      {lead.email}
+                    </p>
+                    {(lead.company || lead.jobTitle) && (
+                      <p className="text-sm text-muted-foreground truncate">
+                        {lead.jobTitle && <span>{lead.jobTitle}</span>}
+                        {lead.jobTitle && lead.company && <span> at </span>}
+                        {lead.company && <span>{lead.company}</span>}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={lead.captureMethod === "qr_scan" ? "default" : "secondary"} data-testid={`lead-method-${lead.id}`}>
+                      {lead.captureMethod === "qr_scan" ? (
+                        <><QrCode className="w-3 h-3 mr-1" />QR</>
+                      ) : (
+                        <><User className="w-3 h-3 mr-1" />Manual</>
+                      )}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground hidden sm:inline" data-testid={`lead-date-${lead.id}`}>
+                      {lead.createdAt && new Date(lead.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function SponsorPortalTabs({ sponsor, token }: { sponsor: SponsorWithEvent; token: string }) {
+  const permissions = sponsor.sponsorContact?.permissions || [];
+  const hasLeadsAccess = permissions.includes(SPONSOR_CONTACT_PERMISSIONS.LEAD_CAPTURE) || 
+                         permissions.includes(SPONSOR_CONTACT_PERMISSIONS.VIEW_LEADS);
+
+  const { data: stats } = useQuery<LeadStats>({
+    queryKey: ["/api/sponsor-portal/leads/stats", sponsor.id, sponsor.eventId, token],
+    queryFn: async () => {
+      const res = await fetch(`/api/sponsor-portal/leads/${sponsor.id}/${sponsor.eventId}/stats?token=${token}`);
+      if (!res.ok) throw new Error("Failed to fetch stats");
+      return res.json();
+    },
+    enabled: hasLeadsAccess,
+  });
+
+  return (
+    <Tabs defaultValue="profile" className="space-y-6">
+      <TabsList data-testid="tabs-navigation">
+        <TabsTrigger value="profile" data-testid="tab-profile">
+          <Building2 className="w-4 h-4 mr-2" />
+          Profile
+        </TabsTrigger>
+        <TabsTrigger value="tasks" data-testid="tab-tasks">
+          <ClipboardList className="w-4 h-4 mr-2" />
+          Tasks
+        </TabsTrigger>
+        <TabsTrigger value="team" data-testid="tab-team">
+          <Users className="w-4 h-4 mr-2" />
+          Team
+        </TabsTrigger>
+        {hasLeadsAccess && (
+          <TabsTrigger value="leads" data-testid="tab-leads" className="relative">
+            <UserPlus className="w-4 h-4 mr-2" />
+            Leads
+            {stats && stats.total > 0 && (
+              <Badge variant="secondary" className="ml-2 px-1.5 min-w-[1.25rem] h-5" data-testid="badge-leads-count">
+                {stats.total}
+              </Badge>
+            )}
+          </TabsTrigger>
+        )}
+      </TabsList>
+
+      <TabsContent value="profile">
+        <ProfileTab sponsor={sponsor} token={token} />
+      </TabsContent>
+
+      <TabsContent value="tasks">
+        <TasksTab token={token} />
+      </TabsContent>
+
+      <TabsContent value="team">
+        <TeamTab sponsor={sponsor} token={token} permissions={permissions} />
+      </TabsContent>
+
+      {hasLeadsAccess && (
+        <TabsContent value="leads">
+          <LeadsTab sponsor={sponsor} token={token} permissions={permissions} />
+        </TabsContent>
+      )}
+    </Tabs>
   );
 }
 
@@ -1246,34 +2131,7 @@ export default function SponsorPortal() {
       </header>
 
       <main className="max-w-4xl mx-auto px-6 py-6">
-        <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList data-testid="tabs-navigation">
-            <TabsTrigger value="profile" data-testid="tab-profile">
-              <Building2 className="w-4 h-4 mr-2" />
-              Profile
-            </TabsTrigger>
-            <TabsTrigger value="tasks" data-testid="tab-tasks">
-              <ClipboardList className="w-4 h-4 mr-2" />
-              Tasks
-            </TabsTrigger>
-            <TabsTrigger value="team" data-testid="tab-team">
-              <Users className="w-4 h-4 mr-2" />
-              Team
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="profile">
-            <ProfileTab sponsor={sponsor} token={token} />
-          </TabsContent>
-
-          <TabsContent value="tasks">
-            <TasksTab token={token} />
-          </TabsContent>
-
-          <TabsContent value="team">
-            <TeamTab sponsor={sponsor} token={token} />
-          </TabsContent>
-        </Tabs>
+        <SponsorPortalTabs sponsor={sponsor} token={token} />
       </main>
     </div>
   );
