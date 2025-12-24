@@ -764,6 +764,7 @@ export const eventSessions = pgTable("event_sessions", {
   capacity: integer("capacity"),
   track: varchar("track", { length: 100 }),
   sessionType: varchar("session_type", { length: 50 }),
+  topics: text("topics").array(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -800,6 +801,19 @@ export const sessionRooms = pgTable("session_rooms", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Session Topics table - topics that can be tagged on sessions for recommendations
+export const sessionTopics = pgTable("session_topics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id).notNull(),
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description"),
+  color: varchar("color", { length: 20 }),
+  displayOrder: integer("display_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Attendee Saved Sessions - for personal schedule/bookmarks
 export const attendeeSavedSessions = pgTable("attendee_saved_sessions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -814,6 +828,7 @@ export const attendeeInterests = pgTable("attendee_interests", {
   attendeeId: varchar("attendee_id").references(() => attendees.id).notNull().unique(),
   preferredTracks: text("preferred_tracks").array(),
   preferredSessionTypes: text("preferred_session_types").array(),
+  preferredTopics: text("preferred_topics").array(),
   interests: text("interests").array(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -1923,6 +1938,7 @@ export const insertSessionSchema = createInsertSchema(eventSessions).omit({ id: 
 export const insertSessionSpeakerSchema = createInsertSchema(sessionSpeakers).omit({ id: true });
 export const insertSessionTrackSchema = createInsertSchema(sessionTracks).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSessionRoomSchema = createInsertSchema(sessionRooms).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertSessionTopicSchema = createInsertSchema(sessionTopics).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertAttendeeSavedSessionSchema = createInsertSchema(attendeeSavedSessions).omit({ id: true, createdAt: true });
 export const insertAttendeeInterestsSchema = createInsertSchema(attendeeInterests).omit({ id: true, updatedAt: true });
 export const insertSessionFeedbackSchema = createInsertSchema(sessionFeedback).omit({ id: true, createdAt: true });
@@ -2015,6 +2031,8 @@ export type InsertSessionTrack = z.infer<typeof insertSessionTrackSchema>;
 export type SessionTrack = typeof sessionTracks.$inferSelect;
 export type InsertSessionRoom = z.infer<typeof insertSessionRoomSchema>;
 export type SessionRoom = typeof sessionRooms.$inferSelect;
+export type InsertSessionTopic = z.infer<typeof insertSessionTopicSchema>;
+export type SessionTopic = typeof sessionTopics.$inferSelect;
 export type InsertAttendeeSavedSession = z.infer<typeof insertAttendeeSavedSessionSchema>;
 export type AttendeeSavedSession = typeof attendeeSavedSessions.$inferSelect;
 export type InsertAttendeeInterests = z.infer<typeof insertAttendeeInterestsSchema>;

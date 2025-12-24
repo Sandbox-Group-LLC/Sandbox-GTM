@@ -78,6 +78,13 @@
       "when": 1766553520116,
       "tag": "0010_elite_zombie",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1766560752359,
+      "tag": "0011_perfect_squadron_supreme",
+      "breakpoints": true
     }
   ]
 }
