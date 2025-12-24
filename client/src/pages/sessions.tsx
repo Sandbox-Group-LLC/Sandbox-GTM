@@ -42,7 +42,7 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { Plus, Calendar, Clock, MapPin, Users, Search, FileText, ExternalLink } from "lucide-react";
 import { EventSelectField } from "@/components/event-select-field";
 import { Link } from "wouter";
-import type { EventSession, SessionRoom, SessionTrack, Speaker, SessionSpeaker, ContentItem } from "@shared/schema";
+import type { EventSession, SessionRoom, SessionTrack, SessionTopic, Speaker, SessionSpeaker, ContentItem } from "@shared/schema";
 
 const sessionFormSchema = z.object({
   eventId: z.string().min(1, "Event is required"),
@@ -55,6 +55,7 @@ const sessionFormSchema = z.object({
   capacity: z.string().optional(),
   track: z.string().optional(),
   sessionType: z.string().optional(),
+  topics: z.array(z.string()).optional(),
   speakerIds: z.array(z.string()).optional(),
 });
 
@@ -79,6 +80,7 @@ export default function Sessions() {
   const [searchQuery, setSearchQuery] = useState("");
   const [editingSession, setEditingSession] = useState<EventSession | null>(null);
   const [selectedSpeakerIds, setSelectedSpeakerIds] = useState<string[]>([]);
+  const [selectedTopicIds, setSelectedTopicIds] = useState<string[]>([]);
 
   const { data: sessions = [], isLoading } = useQuery<EventSession[]>({
     queryKey: ["/api/sessions"],
@@ -90,6 +92,10 @@ export default function Sessions() {
 
   const { data: tracks = [] } = useQuery<SessionTrack[]>({
     queryKey: ["/api/session-tracks"],
+  });
+
+  const { data: allTopics = [] } = useQuery<SessionTopic[]>({
+    queryKey: ["/api/session-topics"],
   });
 
   const { data: allSpeakers = [] } = useQuery<Speaker[]>({
@@ -127,10 +133,12 @@ export default function Sessions() {
 
   const watchedEventId = form.watch("eventId");
   const filteredSpeakers = allSpeakers.filter(s => s.eventId === watchedEventId);
+  const filteredTopics = allTopics.filter(t => t.eventId === watchedEventId);
 
   useEffect(() => {
     if (!watchedEventId) {
       setSelectedSpeakerIds([]);
+      setSelectedTopicIds([]);
     }
   }, [watchedEventId]);
 
@@ -139,6 +147,7 @@ export default function Sessions() {
       const payload = {
         ...data,
         capacity: data.capacity ? parseInt(data.capacity) : null,
+        topics: selectedTopicIds,
       };
       const response = await apiRequest("POST", "/api/sessions", payload);
       const session = await response.json();
@@ -154,6 +163,7 @@ export default function Sessions() {
       setIsDialogOpen(false);
       form.reset();
       setSelectedSpeakerIds([]);
+      setSelectedTopicIds([]);
     },
     onError: (error: Error) => {
       if (isUnauthorizedError(error)) {
@@ -170,6 +180,7 @@ export default function Sessions() {
       const payload = {
         ...data,
         capacity: data.capacity ? parseInt(data.capacity) : null,
+        topics: selectedTopicIds,
       };
       const session = await apiRequest("PATCH", `/api/sessions/${id}`, payload);
       await apiRequest("PUT", `/api/sessions/${id}/speakers`, { speakerIds: selectedSpeakerIds });
@@ -182,6 +193,7 @@ export default function Sessions() {
       setEditingSession(null);
       form.reset();
       setSelectedSpeakerIds([]);
+      setSelectedTopicIds([]);
     },
     onError: (error: Error) => {
       if (isUnauthorizedError(error)) {
@@ -214,8 +226,11 @@ export default function Sessions() {
       capacity: session.capacity?.toString() || "",
       track: session.track || "",
       sessionType: session.sessionType || "",
+      topics: session.topics || [],
       speakerIds: [],
     });
+    // Load topics from session data
+    setSelectedTopicIds(session.topics || []);
     try {
       const response = await fetch(`/api/sessions/${session.id}/speakers`, { credentials: 'include' });
       if (response.ok) {
@@ -233,6 +248,7 @@ export default function Sessions() {
     setEditingSession(null);
     form.reset();
     setSelectedSpeakerIds([]);
+    setSelectedTopicIds([]);
   };
 
   const toggleSpeaker = (speakerId: string) => {
@@ -240,6 +256,14 @@ export default function Sessions() {
       prev.includes(speakerId)
         ? prev.filter(id => id !== speakerId)
         : [...prev, speakerId]
+    );
+  };
+
+  const toggleTopic = (topicId: string) => {
+    setSelectedTopicIds(prev =>
+      prev.includes(topicId)
+        ? prev.filter(id => id !== topicId)
+        : [...prev, topicId]
     );
   };
 
@@ -464,6 +488,36 @@ export default function Sessions() {
                       )}
                     />
                   </div>
+
+                  <FormItem>
+                    <FormLabel>Topics</FormLabel>
+                    {!watchedEventId ? (
+                      <p className="text-sm text-muted-foreground">Select an event first to assign topics</p>
+                    ) : filteredTopics.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No topics available for this event</p>
+                    ) : (
+                      <div className="border rounded-md p-3 space-y-2 max-h-32 overflow-y-auto" data-testid="topics-list">
+                        {filteredTopics.map((topic) => (
+                          <div key={topic.id} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`topic-${topic.id}`}
+                              checked={selectedTopicIds.includes(topic.id)}
+                              onCheckedChange={() => toggleTopic(topic.id)}
+                              data-testid={`checkbox-topic-${topic.id}`}
+                            />
+                            <label
+                              htmlFor={`topic-${topic.id}`}
+                              className="text-sm cursor-pointer"
+                            >
+                              {topic.name}
+                              {topic.description && <span className="text-muted-foreground ml-1 text-xs">- {topic.description}</span>}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </FormItem>
+
                   <FormItem>
                     <FormLabel>Speakers</FormLabel>
                     {!watchedEventId ? (

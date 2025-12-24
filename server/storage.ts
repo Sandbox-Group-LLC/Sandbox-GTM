@@ -4428,6 +4428,7 @@ export class DatabaseStorage implements IStorage {
         target: attendeeInterests.attendeeId,
         set: {
           preferredTracks: interests.preferredTracks,
+          preferredTopics: interests.preferredTopics,
           preferredSessionTypes: interests.preferredSessionTypes,
           interests: interests.interests,
           updatedAt: new Date(),

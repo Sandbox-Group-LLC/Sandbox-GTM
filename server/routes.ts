@@ -8229,10 +8229,27 @@ ${urls.map(u => `  <url>
       }
       
       const interests = await storage.getAttendeeInterests(attendee.id);
-      res.json(interests || { attendeeId: attendee.id, interests: [], preferredSessionTypes: [], preferredTracks: [] });
+      res.json(interests || { attendeeId: attendee.id, interests: [], preferredSessionTypes: [], preferredTracks: [], preferredTopics: [] });
     } catch (error) {
       logError("Error fetching attendee interests:", error);
       res.status(500).json({ message: "Failed to fetch interests" });
+    }
+  });
+
+  // Get session topics for an event (portal)
+  app.get("/api/portal/:eventId/session-topics", async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+      const attendee = await getPortalAttendee(req, eventId);
+      if (!attendee) {
+        return res.status(401).json({ message: "Not authenticated or invalid event" });
+      }
+      
+      const topics = await storage.getSessionTopics(attendee.organizationId, eventId);
+      res.json(topics);
+    } catch (error) {
+      logError("Error fetching session topics:", error);
+      res.status(500).json({ message: "Failed to fetch session topics" });
     }
   });
 
@@ -8388,21 +8405,42 @@ ${urls.map(u => `  <url>
       const tracks = await storage.getSessionTracks(attendee.organizationId, eventId);
       const trackMap = new Map(tracks.map(t => [t.id, t]));
       
+      // Get topics for the event
+      const topics = await storage.getSessionTopics(attendee.organizationId, eventId);
+      const topicMap = new Map(topics.map(t => [t.id, t]));
+      
       // Score sessions based on matching interests
       const scoredSessions = sessions
         .filter(session => !savedSessionIds.has(session.id)) // Exclude already saved
         .map(session => {
           let score = 0;
+          const matchReasons: string[] = [];
           
           if (interests) {
             // Match by track
             if (session.trackId && interests.preferredTracks?.includes(session.trackId)) {
               score += 3;
+              const track = trackMap.get(session.trackId);
+              if (track) matchReasons.push(`Track: ${track.name}`);
             }
             
             // Match by session type
             if (session.sessionType && interests.preferredSessionTypes?.includes(session.sessionType)) {
               score += 2;
+              matchReasons.push(`Type: ${session.sessionType}`);
+            }
+            
+            // Match by topics
+            if (session.topics && interests.preferredTopics) {
+              const sessionTopics = session.topics as string[];
+              const preferredTopics = interests.preferredTopics as string[];
+              for (const topicId of sessionTopics) {
+                if (preferredTopics.includes(topicId)) {
+                  score += 3;
+                  const topic = topicMap.get(topicId);
+                  if (topic) matchReasons.push(`Topic: ${topic.name}`);
+                }
+              }
             }
             
             // Match by interests (keywords in title or description)
@@ -8411,6 +8449,7 @@ ${urls.map(u => `  <url>
                 const lowerInterest = interest.toLowerCase();
                 if (session.title?.toLowerCase().includes(lowerInterest)) {
                   score += 2;
+                  matchReasons.push(`Keyword: ${interest}`);
                 }
                 if (session.description?.toLowerCase().includes(lowerInterest)) {
                   score += 1;
@@ -8425,11 +8464,12 @@ ${urls.map(u => `  <url>
           return {
             ...session,
             track: track ? { id: track.id, name: track.name, color: track.color } : null,
-            recommendationScore: score
+            score,
+            matchReasons: [...new Set(matchReasons)].slice(0, 3) // Dedupe and limit to 3 reasons
           };
         })
-        .filter(session => session.recommendationScore > 0) // Only include sessions with some match
-        .sort((a, b) => b.recommendationScore - a.recommendationScore) // Sort by score descending
+        .filter(session => session.score > 0) // Only include sessions with some match
+        .sort((a, b) => b.score - a.score) // Sort by score descending
         .slice(0, 10); // Return top 10
       
       res.json(scoredSessions);

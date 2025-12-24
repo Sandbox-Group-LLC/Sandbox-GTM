@@ -21,7 +21,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { titleCase } from "@/lib/utils";
 import { useState } from "react";
-import type { AttendeeInterests, EventSession } from "@shared/schema";
+import type { AttendeeInterests, EventSession, SessionTopic } from "@shared/schema";
 
 const SESSION_TYPES = [
   { value: "keynote", label: "Keynote" },
@@ -35,6 +35,7 @@ const SESSION_TYPES = [
 
 const interestsFormSchema = z.object({
   preferredTracks: z.array(z.string()).default([]),
+  preferredTopics: z.array(z.string()).default([]),
   preferredSessionTypes: z.array(z.string()).default([]),
   interests: z.array(z.string()).default([]),
 });
@@ -77,17 +78,24 @@ export function AttendeeInterestsSection({
     enabled: !isPreview,
   });
 
+  const { data: topics = [], isLoading: loadingTopics } = useQuery<SessionTopic[]>({
+    queryKey: ["/api/portal", eventId, "session-topics"],
+    enabled: !isPreview,
+  });
+
   const availableTracks = Array.from(new Set(sessions.map(s => s.track).filter(Boolean))) as string[];
 
   const form = useForm<InterestsFormData>({
     resolver: zodResolver(interestsFormSchema),
     defaultValues: {
       preferredTracks: currentInterests?.preferredTracks || [],
+      preferredTopics: currentInterests?.preferredTopics || [],
       preferredSessionTypes: currentInterests?.preferredSessionTypes || [],
       interests: currentInterests?.interests || [],
     },
     values: {
       preferredTracks: currentInterests?.preferredTracks || [],
+      preferredTopics: currentInterests?.preferredTopics || [],
       preferredSessionTypes: currentInterests?.preferredSessionTypes || [],
       interests: currentInterests?.interests || [],
     },
@@ -151,7 +159,7 @@ export function AttendeeInterestsSection({
     borderColor: theme?.buttonBorderColor || theme?.buttonColor || undefined,
   };
 
-  const isLoading = loadingInterests || loadingSessions;
+  const isLoading = loadingInterests || loadingSessions || loadingTopics;
 
   // Show preview placeholder in site builder
   if (isPreview) {
@@ -180,6 +188,14 @@ export function AttendeeInterestsSection({
                 <Badge variant="secondary">Workshop</Badge>
                 <Badge variant="secondary">Keynote</Badge>
                 <Badge variant="outline">Panel</Badge>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <p className="font-medium text-sm" style={headingStyles}>Topics</p>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="secondary">Strategy</Badge>
+                <Badge variant="outline">Technology</Badge>
+                <Badge variant="outline">Leadership</Badge>
               </div>
             </div>
             <Button disabled style={buttonStyles}>
@@ -266,6 +282,51 @@ export function AttendeeInterestsSection({
                                 </FormControl>
                                 <FormLabel style={labelStyles} className="font-normal cursor-pointer">
                                   {titleCase(track)}
+                                </FormLabel>
+                              </FormItem>
+                            )}
+                          />
+                        ))}
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              {topics.length > 0 && (
+                <FormField
+                  control={form.control}
+                  name="preferredTopics"
+                  render={() => (
+                    <FormItem>
+                      <FormLabel style={labelStyles}>Preferred Topics</FormLabel>
+                      <FormDescription style={secondaryTextStyles}>
+                        Select the topics that interest you most.
+                      </FormDescription>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {topics.map((topic) => (
+                          <FormField
+                            key={topic.id}
+                            control={form.control}
+                            name="preferredTopics"
+                            render={({ field }) => (
+                              <FormItem className="flex items-center gap-2 space-y-0">
+                                <FormControl>
+                                  <Checkbox
+                                    checked={field.value?.includes(topic.id)}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        field.onChange([...field.value, topic.id]);
+                                      } else {
+                                        field.onChange(field.value.filter((v) => v !== topic.id));
+                                      }
+                                    }}
+                                    data-testid={`checkbox-topic-${topic.id}`}
+                                  />
+                                </FormControl>
+                                <FormLabel style={labelStyles} className="font-normal cursor-pointer">
+                                  {topic.name}
                                 </FormLabel>
                               </FormItem>
                             )}
