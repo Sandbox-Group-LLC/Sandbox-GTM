@@ -477,8 +477,11 @@ export default function RegistrationFlow() {
                   />
                 </div>
                 {step1Config.collectActivationKey && (
-                  <div className="flex items-center justify-between p-3 border rounded-md ml-6">
-                    <Label htmlFor="requireActivationKey" className="cursor-pointer">Require Activation Key</Label>
+                  <div className="flex items-center justify-between p-3 border rounded-md bg-muted/30">
+                    <div className="flex items-center gap-2">
+                      <div className="w-1 h-4 bg-primary/50 rounded-full" />
+                      <Label htmlFor="requireActivationKey" className="cursor-pointer">Require Activation Key</Label>
+                    </div>
                     <Switch
                       id="requireActivationKey"
                       checked={step1Config.requireActivationKey}
