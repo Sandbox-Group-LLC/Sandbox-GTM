@@ -1027,7 +1027,7 @@ export default function Settings() {
 
       {/* Create API Key Dialog */}
       <Dialog open={createKeyDialogOpen} onOpenChange={setCreateKeyDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Create API Key</DialogTitle>
             <DialogDescription>
@@ -1035,7 +1035,9 @@ export default function Settings() {
             </DialogDescription>
           </DialogHeader>
           <Form {...createKeyForm}>
-            <form onSubmit={createKeyForm.handleSubmit((data) => createKeyMutation.mutate(data))} className="space-y-4">
+            <form onSubmit={createKeyForm.handleSubmit((data) => createKeyMutation.mutate(data))} className="flex flex-col flex-1 min-h-0">
+              <ScrollArea className="flex-1 pr-4">
+                <div className="space-y-4">
               <FormField
                 control={createKeyForm.control}
                 name="name"
@@ -1159,8 +1161,10 @@ export default function Settings() {
                   </FormItem>
                 )}
               />
+                </div>
+              </ScrollArea>
 
-              <DialogFooter>
+              <DialogFooter className="pt-4">
                 <Button
                   type="button"
                   variant="outline"
@@ -1190,7 +1194,7 @@ export default function Settings() {
 
       {/* Edit API Key Dialog */}
       <Dialog open={editKeyDialogOpen} onOpenChange={setEditKeyDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Edit API Key</DialogTitle>
             <DialogDescription>Update the settings for this API key.</DialogDescription>
@@ -1200,8 +1204,10 @@ export default function Settings() {
               onSubmit={editKeyForm.handleSubmit((data) =>
                 selectedKey && updateKeyMutation.mutate({ ...data, id: selectedKey.id })
               )}
-              className="space-y-4"
+              className="flex flex-col flex-1 min-h-0"
             >
+              <ScrollArea className="flex-1 pr-4">
+                <div className="space-y-4">
               <FormField
                 control={editKeyForm.control}
                 name="name"
@@ -1339,8 +1345,10 @@ export default function Settings() {
                   </FormItem>
                 )}
               />
+                </div>
+              </ScrollArea>
 
-              <DialogFooter>
+              <DialogFooter className="pt-4">
                 <Button
                   type="button"
                   variant="outline"
