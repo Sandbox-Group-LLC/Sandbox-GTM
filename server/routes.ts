@@ -6080,7 +6080,7 @@ export async function registerRoutes(
           SPONSOR_CONTACT_PERMISSIONS.EXPORT_LEADS,
           SPONSOR_CONTACT_PERMISSIONS.INVITE_TEAM,
         ],
-        invitedBy: 'primary-contact',
+        invitedBy: null, // null indicates primary contact
       };
     }
     

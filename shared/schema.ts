@@ -740,7 +740,7 @@ export const sponsorContactInvitations = pgTable("sponsor_contact_invitations", 
   lastName: varchar("last_name", { length: 100 }),
   permissions: text("permissions").array(), // Permissions to grant when accepted
   inviteCode: varchar("invite_code", { length: 64 }).unique().notNull(),
-  invitedBy: varchar("invited_by").references(() => sponsorContacts.id).notNull(),
+  invitedBy: varchar("invited_by").references(() => sponsorContacts.id), // Nullable: null means invited by primary contact
   status: varchar("status", { length: 20 }).default("pending"), // 'pending', 'accepted', 'expired', 'revoked'
   expiresAt: timestamp("expires_at"),
   invitedAt: timestamp("invited_at").defaultNow(),
