@@ -6171,17 +6171,22 @@ export async function registerRoutes(
             </div>
           `;
           
-          const fromEmail = organization?.fromEmailAddress || `noreply@${organization?.slug || 'events'}.com`;
+          // Use organization's verified from email or fall back to Resend's default
+          const fromEmail = organization?.fromEmailAddress || 'onboarding@resend.dev';
           const fromName = organization?.name || 'Event Platform';
           
-          await resend.emails.send({
+          const emailResult = await resend.emails.send({
             from: `${fromName} <${fromEmail}>`,
             to: email,
             subject: `You're invited to the ${auth.sponsor!.name} Sponsor Portal`,
             html: emailHtml,
           });
           
-          logInfo("Sponsor portal invitation email sent to", email);
+          if (emailResult.error) {
+            logError("Resend API error for sponsor invitation:", emailResult.error);
+          } else {
+            logInfo("Sponsor portal invitation email sent successfully to", email, "ID:", emailResult.data?.id);
+          }
         } catch (emailError) {
           logError("Failed to send sponsor portal invitation email:", emailError);
           // Don't fail the invitation creation if email fails
