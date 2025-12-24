@@ -624,19 +624,6 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton
                   asChild
-                  isActive={location === "/budget"}
-                  data-testid="nav-budget"
-                >
-                  <Link href="/budget">
-                    <Wallet className="h-4 w-4" />
-                    <span>Budget & Spend</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
                   isActive={location === "/sponsors"}
                   data-testid="nav-sponsors"
                 >
@@ -656,6 +643,19 @@ export function AppSidebar() {
                   <Link href="/sponsor-tasks">
                     <ClipboardList className="h-4 w-4" />
                     <span>Sponsor Tasks</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location === "/budget"}
+                  data-testid="nav-budget"
+                >
+                  <Link href="/budget">
+                    <Wallet className="h-4 w-4" />
+                    <span>Budget & Spend</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
