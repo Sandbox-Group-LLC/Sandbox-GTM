@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearch } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -51,10 +51,129 @@ import {
   QrCode,
   Calendar,
   Briefcase,
+  Camera,
+  Video,
 } from "lucide-react";
 import { SiLinkedin, SiX, SiFacebook, SiInstagram } from "react-icons/si";
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import type { EventSponsor, SponsorTask, SponsorTaskCompletion, EventLead, SponsorContactInvitation } from "@shared/schema";
 import { SPONSOR_CONTACT_PERMISSIONS } from "@shared/schema";
+
+// Camera QR Scanner Component
+function CameraScanner({ onScan, onClose }: { onScan: (code: string) => void; onClose: () => void }) {
+  const [error, setError] = useState<string | null>(null);
+  const [isStarting, setIsStarting] = useState(true);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const containerId = "qr-reader-container";
+    
+    const startScanner = async () => {
+      try {
+        setIsStarting(true);
+        setError(null);
+
+        // Create scanner instance
+        const html5QrCode = new Html5Qrcode(containerId, {
+          formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+          verbose: false,
+        });
+        scannerRef.current = html5QrCode;
+
+        // Get available cameras
+        const devices = await Html5Qrcode.getCameras();
+        if (devices && devices.length > 0) {
+          // Prefer back camera if available
+          const backCamera = devices.find(d => 
+            d.label.toLowerCase().includes("back") || 
+            d.label.toLowerCase().includes("rear") ||
+            d.label.toLowerCase().includes("environment")
+          );
+          const cameraId = backCamera?.id || devices[0].id;
+
+          await html5QrCode.start(
+            cameraId,
+            {
+              fps: 10,
+              qrbox: { width: 250, height: 250 },
+              aspectRatio: 1.0,
+            },
+            (decodedText) => {
+              // Success callback
+              html5QrCode.stop().catch(() => {});
+              onScan(decodedText);
+            },
+            () => {
+              // Error callback (scan failure) - ignore silently
+            }
+          );
+          setIsStarting(false);
+        } else {
+          setError("No cameras found. Please ensure camera access is allowed.");
+          setIsStarting(false);
+        }
+      } catch (err: unknown) {
+        console.error("Camera error:", err);
+        if (err instanceof Error) {
+          if (err.message.includes("NotAllowedError") || err.message.includes("Permission denied")) {
+            setError("Camera access denied. Please allow camera permissions in your browser settings.");
+          } else if (err.message.includes("NotFoundError")) {
+            setError("No camera found on this device.");
+          } else {
+            setError(err.message || "Failed to start camera. Please try again.");
+          }
+        } else {
+          setError("Failed to start camera. Please try again.");
+        }
+        setIsStarting(false);
+      }
+    };
+
+    startScanner();
+
+    // Cleanup on unmount
+    return () => {
+      if (scannerRef.current) {
+        scannerRef.current.stop().catch(() => {});
+        scannerRef.current = null;
+      }
+    };
+  }, [onScan]);
+
+  return (
+    <div className="space-y-4">
+      <div 
+        ref={containerRef}
+        className="relative w-full aspect-square bg-muted rounded-md overflow-hidden"
+      >
+        <div id="qr-reader-container" className="w-full h-full" />
+        
+        {isStarting && (
+          <div className="absolute inset-0 flex items-center justify-center bg-muted">
+            <div className="text-center space-y-2">
+              <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
+              <p className="text-sm text-muted-foreground">Starting camera...</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {error && (
+        <div className="p-3 bg-destructive/10 text-destructive rounded-md text-sm flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      <div className="flex justify-end">
+        <Button variant="outline" onClick={onClose} data-testid="button-close-camera">
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 interface SponsorInvitation extends SponsorContactInvitation {
   inviterName?: string;
@@ -1567,9 +1686,10 @@ function TeamTab({ sponsor, token, permissions }: { sponsor: SponsorWithEvent; t
 }
 
 interface LeadStats {
-  total: number;
-  today: number;
-  byMethod: { qr_scan: number; manual: number };
+  totalLeads: number;
+  leadsToday: number;
+  qrScanned: number;
+  manualEntry: number;
 }
 
 const leadFormSchema = z.object({
@@ -1596,6 +1716,7 @@ function LeadsTab({
   const { toast } = useToast();
   const [showManualForm, setShowManualForm] = useState(false);
   const [qrValue, setQrValue] = useState("");
+  const [showCameraScanner, setShowCameraScanner] = useState(false);
 
   const canCapture = permissions.includes(SPONSOR_CONTACT_PERMISSIONS.LEAD_CAPTURE);
   const canViewLeads = permissions.includes(SPONSOR_CONTACT_PERMISSIONS.VIEW_LEADS) || canCapture;
@@ -1752,11 +1873,38 @@ function LeadsTab({
                 {scanQrMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <QrCode className="w-4 h-4 mr-2" />}
                 Scan
               </Button>
+              <Button variant="outline" onClick={() => setShowCameraScanner(true)} data-testid="button-camera-scan">
+                <Camera className="w-4 h-4 mr-2" />
+                Camera Scan
+              </Button>
               <Button variant="outline" onClick={() => setShowManualForm(!showManualForm)} data-testid="button-manual-entry">
                 <UserPlus className="w-4 h-4 mr-2" />
                 {showManualForm ? "Hide Form" : "Manual Entry"}
               </Button>
             </div>
+
+            {/* Camera Scanner Dialog */}
+            <Dialog open={showCameraScanner} onOpenChange={setShowCameraScanner}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Camera className="w-5 h-5" />
+                    Scan QR Code
+                  </DialogTitle>
+                  <DialogDescription>
+                    Point your camera at an attendee's badge QR code
+                  </DialogDescription>
+                </DialogHeader>
+                <CameraScanner
+                  onScan={(code) => {
+                    setShowCameraScanner(false);
+                    setQrValue(code);
+                    scanQrMutation.mutate(code);
+                  }}
+                  onClose={() => setShowCameraScanner(false)}
+                />
+              </DialogContent>
+            </Dialog>
 
             {showManualForm && (
               <Form {...form}>
@@ -2012,9 +2160,9 @@ function SponsorPortalTabs({ sponsor, token }: { sponsor: SponsorWithEvent; toke
           <TabsTrigger value="leads" data-testid="tab-leads" className="relative">
             <UserPlus className="w-4 h-4 mr-2" />
             Leads
-            {stats && stats.total > 0 && (
+            {stats && stats.totalLeads > 0 && (
               <Badge variant="secondary" className="ml-2 px-1.5 min-w-[1.25rem] h-5" data-testid="badge-leads-count">
-                {stats.total}
+                {stats.totalLeads}
               </Badge>
             )}
           </TabsTrigger>
