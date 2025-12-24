@@ -451,6 +451,59 @@ export function registerPublicTrackingRoute(app: Express) {
     }
   });
 
+  // Get a single live moment by ID (public - no auth required)
+  app.get("/api/portal/:eventId/moments/:momentId", async (req: any, res) => {
+    try {
+      const { eventId, momentId } = req.params;
+      
+      // Find the event by ID
+      const event = await storage.getEventById(eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      // Get the moment and verify it belongs to this event
+      const moment = await storage.getMoment(event.organizationId, momentId);
+      if (!moment || moment.eventId !== eventId) {
+        return res.status(404).json({ message: "Moment not found" });
+      }
+      
+      // Only return live/active moments for public access
+      if (moment.status !== "live" && moment.status !== "active") {
+        return res.status(404).json({ message: "Moment not found" });
+      }
+      
+      // Calculate aggregated results if showResults is true
+      if (moment.showResults) {
+        const responses = await storage.getMomentResponses(moment.id);
+        const results: Record<string, number> = {};
+        
+        responses.forEach((response) => {
+          const payload = response.payloadJson as Record<string, any>;
+          
+          if (moment.type === "poll_single" && payload.selectedOption) {
+            results[payload.selectedOption] = (results[payload.selectedOption] || 0) + 1;
+          } else if (moment.type === "poll_multi" && Array.isArray(payload.selectedOptions)) {
+            payload.selectedOptions.forEach((opt: string) => {
+              results[opt] = (results[opt] || 0) + 1;
+            });
+          } else if (moment.type === "rating" && typeof payload.rating === "number") {
+            results[String(payload.rating)] = (results[String(payload.rating)] || 0) + 1;
+          } else if (moment.type === "pulse" && payload.pulse) {
+            results[payload.pulse] = (results[payload.pulse] || 0) + 1;
+          }
+        });
+        
+        return res.json({ ...moment, results });
+      }
+      
+      res.json(moment);
+    } catch (error) {
+      logError("Error fetching single moment:", error);
+      res.status(500).json({ message: "Failed to fetch moment" });
+    }
+  });
+
   // Submit moment response (public - anonymous participation)
   app.post("/api/portal/:eventId/moments/:momentId/respond", async (req: any, res) => {
     try {

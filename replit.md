@@ -60,6 +60,7 @@ Preferred communication style: Simple, everyday language.
 - **Personalized Schedules & Recommendations**: Attendees can save sessions, view personal schedules, configure interests, and receive AI-powered session recommendations.
 - **Session & Event Feedback**: Comprehensive feedback collection system for sessions and overall event experience, including NPS, ratings, and comments.
 - **NPS (Net Promoter Score) Analytics**: Integration of NPS calculation from event feedback into the GTM Overview dashboard.
+- **Engagement Moments with QR Codes**: Live engagement moments (polls, ratings, Q&A, pulse checks, CTAs) with dedicated moment pages (`/event/:slug/moment/:momentId` and `/portal/:eventId/moment/:momentId`) supporting QR code generation for instant audience participation.
 
 ### Deployment Strategy
 Supports a hybrid multi-tenant (default) and dedicated instance model for enterprise customers, ensuring data isolation and flexible deployment options.

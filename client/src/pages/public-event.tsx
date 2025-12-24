@@ -664,6 +664,16 @@ export function PublicCustomPage() {
 export function PublicLivePage() {
   const { slug } = useParams<{ slug: string }>();
   
+  // Backward-compatible redirect for old ?moment= query params
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const momentId = searchParams.get('moment');
+    if (momentId && slug) {
+      // Redirect to the new dedicated moment page
+      window.location.href = `/event/${slug}/moment/${momentId}`;
+    }
+  }, [slug]);
+  
   const { data, isLoading, error } = useQuery<PublicLivePageData>({
     queryKey: ["/api/public/event", slug, "live"],
     queryFn: async () => {

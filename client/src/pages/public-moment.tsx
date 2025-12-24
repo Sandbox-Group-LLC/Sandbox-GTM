@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { useParams } from "wouter";
+import { useState, useCallback } from "react";
+import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,8 +20,9 @@ import {
   ThumbsDown,
   ExternalLink,
   RefreshCw,
+  ArrowLeft,
 } from "lucide-react";
-import type { Moment } from "@shared/schema";
+import type { Moment, Event } from "@shared/schema";
 
 const ATTENDEE_ID_KEY = "sandbox_attendee_id";
 const RESPONDED_MOMENTS_KEY = "sandbox_responded_moments";
@@ -404,7 +405,7 @@ function ResultsVisualization({ moment }: { moment: Moment & { results?: Record<
   return null;
 }
 
-function MomentCard({ moment, respondedMoments, onRespond, isSubmitting }: {
+function MomentDisplay({ moment, respondedMoments, onRespond, isSubmitting }: {
   moment: Moment & { results?: Record<string, number> };
   respondedMoments: Set<string>;
   onRespond: (momentId: string, response: unknown) => void;
@@ -482,17 +483,17 @@ function MomentCard({ moment, respondedMoments, onRespond, isSubmitting }: {
 
   return (
     <Card className="w-full" data-testid={`moment-card-${moment.id}`}>
-      <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6 pt-3 sm:pt-6">
+      <CardHeader className="pb-2 sm:pb-3 px-4 sm:px-6 pt-4 sm:pt-6">
         <div className="flex items-center gap-2 flex-wrap">
           {getMomentIcon()}
           <Badge variant="secondary" className="text-xs">{getMomentTypeLabel()}</Badge>
         </div>
-        <CardTitle className="text-base sm:text-lg leading-tight">{moment.title}</CardTitle>
+        <CardTitle className="text-lg sm:text-xl leading-tight">{moment.title}</CardTitle>
         {moment.prompt && (
-          <p className="text-xs sm:text-sm text-muted-foreground">{moment.prompt}</p>
+          <p className="text-sm text-muted-foreground">{moment.prompt}</p>
         )}
       </CardHeader>
-      <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+      <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
         {renderMomentContent()}
         {showResults && <ResultsVisualization moment={moment} />}
       </CardContent>
@@ -502,72 +503,62 @@ function MomentCard({ moment, respondedMoments, onRespond, isSubmitting }: {
 
 function LoadingSkeleton() {
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <Skeleton className="h-4 w-24" />
-          <Skeleton className="h-6 w-3/4" />
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+    <Card>
+      <CardHeader>
+        <Skeleton className="h-4 w-24" />
+        <Skeleton className="h-6 w-3/4" />
+        <Skeleton className="h-4 w-1/2" />
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-2">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
-function EmptyState() {
-  return (
-    <div className="flex flex-col items-center justify-center py-12 text-center">
-      <Zap className="w-12 h-12 text-muted-foreground mb-4" />
-      <h2 className="text-xl font-semibold mb-2">No Active Moments</h2>
-      <p className="text-muted-foreground max-w-sm">
-        There are no live engagement moments right now. Check back soon!
-      </p>
-    </div>
-  );
-}
-
-export default function PortalLiveMoments() {
-  const { eventId } = useParams<{ eventId: string }>();
+export default function PublicMoment() {
+  const { slug, momentId } = useParams<{ slug: string; momentId: string }>();
+  const [, navigate] = useLocation();
   const { toast } = useToast();
   const [attendeeId] = useState(() => getOrCreateAttendeeId());
   const [respondedMoments, setRespondedMoments] = useState<Set<string>>(() => getRespondedMoments());
-  const [submittingMomentId, setSubmittingMomentId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Backward-compatible redirect for old ?moment= query params
-  useEffect(() => {
-    const searchParams = new URLSearchParams(window.location.search);
-    const momentId = searchParams.get('moment');
-    if (momentId && eventId) {
-      // Redirect to the new dedicated moment page
-      window.location.href = `/portal/${eventId}/moment/${momentId}`;
-    }
-  }, [eventId]);
-
-  const { data: moments = [], isLoading, error, refetch } = useQuery<(Moment & { results?: Record<string, number> })[]>({
-    queryKey: ["/api/portal", eventId, "moments"],
+  const { data: event, isLoading: eventLoading, error: eventError } = useQuery<Event>({
+    queryKey: ["/api/public/event", slug],
     queryFn: async () => {
-      const res = await fetch(`/api/portal/${eventId}/moments`);
+      const res = await fetch(`/api/public/event/${slug}`);
       if (!res.ok) {
-        if (res.status === 404) {
-          throw new Error("Event not found");
-        }
-        throw new Error("Failed to fetch moments");
+        throw new Error("Event not found");
       }
       return res.json();
     },
-    enabled: !!eventId,
+    enabled: !!slug,
+  });
+
+  const { data: moment, isLoading: momentLoading, error: momentError, refetch } = useQuery<Moment & { results?: Record<string, number> }>({
+    queryKey: ["/api/portal", event?.id, "moments", momentId],
+    queryFn: async () => {
+      const res = await fetch(`/api/portal/${event?.id}/moments/${momentId}`);
+      if (!res.ok) {
+        if (res.status === 404) {
+          throw new Error("Moment not found");
+        }
+        throw new Error("Failed to fetch moment");
+      }
+      return res.json();
+    },
+    enabled: !!event?.id && !!momentId,
     refetchInterval: 3000,
   });
 
   const respondMutation = useMutation({
     mutationFn: async ({ momentId, response }: { momentId: string; response: unknown }) => {
-      return await apiRequest("POST", `/api/portal/${eventId}/moments/${momentId}/respond`, {
+      return await apiRequest("POST", `/api/portal/${event?.id}/moments/${momentId}/respond`, {
         attendeeId,
         response,
       });
@@ -579,7 +570,7 @@ export default function PortalLiveMoments() {
         title: "Response submitted",
         description: "Thank you for participating!",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/portal", eventId, "moments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/portal", event?.id, "moments", momentId] });
     },
     onError: (error: Error) => {
       toast({
@@ -589,7 +580,7 @@ export default function PortalLiveMoments() {
       });
     },
     onSettled: () => {
-      setSubmittingMomentId(null);
+      setIsSubmitting(false);
     },
   });
 
@@ -602,16 +593,19 @@ export default function PortalLiveMoments() {
       });
       return;
     }
-    setSubmittingMomentId(momentId);
+    setIsSubmitting(true);
     respondMutation.mutate({ momentId, response });
   }, [respondedMoments, respondMutation, toast]);
+
+  const isLoading = eventLoading || momentLoading;
+  const error = eventError || momentError;
 
   if (error) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardContent className="pt-6 text-center">
-            <p className="text-destructive mb-4">{error.message}</p>
+            <p className="text-destructive mb-4">{(error as Error).message}</p>
             <Button onClick={() => refetch()} variant="outline">
               <RefreshCw className="w-4 h-4 mr-2" />
               Try Again
@@ -626,27 +620,35 @@ export default function PortalLiveMoments() {
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 bg-background border-b safe-area-inset-top">
         <div className="container max-w-lg mx-auto px-3 sm:px-4 py-3 flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate(`/event/${slug}/live`)}
+            data-testid="button-back"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
           <Zap className="w-5 h-5 text-primary flex-shrink-0" />
-          <h1 className="text-base sm:text-lg font-semibold truncate">Live Moments</h1>
+          <h1 className="text-base sm:text-lg font-semibold truncate">
+            {event?.name || "Live Moment"}
+          </h1>
         </div>
       </header>
       
       <main className="container max-w-lg mx-auto px-3 sm:px-4 py-4 sm:py-6 pb-safe">
         {isLoading ? (
           <LoadingSkeleton />
-        ) : moments.length === 0 ? (
-          <EmptyState />
+        ) : moment ? (
+          <MomentDisplay
+            moment={moment}
+            respondedMoments={respondedMoments}
+            onRespond={handleRespond}
+            isSubmitting={isSubmitting}
+          />
         ) : (
-          <div className="space-y-4">
-            {moments.map((moment) => (
-              <MomentCard
-                key={moment.id}
-                moment={moment}
-                respondedMoments={respondedMoments}
-                onRespond={handleRespond}
-                isSubmitting={submittingMomentId === moment.id}
-              />
-            ))}
+          <div className="text-center py-12">
+            <Zap className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">Moment not found</p>
           </div>
         )}
       </main>

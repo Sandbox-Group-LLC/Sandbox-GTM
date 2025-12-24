@@ -315,9 +315,9 @@ export default function EngagementMoments() {
     const selectedEvent = events.find(e => e.id === selectedEventId);
     const baseUrl = window.location.origin;
     if (selectedEvent?.publicSlug) {
-      return `${baseUrl}/event/${selectedEvent.publicSlug}/live?moment=${moment.id}`;
+      return `${baseUrl}/event/${selectedEvent.publicSlug}/moment/${moment.id}`;
     }
-    return `${baseUrl}/portal/${selectedEventId}/live?moment=${moment.id}`;
+    return `${baseUrl}/portal/${selectedEventId}/moment/${moment.id}`;
   };
 
   const downloadQrCode = () => {

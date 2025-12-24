@@ -72,6 +72,8 @@ import AudienceTargeting from "@/pages/audience-targeting";
 import EngagementMoments from "@/pages/engagement-moments";
 import MomentLauncher from "@/pages/moment-launcher";
 import PortalLiveMoments from "@/pages/portal-live-moments";
+import PublicMoment from "@/pages/public-moment";
+import PortalMoment from "@/pages/portal-moment";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const sidebarStyle = {
@@ -131,11 +133,13 @@ function Router() {
         <Route path="/event/:slug/login" component={AttendeeLogin} />
         <Route path="/event/:slug/cfp" component={PublicCfp} />
         <Route path="/event/:slug/live" component={PublicLivePage} />
+        <Route path="/event/:slug/moment/:momentId" component={PublicMoment} />
         <Route path="/event/:slug/page/:pageSlug" component={PublicCustomPage} />
         <Route path="/event/:slug" component={PublicEvent} />
         <Route path="/sponsor-portal" component={SponsorPortal} />
         <Route path="/documents/shared/:token" component={SharedDocument} />
         <Route path="/accept-invitation" component={AcceptInvitation} />
+        <Route path="/portal/:eventId/moment/:momentId" component={PortalMoment} />
         <Route path="/portal/:eventId/live" component={PortalLiveMoments} />
         <Route component={Landing} />
       </Switch>
@@ -164,9 +168,11 @@ function Router() {
         <Route path="/event/:slug/login" component={AttendeeLogin} />
         <Route path="/event/:slug/cfp" component={PublicCfp} />
         <Route path="/event/:slug/live" component={PublicLivePage} />
+        <Route path="/event/:slug/moment/:momentId" component={PublicMoment} />
         <Route path="/event/:slug/page/:pageSlug" component={PublicCustomPage} />
         <Route path="/event/:slug" component={PublicEvent} />
         <Route path="/sponsor-portal" component={SponsorPortal} />
+        <Route path="/portal/:eventId/moment/:momentId" component={PortalMoment} />
         <Route path="/portal/:eventId/live" component={PortalLiveMoments} />
         <Route component={NotFound} />
       </Switch>
