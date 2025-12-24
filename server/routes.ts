@@ -7287,42 +7287,48 @@ export async function registerRoutes(
     try {
       const { code, mode = 'program', sessionId, eventId } = req.body;
       const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
       
       if (!code) {
-        return res.status(400).json({ message: "Check-in code is required" });
+        return res.status(400).json({ success: false, message: "Check-in code is required" });
       }
       
       const attendee = await storage.getAttendeeByCheckInCode(code);
       if (!attendee) {
-        return res.status(404).json({ message: "Invalid check-in code" });
+        return res.status(404).json({ success: false, message: "Invalid check-in code" });
+      }
+      
+      // Security: Verify attendee belongs to caller's organization
+      if (attendee.organizationId !== organizationId) {
+        return res.status(404).json({ success: false, message: "Invalid check-in code" });
       }
       
       // Optionally filter by event
       if (eventId && attendee.eventId !== eventId) {
-        return res.status(404).json({ message: "Attendee not found for this event" });
+        return res.status(404).json({ success: false, message: "Attendee not found for this event" });
       }
       
       if (mode === 'program') {
         // Standard check-in flow
         if (attendee.checkedIn) {
-          return res.status(409).json({ message: "Already checked in", attendee });
+          return res.status(409).json({ success: false, message: "Already checked in", attendee, mode: 'program' });
         }
         const checkedInAttendee = await storage.checkInAttendee(attendee.id);
-        return res.json({ message: "Check-in successful", attendee: checkedInAttendee, mode: 'program' });
+        return res.json({ success: true, message: "Check-in successful", attendee: checkedInAttendee, mode: 'program' });
       } else if (mode === 'session') {
         // Session check-in mode
         if (!sessionId) {
-          return res.status(400).json({ message: "Session ID required for session check-in mode" });
+          return res.status(400).json({ success: false, message: "Session ID required for session check-in mode" });
         }
         
         // Check if already checked into this session
-        const existingCheckIn = await storage.getSessionCheckIn(attendee.organizationId, sessionId, attendee.id);
+        const existingCheckIn = await storage.getSessionCheckIn(organizationId, sessionId, attendee.id);
         if (existingCheckIn) {
-          return res.status(409).json({ message: "Attendee already checked in to this session", checkIn: existingCheckIn, attendee });
+          return res.status(409).json({ success: false, message: "Attendee already checked in to this session", checkIn: existingCheckIn, attendee, mode: 'session' });
         }
         
         const checkIn = await storage.createSessionCheckIn({
-          organizationId: attendee.organizationId,
+          organizationId,
           eventId: attendee.eventId,
           sessionId,
           attendeeId: attendee.id,
@@ -7330,11 +7336,12 @@ export async function registerRoutes(
           checkInMethod: 'qr_scan',
           sourceCode: code,
         });
-        return res.json({ success: true, checkIn, attendee, mode: 'session' });
+        return res.json({ success: true, message: "Session check-in successful", checkIn, attendee, mode: 'session' });
       } else if (mode === 'lead') {
         // Lead capture mode - return attendee data for pre-filling lead form
         return res.json({ 
           success: true, 
+          message: "Attendee data retrieved",
           attendee, 
           mode: 'lead',
           attendeeData: {
@@ -7348,14 +7355,14 @@ export async function registerRoutes(
           }
         });
       } else {
-        return res.status(400).json({ message: "Invalid mode. Must be 'program', 'session', or 'lead'" });
+        return res.status(400).json({ success: false, message: "Invalid mode. Must be 'program', 'session', or 'lead'" });
       }
     } catch (error: any) {
       if (error.code === '23505') {
-        return res.status(409).json({ message: "Duplicate check-in detected" });
+        return res.status(409).json({ success: false, message: "Duplicate check-in detected" });
       }
       logError("Error during check-in:", error);
-      res.status(500).json({ message: "Failed to process check-in" });
+      res.status(500).json({ success: false, message: "Failed to process check-in" });
     }
   });
 
