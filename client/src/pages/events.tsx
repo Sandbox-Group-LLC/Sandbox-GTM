@@ -149,6 +149,9 @@ export default function Events() {
       isPublic: false,
       registrationOpen: false,
       status: "draft",
+      setAcquisitionMilestones: false,
+      acquisitionGoal: null,
+      acquisitionMilestones: null,
     },
   });
 
@@ -282,6 +285,7 @@ export default function Events() {
 
   const handleStartEdit = () => {
     if (selectedEvent) {
+      const hasMilestones = !!(selectedEvent.acquisitionGoal || selectedEvent.acquisitionMilestones?.length);
       form.reset({
         name: selectedEvent.name,
         description: selectedEvent.description || "",
@@ -299,6 +303,9 @@ export default function Events() {
         isPublic: selectedEvent.isPublic || false,
         registrationOpen: selectedEvent.registrationOpen || false,
         status: selectedEvent.status as EventFormValues["status"],
+        setAcquisitionMilestones: hasMilestones,
+        acquisitionGoal: selectedEvent.acquisitionGoal || null,
+        acquisitionMilestones: selectedEvent.acquisitionMilestones || null,
       });
       setIsEditing(true);
     }

@@ -21,10 +21,13 @@ import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { COUNTRIES } from "@/lib/countries";
 
-// Schema for acquisition milestone
+// Schema for acquisition milestone with proper number coercion
 const acquisitionMilestoneSchema = z.object({
   date: z.string(),
-  targetAttendees: z.number().min(0),
+  targetAttendees: z.preprocess(
+    (val) => (val === "" || val === null || val === undefined ? 0 : Number(val)),
+    z.number().min(0)
+  ),
 });
 
 export const eventFormSchema = z.object({
@@ -46,8 +49,11 @@ export const eventFormSchema = z.object({
   status: z.enum(["draft", "published", "cancelled", "completed"]),
   // Acquisition milestones
   setAcquisitionMilestones: z.boolean().default(false),
-  acquisitionGoal: z.coerce.number().min(0).optional().nullable(),
-  acquisitionMilestones: z.array(acquisitionMilestoneSchema).optional().nullable(),
+  acquisitionGoal: z.preprocess(
+    (val) => (val === "" || val === null || val === undefined ? null : Number(val)),
+    z.number().min(0).nullable()
+  ),
+  acquisitionMilestones: z.array(acquisitionMilestoneSchema).nullable(),
 });
 
 export type EventFormValues = z.infer<typeof eventFormSchema>;
