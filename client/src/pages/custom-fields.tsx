@@ -455,7 +455,7 @@ export default function CustomFields() {
                   control={form.control}
                   name="attendeeOnly"
                   render={({ field }) => (
-                    <FormItem className="flex items-center gap-3">
+                    <FormItem className="flex flex-row items-start gap-3 space-y-0">
                       <FormControl>
                         <Switch
                           checked={field.value}
@@ -463,8 +463,8 @@ export default function CustomFields() {
                           data-testid="switch-field-attendee-only"
                         />
                       </FormControl>
-                      <div>
-                        <FormLabel className="!mt-0">Attendee Only</FormLabel>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Attendee Only</FormLabel>
                         <FormDescription className="text-xs">
                           Only shown in attendee registration forms, not in admin forms
                         </FormDescription>
