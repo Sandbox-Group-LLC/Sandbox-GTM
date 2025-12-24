@@ -621,31 +621,46 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={location === "/sponsors"}
-                  data-testid="nav-sponsors"
-                >
-                  <Link href="/sponsors">
-                    <Building2 className="h-4 w-4" />
-                    <span>Sponsors</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={location === "/sponsor-tasks"}
-                  data-testid="nav-sponsor-tasks"
-                >
-                  <Link href="/sponsor-tasks">
-                    <ClipboardList className="h-4 w-4" />
-                    <span>Sponsor Tasks</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              <Collapsible defaultOpen={location === "/sponsors" || location === "/sponsor-tasks"} className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton
+                      isActive={location === "/sponsors" || location === "/sponsor-tasks"}
+                      data-testid="nav-sponsors"
+                    >
+                      <Building2 className="h-4 w-4" />
+                      <span>Sponsors</span>
+                      <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={location === "/sponsors"}
+                          data-testid="nav-sponsors-list"
+                        >
+                          <Link href="/sponsors">
+                            <span>All Sponsors</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={location === "/sponsor-tasks"}
+                          data-testid="nav-sponsor-tasks"
+                        >
+                          <Link href="/sponsor-tasks">
+                            <span>Sponsor Tasks</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
 
               <SidebarMenuItem>
                 <SidebarMenuButton
