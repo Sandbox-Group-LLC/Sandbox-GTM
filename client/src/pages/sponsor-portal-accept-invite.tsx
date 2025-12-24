@@ -63,8 +63,8 @@ export default function SponsorPortalAcceptInvite() {
         title: "Invitation Accepted",
         description: "You now have access to the sponsor portal.",
       });
-      if (data.token) {
-        setLocation(`/sponsor-portal?token=${data.token}`);
+      if (data.accessToken) {
+        setLocation(`/sponsor-portal?token=${data.accessToken}`);
       } else {
         setLocation("/sponsor-portal");
       }
