@@ -17,6 +17,7 @@ import { scrypt, randomBytes, timingSafeEqual, createHash } from "crypto";
 import { promisify } from "util";
 import { resolveTxt } from "dns/promises";
 import { parseUserAgent, isBot, getTimeContext, getGeoFromIP, extractRealIP } from "./tracking-utils";
+import { calculateMilestoneStatus, getStatusLabel, getStatusColor, type MilestoneStatusResult } from "./acquisitionStatus";
 
 const scryptAsync = promisify(scrypt);
 
@@ -4071,6 +4072,70 @@ export async function registerRoutes(
     } catch (error) {
       logError("Error fetching acquisition metrics:", error);
       res.status(500).json({ message: "Failed to fetch acquisition metrics" });
+    }
+  });
+
+  // Milestone status endpoint - calculates on-track/at-risk status from acquisition milestones
+  app.get("/api/analytics/milestone-status", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const eventId = req.query.eventId as string | undefined;
+
+      if (eventId && eventId !== "all") {
+        const event = await storage.getEvent(eventId);
+        if (!event || event.organizationId !== organizationId) {
+          return res.status(404).json({ message: "Event not found" });
+        }
+
+        const attendees = await storage.getAttendees(eventId);
+        const confirmedCount = attendees.filter(a => a.registrationStatus === "confirmed").length;
+
+        const milestoneStatus = calculateMilestoneStatus(
+          event.acquisitionMilestones,
+          event.acquisitionGoal,
+          confirmedCount
+        );
+
+        res.json({
+          ...milestoneStatus,
+          statusLabel: getStatusLabel(milestoneStatus.status),
+          statusColor: getStatusColor(milestoneStatus.status),
+        });
+      } else {
+        const events = await storage.getEvents(organizationId);
+        let totalConfirmed = 0;
+        let totalGoal = 0;
+        const allMilestones: { date: string; targetAttendees: number }[] = [];
+
+        for (const event of events) {
+          const attendees = await storage.getAttendees(event.id);
+          totalConfirmed += attendees.filter(a => a.registrationStatus === "confirmed").length;
+          
+          if (event.acquisitionGoal) {
+            totalGoal += event.acquisitionGoal;
+          }
+          
+          if (event.acquisitionMilestones) {
+            allMilestones.push(...event.acquisitionMilestones);
+          }
+        }
+
+        const milestoneStatus = calculateMilestoneStatus(
+          allMilestones.length > 0 ? allMilestones : null,
+          totalGoal > 0 ? totalGoal : null,
+          totalConfirmed
+        );
+
+        res.json({
+          ...milestoneStatus,
+          statusLabel: getStatusLabel(milestoneStatus.status),
+          statusColor: getStatusColor(milestoneStatus.status),
+        });
+      }
+    } catch (error) {
+      logError("Error fetching milestone status:", error);
+      res.status(500).json({ message: "Failed to fetch milestone status" });
     }
   });
 
