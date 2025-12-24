@@ -1,0 +1,151 @@
+🧠 Agent Prompt: Update Pricing Page — Professional Services + Acquisition Strategy & Activation
+
+Context
+Sandbox is an Event Go-To-Market (GTM) Platform.
+The pricing page must clearly separate:
+
+Platform access
+
+Professional Services (enablement & operations)
+
+Acquisition Strategy & Activation (strategic GTM accelerator)
+
+Acquisition Strategy & Activation is a premium strategic offering and must NOT be positioned as required for platform success.
+
+🎯 Your Objectives
+
+Rewrite and restructure the Professional Services section so it focuses strictly on:
+
+Platform enablement
+
+Implementation
+
+Operational optimization
+
+Remove any strategy, attribution modeling, or measurement framework design language from Professional Services.
+
+Add a new, distinct section titled Acquisition Strategy & Activation placed directly below Professional Services.
+
+Ensure the hierarchy makes it clear:
+
+Sandbox works out of the box
+
+Professional Services accelerate adoption
+
+Acquisition Strategy & Activation accelerates GTM impact
+
+🧱 Required Page Structure (Do Not Deviate)
+1️⃣ Professional Services
+
+Subheadline:
+Sandbox works out of the box. Professional services help teams accelerate impact.
+
+Implementation & Integrations
+
+Focus on technical readiness and system alignment.
+
+Include bullets such as:
+
+CRM and marketing automation integrations
+
+Data mapping and object alignment
+
+Identity resolution and attribution plumbing
+
+GTM workflow configuration
+
+Sandbox environment setup and validation
+
+🚫 Do NOT mention attribution strategy, KPI definition, or audience modeling.
+
+GTM Optimization
+
+Focus on operational excellence and adoption.
+
+Include bullets such as:
+
+Event portfolio structure and taxonomy
+
+Program-to-pipeline alignment
+
+Sales handoff workflows and SLAs
+
+KPI operationalization inside Sandbox
+
+Ongoing optimization and enablement recommendations
+
+🚫 Do NOT include GTM strategy, channel planning, or measurement framework design.
+
+2️⃣ Acquisition Strategy & Activation
+
+➡️ Place this section immediately BELOW Professional Services
+➡️ This section must feel premium, optional, and strategic
+
+Subheadline:
+For teams that want Sandbox to drive measurable pipeline faster.
+
+Intro paragraph (concise, confident):
+
+Sandbox can be implemented quickly.
+Designing a high-performing event GTM motion takes intent.
+Acquisition Strategy & Activation helps teams define who to target, how to activate them, and how success is measured — then launch with confidence.
+
+Include exactly 5 bullets:
+
+Audience definition and ICP alignment
+
+Activation and channel planning
+
+Attribution model selection and validation
+
+Campaign architecture and rollout
+
+Launch support and early optimization
+
+CTA language (choose one):
+
+“Available as a strategic engagement”
+
+“Offered separately from platform licensing”
+
+“Talk to us about Strategy & Activation”
+
+📝 Tone & Style Rules
+
+Enterprise GTM language
+
+Confident, precise, modern
+
+No consulting fluff
+
+No implication that strategy is required to use Sandbox
+
+Make the strategic nature of Acquisition Strategy & Activation unmistakable
+
+🚫 Explicit Exclusions
+
+Do NOT:
+
+Merge Acquisition Strategy & Activation into Professional Services
+
+Reference pricing numbers
+
+Suggest this offering is mandatory
+
+Repeat attribution or strategy language elsewhere on the pricing page
+
+✅ Success Criteria
+
+After this update:
+
+Professional Services feel scalable and product-led
+
+Acquisition Strategy & Activation feels premium and intentional
+
+The pricing page clearly communicates three layers of value:
+
+Platform
+
+Enablement
+
+Strategic acceleration

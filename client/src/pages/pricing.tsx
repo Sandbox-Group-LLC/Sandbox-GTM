@@ -12,7 +12,8 @@ import {
   Send,
   Settings,
   Target,
-  XCircle
+  XCircle,
+  Rocket
 } from "lucide-react";
 import logoImage from "@assets/Orange_bug_-_no_background_1765765097769.png";
 import { LeadFormDialog } from "@/components/lead-form-dialog";
@@ -36,14 +37,26 @@ const noFees = [
 
 const implementationServices = [
   "CRM and marketing automation integrations",
-  "Attribution modeling and validation",
-  "Data mapping and GTM configuration",
+  "Data mapping and object alignment",
+  "Identity resolution and attribution plumbing",
+  "GTM workflow configuration",
+  "Sandbox environment setup and validation",
 ];
 
 const optimizationServices = [
-  "Event portfolio design",
-  "Measurement frameworks",
-  "Sales handoff and pipeline alignment",
+  "Event portfolio structure and taxonomy",
+  "Program-to-pipeline alignment",
+  "Sales handoff workflows and SLAs",
+  "KPI operationalization inside Sandbox",
+  "Ongoing optimization and enablement recommendations",
+];
+
+const strategyActivationServices = [
+  "Audience definition and ICP alignment",
+  "Activation and channel planning",
+  "Attribution model selection and validation",
+  "Campaign architecture and rollout",
+  "Launch support and early optimization",
 ];
 
 const targetAudience = [
@@ -177,6 +190,7 @@ export default function Pricing() {
               <Card className="bg-card/30">
                 <CardHeader>
                   <CardTitle className="text-lg text-[#ffffff]">Implementation & Integrations</CardTitle>
+                  <p className="text-sm text-[#b8b8b8] mt-1">Technical readiness and system alignment</p>
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-3">
@@ -193,6 +207,7 @@ export default function Pricing() {
               <Card className="bg-card/30">
                 <CardHeader>
                   <CardTitle className="text-lg text-[#ffffff]">GTM Optimization</CardTitle>
+                  <p className="text-sm text-[#b8b8b8] mt-1">Operational excellence and adoption</p>
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-3">
@@ -206,6 +221,51 @@ export default function Pricing() {
                 </CardContent>
               </Card>
             </div>
+          </div>
+        </section>
+
+        <section className="py-20 px-6 border-t border-border bg-gradient-to-b from-background to-muted/10">
+          <div className="container mx-auto max-w-4xl">
+            <div className="text-center mb-12">
+              <div className="flex justify-center mb-4">
+                <Rocket className="h-8 w-8 text-primary" />
+              </div>
+              <h2 className="text-3xl font-semibold text-[#ffffff] mb-4">
+                Acquisition Strategy & Activation
+              </h2>
+              <p className="text-[#b8b8b8] max-w-2xl mx-auto">
+                For teams that want Sandbox to drive measurable pipeline faster.
+              </p>
+              <Badge variant="secondary" className="mt-4">Strategic Engagement</Badge>
+            </div>
+
+            <Card className="bg-card/30 border-primary/20">
+              <CardContent className="pt-8">
+                <p className="text-[#e0e0e0] text-center mb-8 max-w-2xl mx-auto leading-relaxed">
+                  Sandbox can be implemented quickly. Designing a high-performing event GTM motion takes intent. 
+                  Acquisition Strategy & Activation helps teams define who to target, how to activate them, 
+                  and how success is measured — then launch with confidence.
+                </p>
+
+                <div className="grid md:grid-cols-2 gap-4 mb-8">
+                  {strategyActivationServices.map((service, index) => (
+                    <div key={index} className="flex items-start gap-3" data-testid={`service-strategy-${index}`}>
+                      <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                      <span className="text-[#e0e0e0]">{service}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="text-center pt-4 border-t border-border">
+                  <p className="text-[#b8b8b8] text-sm mb-4">Offered separately from platform licensing</p>
+                  <LeadFormDialog source="pricing-strategy-activation">
+                    <Button variant="outline" data-testid="button-talk-strategy">
+                      Talk to Us About Strategy & Activation
+                    </Button>
+                  </LeadFormDialog>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </section>
 
