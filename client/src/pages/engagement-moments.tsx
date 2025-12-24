@@ -380,90 +380,38 @@ export default function EngagementMoments() {
                 const TypeIcon = typeInfo?.icon || Zap;
                 return (
                   <Card key={moment.id} data-testid={`card-moment-${moment.id}`}>
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex items-start gap-3 min-w-0 flex-1">
-                          <div className="p-2 rounded-md bg-muted">
-                            <TypeIcon className="h-5 w-5 text-muted-foreground" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <h3 className="font-medium truncate" data-testid={`text-moment-title-${moment.id}`}>
+                    <CardContent className="p-3 sm:p-4">
+                      <div className="flex flex-col gap-3">
+                        {/* Header row with icon, title, badges and menu */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-start gap-2 sm:gap-3 min-w-0 flex-1">
+                            <div className="p-1.5 sm:p-2 rounded-md bg-muted flex-shrink-0">
+                              <TypeIcon className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                                <Badge variant={STATUS_COLORS[moment.status]} className="text-xs" data-testid={`badge-moment-status-${moment.id}`}>
+                                  {STATUS_LABELS[moment.status]}
+                                </Badge>
+                                {moment.showResults && (
+                                  <Badge variant="outline" className="gap-1 text-xs">
+                                    <Eye className="h-3 w-3" />
+                                    Results Visible
+                                  </Badge>
+                                )}
+                              </div>
+                              <h3 className="font-medium text-sm sm:text-base mt-1 leading-tight" data-testid={`text-moment-title-${moment.id}`}>
                                 {moment.title}
                               </h3>
-                              <Badge variant={STATUS_COLORS[moment.status]} data-testid={`badge-moment-status-${moment.id}`}>
-                                {STATUS_LABELS[moment.status]}
-                              </Badge>
-                              {moment.showResults && (
-                                <Badge variant="outline" className="gap-1">
-                                  <Eye className="h-3 w-3" />
-                                  Results Visible
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground flex-wrap">
-                              <span>{typeInfo?.label}</span>
-                              <span>{getSessionName(moment.sessionId)}</span>
+                              <div className="flex items-center gap-2 sm:gap-4 mt-0.5 text-xs sm:text-sm text-muted-foreground flex-wrap">
+                                <span>{typeInfo?.label}</span>
+                                <span>{getSessionName(moment.sessionId)}</span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          {moment.status === "draft" && (
-                            <Button
-                              size="sm"
-                              variant="default"
-                              onClick={() => handleStatusChange(moment, "live")}
-                              data-testid={`button-launch-${moment.id}`}
-                            >
-                              <Play className="h-4 w-4 mr-1" />
-                              Launch
-                            </Button>
-                          )}
-                          {moment.status === "live" && (
-                            <>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleToggleResults(moment)}
-                                data-testid={`button-toggle-results-${moment.id}`}
-                              >
-                                {moment.showResults ? (
-                                  <>
-                                    <EyeOff className="h-4 w-4 mr-1" />
-                                    Hide Results
-                                  </>
-                                ) : (
-                                  <>
-                                    <Eye className="h-4 w-4 mr-1" />
-                                    Show Results
-                                  </>
-                                )}
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleStatusChange(moment, "locked")}
-                                data-testid={`button-lock-${moment.id}`}
-                              >
-                                <Lock className="h-4 w-4 mr-1" />
-                                Lock
-                              </Button>
-                            </>
-                          )}
-                          {(moment.status === "live" || moment.status === "locked") && (
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => handleStatusChange(moment, "ended")}
-                              data-testid={`button-end-${moment.id}`}
-                            >
-                              <StopCircle className="h-4 w-4 mr-1" />
-                              End
-                            </Button>
-                          )}
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button size="icon" variant="ghost" data-testid={`button-moment-menu-${moment.id}`}>
+                              <Button size="icon" variant="ghost" className="flex-shrink-0" data-testid={`button-moment-menu-${moment.id}`}>
                                 <MoreVertical className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
@@ -510,6 +458,73 @@ export default function EngagementMoments() {
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
+                        
+                        {/* Action buttons row - shown for non-draft moments */}
+                        {moment.status !== "draft" && (
+                          <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/50">
+                            {moment.status === "live" && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleToggleResults(moment)}
+                                  className="flex-1 sm:flex-none min-h-10 text-xs sm:text-sm"
+                                  data-testid={`button-toggle-results-${moment.id}`}
+                                >
+                                  {moment.showResults ? (
+                                    <>
+                                      <EyeOff className="h-4 w-4 mr-1" />
+                                      Hide Results
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Eye className="h-4 w-4 mr-1" />
+                                      Show Results
+                                    </>
+                                  )}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleStatusChange(moment, "locked")}
+                                  className="flex-1 sm:flex-none min-h-10 text-xs sm:text-sm"
+                                  data-testid={`button-lock-${moment.id}`}
+                                >
+                                  <Lock className="h-4 w-4 mr-1" />
+                                  Lock
+                                </Button>
+                              </>
+                            )}
+                            {(moment.status === "live" || moment.status === "locked") && (
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => handleStatusChange(moment, "ended")}
+                                className="flex-1 sm:flex-none min-h-10 text-xs sm:text-sm"
+                                data-testid={`button-end-${moment.id}`}
+                              >
+                                <StopCircle className="h-4 w-4 mr-1" />
+                                End
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* Draft launch button */}
+                        {moment.status === "draft" && (
+                          <div className="pt-1 border-t border-border/50">
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => handleStatusChange(moment, "live")}
+                              className="w-full sm:w-auto min-h-10"
+                              data-testid={`button-launch-${moment.id}`}
+                            >
+                              <Play className="h-4 w-4 mr-1" />
+                              Launch
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
