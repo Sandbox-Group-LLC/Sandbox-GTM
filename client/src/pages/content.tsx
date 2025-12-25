@@ -79,12 +79,12 @@ const typeColors: Record<string, "default" | "secondary" | "outline"> = {
 // Sponsor tier ordering and display
 const tierOrder = ["platinum", "gold", "silver", "bronze", "partner", "other"];
 const tierColors: Record<string, string> = {
-  platinum: "bg-gradient-to-r from-slate-200 to-slate-400 text-slate-900",
-  gold: "bg-gradient-to-r from-yellow-300 to-yellow-500 text-yellow-900",
-  silver: "bg-gradient-to-r from-gray-300 to-gray-400 text-gray-900",
-  bronze: "bg-gradient-to-r from-amber-600 to-amber-700 text-white",
-  partner: "bg-blue-500 text-white",
-  other: "bg-muted text-muted-foreground",
+  platinum: "border-transparent bg-gradient-to-r from-slate-200 to-slate-400 text-slate-900",
+  gold: "border-transparent bg-gradient-to-r from-yellow-300 to-yellow-500 text-yellow-900",
+  silver: "border-transparent bg-gradient-to-r from-gray-300 to-gray-400 text-gray-900",
+  bronze: "border-transparent bg-gradient-to-r from-amber-600 to-amber-700 text-white",
+  partner: "border-transparent bg-blue-500 text-white",
+  other: "border-transparent bg-muted text-muted-foreground",
 };
 
 interface SponsorWithLogo extends EventSponsor {
