@@ -7672,10 +7672,11 @@ export async function registerRoutes(
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId, req.session);
       
-      // Convert executionTime string to Date if provided
+      // Convert executionTime string to Date if provided and valid
       const requestData = { ...req.body };
       if (requestData.executionTime) {
-        requestData.executionTime = new Date(requestData.executionTime);
+        const parsed = new Date(requestData.executionTime);
+        requestData.executionTime = isNaN(parsed.getTime()) ? null : parsed;
       }
       
       const data = insertDeliverableSchema.parse({ ...requestData, organizationId });
