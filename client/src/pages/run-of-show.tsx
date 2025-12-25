@@ -539,7 +539,7 @@ export default function RunOfShow() {
 
       <div className="flex-1 overflow-auto p-6">
         <p className="text-muted-foreground text-sm mb-4">
-          Execution timeline derived from Deliverables — showing Program-Live items and tasks due near event dates
+          Execution timeline derived from Deliverables — showing pre-program, live, and post-program tasks
         </p>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
@@ -665,7 +665,7 @@ export default function RunOfShow() {
               <EmptyState
                 icon={ListTodo}
                 title="No execution items"
-                description="Deliverables with Program-Live phase or due dates near event start will appear here automatically"
+                description="Deliverables with scheduled dates will appear here automatically"
               />
             ) : (
               <div className="space-y-6">
@@ -740,7 +740,7 @@ export default function RunOfShow() {
               <EmptyState
                 icon={Calendar}
                 title="No execution items"
-                description="Deliverables with Program-Live phase or due dates near event start will appear here automatically"
+                description="Deliverables with scheduled dates will appear here automatically"
               />
             ) : calendarType === "month" ? (
               <MonthlyCalendar 
