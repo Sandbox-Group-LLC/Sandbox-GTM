@@ -13023,15 +13023,27 @@ ${urls.map(u => `  <url>
       
       // Get all reviews assigned to these reviewer records
       const allReviews: any[] = [];
+      const eventCache = new Map<string, any>();
+      
       for (const reviewer of reviewerRecords) {
         const reviews = await storage.getCfpReviewsByReviewer(reviewer.id, reviewer.organizationId);
         for (const review of reviews) {
           const submission = await storage.getCfpSubmission(review.submissionId, reviewer.organizationId);
           if (submission) {
+            // Fetch event data (with caching to avoid duplicate lookups)
+            let event = eventCache.get(submission.eventId);
+            if (!event) {
+              event = await storage.getEvent(reviewer.organizationId, submission.eventId);
+              if (event) {
+                eventCache.set(submission.eventId, event);
+              }
+            }
+            
             allReviews.push({
               review,
               submission,
               reviewer,
+              event,
             });
           }
         }
@@ -13070,10 +13082,12 @@ ${urls.map(u => `  <url>
         if (review) {
           const submission = await storage.getCfpSubmission(submissionId, reviewer.organizationId);
           if (submission) {
+            const event = await storage.getEvent(reviewer.organizationId, submission.eventId);
             return res.json({
               review,
               submission,
               reviewer,
+              event,
             });
           }
         }
