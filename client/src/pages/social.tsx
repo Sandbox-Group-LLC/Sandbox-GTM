@@ -59,7 +59,7 @@ import {
   User,
 } from "lucide-react";
 import { EventSelectField } from "@/components/event-select-field";
-import type { SocialPost, SocialConnection } from "@shared/schema";
+import type { SocialPost, SocialConnection, Event } from "@shared/schema";
 
 interface LinkedInOrganization {
   urn: string;
@@ -120,10 +120,23 @@ export default function Social() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPost, setEditingPost] = useState<SocialPost | null>(null);
   const [isOrgDialogOpen, setIsOrgDialogOpen] = useState(false);
+  const [eventFilter, setEventFilter] = useState<string>("all");
 
   const { data: posts = [], isLoading: postsLoading } = useQuery<SocialPost[]>({
     queryKey: ["/api/social"],
   });
+
+  const { data: events = [] } = useQuery<Event[]>({
+    queryKey: ["/api/events"],
+  });
+
+  // Create event map for lookups
+  const eventMap = new Map(events.map(e => [e.id, e]));
+
+  // Filter posts by selected event
+  const filteredPosts = eventFilter === "all" 
+    ? posts 
+    : posts.filter(p => p.eventId === eventFilter);
 
   const { data: connections = [], isLoading: connectionsLoading } = useQuery<SocialConnection[]>({
     queryKey: ["/api/social-connections"],
@@ -368,7 +381,7 @@ export default function Social() {
     return connections.find(c => c.platform === platform);
   };
 
-  const groupedByMonth = posts.reduce((acc, post) => {
+  const groupedByMonth = filteredPosts.reduce((acc, post) => {
     const date = post.scheduledAt ? new Date(post.scheduledAt) : new Date(post.createdAt!);
     const monthKey = date.toLocaleDateString("en-US", { year: "numeric", month: "long" });
     if (!acc[monthKey]) {
@@ -398,13 +411,27 @@ export default function Social() {
         breadcrumbs={[{ label: "Social Media" }]}
         actions={
           activeTab === "posts" && (
-            <Dialog open={isDialogOpen} onOpenChange={(open) => open ? setIsDialogOpen(true) : handleDialogClose()}>
-              <DialogTrigger asChild>
-                <Button size="sm" data-testid="button-add-post">
-                  <Plus className="h-4 w-4 mr-2" />
-                  New Post
-                </Button>
-              </DialogTrigger>
+            <div className="flex items-center gap-2">
+              <Select value={eventFilter} onValueChange={setEventFilter}>
+                <SelectTrigger className="w-48" data-testid="select-event-filter">
+                  <SelectValue placeholder="All Programs" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Programs</SelectItem>
+                  {events.map((event) => (
+                    <SelectItem key={event.id} value={event.id}>
+                      {event.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Dialog open={isDialogOpen} onOpenChange={(open) => open ? setIsDialogOpen(true) : handleDialogClose()}>
+                <DialogTrigger asChild>
+                  <Button size="sm" data-testid="button-add-post">
+                    <Plus className="h-4 w-4 mr-2" />
+                    New Post
+                  </Button>
+                </DialogTrigger>
               <DialogContent className="max-w-lg">
                 <DialogHeader>
                   <DialogTitle>{editingPost ? "Edit Post" : "Create Social Post"}</DialogTitle>
@@ -568,7 +595,8 @@ export default function Social() {
                   </form>
                 </Form>
               </DialogContent>
-            </Dialog>
+              </Dialog>
+            </div>
           )
         }
       />
