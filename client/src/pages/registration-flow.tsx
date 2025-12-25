@@ -40,7 +40,6 @@ import {
   Settings2,
   RotateCcw,
 } from "lucide-react";
-import { SiGoogle } from "react-icons/si";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { titleCase } from "@/lib/utils";
@@ -506,21 +505,6 @@ export default function RegistrationFlow() {
                     checked={step1Config.requirePassword}
                     onCheckedChange={(checked) => setStep1Config({ ...step1Config, requirePassword: checked })}
                     data-testid="switch-require-password"
-                  />
-                </div>
-                <div className="flex items-center justify-between p-3 border rounded-md">
-                  <div className="flex items-center gap-3">
-                    <SiGoogle className="h-5 w-5" />
-                    <div>
-                      <Label htmlFor="googleAuth" className="cursor-pointer">Allow Google Sign-In</Label>
-                      <p className="text-sm text-muted-foreground">Let attendees sign in with their Google account</p>
-                    </div>
-                  </div>
-                  <Switch
-                    id="googleAuth"
-                    checked={step1Config.allowGoogleAuth}
-                    onCheckedChange={(checked) => setStep1Config({ ...step1Config, allowGoogleAuth: checked })}
-                    data-testid="switch-google-auth"
                   />
                 </div>
               </div>
