@@ -71,11 +71,18 @@ const WORKSTREAM_OPTIONS = [
   { value: "other", label: "Other" },
 ];
 
+const PHASE_OPTIONS = [
+  { value: "pre_program", label: "Pre-Program" },
+  { value: "live", label: "Live" },
+  { value: "post_program", label: "Post-Program" },
+];
+
 const deliverableFormSchema = z.object({
   eventId: z.string().min(1, "Event is required"),
   title: z.string().min(1, "Title is required"),
   description: z.string().optional(),
   workstream: z.string().optional(),
+  phase: z.string().default("pre_program"),
   status: z.string().default("todo"),
   priority: z.string().default("medium"),
   assignedTo: z.string().optional(),
@@ -98,7 +105,7 @@ const priorityColors: Record<string, "default" | "secondary" | "destructive" | "
   urgent: "destructive",
 };
 
-type SortColumn = "title" | "status" | "priority" | "workstream" | "assignedTo" | "dueDate" | "event";
+type SortColumn = "title" | "status" | "priority" | "workstream" | "phase" | "assignedTo" | "dueDate" | "event";
 type SortDirection = "asc" | "desc" | null;
 
 export default function Deliverables() {
@@ -188,6 +195,11 @@ export default function Deliverables() {
             aVal = a.workstream || "";
             bVal = b.workstream || "";
             break;
+          case "phase":
+            const phaseOrder = { pre_program: 0, live: 1, post_program: 2 };
+            aVal = String(phaseOrder[a.phase as keyof typeof phaseOrder] ?? 0);
+            bVal = String(phaseOrder[b.phase as keyof typeof phaseOrder] ?? 0);
+            break;
           case "assignedTo":
             aVal = a.assignedTo ? assigneesMap[a.assignedTo] || "" : "";
             bVal = b.assignedTo ? assigneesMap[b.assignedTo] || "" : "";
@@ -218,6 +230,7 @@ export default function Deliverables() {
       title: "",
       description: "",
       workstream: "",
+      phase: "pre_program",
       status: "todo",
       priority: "medium",
       assignedTo: "",
@@ -283,6 +296,7 @@ export default function Deliverables() {
       title: item.title,
       description: item.description || "",
       workstream: item.workstream || "",
+      phase: item.phase || "pre_program",
       status: item.status || "todo",
       priority: item.priority || "medium",
       assignedTo: item.assignedTo || "",
@@ -458,19 +472,45 @@ export default function Deliverables() {
                       )}
                     />
                   </div>
-                  <FormField
-                    control={form.control}
-                    name="dueDate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Due Date</FormLabel>
-                        <FormControl>
-                          <Input type="date" {...field} data-testid="input-due-date" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="phase"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Phase</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value || "pre_program"}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-phase">
+                                <SelectValue placeholder="Select phase" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {PHASE_OPTIONS.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="dueDate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Due Date</FormLabel>
+                          <FormControl>
+                            <Input type="date" {...field} data-testid="input-due-date" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                   <div className="flex justify-end gap-2 pt-4">
                     <Button type="button" variant="outline" onClick={handleDialogClose}>
                       Cancel
@@ -609,6 +649,16 @@ export default function Deliverables() {
                         </TableHead>
                         <TableHead 
                           className="cursor-pointer" 
+                          onClick={() => handleSort("phase")}
+                          data-testid="th-phase"
+                        >
+                          <div className="flex items-center">
+                            Phase
+                            {getSortIcon("phase")}
+                          </div>
+                        </TableHead>
+                        <TableHead 
+                          className="cursor-pointer" 
                           onClick={() => handleSort("assignedTo")}
                           data-testid="th-assignee"
                         >
@@ -657,6 +707,11 @@ export default function Deliverables() {
                             </TableCell>
                             <TableCell>{workstreamLabel || "—"}</TableCell>
                             <TableCell>
+                              {item.phase 
+                                ? PHASE_OPTIONS.find(p => p.value === item.phase)?.label 
+                                : "—"}
+                            </TableCell>
+                            <TableCell>
                               {item.assignedTo && assigneesMap[item.assignedTo] 
                                 ? assigneesMap[item.assignedTo] 
                                 : "—"}
@@ -671,7 +726,7 @@ export default function Deliverables() {
                       })}
                       {filteredAndSortedDeliverables.length === 0 && (
                         <TableRow>
-                          <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                          <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                             No deliverables found
                           </TableCell>
                         </TableRow>
