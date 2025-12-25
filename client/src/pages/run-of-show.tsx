@@ -171,17 +171,25 @@ const statusConfig: Record<string, { label: string; icon: typeof Circle; color: 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MAX_VISIBLE_ITEMS = 3;
 
+const PHASE_DOT_COLORS: Record<string, string> = {
+  "Pre-Program": "text-blue-600 dark:text-blue-400",
+  "Program-Live": "text-green-600 dark:text-green-400",
+  "Post-Program": "text-amber-600 dark:text-amber-400",
+};
+
 function DeliverablePill({ item }: { item: EnrichedDeliverable }) {
   const colorClass = WORKSTREAM_COLORS[item.workstream || "other"] || WORKSTREAM_COLORS.other;
   const isDone = item.status === "done";
+  const phase = item.phase || "Pre-Program";
+  const dotColor = PHASE_DOT_COLORS[phase] || "text-muted-foreground";
   
   return (
     <div 
       className={`text-xs px-1.5 py-0.5 rounded truncate ${colorClass} ${isDone ? "opacity-60 line-through" : ""}`}
-      title={`${item.title} (${item.workstreamGroup})`}
+      title={`${item.title} (${phase} - ${item.workstreamGroup})`}
       data-testid={`pill-deliverable-${item.id}`}
     >
-      {item.title}
+      <span className={dotColor}>●</span> {item.title}
     </div>
   );
 }
