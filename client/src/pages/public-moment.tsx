@@ -535,7 +535,8 @@ export default function PublicMoment() {
       if (!res.ok) {
         throw new Error("Event not found");
       }
-      return res.json();
+      const data = await res.json();
+      return data.event;
     },
     enabled: !!slug,
   });
