@@ -5402,6 +5402,15 @@ function StylesEditor({ theme, onUpdateTheme, isPending, seo, onUpdateSeo, custo
     if (brandKit.headingFontFamily) {
       themeUpdates.headingFont = brandKit.headingFontFamily;
     }
+    if (brandKit.buttonColor) {
+      themeUpdates.buttonColor = brandKit.buttonColor;
+    }
+    if (brandKit.buttonTextColor) {
+      themeUpdates.buttonTextColor = brandKit.buttonTextColor;
+    }
+    if (brandKit.buttonBorderColor) {
+      themeUpdates.buttonBorderColor = brandKit.buttonBorderColor;
+    }
     
     if (Object.keys(themeUpdates).length === 0) {
       toast({ title: "No styles to apply", description: "This brand kit doesn't have any color or font settings configured.", variant: "destructive" });

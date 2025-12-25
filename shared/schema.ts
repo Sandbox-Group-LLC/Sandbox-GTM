@@ -156,6 +156,10 @@ export const brandKits = pgTable("brand_kits", {
   accentColor: varchar("accent_color", { length: 20 }),
   textColor: varchar("text_color", { length: 20 }),
   backgroundColor: varchar("background_color", { length: 20 }),
+  // Button styling
+  buttonColor: varchar("button_color", { length: 20 }), // Button background color
+  buttonTextColor: varchar("button_text_color", { length: 20 }), // Button text color
+  buttonBorderColor: varchar("button_border_color", { length: 20 }), // Button border color
   // Typography
   fontFamily: varchar("font_family", { length: 255 }), // Primary font for body text
   headingFontFamily: varchar("heading_font_family", { length: 255 }), // Font for headings

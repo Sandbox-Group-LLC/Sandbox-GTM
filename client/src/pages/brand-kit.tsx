@@ -36,6 +36,9 @@ interface BrandPalette {
   accentColor: string;
   textColor: string;
   backgroundColor: string;
+  buttonColor: string;
+  buttonTextColor: string;
+  buttonBorderColor: string;
 }
 
 type ColorRole = keyof BrandPalette;
@@ -46,6 +49,9 @@ const colorRoles: { key: ColorRole; label: string }[] = [
   { key: "accentColor", label: "Accent" },
   { key: "textColor", label: "Text" },
   { key: "backgroundColor", label: "Background" },
+  { key: "buttonColor", label: "Button" },
+  { key: "buttonTextColor", label: "Button Text" },
+  { key: "buttonBorderColor", label: "Button Border" },
 ];
 
 function ColorSwatch({ 
@@ -96,6 +102,9 @@ export default function BrandKitPage() {
     accentColor: "#ea4335",
     textColor: "#202124",
     backgroundColor: "#ffffff",
+    buttonColor: "#1a73e8",
+    buttonTextColor: "#ffffff",
+    buttonBorderColor: "#1a73e8",
   });
   const [selectedFonts, setSelectedFonts] = useState<string[]>([]);
   const [selectedLogo, setSelectedLogo] = useState<string>("");
@@ -123,6 +132,9 @@ export default function BrandKitPage() {
           accentColor: data.suggestedPalette.accentColor || "#ea4335",
           textColor: data.suggestedPalette.textColor || "#202124",
           backgroundColor: data.suggestedPalette.backgroundColor || "#ffffff",
+          buttonColor: data.suggestedPalette.primaryColor || "#1a73e8",
+          buttonTextColor: "#ffffff",
+          buttonBorderColor: data.suggestedPalette.primaryColor || "#1a73e8",
         });
       }
       if (data.fonts.length > 0) {
@@ -153,6 +165,9 @@ export default function BrandKitPage() {
       accentColor?: string;
       textColor?: string;
       backgroundColor?: string;
+      buttonColor?: string;
+      buttonTextColor?: string;
+      buttonBorderColor?: string;
       fontFamily?: string;
       logoUrl?: string;
       isDefault?: boolean;
@@ -243,6 +258,9 @@ export default function BrandKitPage() {
       accentColor: palette.accentColor,
       textColor: palette.textColor,
       backgroundColor: palette.backgroundColor,
+      buttonColor: palette.buttonColor,
+      buttonTextColor: palette.buttonTextColor,
+      buttonBorderColor: palette.buttonBorderColor,
       fontFamily: selectedFonts[0] || undefined,
       logoUrl: selectedLogo || undefined,
       isDefault,
@@ -265,6 +283,9 @@ export default function BrandKitPage() {
       accentColor: kit.accentColor || "#ea4335",
       textColor: kit.textColor || "#202124",
       backgroundColor: kit.backgroundColor || "#ffffff",
+      buttonColor: kit.buttonColor || "#1a73e8",
+      buttonTextColor: kit.buttonTextColor || "#ffffff",
+      buttonBorderColor: kit.buttonBorderColor || "#1a73e8",
     });
     setKitName(kit.name);
     setIsDefault(kit.isDefault || false);
@@ -283,6 +304,9 @@ export default function BrandKitPage() {
         accentColor: palette.accentColor,
         textColor: palette.textColor,
         backgroundColor: palette.backgroundColor,
+        buttonColor: palette.buttonColor,
+        buttonTextColor: palette.buttonTextColor,
+        buttonBorderColor: palette.buttonBorderColor,
         fontFamily: selectedFonts[0] || null,
         logoUrl: selectedLogo || null,
         isDefault,
@@ -610,6 +634,9 @@ export default function BrandKitPage() {
                         accentColor: "#ea4335",
                         textColor: "#202124",
                         backgroundColor: "#ffffff",
+                        buttonColor: "#1a73e8",
+                        buttonTextColor: "#ffffff",
+                        buttonBorderColor: "#1a73e8",
                       });
                     }}
                     data-testid="button-create-new-kit"

@@ -3160,7 +3160,7 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId, req.session);
-      const { name, primaryColor, secondaryColor, accentColor, backgroundColor, textColor, fonts, logoUrl, isDefault } = req.body;
+      const { name, primaryColor, secondaryColor, accentColor, backgroundColor, textColor, buttonColor, buttonTextColor, buttonBorderColor, fonts, logoUrl, isDefault } = req.body;
       
       if (!name) {
         return res.status(400).json({ message: "Name is required" });
@@ -3182,6 +3182,9 @@ export async function registerRoutes(
         accentColor: accentColor || null,
         backgroundColor: backgroundColor || null,
         textColor: textColor || null,
+        buttonColor: buttonColor || null,
+        buttonTextColor: buttonTextColor || null,
+        buttonBorderColor: buttonBorderColor || null,
         fonts: fonts || [],
         logoUrl: logoUrl || null,
         isDefault: isDefault || false,
@@ -3199,7 +3202,7 @@ export async function registerRoutes(
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId, req.session);
       const { id } = req.params;
-      const { name, primaryColor, secondaryColor, accentColor, backgroundColor, textColor, fonts, logoUrl, isDefault } = req.body;
+      const { name, primaryColor, secondaryColor, accentColor, backgroundColor, textColor, buttonColor, buttonTextColor, buttonBorderColor, fonts, logoUrl, isDefault } = req.body;
       
       const existingKit = await storage.getBrandKit(id, organizationId);
       if (!existingKit) {
@@ -3221,6 +3224,9 @@ export async function registerRoutes(
       if (accentColor !== undefined) updates.accentColor = accentColor;
       if (backgroundColor !== undefined) updates.backgroundColor = backgroundColor;
       if (textColor !== undefined) updates.textColor = textColor;
+      if (buttonColor !== undefined) updates.buttonColor = buttonColor;
+      if (buttonTextColor !== undefined) updates.buttonTextColor = buttonTextColor;
+      if (buttonBorderColor !== undefined) updates.buttonBorderColor = buttonBorderColor;
       if (fonts !== undefined) updates.fonts = fonts;
       if (logoUrl !== undefined) updates.logoUrl = logoUrl;
       if (isDefault !== undefined) updates.isDefault = isDefault;
