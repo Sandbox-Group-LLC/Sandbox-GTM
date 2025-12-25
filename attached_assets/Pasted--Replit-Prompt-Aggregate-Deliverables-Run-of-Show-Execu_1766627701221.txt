@@ -1,0 +1,182 @@
+🧠 Replit Prompt: Aggregate Deliverables → Run of Show (Execution View)
+
+Context
+Sandbox uses Deliverables as the single source of truth for all execution tasks.
+The Run of Show should NOT be a separate task system.
+It should be an automated, computed execution view derived entirely from Deliverables.
+
+The goal is to create a rock-solid, producer-grade execution view that shows what matters when the program is live or approaching live, without requiring duplicate data entry.
+
+🎯 Objective
+
+Transform Run of Show into a computed execution timeline that automatically aggregates data from Deliverables and feeds execution status into the Program Health widget.
+
+🧱 Step 1: Extend Deliverables (Minimal Changes Only)
+
+Add the following fields to the existing Deliverables data model:
+
+1️⃣ Execution Phase (required enum)
+
+Rename “Program Day” to a broader, producer-friendly term.
+
+Use the following enum values exactly:
+
+Pre-Program
+(Planning, build, prep, promotion, logistics before arrival)
+
+Program-Live
+(Load-in, live days, rehearsals, show days, active on-site execution)
+
+Post-Program
+(Load-out, follow-up, reporting, sponsor wrap, sales handoff)
+
+Default value for new Deliverables: Pre-Program
+
+2️⃣ Execution Time (optional, but supported)
+
+Date + time field
+
+Used only for ordering within Run of Show
+
+If empty, system should fall back to:
+
+Due date
+
+Or inferred block (Morning / Afternoon / Evening)
+
+⚠️ This field is optional to avoid over-precision and producer fatigue.
+
+🧠 Step 2: Define Run of Show as a Computed View
+
+Run of Show should be read-only and auto-generated.
+
+Data Source
+
+All Deliverables associated with the selected Program
+
+Filter Logic
+
+Include Deliverables where any of the following are true:
+
+Execution Phase = Program-Live
+
+OR Due Date is within X days of Program Start (configurable default: 7 days)
+
+🔄 Step 3: Aggregation & Ordering Logic
+
+For each Program:
+
+Pull all qualifying Deliverables
+
+Sort by:
+
+Execution Time (if present)
+
+Else Due Date
+
+Group Deliverables into timeline blocks using:
+
+Execution Phase
+
+Workstream (secondary grouping)
+
+Suggested default blocks:
+
+Arrival & Registration
+
+Content & Sessions
+
+Engagement Moments
+
+Sponsors & Partners
+
+Logistics & Ops
+
+(These blocks can be inferred via Workstream mapping.)
+
+🚦 Step 4: Execution Risk Logic (Critical)
+
+Each Run of Show item should calculate a risk state:
+
+🔴 At Risk
+
+Status = To Do or In Progress
+
+AND Due Date / Execution Time has passed
+
+🟡 Attention Needed
+
+Status = To Do
+
+AND Due within 24–48 hours (configurable)
+
+🟢 On Track
+
+Status = In Progress or Done
+
+AND not overdue
+
+Run of Show header should summarize:
+
+Total items
+
+On Track
+
+At Risk
+
+Attention Needed
+
+📊 Step 5: Feed Program Health Widget
+
+Update Program Health calculations to consume aggregated execution data:
+
+Execution Progress
+
+% of Deliverables marked Done
+
+Deliverables Complete
+
+X / Y count
+
+Execution Risk
+
+If any Program-Live Deliverable is At Risk → Program Health = At Risk
+
+If none at risk but some attention needed → Warning
+
+Else → Healthy
+
+Program Health should reflect real execution readiness, not static configuration.
+
+🚫 Explicit Constraints
+
+Do NOT:
+
+Create a separate Run of Show task editor
+
+Require users to re-enter Deliverables
+
+Introduce a second data model for execution
+
+Force users to over-specify times
+
+Run of Show must always reflect Deliverables in real time.
+
+✅ Success Criteria
+
+After implementation:
+
+Producers manage work exclusively in Deliverables
+
+Run of Show automatically shows what matters during execution
+
+Program Health reflects real execution risk
+
+No duplicated data entry
+
+No producer micromanagement required
+
+💡 Guiding Principle (for internal logic)
+
+Deliverables is where work is created.
+Run of Show is where execution risk becomes visible.

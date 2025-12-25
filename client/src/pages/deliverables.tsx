@@ -73,7 +73,7 @@ const WORKSTREAM_OPTIONS = [
 
 const PHASE_OPTIONS = [
   { value: "pre_program", label: "Pre-Program" },
-  { value: "live", label: "Live" },
+  { value: "live", label: "Program-Live" },
   { value: "post_program", label: "Post-Program" },
 ];
 
