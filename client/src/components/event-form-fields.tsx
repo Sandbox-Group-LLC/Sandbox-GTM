@@ -1,5 +1,9 @@
+import { useState } from "react";
 import { UseFormReturn } from "react-hook-form";
 import { z } from "zod";
+import { format } from "date-fns";
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import { DayPicker } from "react-day-picker";
 import {
   FormControl,
   FormField,
@@ -17,9 +21,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Button, buttonVariants } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { COUNTRIES } from "@/lib/countries";
+import { cn } from "@/lib/utils";
 
 // Schema for acquisition milestone with proper number coercion
 const acquisitionMilestoneSchema = z.object({
@@ -64,8 +75,21 @@ interface EventFormFieldsProps {
   testIdPrefix?: string;
 }
 
+function parseLocalDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function formatLocalDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export function EventFormFields({ form, testIdPrefix = "" }: EventFormFieldsProps) {
   const prefix = testIdPrefix ? `${testIdPrefix}-` : "";
+  const [planningDateOpen, setPlanningDateOpen] = useState(false);
 
   return (
     <>
@@ -103,24 +127,88 @@ export function EventFormFields({ form, testIdPrefix = "" }: EventFormFieldsProp
       <FormField
         control={form.control}
         name="planningStartDate"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Planning Start Date</FormLabel>
-            <FormControl>
-              <Input
-                type="date"
-                placeholder="When planning begins"
-                {...field}
-                value={field.value || ""}
-                data-testid={`input-${prefix}planning-start-date`}
-              />
-            </FormControl>
-            <p className="text-xs text-muted-foreground">
-              Optional. Used for execution timeline tracking.
-            </p>
-            <FormMessage />
-          </FormItem>
-        )}
+        render={({ field }) => {
+          const selectedDate = field.value ? parseLocalDate(field.value) : undefined;
+          return (
+            <FormItem>
+              <FormLabel>Planning Start Date</FormLabel>
+              <FormControl>
+                <Popover open={planningDateOpen} onOpenChange={setPlanningDateOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal h-auto py-3",
+                        !field.value && "text-muted-foreground"
+                      )}
+                      data-testid={`input-${prefix}planning-start-date`}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+                      {selectedDate ? format(selectedDate, "EEE, MMM d, yyyy") : "Select date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <DayPicker
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={(date) => {
+                        if (date) {
+                          field.onChange(formatLocalDate(date));
+                        } else {
+                          field.onChange("");
+                        }
+                        setPlanningDateOpen(false);
+                      }}
+                      showOutsideDays={true}
+                      className="p-3"
+                      classNames={{
+                        months: "flex flex-col sm:flex-row gap-4",
+                        month: "space-y-3",
+                        caption: "flex justify-center pt-1 relative items-center h-9",
+                        caption_label: "text-sm font-medium",
+                        nav: "space-x-1 flex items-center",
+                        nav_button: cn(
+                          buttonVariants({ variant: "ghost" }),
+                          "h-7 w-7 bg-transparent p-0 opacity-70 hover:opacity-100"
+                        ),
+                        nav_button_previous: "absolute left-1",
+                        nav_button_next: "absolute right-1",
+                        table: "w-full border-collapse",
+                        head_row: "flex",
+                        head_cell: "text-muted-foreground w-9 font-normal text-[0.75rem] uppercase",
+                        row: "flex w-full mt-1",
+                        cell: cn(
+                          "relative h-9 w-9 text-center text-sm p-0 focus-within:relative focus-within:z-20"
+                        ),
+                        day: cn(
+                          buttonVariants({ variant: "ghost" }),
+                          "h-9 w-9 p-0 font-normal aria-selected:opacity-100 rounded-full"
+                        ),
+                        day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground rounded-full",
+                        day_today: "border border-accent-foreground/20",
+                        day_outside: "day-outside text-muted-foreground opacity-50",
+                        day_disabled: "text-muted-foreground opacity-50",
+                        day_hidden: "invisible",
+                      }}
+                      components={{
+                        IconLeft: ({ className, ...props }) => (
+                          <ChevronLeft className={cn("h-4 w-4", className)} {...props} />
+                        ),
+                        IconRight: ({ className, ...props }) => (
+                          <ChevronRight className={cn("h-4 w-4", className)} {...props} />
+                        ),
+                      }}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </FormControl>
+              <p className="text-xs text-muted-foreground">
+                Optional. Used for execution timeline tracking.
+              </p>
+              <FormMessage />
+            </FormItem>
+          );
+        }}
       />
       <FormItem>
         <FormLabel>Event Dates</FormLabel>
