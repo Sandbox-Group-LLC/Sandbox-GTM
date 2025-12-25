@@ -66,11 +66,12 @@ const customFieldFormSchema = z.object({
   displayOrder: z.coerce.number().int().min(0).default(0),
   isActive: z.boolean().default(true),
   attendeeOnly: z.boolean().default(false),
+  isGlobal: z.boolean().default(false),
 });
 
 type CustomFieldFormData = z.infer<typeof customFieldFormSchema>;
 
-type ToggleState = { required: boolean; isActive: boolean; attendeeOnly: boolean };
+type ToggleState = { required: boolean; isActive: boolean; attendeeOnly: boolean; isGlobal: boolean };
 
 interface ToggleSectionProps {
   toggles: ToggleState;
@@ -110,6 +111,18 @@ const ToggleSection = memo(function ToggleSection({ toggles, onToggleChange }: T
           data-testid="switch-field-attendee-only"
         />
       </div>
+      <div className="flex items-center justify-between p-3 border rounded-md">
+        <div>
+          <Label htmlFor="global-checkbox" className="cursor-pointer">Global Property</Label>
+          <p className="text-sm text-muted-foreground">Automatically included in all events</p>
+        </div>
+        <Checkbox
+          id="global-checkbox"
+          checked={toggles.isGlobal}
+          onCheckedChange={(checked) => onToggleChange('isGlobal', checked === true)}
+          data-testid="switch-field-global"
+        />
+      </div>
     </div>
   );
 });
@@ -129,7 +142,7 @@ export default function CustomFields() {
   const [optionsText, setOptionsText] = useState("");
   
   // Local state for toggles and field type to avoid form.watch issues
-  const [toggles, setToggles] = useState<ToggleState>({ required: false, isActive: true, attendeeOnly: false });
+  const [toggles, setToggles] = useState<ToggleState>({ required: false, isActive: true, attendeeOnly: false, isGlobal: false });
   const [selectedFieldType, setSelectedFieldType] = useState<string>("text");
   
   const handleToggleChange = useCallback((key: keyof ToggleState, value: boolean) => {
@@ -151,6 +164,7 @@ export default function CustomFields() {
       displayOrder: 0,
       isActive: true,
       attendeeOnly: false,
+      isGlobal: false,
     },
   });
 
@@ -228,11 +242,13 @@ export default function CustomFields() {
       displayOrder: field.displayOrder ?? 0,
       isActive: field.isActive ?? true,
       attendeeOnly: field.attendeeOnly ?? false,
+      isGlobal: field.isGlobal ?? false,
     });
     setToggles({
       required: field.required ?? false,
       isActive: field.isActive ?? true,
       attendeeOnly: field.attendeeOnly ?? false,
+      isGlobal: field.isGlobal ?? false,
     });
     setSelectedFieldType(field.fieldType);
     setOptionsText((field.options ?? []).join("\n"));
@@ -265,7 +281,7 @@ export default function CustomFields() {
       setEditingField(null);
       form.reset();
       setOptionsText("");
-      setToggles({ required: false, isActive: true, attendeeOnly: false });
+      setToggles({ required: false, isActive: true, attendeeOnly: false, isGlobal: false });
       setSelectedFieldType("text");
     }
     setIsDialogOpen(open);
@@ -297,6 +313,17 @@ export default function CustomFields() {
     {
       key: "displayOrder",
       header: "Order",
+    },
+    {
+      key: "isGlobal",
+      header: "Scope",
+      cell: (field: CustomField) => (
+        field.isGlobal ? (
+          <Badge variant="default" className="text-xs">Global</Badge>
+        ) : (
+          <span className="text-muted-foreground text-sm">Per Event</span>
+        )
+      ),
     },
     {
       key: "isActive",

@@ -2848,12 +2848,29 @@ export class DatabaseStorage implements IStorage {
   async getActiveCustomFieldsByEventSlug(slug: string): Promise<CustomField[]> {
     const event = await this.getEventBySlug(slug);
     if (!event) return [];
-    return db.select().from(customFields)
+    
+    // Get all active custom fields for the organization
+    const allActiveFields = await db.select().from(customFields)
       .where(and(
         eq(customFields.organizationId, event.organizationId),
         eq(customFields.isActive, true)
       ))
       .orderBy(customFields.displayOrder);
+    
+    // Get the registration config to check which non-global fields are enabled
+    const regConfig = await this.getRegistrationConfig(event.organizationId, event.id);
+    const enabledCustomFieldIds = regConfig?.step1Config?.enabledCustomFieldIds;
+    
+    // If no registration config exists or enabledCustomFieldIds is not explicitly set,
+    // return ALL active fields to maintain backward compatibility
+    if (!regConfig || enabledCustomFieldIds === undefined || enabledCustomFieldIds === null) {
+      return allActiveFields;
+    }
+    
+    // Return global fields (always included) + explicitly enabled non-global fields
+    return allActiveFields.filter(field => 
+      field.isGlobal === true || enabledCustomFieldIds.includes(field.id)
+    );
   }
 
   // Content Asset operations

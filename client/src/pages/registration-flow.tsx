@@ -43,7 +43,7 @@ import {
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { titleCase } from "@/lib/utils";
-import type { Event, Package as PackageType, EmailTemplate } from "@shared/schema";
+import type { Event, Package as PackageType, EmailTemplate, CustomField } from "@shared/schema";
 
 interface MergedPackage extends PackageType {
   effectivePrice: string | null;
@@ -151,7 +151,7 @@ export default function RegistrationFlow() {
     collectActivationKey: false,
     requireActivationKey: false,
     requirePassword: true,
-    allowGoogleAuth: false,
+    enabledCustomFieldIds: [] as string[],
   });
 
   const [validationRules, setValidationRules] = useState<ValidationRule[]>([
@@ -202,6 +202,15 @@ export default function RegistrationFlow() {
   const { data: emailTemplates = [] } = useQuery<EmailTemplate[]>({
     queryKey: ["/api/email-templates"],
   });
+
+  const { data: customFields = [] } = useQuery<CustomField[]>({
+    queryKey: ["/api/custom-fields"],
+  });
+
+  // Filter to get only non-global, active custom fields that can be enabled per event
+  const nonGlobalCustomFields = customFields.filter(f => !f.isGlobal && f.isActive);
+  // Global fields that are always included
+  const globalCustomFields = customFields.filter(f => f.isGlobal && f.isActive);
 
   const upsertEventPackageMutation = useMutation({
     mutationFn: async (data: { packageId: string; priceOverride?: string | null; featuresOverride?: string[] | null; isEnabled?: boolean }) => {
@@ -280,7 +289,7 @@ export default function RegistrationFlow() {
         collectActivationKey: false,
         requireActivationKey: false,
         requirePassword: true,
-        allowGoogleAuth: false,
+        enabledCustomFieldIds: [],
       });
       setValidationRules([
         { id: "1", field: "utm_source", operator: "equals", value: "" },
@@ -509,6 +518,42 @@ export default function RegistrationFlow() {
                 </div>
               </div>
             </div>
+
+            {(globalCustomFields.length > 0 || nonGlobalCustomFields.length > 0) && (
+              <div>
+                <h3 className="text-lg font-medium mb-4">Custom Properties</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+                  {globalCustomFields.map((field) => (
+                    <div key={field.id} className="flex items-center justify-between p-3 border rounded-md bg-muted/30">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="default" className="text-xs">Global</Badge>
+                        <Label className="text-muted-foreground">{field.label}</Label>
+                      </div>
+                      <span className="text-xs text-muted-foreground">Always included</span>
+                    </div>
+                  ))}
+                  {nonGlobalCustomFields.map((field) => (
+                    <div key={field.id} className="flex items-center justify-between p-3 border rounded-md">
+                      <Label htmlFor={`custom-field-${field.id}`} className="cursor-pointer">{field.label}</Label>
+                      <Switch
+                        id={`custom-field-${field.id}`}
+                        checked={step1Config.enabledCustomFieldIds.includes(field.id)}
+                        onCheckedChange={(checked) => {
+                          const newIds = checked
+                            ? [...step1Config.enabledCustomFieldIds, field.id]
+                            : step1Config.enabledCustomFieldIds.filter(id => id !== field.id);
+                          setStep1Config({ ...step1Config, enabledCustomFieldIds: newIds });
+                        }}
+                        data-testid={`switch-custom-field-${field.id}`}
+                      />
+                    </div>
+                  ))}
+                </div>
+                {nonGlobalCustomFields.length === 0 && globalCustomFields.length > 0 && (
+                  <p className="text-sm text-muted-foreground mt-3">All active custom properties are global and will be included automatically.</p>
+                )}
+              </div>
+            )}
           </div>
         );
 
