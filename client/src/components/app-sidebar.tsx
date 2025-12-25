@@ -771,11 +771,11 @@ export function AppSidebar() {
           </div>
         </div>
         <SidebarMenu>
-          <Collapsible defaultOpen={location === "/my-organization" || location === "/team-members"} className="group/collapsible">
+          <Collapsible defaultOpen={location === "/my-organization" || location === "/team-members" || location === "/brand-kit"} className="group/collapsible">
             <SidebarMenuItem>
               <CollapsibleTrigger asChild>
                 <SidebarMenuButton
-                  isActive={location === "/my-organization" || location === "/team-members"}
+                  isActive={location === "/my-organization" || location === "/team-members" || location === "/brand-kit"}
                   data-testid="nav-my-organization"
                 >
                   <Building2 className="h-4 w-4" />
@@ -804,6 +804,17 @@ export function AppSidebar() {
                     >
                       <Link href="/team-members">
                         <span>Team Members</span>
+                      </Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton
+                      asChild
+                      isActive={location === "/brand-kit"}
+                      data-testid="nav-brand-kit"
+                    >
+                      <Link href="/brand-kit">
+                        <span>Brand Kit</span>
                       </Link>
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>
