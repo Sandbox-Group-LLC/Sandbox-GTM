@@ -193,17 +193,15 @@ export default function RunOfShow() {
           return false;
         }
 
-        // Include all deliverables that have a valid target date within the planning window
-        // The planning window starts from planningStartDate (or event creation/start) through event end
+        // Include all deliverables that have a valid target date
+        // The timeline spans all phases from pre-planning through post-event
         if (event.startDate) {
-          const planningStart = event.planningStartDate 
-            ? parseISO(event.planningStartDate) 
-            : (event.createdAt ? new Date(event.createdAt) : addDays(parseISO(event.startDate), -90));
           const eventEnd = event.endDate ? parseISO(event.endDate) : parseISO(event.startDate);
-          // Extend window 30 days after event end for post-program deliverables
+          // Only filter out items that are more than 30 days after event end
           const windowEnd = addDays(eventEnd, 30);
-
-          if (isWithinInterval(targetDate, { start: planningStart, end: windowEnd })) {
+          
+          // Include if the target date is before or at the post-event cutoff
+          if (targetDate <= windowEnd) {
             return true;
           }
         }
