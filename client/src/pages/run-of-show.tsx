@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -294,12 +295,25 @@ function MonthlyCalendar({
                     <DeliverablePill key={item.id} item={item} />
                   ))}
                   {remainingCount > 0 && (
-                    <div 
-                      className="text-xs text-muted-foreground px-1"
-                      data-testid={`text-more-${dateKey}`}
-                    >
-                      +{remainingCount} more
-                    </div>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div 
+                          className="text-xs text-muted-foreground px-1 cursor-pointer hover:text-foreground"
+                          data-testid={`text-more-${dateKey}`}
+                        >
+                          +{remainingCount} more
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-xs">
+                        <div className="space-y-1">
+                          {dayItems.slice(MAX_VISIBLE_ITEMS).map((item) => (
+                            <div key={item.id} className="text-xs">
+                              <span className={PHASE_DOT_COLORS[item.phase || "Pre-Program"] || "text-muted-foreground"}>●</span> {item.title}
+                            </div>
+                          ))}
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
                   )}
                 </div>
               </div>
