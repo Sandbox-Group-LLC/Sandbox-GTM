@@ -2097,7 +2097,9 @@ export const insertEventBudgetSettingsSchema = createInsertSchema(eventBudgetSet
 export const insertBudgetPaymentSchema = createInsertSchema(budgetPayments).omit({ id: true, createdAt: true });
 export const insertVendorSchema = createInsertSchema(vendors).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertMilestoneSchema = createInsertSchema(milestones).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertDeliverableSchema = createInsertSchema(deliverables).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertDeliverableSchema = createInsertSchema(deliverables).omit({ id: true, createdAt: true, updatedAt: true }).extend({
+  executionTime: z.union([z.date(), z.string().transform(s => new Date(s))]).optional().nullable(),
+});
 export const insertEmailCampaignSchema = createInsertSchema(emailCampaigns).omit({ id: true, createdAt: true, updatedAt: true }).extend({
   scheduledAt: z.union([z.date(), z.string().transform(s => new Date(s))]).optional().nullable(),
 });
