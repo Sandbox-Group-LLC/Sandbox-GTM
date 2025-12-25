@@ -83,6 +83,7 @@ const deliverableFormSchema = z.object({
   description: z.string().optional(),
   workstream: z.string().optional(),
   phase: z.string().default("pre_program"),
+  executionTime: z.string().optional(),
   status: z.string().default("todo"),
   priority: z.string().default("medium"),
   assignedTo: z.string().optional(),
@@ -231,6 +232,7 @@ export default function Deliverables() {
       description: "",
       workstream: "",
       phase: "pre_program",
+      executionTime: "",
       status: "todo",
       priority: "medium",
       assignedTo: "",
@@ -297,6 +299,7 @@ export default function Deliverables() {
       description: item.description || "",
       workstream: item.workstream || "",
       phase: item.phase || "pre_program",
+      executionTime: item.executionTime ? new Date(item.executionTime).toISOString().slice(0, 16) : "",
       status: item.status || "todo",
       priority: item.priority || "medium",
       assignedTo: item.assignedTo || "",
@@ -511,6 +514,21 @@ export default function Deliverables() {
                       )}
                     />
                   </div>
+                  {form.watch("phase") === "live" && (
+                    <FormField
+                      control={form.control}
+                      name="executionTime"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Execution Time (optional)</FormLabel>
+                          <FormControl>
+                            <Input type="datetime-local" {...field} data-testid="input-execution-time" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
                   <div className="flex justify-end gap-2 pt-4">
                     <Button type="button" variant="outline" onClick={handleDialogClose}>
                       Cancel

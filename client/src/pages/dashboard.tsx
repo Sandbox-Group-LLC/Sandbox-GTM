@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -83,6 +84,8 @@ interface AnalyticsData {
     milestones: number;
     completedMilestones: number;
     projectProgress: number;
+    atRiskDeliverables: number;
+    attentionNeededDeliverables: number;
   };
   marketing: {
     totalEmails: number;
@@ -491,6 +494,24 @@ export default function Dashboard() {
                       <div className="flex items-center justify-between py-2 border-b">
                         <span className="text-sm text-muted-foreground">Deliverables Complete</span>
                         <span className="text-sm font-medium">{analytics?.project.completedDeliverables || 0} / {analytics?.project.deliverables || 0}</span>
+                      </div>
+                      <div className="flex items-center justify-between py-2 border-b">
+                        <span className="text-sm text-muted-foreground">Execution Risk</span>
+                        <div className="flex items-center gap-2">
+                          {(analytics?.project.atRiskDeliverables || 0) > 0 && (
+                            <Badge variant="destructive" className="text-xs" data-testid="badge-at-risk">
+                              {analytics?.project.atRiskDeliverables} at risk
+                            </Badge>
+                          )}
+                          {(analytics?.project.attentionNeededDeliverables || 0) > 0 && (
+                            <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-0" data-testid="badge-attention-needed">
+                              {analytics?.project.attentionNeededDeliverables} attention
+                            </Badge>
+                          )}
+                          {(analytics?.project.atRiskDeliverables || 0) === 0 && (analytics?.project.attentionNeededDeliverables || 0) === 0 && (
+                            <span className="text-sm text-green-600 dark:text-green-400" data-testid="text-on-track">On track</span>
+                          )}
+                        </div>
                       </div>
                       <div className="flex items-center justify-between py-2">
                         <span className="text-sm text-muted-foreground">Content Experiences</span>

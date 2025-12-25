@@ -10679,6 +10679,43 @@ ${urls.map(u => `  <url>
       const completedMilestones = milestones.filter(m => m.status === "completed").length;
       const projectProgress = deliverables.length > 0 ? Math.round((completedDeliverables / deliverables.length) * 100) : 0;
 
+      // Execution risk calculation
+      const now = new Date();
+      const hoursThreshold = 48;
+      
+      // At Risk: overdue items that are todo or in_progress
+      const atRiskDeliverables = deliverables.filter(d => {
+        const status = d.status || "todo";
+        if (status !== "todo" && status !== "in_progress") return false;
+        
+        let targetDate: Date | null = null;
+        if (d.executionTime) {
+          targetDate = new Date(d.executionTime);
+        } else if (d.dueDate) {
+          targetDate = new Date(d.dueDate);
+        }
+        
+        return targetDate && targetDate < now;
+      }).length;
+      
+      // Attention Needed: todo items due within 48 hours (but not overdue)
+      const attentionNeededDeliverables = deliverables.filter(d => {
+        const status = d.status || "todo";
+        if (status !== "todo") return false;
+        
+        let targetDate: Date | null = null;
+        if (d.executionTime) {
+          targetDate = new Date(d.executionTime);
+        } else if (d.dueDate) {
+          targetDate = new Date(d.dueDate);
+        }
+        
+        if (!targetDate || targetDate < now) return false; // Skip overdue items
+        
+        const hoursUntilDue = (targetDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+        return hoursUntilDue <= hoursThreshold;
+      }).length;
+
       // Marketing metrics
       const sentEmails = emailCampaigns.filter(e => e.status === "sent").length;
       const scheduledEmails = emailCampaigns.filter(e => e.status === "scheduled").length;
@@ -10737,6 +10774,8 @@ ${urls.map(u => `  <url>
           milestones: milestones.length,
           completedMilestones,
           projectProgress,
+          atRiskDeliverables,
+          attentionNeededDeliverables,
         },
         marketing: {
           totalEmails: emailCampaigns.length,

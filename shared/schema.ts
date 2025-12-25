@@ -1044,6 +1044,7 @@ export const deliverables = pgTable("deliverables", {
   description: text("description"),
   workstream: varchar("workstream", { length: 100 }),
   phase: varchar("phase", { length: 50 }).default("pre_program"),
+  executionTime: timestamp("execution_time"),
   status: varchar("status", { length: 50 }).default("todo"),
   priority: varchar("priority", { length: 20 }).default("medium"),
   assignedTo: varchar("assigned_to").references(() => users.id),
