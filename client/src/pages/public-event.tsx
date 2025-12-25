@@ -1409,8 +1409,8 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
     case "cta":
       const ctaCardStyles: React.CSSProperties = {
         ...cardStyles,
-        borderColor: theme?.buttonBorderColor || theme?.buttonColor || DEFAULT_BUTTON_COLOR,
-        borderWidth: '2px',
+        borderColor: theme?.borderColor || DEFAULT_BORDER_COLOR,
+        borderWidth: '1px',
         borderStyle: 'solid',
       };
       return wrapWithMargins(
