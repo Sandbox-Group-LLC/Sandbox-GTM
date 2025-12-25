@@ -3806,6 +3806,28 @@ function SectionEditor({ section, onSave, onCancel, onConfigChange, eventId, cus
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="navBorderColor">Border Color</Label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  id="navBorderColorPicker"
+                  value={(config.borderColor as string) || "#e5e7eb"}
+                  onChange={(e) => updateConfig("borderColor", e.target.value)}
+                  className="w-8 h-8 rounded border cursor-pointer"
+                  data-testid="input-nav-border-color-picker"
+                />
+                <Input
+                  id="navBorderColor"
+                  value={(config.borderColor as string) || ""}
+                  onChange={(e) => updateConfig("borderColor", e.target.value)}
+                  placeholder="#e5e7eb"
+                  className="flex-1"
+                  data-testid="input-nav-border-color"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">Leave empty to hide border</p>
+            </div>
             <div className="space-y-3">
               <Label>Navigation Links</Label>
               {navLinks.map((item, index) => (

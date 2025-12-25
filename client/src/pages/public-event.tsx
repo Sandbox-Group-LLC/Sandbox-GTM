@@ -2213,12 +2213,18 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
         (theme?.textColor || DEFAULT_TEXT_COLOR)
       );
       
+      const navBorderColor = config.borderColor as string;
+      const navBorderStyle: React.CSSProperties = navBorderColor ? {
+        borderBottom: `1px solid ${navBorderColor}`,
+      } : {};
+      
       return wrapWithMargins(
         <nav 
-          className={`w-full py-3 px-6 ${isSticky ? 'sticky top-0 z-50' : ''} ${navStyle === "light" ? "border-b" : ""}`}
+          className={`w-full py-3 px-6 ${isSticky ? 'sticky top-0 z-50' : ''}`}
           style={{ 
             backgroundColor: navBgColor,
-            color: navTextColor
+            color: navTextColor,
+            ...navBorderStyle
           }}
           data-testid={`section-navigation-${section.id}`}
         >
