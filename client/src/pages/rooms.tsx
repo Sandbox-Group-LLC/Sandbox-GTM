@@ -9,6 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -36,7 +43,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Plus, DoorOpen, Trash2, Pencil, Search } from "lucide-react";
 import { EventSelectField } from "@/components/event-select-field";
-import type { SessionRoom } from "@shared/schema";
+import type { SessionRoom, Event } from "@shared/schema";
 
 const roomFormSchema = z.object({
   eventId: z.string().min(1, "Event is required"),
@@ -51,9 +58,14 @@ export default function Rooms() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingRoom, setEditingRoom] = useState<SessionRoom | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterEventId, setFilterEventId] = useState<string>("all");
 
   const { data: rooms = [], isLoading } = useQuery<SessionRoom[]>({
     queryKey: ["/api/session-rooms"],
+  });
+
+  const { data: events = [] } = useQuery<Event[]>({
+    queryKey: ["/api/events"],
   });
 
   const form = useForm<RoomFormData>({
@@ -165,6 +177,9 @@ export default function Rooms() {
   };
 
   const filteredRooms = rooms.filter((room) => {
+    if (filterEventId && filterEventId !== "all" && room.eventId !== filterEventId) {
+      return false;
+    }
     const searchLower = searchQuery.toLowerCase();
     return room.name.toLowerCase().includes(searchLower);
   });
@@ -192,15 +207,30 @@ export default function Rooms() {
 
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-7xl mx-auto space-y-6">
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search rooms..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-              data-testid="input-search"
-            />
+          <div className="flex items-center gap-4 flex-wrap">
+            <Select value={filterEventId} onValueChange={setFilterEventId}>
+              <SelectTrigger className="w-[250px]" data-testid="select-filter-event">
+                <SelectValue placeholder="Filter by program" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Programs</SelectItem>
+                {events.map((event) => (
+                  <SelectItem key={event.id} value={event.id}>
+                    {event.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search rooms..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+                data-testid="input-search"
+              />
+            </div>
           </div>
 
           {rooms.length === 0 ? (
