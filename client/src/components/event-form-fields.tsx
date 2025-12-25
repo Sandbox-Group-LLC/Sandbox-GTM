@@ -33,6 +33,7 @@ const acquisitionMilestoneSchema = z.object({
 export const eventFormSchema = z.object({
   name: z.string().min(1, "Event name is required"),
   description: z.string().optional(),
+  planningStartDate: z.string().optional(), // When planning began for execution timeline
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().min(1, "End date is required"),
   location: z.string().optional(),
@@ -95,6 +96,28 @@ export function EventFormFields({ form, testIdPrefix = "" }: EventFormFieldsProp
                 data-testid={`input-${prefix}event-description`}
               />
             </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name="planningStartDate"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Planning Start Date</FormLabel>
+            <FormControl>
+              <Input
+                type="date"
+                placeholder="When planning begins"
+                {...field}
+                value={field.value || ""}
+                data-testid={`input-${prefix}planning-start-date`}
+              />
+            </FormControl>
+            <p className="text-xs text-muted-foreground">
+              Optional. Used for execution timeline tracking.
+            </p>
             <FormMessage />
           </FormItem>
         )}

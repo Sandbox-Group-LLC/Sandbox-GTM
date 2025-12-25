@@ -235,6 +235,7 @@ export const events = pgTable("events", {
   organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
+  planningStartDate: date("planning_start_date"), // When planning began for execution timeline
   startDate: date("start_date").notNull(),
   endDate: date("end_date").notNull(),
   location: varchar("location", { length: 255 }),

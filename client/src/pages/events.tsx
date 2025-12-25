@@ -135,6 +135,7 @@ export default function Events() {
     defaultValues: {
       name: "",
       description: "",
+      planningStartDate: "",
       startDate: "",
       endDate: "",
       location: "",
@@ -289,6 +290,7 @@ export default function Events() {
       form.reset({
         name: selectedEvent.name,
         description: selectedEvent.description || "",
+        planningStartDate: normalizeDate(selectedEvent.planningStartDate),
         startDate: normalizeDate(selectedEvent.startDate),
         endDate: normalizeDate(selectedEvent.endDate),
         location: selectedEvent.location || "",

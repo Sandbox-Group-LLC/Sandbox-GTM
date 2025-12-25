@@ -168,10 +168,8 @@ export default function RunOfShow() {
   }, [assignees]);
 
   // Filter and enrich deliverables for Run of Show
+  // Now includes ALL phases (Pre-Program, Program-Live, Post-Program) for complete execution timeline
   const runOfShowItems = useMemo(() => {
-    const now = new Date();
-    const daysBeforeEvent = 7; // Configurable: include items due within X days of event start
-
     return deliverables
       .filter((d) => {
         // Apply event filter
@@ -182,11 +180,6 @@ export default function RunOfShow() {
         const event = eventsMap[d.eventId];
         if (!event) return false;
 
-        // Include if phase is Program-Live
-        if (d.phase === "live") {
-          return true;
-        }
-
         // Get target date - prefer executionTime, then dueDate
         let targetDate: Date | null = null;
         if (d.executionTime) {
@@ -195,13 +188,22 @@ export default function RunOfShow() {
           targetDate = parseISO(d.dueDate);
         }
 
-        // Include if target date is within X days of event window
-        if (targetDate && event.startDate) {
-          const eventStart = parseISO(event.startDate);
-          const windowStart = addDays(eventStart, -daysBeforeEvent);
-          const windowEnd = addDays(eventStart, 7); // Include a week after start too
+        // Require a target date for inclusion in the execution timeline
+        if (!targetDate) {
+          return false;
+        }
 
-          if (isWithinInterval(targetDate, { start: windowStart, end: windowEnd })) {
+        // Include all deliverables that have a valid target date within the planning window
+        // The planning window starts from planningStartDate (or event creation/start) through event end
+        if (event.startDate) {
+          const planningStart = event.planningStartDate 
+            ? parseISO(event.planningStartDate) 
+            : (event.createdAt ? new Date(event.createdAt) : addDays(parseISO(event.startDate), -90));
+          const eventEnd = event.endDate ? parseISO(event.endDate) : parseISO(event.startDate);
+          // Extend window 30 days after event end for post-program deliverables
+          const windowEnd = addDays(eventEnd, 30);
+
+          if (isWithinInterval(targetDate, { start: planningStart, end: windowEnd })) {
             return true;
           }
         }
