@@ -7671,7 +7671,14 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId, req.session);
-      const data = insertDeliverableSchema.parse({ ...req.body, organizationId });
+      
+      // Convert executionTime string to Date if provided
+      const requestData = { ...req.body };
+      if (requestData.executionTime) {
+        requestData.executionTime = new Date(requestData.executionTime);
+      }
+      
+      const data = insertDeliverableSchema.parse({ ...requestData, organizationId });
       const deliverable = await storage.createDeliverable(data);
       res.status(201).json(deliverable);
     } catch (error) {
@@ -7684,7 +7691,14 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId, req.session);
-      const deliverable = await storage.updateDeliverable(organizationId, req.params.id, req.body);
+      
+      // Convert executionTime string to Date if provided
+      const updateData = { ...req.body };
+      if (updateData.executionTime !== undefined) {
+        updateData.executionTime = updateData.executionTime ? new Date(updateData.executionTime) : null;
+      }
+      
+      const deliverable = await storage.updateDeliverable(organizationId, req.params.id, updateData);
       if (!deliverable) {
         return res.status(404).json({ message: "Deliverable not found" });
       }
