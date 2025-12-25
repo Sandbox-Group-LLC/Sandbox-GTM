@@ -76,6 +76,7 @@ import MomentLauncher from "@/pages/moment-launcher";
 import PortalLiveMoments from "@/pages/portal-live-moments";
 import PublicMoment from "@/pages/public-moment";
 import PortalMoment from "@/pages/portal-moment";
+import BrandKit from "@/pages/brand-kit";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const sidebarStyle = {
@@ -218,6 +219,7 @@ function Router() {
         <Route path="/social" component={Social} />
         <Route path="/integrations" component={Integrations} />
         <Route path="/settings" component={Settings} />
+        <Route path="/brand-kit" component={BrandKit} />
         <Route path="/my-organization" component={MyOrganization} />
         <Route path="/team-members" component={TeamMembers} />
         <Route path="/admin/organizations" component={AdminOrganizations} />

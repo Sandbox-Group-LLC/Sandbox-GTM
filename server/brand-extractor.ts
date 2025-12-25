@@ -210,7 +210,7 @@ Suggest the best brand color palette based on these colors.`
       textColor: palette.textColor,
     };
   } catch (error) {
-    logError("Error suggesting color palette with AI:", error);
+    logError("Error suggesting color palette with AI:", error instanceof Error ? error.message : String(error));
     return undefined;
   }
 }
@@ -236,12 +236,12 @@ export async function extractBrandFromUrl(url: string): Promise<ExtractedBrand> 
     const rgbColors = extractRgbColors(html);
     
     const allColors = new Map<string, number>();
-    for (const [color, freq] of hexColors) {
+    Array.from(hexColors.entries()).forEach(([color, freq]) => {
       allColors.set(color, (allColors.get(color) || 0) + freq);
-    }
-    for (const [color, freq] of rgbColors) {
+    });
+    Array.from(rgbColors.entries()).forEach(([color, freq]) => {
       allColors.set(color, (allColors.get(color) || 0) + freq);
-    }
+    });
     
     const colors = filterUsefulColors(allColors);
     const fonts = extractFonts(html);
@@ -258,7 +258,7 @@ export async function extractBrandFromUrl(url: string): Promise<ExtractedBrand> 
       suggestedPalette,
     };
   } catch (error) {
-    logError("Error extracting brand from URL:", error);
+    logError("Error extracting brand from URL:", error instanceof Error ? error.message : String(error));
     throw error;
   }
 }
