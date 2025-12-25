@@ -3112,6 +3112,171 @@ export async function registerRoutes(
     }
   });
 
+  // Brand Kit routes
+  app.get('/api/brand-kits', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const brandKits = await storage.getBrandKits(organizationId);
+      res.json(brandKits);
+    } catch (error) {
+      logError("Error fetching brand kits:", error);
+      res.status(500).json({ message: "Failed to fetch brand kits" });
+    }
+  });
+
+  app.get('/api/brand-kits/default', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const brandKit = await storage.getDefaultBrandKit(organizationId);
+      if (!brandKit) {
+        return res.status(404).json({ message: "No default brand kit found" });
+      }
+      res.json(brandKit);
+    } catch (error) {
+      logError("Error fetching default brand kit:", error);
+      res.status(500).json({ message: "Failed to fetch default brand kit" });
+    }
+  });
+
+  app.get('/api/brand-kits/:id', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { id } = req.params;
+      const brandKit = await storage.getBrandKit(id, organizationId);
+      if (!brandKit) {
+        return res.status(404).json({ message: "Brand kit not found" });
+      }
+      res.json(brandKit);
+    } catch (error) {
+      logError("Error fetching brand kit:", error);
+      res.status(500).json({ message: "Failed to fetch brand kit" });
+    }
+  });
+
+  app.post('/api/brand-kits', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { name, primaryColor, secondaryColor, accentColor, backgroundColor, textColor, fonts, logoUrl, isDefault } = req.body;
+      
+      if (!name) {
+        return res.status(400).json({ message: "Name is required" });
+      }
+      
+      // If setting as default, unset any existing default
+      if (isDefault) {
+        const existingDefault = await storage.getDefaultBrandKit(organizationId);
+        if (existingDefault) {
+          await storage.updateBrandKit(existingDefault.id, organizationId, { isDefault: false });
+        }
+      }
+      
+      const brandKit = await storage.createBrandKit({
+        organizationId,
+        name,
+        primaryColor: primaryColor || null,
+        secondaryColor: secondaryColor || null,
+        accentColor: accentColor || null,
+        backgroundColor: backgroundColor || null,
+        textColor: textColor || null,
+        fonts: fonts || [],
+        logoUrl: logoUrl || null,
+        isDefault: isDefault || false,
+      });
+      
+      res.status(201).json(brandKit);
+    } catch (error) {
+      logError("Error creating brand kit:", error);
+      res.status(500).json({ message: "Failed to create brand kit" });
+    }
+  });
+
+  app.patch('/api/brand-kits/:id', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { id } = req.params;
+      const { name, primaryColor, secondaryColor, accentColor, backgroundColor, textColor, fonts, logoUrl, isDefault } = req.body;
+      
+      const existingKit = await storage.getBrandKit(id, organizationId);
+      if (!existingKit) {
+        return res.status(404).json({ message: "Brand kit not found" });
+      }
+      
+      // If setting as default, unset any existing default
+      if (isDefault && !existingKit.isDefault) {
+        const existingDefault = await storage.getDefaultBrandKit(organizationId);
+        if (existingDefault && existingDefault.id !== id) {
+          await storage.updateBrandKit(existingDefault.id, organizationId, { isDefault: false });
+        }
+      }
+      
+      const updates: any = {};
+      if (name !== undefined) updates.name = name;
+      if (primaryColor !== undefined) updates.primaryColor = primaryColor;
+      if (secondaryColor !== undefined) updates.secondaryColor = secondaryColor;
+      if (accentColor !== undefined) updates.accentColor = accentColor;
+      if (backgroundColor !== undefined) updates.backgroundColor = backgroundColor;
+      if (textColor !== undefined) updates.textColor = textColor;
+      if (fonts !== undefined) updates.fonts = fonts;
+      if (logoUrl !== undefined) updates.logoUrl = logoUrl;
+      if (isDefault !== undefined) updates.isDefault = isDefault;
+      
+      const updatedKit = await storage.updateBrandKit(id, organizationId, updates);
+      res.json(updatedKit);
+    } catch (error) {
+      logError("Error updating brand kit:", error);
+      res.status(500).json({ message: "Failed to update brand kit" });
+    }
+  });
+
+  app.delete('/api/brand-kits/:id', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { id } = req.params;
+      
+      const existingKit = await storage.getBrandKit(id, organizationId);
+      if (!existingKit) {
+        return res.status(404).json({ message: "Brand kit not found" });
+      }
+      
+      await storage.deleteBrandKit(id, organizationId);
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting brand kit:", error);
+      res.status(500).json({ message: "Failed to delete brand kit" });
+    }
+  });
+
+  app.post('/api/brand-kits/extract', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const { url } = req.body;
+      
+      if (!url) {
+        return res.status(400).json({ message: "URL is required" });
+      }
+      
+      // Validate URL format
+      try {
+        new URL(url);
+      } catch {
+        return res.status(400).json({ message: "Invalid URL format" });
+      }
+      
+      const { extractBrandFromUrl } = await import('./brand-extractor');
+      const extractedBrand = await extractBrandFromUrl(url);
+      
+      res.json(extractedBrand);
+    } catch (error) {
+      logError("Error extracting brand from URL:", error);
+      res.status(500).json({ message: "Failed to extract brand from URL" });
+    }
+  });
+
   // Onboarding routes
   app.get('/api/onboarding/status', isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {

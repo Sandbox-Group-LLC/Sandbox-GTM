@@ -207,10 +207,13 @@ import {
   type InsertTeamInvitation,
   customFonts,
   customFontVariants,
+  brandKits,
   type CustomFont,
   type InsertCustomFont,
   type CustomFontVariant,
   type InsertCustomFontVariant,
+  type BrandKit,
+  type InsertBrandKit,
   type MarketingLead,
   type InsertMarketingLead,
   type MarketingActivationLink,
@@ -754,6 +757,14 @@ export interface IStorage {
   getCustomFontVariants(customFontId: string): Promise<CustomFontVariant[]>;
   createCustomFontVariant(variant: InsertCustomFontVariant): Promise<CustomFontVariant>;
   deleteCustomFontVariant(id: string): Promise<void>;
+
+  // Brand Kit operations
+  getBrandKits(organizationId: string): Promise<BrandKit[]>;
+  getBrandKit(id: string, organizationId: string): Promise<BrandKit | undefined>;
+  createBrandKit(brandKit: InsertBrandKit): Promise<BrandKit>;
+  updateBrandKit(id: string, organizationId: string, updates: Partial<InsertBrandKit>): Promise<BrandKit | undefined>;
+  deleteBrandKit(id: string, organizationId: string): Promise<void>;
+  getDefaultBrandKit(organizationId: string): Promise<BrandKit | undefined>;
 
   // Attendee Saved Sessions operations (personal schedule)
   getAttendeeSavedSessions(attendeeId: string): Promise<AttendeeSavedSession[]>;
@@ -4135,6 +4146,54 @@ export class DatabaseStorage implements IStorage {
 
   async deleteCustomFontVariant(id: string): Promise<void> {
     await db.delete(customFontVariants).where(eq(customFontVariants.id, id));
+  }
+
+  // Brand Kit operations
+  async getBrandKits(organizationId: string): Promise<BrandKit[]> {
+    return db.select().from(brandKits)
+      .where(eq(brandKits.organizationId, organizationId))
+      .orderBy(desc(brandKits.createdAt));
+  }
+
+  async getBrandKit(id: string, organizationId: string): Promise<BrandKit | undefined> {
+    const [kit] = await db.select().from(brandKits)
+      .where(and(
+        eq(brandKits.id, id),
+        eq(brandKits.organizationId, organizationId)
+      ));
+    return kit;
+  }
+
+  async createBrandKit(brandKit: InsertBrandKit): Promise<BrandKit> {
+    const [newKit] = await db.insert(brandKits).values(brandKit).returning();
+    return newKit;
+  }
+
+  async updateBrandKit(id: string, organizationId: string, updates: Partial<InsertBrandKit>): Promise<BrandKit | undefined> {
+    const [updated] = await db.update(brandKits)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(
+        eq(brandKits.id, id),
+        eq(brandKits.organizationId, organizationId)
+      ))
+      .returning();
+    return updated;
+  }
+
+  async deleteBrandKit(id: string, organizationId: string): Promise<void> {
+    await db.delete(brandKits).where(and(
+      eq(brandKits.id, id),
+      eq(brandKits.organizationId, organizationId)
+    ));
+  }
+
+  async getDefaultBrandKit(organizationId: string): Promise<BrandKit | undefined> {
+    const [kit] = await db.select().from(brandKits)
+      .where(and(
+        eq(brandKits.organizationId, organizationId),
+        eq(brandKits.isDefault, true)
+      ));
+    return kit;
   }
 
   // Marketing Lead operations
