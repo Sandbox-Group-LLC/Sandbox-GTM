@@ -9950,6 +9950,17 @@ ${urls.map(u => `  <url>
         return res.status(403).json({ message: "Access denied" });
       }
       
+      // If a sessionId is provided, validate that the session belongs to this event
+      if (req.body.sessionId) {
+        const session = await storage.getSession(event.organizationId, req.body.sessionId);
+        if (!session) {
+          return res.status(400).json({ message: "Session not found" });
+        }
+        if (session.eventId !== eventId) {
+          return res.status(400).json({ message: "Session does not belong to this event" });
+        }
+      }
+      
       const data = insertMomentSchema.parse({
         ...req.body,
         organizationId: event.organizationId,
@@ -10125,6 +10136,17 @@ ${urls.map(u => `  <url>
       const event = await storage.getEvent(orgId, eventId);
       if (!event) {
         return res.status(404).json({ message: "Event not found" });
+      }
+      
+      // If a sessionId is provided, validate that the session belongs to this event
+      if (req.body.sessionId) {
+        const session = await storage.getSession(orgId, req.body.sessionId);
+        if (!session) {
+          return res.status(400).json({ message: "Session not found" });
+        }
+        if (session.eventId !== eventId) {
+          return res.status(400).json({ message: "Session does not belong to this event" });
+        }
       }
       
       const data = insertMomentSchema.parse({
