@@ -98,7 +98,7 @@ import {
   Radio,
 } from "lucide-react";
 import { format } from "date-fns";
-import type { Event, EventPage, EventPageTheme, EventSession, Speaker, EventSponsor, CustomFont } from "@shared/schema";
+import type { Event, EventPage, EventPageTheme, EventSession, Speaker, EventSponsor, CustomFont, BrandKit } from "@shared/schema";
 import { MergeTagPicker } from "@/components/merge-tag-picker";
 import { SectionRenderer, GoogleFontsLoader, getThemeStyles, scopeCustomCss, sanitizeCustomCss } from "@/pages/public-event";
 import { EventLocaleProvider } from "@/hooks/use-event-locale";
@@ -5377,6 +5377,41 @@ function StylesEditor({ theme, onUpdateTheme, isPending, seo, onUpdateSeo, custo
   const [cssHasChanges, setCssHasChanges] = useState(false);
   const { toast } = useToast();
   
+  const { data: brandKits = [] } = useQuery<BrandKit[]>({
+    queryKey: ["/api/brand-kits"],
+  });
+  
+  const handleApplyBrandKit = (brandKit: BrandKit) => {
+    const themeUpdates: Partial<EventPageTheme> = {};
+    
+    if (brandKit.primaryColor) {
+      themeUpdates.primaryColor = brandKit.primaryColor;
+    }
+    if (brandKit.secondaryColor) {
+      themeUpdates.secondaryColor = brandKit.secondaryColor;
+    }
+    if (brandKit.textColor) {
+      themeUpdates.textColor = brandKit.textColor;
+    }
+    if (brandKit.backgroundColor) {
+      themeUpdates.backgroundColor = brandKit.backgroundColor;
+    }
+    if (brandKit.fontFamily) {
+      themeUpdates.bodyFont = brandKit.fontFamily;
+    }
+    if (brandKit.headingFontFamily) {
+      themeUpdates.headingFont = brandKit.headingFontFamily;
+    }
+    
+    if (Object.keys(themeUpdates).length === 0) {
+      toast({ title: "No styles to apply", description: "This brand kit doesn't have any color or font settings configured.", variant: "destructive" });
+      return;
+    }
+    
+    onUpdateTheme(themeUpdates);
+    toast({ title: "Brand kit applied", description: `Colors and fonts from "${brandKit.name}" have been applied to the theme.` });
+  };
+  
   // Sync local CSS when theme changes from external source (e.g., template applied)
   useEffect(() => {
     setLocalCss(theme.customCss || "");
@@ -5450,6 +5485,49 @@ function StylesEditor({ theme, onUpdateTheme, isPending, seo, onUpdateSeo, custo
             <Copy className="h-4 w-4 mr-2" />
             Inherit Styles
           </Button>
+        </div>
+      )}
+      {brandKits.length > 0 && (
+        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md border">
+          <div>
+            <p className="text-sm font-medium">Apply Brand Kit</p>
+            <p className="text-xs text-muted-foreground">Apply colors and fonts from your brand kit</p>
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="outline" 
+                size="sm"
+                disabled={isPending}
+                data-testid="button-apply-brand-kit"
+              >
+                <Palette className="h-4 w-4 mr-2" />
+                Apply Brand Kit
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {brandKits.map((kit) => (
+                <DropdownMenuItem 
+                  key={kit.id} 
+                  onClick={() => handleApplyBrandKit(kit)}
+                  data-testid={`dropdown-brand-kit-${kit.id}`}
+                >
+                  <div className="flex items-center gap-2">
+                    {kit.primaryColor && (
+                      <div 
+                        className="w-4 h-4 rounded-full border" 
+                        style={{ backgroundColor: kit.primaryColor }}
+                      />
+                    )}
+                    <span>{kit.name}</span>
+                    {kit.isDefault && (
+                      <Badge variant="secondary" className="text-xs">Default</Badge>
+                    )}
+                  </div>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       )}
       <div className="space-y-4">

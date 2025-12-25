@@ -44,7 +44,13 @@ import { Switch } from "@/components/ui/switch";
 import { Plus, Mail, Send, Clock, CheckCircle, FileText, Copy, Trash2, X, Type, Palette } from "lucide-react";
 import { EventSelectField } from "@/components/event-select-field";
 import { MergeTagPicker } from "@/components/merge-tag-picker";
-import type { EmailCampaign, EmailTemplate, Event } from "@shared/schema";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import type { EmailCampaign, EmailTemplate, Event, BrandKit } from "@shared/schema";
 
 const emailStylesSchema = z.object({
   alignment: z.enum(["left", "center", "right"]).optional(),
@@ -172,6 +178,10 @@ export default function Emails() {
 
   const { data: events = [] } = useQuery<Event[]>({
     queryKey: ["/api/events"],
+  });
+
+  const { data: brandKits = [] } = useQuery<BrandKit[]>({
+    queryKey: ["/api/brand-kits"],
   });
 
   const eventMap = new Map(events.map((e) => [e.id, e.name]));
@@ -776,6 +786,48 @@ export default function Emails() {
                         </AccordionTrigger>
                         <AccordionContent>
                           <div className="space-y-4 pt-2">
+                            {brandKits.length > 0 && (
+                              <div className="flex items-center justify-between pb-2 border-b">
+                                <span className="text-sm text-muted-foreground">Quick apply brand styling</span>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" size="sm" data-testid="dropdown-campaign-apply-brand-kit">
+                                      <Palette className="h-4 w-4 mr-2" />
+                                      Apply Brand Kit
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    {brandKits.map((kit) => (
+                                      <DropdownMenuItem
+                                        key={kit.id}
+                                        data-testid={`dropdown-item-campaign-brand-kit-${kit.id}`}
+                                        onClick={() => {
+                                          campaignForm.setValue("styles.headingFont", kit.headingFontFamily || "");
+                                          campaignForm.setValue("styles.headingColor", kit.textColor || "");
+                                          campaignForm.setValue("styles.bodyFont", kit.fontFamily || "");
+                                          campaignForm.setValue("styles.bodyColor", kit.textColor || "");
+                                          toast({
+                                            title: "Brand kit applied",
+                                            description: `Applied "${kit.name}" styling to this campaign`,
+                                          });
+                                        }}
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <div
+                                            className="h-4 w-4 rounded border"
+                                            style={{ backgroundColor: kit.primaryColor || "#6366f1" }}
+                                          />
+                                          <span>{kit.name}</span>
+                                          {kit.isDefault && (
+                                            <Badge variant="secondary" className="ml-1 text-xs">Default</Badge>
+                                          )}
+                                        </div>
+                                      </DropdownMenuItem>
+                                    ))}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                            )}
                             <div className="grid grid-cols-2 gap-4">
                               <div className="space-y-2">
                                 <Label>Text Alignment</Label>
@@ -1163,6 +1215,48 @@ export default function Emails() {
                         </AccordionTrigger>
                         <AccordionContent>
                           <div className="space-y-4 pt-2">
+                            {brandKits.length > 0 && (
+                              <div className="flex items-center justify-between pb-2 border-b">
+                                <span className="text-sm text-muted-foreground">Quick apply brand styling</span>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" size="sm" data-testid="dropdown-template-apply-brand-kit">
+                                      <Palette className="h-4 w-4 mr-2" />
+                                      Apply Brand Kit
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    {brandKits.map((kit) => (
+                                      <DropdownMenuItem
+                                        key={kit.id}
+                                        data-testid={`dropdown-item-template-brand-kit-${kit.id}`}
+                                        onClick={() => {
+                                          templateForm.setValue("styles.headingFont", kit.headingFontFamily || "");
+                                          templateForm.setValue("styles.headingColor", kit.textColor || "");
+                                          templateForm.setValue("styles.bodyFont", kit.fontFamily || "");
+                                          templateForm.setValue("styles.bodyColor", kit.textColor || "");
+                                          toast({
+                                            title: "Brand kit applied",
+                                            description: `Applied "${kit.name}" styling to this template`,
+                                          });
+                                        }}
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <div
+                                            className="h-4 w-4 rounded border"
+                                            style={{ backgroundColor: kit.primaryColor || "#6366f1" }}
+                                          />
+                                          <span>{kit.name}</span>
+                                          {kit.isDefault && (
+                                            <Badge variant="secondary" className="ml-1 text-xs">Default</Badge>
+                                          )}
+                                        </div>
+                                      </DropdownMenuItem>
+                                    ))}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                            )}
                             <div className="grid grid-cols-2 gap-4">
                               <div className="space-y-2">
                                 <Label>Text Alignment</Label>
