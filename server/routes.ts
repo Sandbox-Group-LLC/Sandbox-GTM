@@ -9386,6 +9386,31 @@ ${urls.map(u => `  <url>
     return attendee;
   };
 
+  // --- SESSION DETAILS (PUBLIC) ---
+
+  // Get a single session by ID (public - for moment pages)
+  app.get("/api/portal/:eventId/sessions/:sessionId", async (req: any, res) => {
+    try {
+      const { eventId, sessionId } = req.params;
+      
+      // Get event to find organization
+      const event = await storage.getEventById(eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      const session = await storage.getSession(event.organizationId, sessionId);
+      if (!session || session.eventId !== eventId) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+      
+      res.json(session);
+    } catch (error) {
+      logError("Error fetching session:", error);
+      res.status(500).json({ message: "Failed to fetch session" });
+    }
+  });
+
   // --- ATTENDEE SAVED SESSIONS ---
 
   // Get saved sessions for logged-in attendee (with full session data)

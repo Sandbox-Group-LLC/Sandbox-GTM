@@ -21,8 +21,11 @@ import {
   ExternalLink,
   RefreshCw,
   ArrowLeft,
+  Calendar,
+  Clock,
+  MapPin,
 } from "lucide-react";
-import type { Moment, Event } from "@shared/schema";
+import type { Moment, Event, EventSession } from "@shared/schema";
 
 const ATTENDEE_ID_KEY = "sandbox_attendee_id";
 const RESPONDED_MOMENTS_KEY = "sandbox_responded_moments";
@@ -405,14 +408,36 @@ function ResultsVisualization({ moment }: { moment: Moment & { results?: Record<
   return null;
 }
 
-function MomentDisplay({ moment, respondedMoments, onRespond, isSubmitting }: {
+function MomentDisplay({ moment, session, respondedMoments, onRespond, isSubmitting }: {
   moment: Moment & { results?: Record<string, number> };
+  session?: EventSession | null;
   respondedMoments: Set<string>;
   onRespond: (momentId: string, response: unknown) => void;
   isSubmitting: boolean;
 }) {
   const hasResponded = respondedMoments.has(moment.id);
   const showResults = moment.showResults && hasResponded;
+
+  const formatSessionTime = (startTime: string | null, endTime: string | null) => {
+    if (!startTime) return null;
+    const formatTime = (time: string) => {
+      const [hours, minutes] = time.split(':');
+      const h = parseInt(hours);
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      const hour12 = h % 12 || 12;
+      return `${hour12}:${minutes} ${ampm}`;
+    };
+    if (endTime) {
+      return `${formatTime(startTime)} - ${formatTime(endTime)}`;
+    }
+    return formatTime(startTime);
+  };
+
+  const formatSessionDate = (dateStr: string | null) => {
+    if (!dateStr) return null;
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  };
 
   const getMomentIcon = () => {
     switch (moment.type) {
@@ -482,22 +507,56 @@ function MomentDisplay({ moment, respondedMoments, onRespond, isSubmitting }: {
   };
 
   return (
-    <Card className="w-full" data-testid={`moment-card-${moment.id}`}>
-      <CardHeader className="pb-2 sm:pb-3 px-4 sm:px-6 pt-4 sm:pt-6">
-        <div className="flex items-center gap-2 flex-wrap">
-          {getMomentIcon()}
-          <Badge variant="secondary" className="text-xs">{getMomentTypeLabel()}</Badge>
-        </div>
-        <CardTitle className="text-lg sm:text-xl leading-tight">{moment.title}</CardTitle>
-        {moment.prompt && (
-          <p className="text-sm text-muted-foreground">{moment.prompt}</p>
-        )}
-      </CardHeader>
-      <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
-        {renderMomentContent()}
-        {showResults && <ResultsVisualization moment={moment} />}
-      </CardContent>
-    </Card>
+    <div className="space-y-4">
+      {session && (
+        <Card className="w-full bg-muted/50" data-testid="session-info-card">
+          <CardContent className="px-4 sm:px-6 py-3 sm:py-4">
+            <div className="space-y-2">
+              <h3 className="font-medium text-sm sm:text-base leading-tight">{session.title}</h3>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs sm:text-sm text-muted-foreground">
+                {session.sessionDate && (
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span>{formatSessionDate(session.sessionDate)}</span>
+                  </div>
+                )}
+                {session.startTime && (
+                  <div className="flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span>{formatSessionTime(session.startTime, session.endTime)}</span>
+                  </div>
+                )}
+                {session.room && (
+                  <div className="flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span>{session.room}</span>
+                  </div>
+                )}
+              </div>
+              {session.track && (
+                <Badge variant="outline" className="text-xs">{session.track}</Badge>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      <Card className="w-full" data-testid={`moment-card-${moment.id}`}>
+        <CardHeader className="pb-2 sm:pb-3 px-4 sm:px-6 pt-4 sm:pt-6">
+          <div className="flex items-center gap-2 flex-wrap">
+            {getMomentIcon()}
+            <Badge variant="secondary" className="text-xs">{getMomentTypeLabel()}</Badge>
+          </div>
+          <CardTitle className="text-lg sm:text-xl leading-tight">{moment.title}</CardTitle>
+          {moment.prompt && (
+            <p className="text-sm text-muted-foreground">{moment.prompt}</p>
+          )}
+        </CardHeader>
+        <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
+          {renderMomentContent()}
+          {showResults && <ResultsVisualization moment={moment} />}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
@@ -555,6 +614,18 @@ export default function PublicMoment() {
     },
     enabled: !!event?.id && !!momentId,
     refetchInterval: 3000,
+  });
+
+  const { data: session } = useQuery<EventSession>({
+    queryKey: ["/api/portal", event?.id, "sessions", moment?.sessionId],
+    queryFn: async () => {
+      const res = await fetch(`/api/portal/${event?.id}/sessions/${moment?.sessionId}`);
+      if (!res.ok) {
+        return null;
+      }
+      return res.json();
+    },
+    enabled: !!event?.id && !!moment?.sessionId,
   });
 
   const respondMutation = useMutation({
@@ -642,6 +713,7 @@ export default function PublicMoment() {
         ) : moment ? (
           <MomentDisplay
             moment={moment}
+            session={session}
             respondedMoments={respondedMoments}
             onRespond={handleRespond}
             isSubmitting={isSubmitting}
