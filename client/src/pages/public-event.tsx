@@ -1407,8 +1407,14 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
       );
 
     case "cta":
+      const ctaCardStyles: React.CSSProperties = {
+        ...cardStyles,
+        borderColor: theme?.buttonBorderColor || theme?.buttonColor || DEFAULT_BUTTON_COLOR,
+        borderWidth: '2px',
+        borderStyle: 'solid',
+      };
       return wrapWithMargins(
-        <Card className="bg-primary/5 border-primary/20" style={cardStyles} data-testid={`section-cta-${section.id}`}>
+        <Card style={ctaCardStyles} data-testid={`section-cta-${section.id}`}>
           <CardContent className="p-8 text-center">
             <h3 className="text-2xl font-bold mb-2" style={headingStyles}>{heading || "Ready to Join?"}</h3>
             {description && (
