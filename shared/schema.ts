@@ -579,9 +579,9 @@ export const registrationConfigs = pgTable("registration_configs", {
     collectCompany?: boolean;
     collectJobTitle?: boolean;
     requirePassword?: boolean;
-    allowGoogleAuth?: boolean;
     collectActivationKey?: boolean;
     requireActivationKey?: boolean;
+    enabledCustomFieldIds?: string[]; // Non-global custom fields enabled for this event
   }>(),
   step2Config: jsonb("step2_config").$type<{
     rules?: Array<{
@@ -622,6 +622,7 @@ export const customFields = pgTable("custom_fields", {
   displayOrder: integer("display_order").default(0),
   isActive: boolean("is_active").default(true),
   attendeeOnly: boolean("attendee_only").default(false), // Fields that should only be visible in attendee-facing forms, not admin forms
+  isGlobal: boolean("is_global").default(false), // Global fields are automatically included in all events
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

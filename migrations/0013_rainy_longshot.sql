@@ -1,0 +1,1 @@
+ALTER TABLE "custom_fields" ADD COLUMN "is_global" boolean DEFAULT false;
