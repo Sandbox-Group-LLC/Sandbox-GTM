@@ -5382,6 +5382,8 @@ function StylesEditor({ theme, onUpdateTheme, isPending, seo, onUpdateSeo, custo
   });
   
   const handleApplyBrandKit = (brandKit: BrandKit) => {
+    console.log('Applying brand kit:', brandKit);
+    console.log('Button colors:', brandKit.buttonColor, brandKit.buttonTextColor, brandKit.buttonBorderColor);
     const themeUpdates: Partial<EventPageTheme> = {};
     
     if (brandKit.primaryColor) {
