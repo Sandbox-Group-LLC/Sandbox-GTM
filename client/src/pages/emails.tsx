@@ -44,7 +44,7 @@ import { Switch } from "@/components/ui/switch";
 import { Plus, Mail, Send, Clock, CheckCircle, FileText, Copy, Trash2, X, Type, Palette } from "lucide-react";
 import { EventSelectField } from "@/components/event-select-field";
 import { MergeTagPicker } from "@/components/merge-tag-picker";
-import type { EmailCampaign, EmailTemplate } from "@shared/schema";
+import type { EmailCampaign, EmailTemplate, Event } from "@shared/schema";
 
 const emailStylesSchema = z.object({
   alignment: z.enum(["left", "center", "right"]).optional(),
@@ -153,6 +153,7 @@ export default function Emails() {
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
   const [editingEmail, setEditingEmail] = useState<EmailCampaign | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<EmailTemplate | null>(null);
+  const [eventFilter, setEventFilter] = useState<string>("all");
 
   const campaignSubjectRef = useRef<HTMLInputElement>(null);
   const campaignContentRef = useRef<HTMLTextAreaElement>(null);
@@ -168,6 +169,15 @@ export default function Emails() {
     queryKey: ["/api/email-templates"],
   });
   const templates = templatesData ?? [];
+
+  const { data: events = [] } = useQuery<Event[]>({
+    queryKey: ["/api/events"],
+  });
+
+  const eventMap = new Map(events.map((e) => [e.id, e.name]));
+  const filteredEmails = eventFilter === "all" 
+    ? emails 
+    : emails.filter((email) => email.eventId === eventFilter);
 
   const campaignForm = useForm<EmailFormData>({
     resolver: zodResolver(emailFormSchema),
@@ -432,6 +442,15 @@ export default function Emails() {
       ),
     },
     {
+      key: "eventId",
+      header: "Program",
+      cell: (email: EmailCampaign) => (
+        <div className="text-muted-foreground truncate max-w-[150px]">
+          {eventMap.get(email.eventId) || "Unknown"}
+        </div>
+      ),
+    },
+    {
       key: "recipientType",
       header: "Recipients",
       cell: (email: EmailCampaign) => (
@@ -586,13 +605,27 @@ export default function Emails() {
         breadcrumbs={[{ label: "Email Campaigns" }]}
         actions={
           activeTab === "campaigns" ? (
-            <Dialog open={isCampaignDialogOpen} onOpenChange={(open) => open ? setIsCampaignDialogOpen(true) : handleCampaignDialogClose()}>
-              <DialogTrigger asChild>
-                <Button size="sm" data-testid="button-add-email">
-                  <Plus className="h-4 w-4 mr-2" />
-                  New Campaign
-                </Button>
-              </DialogTrigger>
+            <div className="flex items-center gap-2">
+              <Select value={eventFilter} onValueChange={setEventFilter}>
+                <SelectTrigger className="w-[180px]" data-testid="select-event-filter">
+                  <SelectValue placeholder="All Programs" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Programs</SelectItem>
+                  {events.map((event) => (
+                    <SelectItem key={event.id} value={event.id}>
+                      {event.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Dialog open={isCampaignDialogOpen} onOpenChange={(open) => open ? setIsCampaignDialogOpen(true) : handleCampaignDialogClose()}>
+                <DialogTrigger asChild>
+                  <Button size="sm" data-testid="button-add-email">
+                    <Plus className="h-4 w-4 mr-2" />
+                    New Campaign
+                  </Button>
+                </DialogTrigger>
               <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>{editingEmail ? "Edit Campaign" : "Create Email Campaign"}</DialogTitle>
@@ -939,7 +972,8 @@ export default function Emails() {
                   </form>
                 </Form>
               </DialogContent>
-            </Dialog>
+              </Dialog>
+            </div>
           ) : (
             <Dialog open={isTemplateDialogOpen} onOpenChange={(open) => open ? setIsTemplateDialogOpen(true) : handleTemplateDialogClose()}>
               <DialogTrigger asChild>
@@ -1372,7 +1406,7 @@ export default function Emails() {
               ) : (
                 <DataTable
                   columns={campaignColumns}
-                  data={emails}
+                  data={filteredEmails}
                   isLoading={emailsLoading}
                   emptyMessage="No email campaigns found"
                   getRowKey={(email) => email.id}
