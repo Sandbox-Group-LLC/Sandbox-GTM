@@ -144,6 +144,46 @@ export const teamInvitations = pgTable("team_invitations", {
   acceptedBy: varchar("accepted_by").references(() => users.id),
 });
 
+// Brand Kits table - stores organization-level brand styling extracted from websites
+export const brandKits = pgTable("brand_kits", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  name: varchar("name", { length: 255 }).notNull().default("Default Brand Kit"),
+  sourceUrl: varchar("source_url", { length: 500 }), // Website URL that was scraped
+  // Color palette
+  primaryColor: varchar("primary_color", { length: 20 }), // Hex color e.g. #1a73e8
+  secondaryColor: varchar("secondary_color", { length: 20 }),
+  accentColor: varchar("accent_color", { length: 20 }),
+  textColor: varchar("text_color", { length: 20 }),
+  backgroundColor: varchar("background_color", { length: 20 }),
+  // Typography
+  fontFamily: varchar("font_family", { length: 255 }), // Primary font for body text
+  headingFontFamily: varchar("heading_font_family", { length: 255 }), // Font for headings
+  // Logo
+  logoUrl: varchar("logo_url", { length: 500 }),
+  // Status
+  status: varchar("status", { length: 20 }).default("draft"), // 'draft', 'confirmed', 'active'
+  isDefault: boolean("is_default").default(false), // If this is the default brand kit for the org
+  // Raw extraction data for reference
+  extractedData: jsonb("extracted_data").$type<{
+    allColors?: string[];
+    fonts?: string[];
+    logoSuggestions?: string[];
+    rawCss?: string;
+  }>(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertBrandKitSchema = createInsertSchema(brandKits).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertBrandKit = z.infer<typeof insertBrandKitSchema>;
+export type BrandKit = typeof brandKits.$inferSelect;
+
 // Social Media Credentials table - stores encrypted OAuth credentials per organization
 export const socialMediaCredentials = pgTable("social_media_credentials", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
