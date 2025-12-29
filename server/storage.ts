@@ -381,6 +381,22 @@ export interface IStorage {
     channelBreakdown: Array<{ channel: string; visits: number }>;
   }>;
 
+  // Acquisition Funnel operations
+  getAcquisitionFunnel(organizationId: string, eventId?: string): Promise<{
+    emailFunnel: Array<{
+      stage: string;
+      count: number;
+      percentFromPrevious: number | null;
+      tooltip: string;
+    }>;
+    activationFunnel: Array<{
+      stage: string;
+      count: number;
+      percentFromPrevious: number | null;
+      tooltip: string;
+    }>;
+  }>;
+
   // Speaker operations
   getSpeakers(organizationId: string, eventId?: string): Promise<Speaker[]>;
   getSpeaker(organizationId: string, id: string): Promise<Speaker | undefined>;
@@ -1907,6 +1923,332 @@ export class DatabaseStorage implements IStorage {
       topSource,
       channelBreakdown,
     };
+  }
+
+  // Acquisition Funnel operations - Two separate internally consistent funnels
+  async getAcquisitionFunnel(organizationId: string, eventId?: string): Promise<{
+    emailFunnel: Array<{
+      stage: string;
+      count: number;
+      percentFromPrevious: number | null;
+      tooltip: string;
+    }>;
+    activationFunnel: Array<{
+      stage: string;
+      count: number;
+      percentFromPrevious: number | null;
+      tooltip: string;
+    }>;
+  }> {
+    // Two separate funnels with internal consistency:
+    // Email Channel: All stages use email address as identifier
+    // Activation Channel: All stages use activation link relationship
+    
+    const validStatuses = ['registered', 'confirmed', 'checked_in', 'pending'];
+    
+    // ============ EMAIL CHANNEL (all by email address) ============
+    // Email Exposed: DISTINCT recipientEmail from emailMessages
+    const emailExposedEmails = new Set<string>();
+    try {
+      const exposedQuery = eventId
+        ? sql`
+            SELECT DISTINCT em.recipient_email as email
+            FROM email_messages em
+            JOIN email_campaigns ec ON em.campaign_id = ec.id
+            WHERE ec.organization_id = ${organizationId}
+            AND ec.event_id = ${eventId}
+          `
+        : sql`
+            SELECT DISTINCT em.recipient_email as email
+            FROM email_messages em
+            JOIN email_campaigns ec ON em.campaign_id = ec.id
+            WHERE ec.organization_id = ${organizationId}
+          `;
+      
+      const result = await db.execute(exposedQuery);
+      for (const row of result.rows as any[]) {
+        const email = row.email?.toLowerCase();
+        if (email) emailExposedEmails.add(email);
+      }
+    } catch {
+      // Table may not exist
+    }
+    
+    // Email Engaged: Subset of Exposed who clicked (clickedAt IS NOT NULL)
+    const emailEngagedEmails = new Set<string>();
+    try {
+      const clickedQuery = eventId
+        ? sql`
+            SELECT DISTINCT em.recipient_email as email
+            FROM email_messages em
+            JOIN email_campaigns ec ON em.campaign_id = ec.id
+            WHERE ec.organization_id = ${organizationId}
+            AND ec.event_id = ${eventId}
+            AND em.clicked_at IS NOT NULL
+          `
+        : sql`
+            SELECT DISTINCT em.recipient_email as email
+            FROM email_messages em
+            JOIN email_campaigns ec ON em.campaign_id = ec.id
+            WHERE ec.organization_id = ${organizationId}
+            AND em.clicked_at IS NOT NULL
+          `;
+      
+      const result = await db.execute(clickedQuery);
+      for (const row of result.rows as any[]) {
+        const email = row.email?.toLowerCase();
+        if (email) emailEngagedEmails.add(email);
+      }
+    } catch {
+      // Table may not exist
+    }
+    
+    // ============ ACTIVATION LINK CHANNEL (all by activation link) ============
+    // Activation Exposed: DISTINCT visitorHash from activationLinkClicks
+    let activationExposedCount = 0;
+    try {
+      const activationExposedQuery = eventId
+        ? sql`
+            SELECT COUNT(DISTINCT alc.visitor_hash) as count
+            FROM activation_link_clicks alc
+            JOIN activation_links al ON alc.activation_link_id = al.id
+            WHERE al.organization_id = ${organizationId}
+            AND al.event_id = ${eventId}
+          `
+        : sql`
+            SELECT COUNT(DISTINCT alc.visitor_hash) as count
+            FROM activation_link_clicks alc
+            JOIN activation_links al ON alc.activation_link_id = al.id
+            WHERE al.organization_id = ${organizationId}
+          `;
+      
+      const result = await db.execute(activationExposedQuery);
+      activationExposedCount = parseInt((result.rows[0] as any)?.count || '0', 10);
+    } catch {
+      // Table may not exist
+    }
+    
+    // Activation Engaged: Same as Exposed (clicking = engagement for this channel)
+    const activationEngagedCount = activationExposedCount;
+    
+    // ============ FETCH ATTENDEES ============
+    let allAttendees: Attendee[] = [];
+    try {
+      const attendeesQuery = eventId
+        ? and(
+            eq(attendees.organizationId, organizationId),
+            eq(attendees.eventId, eventId),
+            inArray(attendees.registrationStatus, validStatuses)
+          )
+        : and(
+            eq(attendees.organizationId, organizationId),
+            inArray(attendees.registrationStatus, validStatuses)
+          );
+      
+      allAttendees = await db.select()
+        .from(attendees)
+        .where(attendeesQuery);
+    } catch {
+      // Table may not exist
+    }
+    
+    // Email Converted: Subset of Engaged who registered (attendees.email IN engagedEmails)
+    const emailConvertedAttendees = allAttendees.filter(a => {
+      const email = a.email?.toLowerCase();
+      return email && emailEngagedEmails.has(email);
+    });
+    
+    // Activation Converted: Attendees with activationLinkId (direct link to conversion)
+    const activationConvertedAttendees = allAttendees.filter(a => a.activationLinkId !== null);
+    
+    // ============ ICP MATCHING (QUALIFIED) ============
+    type TargetingConfig = {
+      companyTypes: string[];
+      roles: string[];
+      functions: string[];
+      accountFocus: string;
+    };
+    const defaultTargeting: TargetingConfig = {
+      companyTypes: ['open'],
+      roles: ['open'],
+      functions: ['open'],
+      accountFocus: 'open',
+    };
+    
+    const eventTargetingMap = new Map<string, TargetingConfig>();
+    try {
+      if (eventId) {
+        const eventResult = await db.select().from(events).where(eq(events.id, eventId));
+        if (eventResult[0]?.audienceTargeting) {
+          eventTargetingMap.set(eventId, eventResult[0].audienceTargeting as TargetingConfig);
+        }
+      } else {
+        const allEvents = await db.select().from(events).where(eq(events.organizationId, organizationId));
+        for (const event of allEvents) {
+          if (event.audienceTargeting) {
+            eventTargetingMap.set(event.id, event.audienceTargeting as TargetingConfig);
+          }
+        }
+      }
+    } catch {
+      // Events table query failed
+    }
+    
+    const inferRole = (jobTitle: string | null | undefined): string | null => {
+      if (!jobTitle) return null;
+      const title = jobTitle.toLowerCase();
+      if (title.includes('ceo') || title.includes('cfo') || title.includes('cto') || 
+          title.includes('chief') || title.includes('president') || title.includes('founder')) {
+        return 'executive';
+      }
+      if (title.includes('vp') || title.includes('vice president')) {
+        return 'vp';
+      }
+      if (title.includes('director')) {
+        return 'director';
+      }
+      if (title.includes('manager') || title.includes('lead') || title.includes('head')) {
+        return 'manager';
+      }
+      return null;
+    };
+    
+    const inferFunction = (jobTitle: string | null | undefined): string | null => {
+      if (!jobTitle) return null;
+      const title = jobTitle.toLowerCase();
+      if (title.includes('marketing') || title.includes('brand') || title.includes('growth')) {
+        return 'marketing';
+      }
+      if (title.includes('sales') || title.includes('account executive') || title.includes('business development')) {
+        return 'sales';
+      }
+      if (title.includes('product') || title.includes('pm')) {
+        return 'product';
+      }
+      if (title.includes('engineer') || title.includes('developer') || title.includes('software') || title.includes('tech')) {
+        return 'engineering';
+      }
+      if (title.includes('operations') || title.includes('ops') || title.includes('logistics')) {
+        return 'operations';
+      }
+      return null;
+    };
+    
+    const checkICPMatch = (attendee: Attendee): boolean => {
+      const targeting = eventTargetingMap.get(attendee.eventId) || defaultTargeting;
+      
+      if (targeting.companyTypes.includes('open') && 
+          targeting.roles.includes('open') && 
+          targeting.functions.includes('open')) {
+        return true;
+      }
+      
+      let matches = 0;
+      let criteria = 0;
+      
+      if (!targeting.companyTypes.includes('open')) {
+        criteria++;
+        const companyType = (attendee.customFieldValues as Record<string, unknown>)?.companyType as string | undefined;
+        if (companyType && targeting.companyTypes.includes(companyType)) {
+          matches++;
+        }
+      }
+      
+      if (!targeting.roles.includes('open')) {
+        criteria++;
+        const inferredRole = inferRole(attendee.jobTitle);
+        if (inferredRole && targeting.roles.includes(inferredRole)) {
+          matches++;
+        }
+      }
+      
+      if (!targeting.functions.includes('open')) {
+        criteria++;
+        const inferredFunction = inferFunction(attendee.jobTitle);
+        if (inferredFunction && targeting.functions.includes(inferredFunction)) {
+          matches++;
+        }
+      }
+      
+      return criteria === 0 || matches > 0;
+    };
+    
+    // Email Qualified: Subset of Converted matching ICP
+    const emailQualifiedAttendees = emailConvertedAttendees.filter(a => checkICPMatch(a));
+    // Activation Qualified: Subset of Converted matching ICP
+    const activationQualifiedAttendees = activationConvertedAttendees.filter(a => checkICPMatch(a));
+    
+    // Calculate counts
+    const emailExposedCount = emailExposedEmails.size;
+    const emailEngagedCount = emailEngagedEmails.size;
+    const emailConvertedCount = emailConvertedAttendees.length;
+    const emailQualifiedCount = emailQualifiedAttendees.length;
+    
+    const activationConvertedCount = activationConvertedAttendees.length;
+    const activationQualifiedCount = activationQualifiedAttendees.length;
+    
+    const calcPercent = (current: number, previous: number): number | null => {
+      if (previous === 0) return null;
+      return Math.round((current / previous) * 100);
+    };
+    
+    // Build Email Funnel (internally consistent: Exposed >= Engaged >= Converted >= Qualified)
+    const emailFunnel = [
+      {
+        stage: 'Exposed',
+        count: emailExposedCount,
+        percentFromPrevious: null,
+        tooltip: 'Unique email addresses that received campaign messages.',
+      },
+      {
+        stage: 'Engaged',
+        count: emailEngagedCount,
+        percentFromPrevious: calcPercent(emailEngagedCount, emailExposedCount),
+        tooltip: 'Email recipients who clicked a link in the message.',
+      },
+      {
+        stage: 'Converted',
+        count: emailConvertedCount,
+        percentFromPrevious: calcPercent(emailConvertedCount, emailEngagedCount),
+        tooltip: 'Engaged email recipients who registered for the event.',
+      },
+      {
+        stage: 'Qualified',
+        count: emailQualifiedCount,
+        percentFromPrevious: calcPercent(emailQualifiedCount, emailConvertedCount),
+        tooltip: 'Registered attendees from email who match your ICP criteria.',
+      },
+    ];
+    
+    // Build Activation Funnel (internally consistent: Exposed >= Engaged >= Converted >= Qualified)
+    const activationFunnel = [
+      {
+        stage: 'Exposed',
+        count: activationExposedCount,
+        percentFromPrevious: null,
+        tooltip: 'Unique visitors who clicked an activation link.',
+      },
+      {
+        stage: 'Engaged',
+        count: activationEngagedCount,
+        percentFromPrevious: calcPercent(activationEngagedCount, activationExposedCount),
+        tooltip: 'Clicking the activation link counts as engagement.',
+      },
+      {
+        stage: 'Converted',
+        count: activationConvertedCount,
+        percentFromPrevious: calcPercent(activationConvertedCount, activationEngagedCount),
+        tooltip: 'Visitors who registered via an activation link.',
+      },
+      {
+        stage: 'Qualified',
+        count: activationQualifiedCount,
+        percentFromPrevious: calcPercent(activationQualifiedCount, activationConvertedCount),
+        tooltip: 'Registered attendees from activation links who match your ICP criteria.',
+      },
+    ];
+    
+    return { emailFunnel, activationFunnel };
   }
 
   // Speaker operations

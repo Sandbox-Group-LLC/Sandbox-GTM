@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, Users, Target, BarChart3, Filter, Info } from "lucide-react";
+import { TrendingUp, Users, Target, BarChart3, Filter, Info, Mail, Link } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from "recharts";
@@ -18,7 +18,20 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Event } from "@shared/schema";
+
+interface FunnelStage {
+  stage: string;
+  count: number;
+  percentFromPrevious: number | null;
+  tooltip: string;
+}
+
+interface AcquisitionFunnelData {
+  emailFunnel: FunnelStage[];
+  activationFunnel: FunnelStage[];
+}
 
 interface ICPMatchMetrics {
   icpMatchRate: number;
@@ -39,8 +52,11 @@ interface AcquisitionMetrics {
   channelBreakdown: Array<{ channel: string; visits: number }>;
 }
 
+type ChannelType = "email" | "activation";
+
 export default function Acquisition() {
   const [selectedEventId, setSelectedEventId] = useState<string>("all");
+  const [selectedChannel, setSelectedChannel] = useState<ChannelType>("email");
 
   const { data: events } = useQuery<Event[]>({
     queryKey: ["/api/events"],
@@ -69,6 +85,31 @@ export default function Acquisition() {
       return res.json();
     },
   });
+
+  const { data: funnelData, isLoading: funnelLoading } = useQuery<AcquisitionFunnelData>({
+    queryKey: ["/api/analytics/acquisition-funnel", selectedEventId],
+    queryFn: async () => {
+      const url = selectedEventId && selectedEventId !== "all"
+        ? `/api/analytics/acquisition-funnel?eventId=${selectedEventId}`
+        : "/api/analytics/acquisition-funnel";
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch acquisition funnel");
+      return res.json();
+    },
+  });
+
+  const funnelColors = [
+    'hsl(var(--primary))',
+    'hsl(var(--primary) / 0.75)',
+    'hsl(var(--primary) / 0.5)',
+    'hsl(var(--primary) / 0.35)',
+  ];
+
+  const currentFunnel = selectedChannel === "email" 
+    ? funnelData?.emailFunnel 
+    : funnelData?.activationFunnel;
+  
+  const hasNoFunnelData = currentFunnel?.every(s => s.count === 0);
 
   return (
     <div className="flex flex-col h-full">
@@ -188,16 +229,109 @@ export default function Acquisition() {
 
         <div className="grid gap-6 md:grid-cols-2">
           <Card>
-            <CardHeader>
-              <CardTitle>Acquisition Funnel</CardTitle>
-              <CardDescription>Track your audience journey from awareness to registration conversion</CardDescription>
-            </CardHeader>
-            <CardContent className="h-64 flex items-center justify-center text-muted-foreground">
-              <div className="text-center">
-                <TrendingUp className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                <p>Funnel visualization coming soon</p>
-                <p className="text-sm mt-2">Connect marketing tools to track conversion stages</p>
+            <CardHeader className="pb-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <CardTitle>Acquisition Funnel</CardTitle>
+                  <CardDescription>Track your audience journey from awareness to registration</CardDescription>
+                </div>
+                <Tabs value={selectedChannel} onValueChange={(v) => setSelectedChannel(v as ChannelType)}>
+                  <TabsList>
+                    <TabsTrigger value="email" className="gap-1.5" data-testid="tab-email-channel">
+                      <Mail className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Email</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="activation" className="gap-1.5" data-testid="tab-activation-channel">
+                      <Link className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Links</span>
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
               </div>
+            </CardHeader>
+            <CardContent className="h-auto min-h-64">
+              {funnelLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-full space-y-3">
+                    <Skeleton className="h-14 w-full" />
+                    <Skeleton className="h-14 w-[85%]" />
+                    <Skeleton className="h-14 w-[65%]" />
+                    <Skeleton className="h-14 w-[50%]" />
+                  </div>
+                </div>
+              ) : hasNoFunnelData ? (
+                <div className="flex items-center justify-center py-8 text-muted-foreground">
+                  <div className="text-center">
+                    <Filter className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                    <p className="text-sm">
+                      {selectedChannel === "email" 
+                        ? "No email campaign data yet. Send campaigns to track this funnel."
+                        : "No activation link data yet. Create and share activation links to track this funnel."}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col justify-center space-y-2">
+                  {currentFunnel?.map((stage, index) => {
+                    const firstStageCount = currentFunnel[0]?.count || 1;
+                    const widthPercent = firstStageCount > 0 
+                      ? Math.max((stage.count / firstStageCount) * 100, 20) 
+                      : 100 - (index * 20);
+                    
+                    const percentDisplay = index === 0 
+                      ? null 
+                      : (stage.percentFromPrevious !== null ? `${stage.percentFromPrevious}%` : "--");
+                    
+                    return (
+                      <Tooltip key={stage.stage}>
+                        <TooltipTrigger asChild>
+                          <div 
+                            className="flex items-center gap-3 cursor-help"
+                            data-testid={`funnel-stage-${stage.stage.toLowerCase()}`}
+                          >
+                            <div 
+                              className="rounded-md flex items-center justify-between px-3 py-2.5 transition-all"
+                              style={{ 
+                                width: `${widthPercent}%`,
+                                backgroundColor: funnelColors[index] || funnelColors[3],
+                                minWidth: '120px'
+                              }}
+                            >
+                              <span className="text-sm font-medium text-primary-foreground truncate">
+                                {stage.stage}
+                              </span>
+                              <span className="text-sm font-bold text-primary-foreground ml-2">
+                                {stage.count.toLocaleString()}
+                              </span>
+                            </div>
+                            {percentDisplay && (
+                              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                {percentDisplay}
+                              </span>
+                            )}
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="max-w-[220px]">
+                          <p className="text-xs">{stage.tooltip}</p>
+                          {percentDisplay && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {percentDisplay} from previous stage
+                            </p>
+                          )}
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  })}
+                  <div className="flex items-center gap-1.5 mt-2 text-xs text-muted-foreground">
+                    <Info className="h-3 w-3" />
+                    <span>
+                      {selectedChannel === "email" 
+                        ? "Email funnel tracks recipients by email address"
+                        : "Activation funnel tracks visitors by link relationship"}
+                    </span>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 

@@ -1,0 +1,130 @@
+
+REPLIT PROMPT: Implement Sandbox-Native Acquisition Funnel Logic
+
+Context
+The Acquisition Funnel lives on the Acquisition Health dashboard. Sandbox already captures first-party GTM data (Activation Links, email engagement, program site visits, registrations, and audience qualification). The funnel should be generated entirely from existing Sandbox data — no external marketing tool integrations required.
+
+The goal is to visualize the audience journey from exposure to qualification using observed behavior.
+
+--------------------------------------------------
+1. Funnel Definition (Sandbox-Native)
+--------------------------------------------------
+
+Implement the Acquisition Funnel with the following four stages:
+
+1. Exposed
+Definition:
+Contacts who were targeted via Sandbox acquisition efforts.
+
+Data Sources:
+- Emails sent where Campaign Type = Program Acquisition
+- Activation Link impressions (if available)
+- Distinct contacts by email or authenticated user
+
+2. Engaged
+Definition:
+Contacts who showed intent.
+
+Data Sources:
+- Activation Link clicks
+- Program site visits with tracked source
+- Email link clicks
+
+3. Converted
+Definition:
+Contacts who attempted or completed registration.
+
+Data Sources:
+- Registration form started
+- Registration completed
+- Experience Package selected
+
+4. Qualified
+Definition:
+Registrants who match defined audience criteria.
+
+Data Sources:
+- Program Audience Definition (if configured)
+- Job title, company type, role, function
+- Activation Key attributes
+- Experience Package tier
+
+--------------------------------------------------
+2. Aggregation Rules
+--------------------------------------------------
+
+- Funnel is program-scoped by default
+- Support date range filtering
+- Each stage should de-duplicate by contact (email or user ID)
+- Contacts must progress sequentially (no skipping stages)
+- Counts should roll up cumulatively left → right
+
+--------------------------------------------------
+3. Visualization Requirements (MVP)
+--------------------------------------------------
+
+- Render a horizontal funnel visualization with four columns:
+  Exposed → Engaged → Converted → Qualified
+- Display:
+  - Total count per stage
+  - Percentage drop-off from previous stage
+- Update dynamically based on selected program and date range
+
+--------------------------------------------------
+4. Tooltip Copy (Required)
+--------------------------------------------------
+
+Exposed:
+Contacts who received a tracked acquisition email or activation link.
+
+Engaged:
+Contacts who clicked a tracked link or visited the program site.
+
+Converted:
+Contacts who started or completed registration.
+
+Qualified:
+Registrants who match your defined audience criteria.
+
+--------------------------------------------------
+5. Empty State Logic
+--------------------------------------------------
+
+If insufficient data exists:
+- Render funnel with zero counts
+- Display helper text:
+  “This funnel populates automatically as Sandbox tracks acquisition and registration activity.”
+
+Remove any copy referencing external marketing integrations.
+
+--------------------------------------------------
+6. UI Copy Updates
+--------------------------------------------------
+
+Replace:
+“Connect marketing tools to track conversion stages”
+
+With:
+“Automatically generated from Sandbox acquisition, engagement, and registration data.”
+
+--------------------------------------------------
+7. Data Model Notes
+--------------------------------------------------
+
+Ensure the following fields are queryable for funnel logic:
+- campaign_type
+- funnel_stage
+- campaign_role
+- activation_link_id
+- email_sent_at
+- email_clicked_at
+- page_viewed_at
+- registration_started_at
+- registration_completed_at
+- qualification_score or match flag
+
+--------------------------------------------------
+Goal
+--------------------------------------------------
+
+Bring the Acquisition Funnel to life using first-party Sandbox data, providing a trustworthy, behavior-based view of audience acquisition without relying on external marketing tools.

@@ -4247,6 +4247,20 @@ export async function registerRoutes(
     }
   });
 
+  // Acquisition funnel endpoint
+  app.get("/api/analytics/acquisition-funnel", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const eventId = req.query.eventId as string | undefined;
+      const funnel = await storage.getAcquisitionFunnel(organizationId, eventId && eventId !== "all" ? eventId : undefined);
+      res.json(funnel);
+    } catch (error) {
+      logError("Error fetching acquisition funnel:", error);
+      res.status(500).json({ message: "Failed to fetch acquisition funnel" });
+    }
+  });
+
   // Milestone status endpoint - calculates on-track/at-risk status from acquisition milestones
   app.get("/api/analytics/milestone-status", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
