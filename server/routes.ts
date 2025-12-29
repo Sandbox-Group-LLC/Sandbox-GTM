@@ -882,6 +882,9 @@ export async function registerRoutes(
       // Store the previous organization ID for audit logging
       const previousOrganizationId = req.session?.organizationId || null;
       
+      // Store the passport session data before regeneration
+      const passportData = req.session?.passport;
+      
       // Regenerate session to prevent session fixation attacks
       await new Promise<void>((resolve, reject) => {
         req.session.regenerate((err: any) => {
@@ -894,7 +897,10 @@ export async function registerRoutes(
         });
       });
       
-      // After regenerate, session is fresh - re-set the org context
+      // After regenerate, session is fresh - restore passport data and set org context
+      if (passportData) {
+        req.session.passport = passportData;
+      }
       req.session.organizationId = organizationId;
       
       // Save the session explicitly and create audit log only on success
