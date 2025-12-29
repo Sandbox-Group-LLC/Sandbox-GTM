@@ -1153,7 +1153,9 @@ export const emailTemplateLibrary = pgTable("email_template_library", {
   content: text("content").notNull(),
   headerImageUrl: text("header_image_url"),
   category: varchar("category", { length: 50 }).default("audience_acquisition"),
-  tags: text("tags").array(),
+  campaignType: varchar("campaign_type", { length: 50 }),
+  funnelStage: varchar("funnel_stage", { length: 50 }),
+  campaignRole: varchar("campaign_role", { length: 50 }),
   styles: jsonb("styles").$type<{
     alignment?: 'left' | 'center' | 'right';
     headingFont?: string;

@@ -1,0 +1,131 @@
+
+REPLIT PROMPT: Refactor Library Email Template Form for GTM Tagging
+
+Context
+Sandbox includes a cross-organization email template library. The current “Tags (comma-separated)” field is too unstructured and does not accurately support GTM automation, sequencing, attribution, or analytics.
+
+Refactor the Add Library Template form to replace free-text tags with structured GTM metadata while keeping the UI simple and intuitive.
+
+--------------------------------------------------
+1. Remove Existing Free-Text Tags Field
+--------------------------------------------------
+Remove entirely:
+Tags (comma-separated)
+e.g., welcome, onboarding, first-time
+
+This field should no longer exist in the UI or data model.
+
+--------------------------------------------------
+2. Add New Section: Campaign Classification
+--------------------------------------------------
+Place this section below “Suggested Timing (Optional)” and above “Subject Line”.
+
+Section Header:
+Campaign Classification
+
+Helper Text:
+These fields help Sandbox automate sequencing, measurement, and attribution.
+
+--------------------------------------------------
+3. Add Three Required Structured Selectors
+--------------------------------------------------
+
+A. Campaign Type (required)
+Label: Campaign Type
+Helper: What kind of campaign does this email belong to?
+Dropdown (single-select):
+- Program Acquisition
+- Attendee Communications
+- Post-Event Follow-Up
+- Sponsor Communications
+- Internal / Operations
+
+Persist as: campaign_type
+
+B. Funnel Stage (required)
+Label: Funnel Stage
+Helper: Where does this email sit in the attendee journey?
+Dropdown (single-select):
+- Awareness
+- Consideration
+- Conversion
+- Retention
+
+Persist as: funnel_stage
+
+C. Campaign Role (required)
+Label: Campaign Role
+Helper: What job does this email perform in the campaign?
+Dropdown (single-select):
+- Save the Date
+- Invitation
+- Reminder
+- Last Call
+- Abandonment
+- Confirmation
+- Follow-Up
+
+Persist as: campaign_role
+
+--------------------------------------------------
+4. Add Tag Intelligence Preview (Read-Only)
+--------------------------------------------------
+Below the selectors, render a live preview:
+
+Label:
+Sandbox will treat this email as:
+
+Dynamic value:
+{Campaign Type} → {Funnel Stage} → {Campaign Role}
+
+--------------------------------------------------
+5. Clarify Existing Fields
+--------------------------------------------------
+
+Category:
+- Keep for library browsing only
+- Do not use for automation or analytics
+
+Purpose (Optional):
+- Descriptive only
+- Not used programmatically
+- Optionally auto-fill based on selected values
+
+Suggested Timing (Optional):
+Tooltip:
+Recommended timing relative to the program or other emails. This does not control send logic.
+
+--------------------------------------------------
+6. Validation Rules
+--------------------------------------------------
+- Campaign Type, Funnel Stage, and Campaign Role are required
+- Form cannot be saved without all three
+- Existing templates without values should be marked “Needs Classification”
+
+--------------------------------------------------
+7. Data Model Changes
+--------------------------------------------------
+Replace legacy tags[] with:
+campaign_type: string
+funnel_stage: string
+campaign_role: string
+
+Fields must be queryable, filterable, and available to automation, sequencing, and analytics.
+
+--------------------------------------------------
+8. Tooltip Copy
+--------------------------------------------------
+Attach tooltip to Campaign Classification header:
+
+These fields help Sandbox understand the purpose of each email so campaigns can be automated, measured, and optimized.
+
+--------------------------------------------------
+9. Design Guidance
+--------------------------------------------------
+- Keep visual weight light
+- No modals
+- No advanced configuration
+- Defaults empty to force intentional selection
+
+Goal:
+Make email templates GTM-aware by default, eliminate ambiguous tagging, and enable future automation and analytics without increasing user complexity.

@@ -42,7 +42,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { titleCase } from "@/lib/utils";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Mail, Send, Clock, CheckCircle, FileText, Copy, Trash2, X, Type, Palette, Library, Pencil } from "lucide-react";
+import { Plus, Mail, Send, Clock, CheckCircle, FileText, Copy, Trash2, X, Type, Palette, Library, Pencil, Info } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { EventSelectField } from "@/components/event-select-field";
 import { MergeTagPicker } from "@/components/merge-tag-picker";
@@ -52,6 +52,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { EmailCampaign, EmailTemplate, Event, BrandKit, EmailTemplateLibrary } from "@shared/schema";
 
 const emailStylesSchema = z.object({
@@ -95,11 +100,38 @@ const libraryTemplateFormSchema = z.object({
   subject: z.string().min(1, "Subject is required"),
   content: z.string().min(1, "Content is required"),
   category: z.string().default("general"),
-  tags: z.array(z.string()).optional(),
+  campaignType: z.string().min(1, "Campaign type is required"),
+  funnelStage: z.string().min(1, "Funnel stage is required"),
+  campaignRole: z.string().min(1, "Campaign role is required"),
   isActive: z.boolean().default(true),
   headerImageUrl: z.string().optional(),
   styles: emailStylesSchema,
 });
+
+const CAMPAIGN_TYPE_OPTIONS = [
+  { value: "program_acquisition", label: "Program Acquisition" },
+  { value: "attendee_communications", label: "Attendee Communications" },
+  { value: "post_event_followup", label: "Post-Event Follow-Up" },
+  { value: "sponsor_communications", label: "Sponsor Communications" },
+  { value: "internal_operations", label: "Internal / Operations" },
+];
+
+const FUNNEL_STAGE_OPTIONS = [
+  { value: "awareness", label: "Awareness" },
+  { value: "consideration", label: "Consideration" },
+  { value: "conversion", label: "Conversion" },
+  { value: "retention", label: "Retention" },
+];
+
+const CAMPAIGN_ROLE_OPTIONS = [
+  { value: "save_the_date", label: "Save the Date" },
+  { value: "invitation", label: "Invitation" },
+  { value: "reminder", label: "Reminder" },
+  { value: "last_call", label: "Last Call" },
+  { value: "abandonment", label: "Abandonment" },
+  { value: "confirmation", label: "Confirmation" },
+  { value: "followup", label: "Follow-Up" },
+];
 
 const FONT_OPTIONS = [
   { value: "Inter", label: "Inter" },
@@ -178,7 +210,6 @@ export default function Emails() {
   const [isCampaignDialogOpen, setIsCampaignDialogOpen] = useState(false);
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
   const [isLibraryDialogOpen, setIsLibraryDialogOpen] = useState(false);
-  const [libraryTagsInput, setLibraryTagsInput] = useState("");
   const [editingEmail, setEditingEmail] = useState<EmailCampaign | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<EmailTemplate | null>(null);
   const [editingLibraryTemplate, setEditingLibraryTemplate] = useState<EmailTemplateLibrary | null>(null);
@@ -256,7 +287,9 @@ export default function Emails() {
       subject: "",
       content: "",
       category: "general",
-      tags: [],
+      campaignType: "",
+      funnelStage: "",
+      campaignRole: "",
       isActive: true,
       headerImageUrl: "",
       styles: {},
@@ -558,7 +591,6 @@ export default function Emails() {
 
   const handleEditLibraryTemplate = (template: EmailTemplateLibrary) => {
     setEditingLibraryTemplate(template);
-    setLibraryTagsInput((template.tags || []).join(", "));
     libraryTemplateForm.reset({
       name: template.name,
       description: template.description || "",
@@ -567,7 +599,9 @@ export default function Emails() {
       subject: template.subject,
       content: template.content,
       category: template.category || "general",
-      tags: template.tags || [],
+      campaignType: template.campaignType || "",
+      funnelStage: template.funnelStage || "",
+      campaignRole: template.campaignRole || "",
       isActive: template.isActive ?? true,
       headerImageUrl: template.headerImageUrl || "",
       styles: template.styles as any,
@@ -578,7 +612,6 @@ export default function Emails() {
   const handleLibraryDialogClose = () => {
     setIsLibraryDialogOpen(false);
     setEditingLibraryTemplate(null);
-    setLibraryTagsInput("");
     libraryTemplateForm.reset();
   };
 
@@ -1770,11 +1803,23 @@ export default function Emails() {
                         <div className="text-sm text-muted-foreground mb-3 line-clamp-1">
                           Subject: {template.subject}
                         </div>
-                        {template.tags && template.tags.length > 0 && (
+                        {(template.campaignType || template.funnelStage || template.campaignRole) && (
                           <div className="flex flex-wrap gap-1 mb-3">
-                            {template.tags.slice(0, 3).map((tag, idx) => (
-                              <Badge key={idx} variant="outline" className="text-xs">{tag}</Badge>
-                            ))}
+                            {template.campaignType && (
+                              <Badge variant="outline" className="text-xs">
+                                {CAMPAIGN_TYPE_OPTIONS.find(o => o.value === template.campaignType)?.label || template.campaignType}
+                              </Badge>
+                            )}
+                            {template.funnelStage && (
+                              <Badge variant="outline" className="text-xs">
+                                {FUNNEL_STAGE_OPTIONS.find(o => o.value === template.funnelStage)?.label || template.funnelStage}
+                              </Badge>
+                            )}
+                            {template.campaignRole && (
+                              <Badge variant="outline" className="text-xs">
+                                {CAMPAIGN_ROLE_OPTIONS.find(o => o.value === template.campaignRole)?.label || template.campaignRole}
+                              </Badge>
+                            )}
                           </div>
                         )}
                         {isSuperAdmin && (
@@ -1932,28 +1977,110 @@ export default function Emails() {
                           </FormItem>
                         )}
                       />
-                      <FormField
-                        control={libraryTemplateForm.control}
-                        name="tags"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Tags (comma-separated)</FormLabel>
-                            <FormControl>
-                              <Input 
-                                value={libraryTagsInput}
-                                onChange={(e) => setLibraryTagsInput(e.target.value)}
-                                onBlur={() => {
-                                  const tags = libraryTagsInput.split(",").map(t => t.trim()).filter(t => t);
-                                  field.onChange(tags);
-                                }}
-                                placeholder="e.g., welcome, onboarding, first-time"
-                                data-testid="input-library-template-tags"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
+                      {/* Campaign Classification Section */}
+                      <div className="space-y-4 rounded-lg border p-4">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-medium">Campaign Classification</h4>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              <p>These fields help Sandbox understand the purpose of each email so campaigns can be automated, measured, and optimized.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          These fields help Sandbox automate sequencing, measurement, and attribution.
+                        </p>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <FormField
+                            control={libraryTemplateForm.control}
+                            name="campaignType"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Campaign Type *</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger data-testid="select-library-campaign-type">
+                                      <SelectValue placeholder="Select type" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    {CAMPAIGN_TYPE_OPTIONS.map(opt => (
+                                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <p className="text-xs text-muted-foreground">What kind of campaign does this email belong to?</p>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={libraryTemplateForm.control}
+                            name="funnelStage"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Funnel Stage *</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger data-testid="select-library-funnel-stage">
+                                      <SelectValue placeholder="Select stage" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    {FUNNEL_STAGE_OPTIONS.map(opt => (
+                                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <p className="text-xs text-muted-foreground">Where does this email sit in the attendee journey?</p>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={libraryTemplateForm.control}
+                            name="campaignRole"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Campaign Role *</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger data-testid="select-library-campaign-role">
+                                      <SelectValue placeholder="Select role" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    {CAMPAIGN_ROLE_OPTIONS.map(opt => (
+                                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <p className="text-xs text-muted-foreground">What job does this email perform in the campaign?</p>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        
+                        {/* Tag Intelligence Preview */}
+                        {(libraryTemplateForm.watch("campaignType") || libraryTemplateForm.watch("funnelStage") || libraryTemplateForm.watch("campaignRole")) && (
+                          <div className="rounded-md bg-muted p-3">
+                            <p className="text-sm text-muted-foreground">Sandbox will treat this email as:</p>
+                            <p className="font-medium mt-1">
+                              {CAMPAIGN_TYPE_OPTIONS.find(o => o.value === libraryTemplateForm.watch("campaignType"))?.label || "—"}{" "}
+                              → {FUNNEL_STAGE_OPTIONS.find(o => o.value === libraryTemplateForm.watch("funnelStage"))?.label || "—"}{" "}
+                              → {CAMPAIGN_ROLE_OPTIONS.find(o => o.value === libraryTemplateForm.watch("campaignRole"))?.label || "—"}
+                            </p>
+                          </div>
                         )}
-                      />
+                      </div>
+                      
                       <FormField
                         control={libraryTemplateForm.control}
                         name="isActive"
