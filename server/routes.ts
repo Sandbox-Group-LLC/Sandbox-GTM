@@ -64,6 +64,7 @@ import {
   insertEmailCampaignSchema,
   insertSocialPostSchema,
   insertEmailTemplateSchema,
+  insertEmailTemplateLibrarySchema,
   insertEventPageSchema,
   insertCustomFieldSchema,
   insertContentAssetSchema,
@@ -8544,6 +8545,105 @@ export async function registerRoutes(
     } catch (error) {
       logError("Error sending test email:", error);
       res.status(500).json({ message: "Failed to send test email" });
+    }
+  });
+
+  // Email Template Library routes (system-wide shared templates)
+  app.get("/api/email-template-library", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const templates = await storage.listEmailTemplateLibrary();
+      res.json(templates);
+    } catch (error) {
+      logError("Error fetching email template library:", error);
+      res.status(500).json({ message: "Failed to fetch email template library" });
+    }
+  });
+
+  app.get("/api/email-template-library/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const template = await storage.getEmailTemplateLibrary(req.params.id);
+      if (!template) {
+        return res.status(404).json({ message: "Library template not found" });
+      }
+      res.json(template);
+    } catch (error) {
+      logError("Error fetching library template:", error);
+      res.status(500).json({ message: "Failed to fetch library template" });
+    }
+  });
+
+  app.post("/api/email-template-library", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !isSuperAdmin(user.email, user.isAdmin ?? undefined)) {
+        return res.status(403).json({ message: "Only super admins can create library templates" });
+      }
+      
+      const data = insertEmailTemplateLibrarySchema.parse({ ...req.body, createdBy: userId });
+      const template = await storage.createEmailTemplateLibrary(data);
+      res.status(201).json(template);
+    } catch (error) {
+      logError("Error creating library template:", error);
+      res.status(400).json({ message: "Invalid library template data" });
+    }
+  });
+
+  app.patch("/api/email-template-library/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !isSuperAdmin(user.email, user.isAdmin ?? undefined)) {
+        return res.status(403).json({ message: "Only super admins can update library templates" });
+      }
+      
+      const template = await storage.updateEmailTemplateLibrary(req.params.id, req.body);
+      if (!template) {
+        return res.status(404).json({ message: "Library template not found" });
+      }
+      res.json(template);
+    } catch (error) {
+      logError("Error updating library template:", error);
+      res.status(400).json({ message: "Failed to update library template" });
+    }
+  });
+
+  app.delete("/api/email-template-library/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !isSuperAdmin(user.email, user.isAdmin ?? undefined)) {
+        return res.status(403).json({ message: "Only super admins can delete library templates" });
+      }
+      
+      const success = await storage.deleteEmailTemplateLibrary(req.params.id);
+      if (!success) {
+        return res.status(404).json({ message: "Library template not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting library template:", error);
+      res.status(500).json({ message: "Failed to delete library template" });
+    }
+  });
+
+  app.post("/api/email-template-library/:id/import", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { eventId } = req.body;
+      
+      const template = await storage.importLibraryTemplate(req.params.id, organizationId, eventId);
+      res.status(201).json(template);
+    } catch (error: any) {
+      logError("Error importing library template:", error);
+      if (error.message === "Library template not found") {
+        return res.status(404).json({ message: "Library template not found" });
+      }
+      res.status(500).json({ message: "Failed to import library template" });
     }
   });
 

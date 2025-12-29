@@ -24,6 +24,7 @@ import {
   emailCampaigns,
   socialPosts,
   emailTemplates,
+  emailTemplateLibrary,
   socialConnections,
   organizations,
   organizationMembers,
@@ -125,6 +126,8 @@ import {
   type InsertSocialPost,
   type EmailTemplate,
   type InsertEmailTemplate,
+  type EmailTemplateLibrary,
+  type InsertEmailTemplateLibrary,
   type SocialConnection,
   type InsertSocialConnection,
   type Organization,
@@ -532,6 +535,14 @@ export interface IStorage {
   createEmailTemplate(template: InsertEmailTemplate): Promise<EmailTemplate>;
   updateEmailTemplate(organizationId: string, id: string, template: Partial<InsertEmailTemplate>): Promise<EmailTemplate | undefined>;
   deleteEmailTemplate(organizationId: string, id: string): Promise<void>;
+
+  // Email Template Library operations (system-wide shared templates)
+  getEmailTemplateLibrary(id: string): Promise<EmailTemplateLibrary | undefined>;
+  listEmailTemplateLibrary(): Promise<EmailTemplateLibrary[]>;
+  createEmailTemplateLibrary(template: InsertEmailTemplateLibrary): Promise<EmailTemplateLibrary>;
+  updateEmailTemplateLibrary(id: string, template: Partial<InsertEmailTemplateLibrary>): Promise<EmailTemplateLibrary | undefined>;
+  deleteEmailTemplateLibrary(id: string): Promise<boolean>;
+  importLibraryTemplate(libraryTemplateId: string, targetOrganizationId: string, eventId?: string): Promise<EmailTemplate>;
 
   // Attendee lookup for login (efficient single query)
   getAttendeeByEventAndEmail(eventId: string, email: string): Promise<Attendee | undefined>;
@@ -2569,6 +2580,62 @@ export class DatabaseStorage implements IStorage {
 
   async deleteEmailTemplate(organizationId: string, id: string): Promise<void> {
     await db.delete(emailTemplates).where(and(eq(emailTemplates.organizationId, organizationId), eq(emailTemplates.id, id)));
+  }
+
+  // Email Template Library operations (system-wide shared templates)
+  async getEmailTemplateLibrary(id: string): Promise<EmailTemplateLibrary | undefined> {
+    const [template] = await db.select().from(emailTemplateLibrary)
+      .where(eq(emailTemplateLibrary.id, id));
+    return template;
+  }
+
+  async listEmailTemplateLibrary(): Promise<EmailTemplateLibrary[]> {
+    return db.select().from(emailTemplateLibrary)
+      .where(eq(emailTemplateLibrary.isActive, true))
+      .orderBy(desc(emailTemplateLibrary.createdAt));
+  }
+
+  async createEmailTemplateLibrary(template: InsertEmailTemplateLibrary): Promise<EmailTemplateLibrary> {
+    const [newTemplate] = await db.insert(emailTemplateLibrary).values(template).returning();
+    return newTemplate;
+  }
+
+  async updateEmailTemplateLibrary(id: string, template: Partial<InsertEmailTemplateLibrary>): Promise<EmailTemplateLibrary | undefined> {
+    const [updated] = await db
+      .update(emailTemplateLibrary)
+      .set({ ...template, updatedAt: new Date() })
+      .where(eq(emailTemplateLibrary.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteEmailTemplateLibrary(id: string): Promise<boolean> {
+    const [updated] = await db
+      .update(emailTemplateLibrary)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(emailTemplateLibrary.id, id))
+      .returning();
+    return !!updated;
+  }
+
+  async importLibraryTemplate(libraryTemplateId: string, targetOrganizationId: string, eventId?: string): Promise<EmailTemplate> {
+    const libraryTemplate = await this.getEmailTemplateLibrary(libraryTemplateId);
+    if (!libraryTemplate) {
+      throw new Error("Library template not found");
+    }
+
+    const [newTemplate] = await db.insert(emailTemplates).values({
+      organizationId: targetOrganizationId,
+      eventId: eventId || null,
+      name: libraryTemplate.name,
+      subject: libraryTemplate.subject,
+      content: libraryTemplate.content,
+      headerImageUrl: libraryTemplate.headerImageUrl,
+      category: libraryTemplate.category,
+      styles: libraryTemplate.styles,
+      libraryTemplateId: libraryTemplateId,
+    }).returning();
+    return newTemplate;
   }
 
   // Check-in operations (code-based access - no organizationId needed)
