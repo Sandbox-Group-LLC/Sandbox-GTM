@@ -99,7 +99,6 @@ const libraryTemplateFormSchema = z.object({
   timing: z.string().optional(),
   subject: z.string().min(1, "Subject is required"),
   content: z.string().min(1, "Content is required"),
-  category: z.string().default("general"),
   campaignType: z.string().min(1, "Campaign type is required"),
   funnelStage: z.string().min(1, "Funnel stage is required"),
   campaignRole: z.string().min(1, "Campaign role is required"),
@@ -286,7 +285,6 @@ export default function Emails() {
       timing: "",
       subject: "",
       content: "",
-      category: "general",
       campaignType: "",
       funnelStage: "",
       campaignRole: "",
@@ -598,7 +596,6 @@ export default function Emails() {
       timing: template.timing || "",
       subject: template.subject,
       content: template.content,
-      category: template.category || "general",
       campaignType: template.campaignType || "",
       funnelStage: template.funnelStage || "",
       campaignRole: template.campaignRole || "",
@@ -1788,11 +1785,6 @@ export default function Emails() {
                             {template.isActive === false && (
                               <Badge variant="outline" className="text-xs">Inactive</Badge>
                             )}
-                            {template.category && (
-                              <Badge variant="secondary" className="text-xs">
-                                {titleCase(template.category.replace(/_/g, " "))}
-                              </Badge>
-                            )}
                           </div>
                         </div>
                         {template.description && (
@@ -1899,45 +1891,19 @@ export default function Emails() {
                   </DialogHeader>
                   <Form {...libraryTemplateForm}>
                     <form onSubmit={libraryTemplateForm.handleSubmit(onSubmitLibraryTemplate)} className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <FormField
-                          control={libraryTemplateForm.control}
-                          name="name"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Template Name</FormLabel>
-                              <FormControl>
-                                <Input {...field} placeholder="e.g., Welcome Email" data-testid="input-library-template-name" />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={libraryTemplateForm.control}
-                          name="category"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Category</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl>
-                                  <SelectTrigger data-testid="select-library-template-category">
-                                    <SelectValue placeholder="Select category" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="general">General</SelectItem>
-                                  <SelectItem value="registration">Registration</SelectItem>
-                                  <SelectItem value="reminder">Reminder</SelectItem>
-                                  <SelectItem value="confirmation">Confirmation</SelectItem>
-                                  <SelectItem value="followup">Follow-up</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
+                      <FormField
+                        control={libraryTemplateForm.control}
+                        name="name"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Template Name</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="e.g., Welcome Email" data-testid="input-library-template-name" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                       <FormField
                         control={libraryTemplateForm.control}
                         name="description"
