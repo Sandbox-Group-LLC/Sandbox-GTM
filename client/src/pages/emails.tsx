@@ -558,7 +558,15 @@ export default function Emails() {
       key: "name",
       header: "Template Name",
       cell: (template: EmailTemplate) => (
-        <div className="font-medium">{template.name}</div>
+        <div className="flex items-center gap-2">
+          <span className="font-medium">{template.name}</span>
+          {template.libraryTemplateId && (
+            <Badge variant="secondary" className="text-xs" title="Imported from template library">
+              <Library className="h-3 w-3 mr-1" />
+              Library
+            </Badge>
+          )}
+        </div>
       ),
     },
     {
