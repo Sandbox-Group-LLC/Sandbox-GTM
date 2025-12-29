@@ -1142,6 +1142,34 @@ export const socialPosts = pgTable("social_posts", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Email Template Library - cross-organization shared templates
+export const emailTemplateLibrary = pgTable("email_template_library", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description"),
+  subject: varchar("subject", { length: 255 }).notNull(),
+  content: text("content").notNull(),
+  headerImageUrl: text("header_image_url"),
+  category: varchar("category", { length: 50 }).default("audience_acquisition"),
+  tags: text("tags").array(),
+  styles: jsonb("styles").$type<{
+    alignment?: 'left' | 'center' | 'right';
+    headingFont?: string;
+    headingSize?: 'sm' | 'base' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl';
+    headingWeight?: 'normal' | 'medium' | 'semibold' | 'bold';
+    headingColor?: string;
+    bodyFont?: string;
+    bodySize?: 'sm' | 'base' | 'lg';
+    bodyColor?: string;
+    lineHeight?: 'tight' | 'normal' | 'relaxed';
+  }>().default({}),
+  isActive: boolean("is_active").default(true),
+  sourceOrganizationId: varchar("source_organization_id").references(() => organizations.id), // Which org created this
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Email templates table
 export const emailTemplates = pgTable("email_templates", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1152,6 +1180,7 @@ export const emailTemplates = pgTable("email_templates", {
   content: text("content").notNull(),
   headerImageUrl: text("header_image_url"),
   category: varchar("category", { length: 50 }).default("general"),
+  libraryTemplateId: varchar("library_template_id").references(() => emailTemplateLibrary.id), // Track provenance from library
   styles: jsonb("styles").$type<{
     alignment?: 'left' | 'center' | 'right';
     headingFont?: string;
@@ -2158,6 +2187,7 @@ export const insertSocialPostSchema = createInsertSchema(socialPosts).omit({ id:
   scheduledAt: z.union([z.date(), z.string().transform(s => new Date(s))]).optional().nullable(),
 });
 export const insertEmailTemplateSchema = createInsertSchema(emailTemplates).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertEmailTemplateLibrarySchema = createInsertSchema(emailTemplateLibrary).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSocialConnectionSchema = createInsertSchema(socialConnections).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertAttendeeTypeSchema = createInsertSchema(attendeeTypes).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertPackageSchema = createInsertSchema(packages).omit({ id: true, createdAt: true, updatedAt: true });
@@ -2270,6 +2300,8 @@ export type InsertSocialPost = z.infer<typeof insertSocialPostSchema>;
 export type SocialPost = typeof socialPosts.$inferSelect;
 export type InsertEmailTemplate = z.infer<typeof insertEmailTemplateSchema>;
 export type EmailTemplate = typeof emailTemplates.$inferSelect;
+export type InsertEmailTemplateLibrary = z.infer<typeof insertEmailTemplateLibrarySchema>;
+export type EmailTemplateLibrary = typeof emailTemplateLibrary.$inferSelect;
 export type InsertSocialConnection = z.infer<typeof insertSocialConnectionSchema>;
 export type SocialConnection = typeof socialConnections.$inferSelect;
 export type InsertAttendeeType = z.infer<typeof insertAttendeeTypeSchema>;
