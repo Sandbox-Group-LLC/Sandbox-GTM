@@ -37,11 +37,12 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { titleCase } from "@/lib/utils";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Mail, Send, Clock, CheckCircle, FileText, Copy, Trash2, X, Type, Palette, Library } from "lucide-react";
+import { Plus, Mail, Send, Clock, CheckCircle, FileText, Copy, Trash2, X, Type, Palette, Library, Pencil } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { EventSelectField } from "@/components/event-select-field";
 import { MergeTagPicker } from "@/components/merge-tag-picker";
@@ -83,6 +84,18 @@ const templateFormSchema = z.object({
   category: z.string().default("general"),
   headerImageUrl: z.string().optional(),
   isInviteEmail: z.boolean().default(false),
+  styles: emailStylesSchema,
+});
+
+const libraryTemplateFormSchema = z.object({
+  name: z.string().min(1, "Template name is required"),
+  description: z.string().optional(),
+  subject: z.string().min(1, "Subject is required"),
+  content: z.string().min(1, "Content is required"),
+  category: z.string().default("general"),
+  tags: z.array(z.string()).optional(),
+  isActive: z.boolean().default(true),
+  headerImageUrl: z.string().optional(),
   styles: emailStylesSchema,
 });
 
@@ -138,6 +151,7 @@ const LINE_HEIGHT_OPTIONS = [
 
 type EmailFormData = z.infer<typeof emailFormSchema>;
 type TemplateFormData = z.infer<typeof templateFormSchema>;
+type LibraryTemplateFormData = z.infer<typeof libraryTemplateFormSchema>;
 
 const statusConfig: Record<string, { icon: typeof FileText; color: "default" | "secondary" | "outline" }> = {
   draft: { icon: FileText, color: "secondary" },
@@ -155,11 +169,16 @@ const categoryLabels: Record<string, string> = {
 
 export default function Emails() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isSuperAdmin = user?.email?.toLowerCase().endsWith("@makemysandbox.com") ?? false;
+
   const [activeTab, setActiveTab] = useState("campaigns");
   const [isCampaignDialogOpen, setIsCampaignDialogOpen] = useState(false);
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
+  const [isLibraryDialogOpen, setIsLibraryDialogOpen] = useState(false);
   const [editingEmail, setEditingEmail] = useState<EmailCampaign | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<EmailTemplate | null>(null);
+  const [editingLibraryTemplate, setEditingLibraryTemplate] = useState<EmailTemplateLibrary | null>(null);
   const [eventFilter, setEventFilter] = useState<string>("all");
   const [selectedLibraryTemplate, setSelectedLibraryTemplate] = useState<EmailTemplateLibrary | null>(null);
 
@@ -167,6 +186,8 @@ export default function Emails() {
   const campaignContentRef = useRef<HTMLTextAreaElement>(null);
   const templateSubjectRef = useRef<HTMLInputElement>(null);
   const templateContentRef = useRef<HTMLTextAreaElement>(null);
+  const librarySubjectRef = useRef<HTMLInputElement>(null);
+  const libraryContentRef = useRef<HTMLTextAreaElement>(null);
 
   const { data: emailsData, isLoading: emailsLoading } = useQuery<EmailCampaign[] | null>({
     queryKey: ["/api/emails"],
@@ -218,6 +239,21 @@ export default function Emails() {
       category: "general",
       headerImageUrl: "",
       isInviteEmail: false,
+      styles: {},
+    },
+  });
+
+  const libraryTemplateForm = useForm<LibraryTemplateFormData>({
+    resolver: zodResolver(libraryTemplateFormSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      subject: "",
+      content: "",
+      category: "general",
+      tags: [],
+      isActive: true,
+      headerImageUrl: "",
       styles: {},
     },
   });
@@ -365,6 +401,83 @@ export default function Emails() {
     },
   });
 
+  const createLibraryTemplateMutation = useMutation({
+    mutationFn: async (data: LibraryTemplateFormData) => {
+      return await apiRequest("POST", "/api/email-template-library", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/email-template-library"] });
+      toast({ title: "Library template created successfully" });
+      setIsLibraryDialogOpen(false);
+      libraryTemplateForm.reset();
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({ title: "Unauthorized", description: "You are logged out. Logging in again...", variant: "destructive" });
+        setTimeout(() => { window.location.href = "/api/login"; }, 500);
+        return;
+      }
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const updateLibraryTemplateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: LibraryTemplateFormData }) => {
+      return await apiRequest("PATCH", `/api/email-template-library/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/email-template-library"] });
+      toast({ title: "Library template updated successfully" });
+      setIsLibraryDialogOpen(false);
+      setEditingLibraryTemplate(null);
+      libraryTemplateForm.reset();
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({ title: "Unauthorized", description: "You are logged out. Logging in again...", variant: "destructive" });
+        setTimeout(() => { window.location.href = "/api/login"; }, 500);
+        return;
+      }
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteLibraryTemplateMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("DELETE", `/api/email-template-library/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/email-template-library"] });
+      toast({ title: "Library template deleted" });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({ title: "Unauthorized", description: "You are logged out. Logging in again...", variant: "destructive" });
+        setTimeout(() => { window.location.href = "/api/login"; }, 500);
+        return;
+      }
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const toggleLibraryTemplateActiveMutation = useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      return await apiRequest("PATCH", `/api/email-template-library/${id}`, { isActive });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/email-template-library"] });
+      toast({ title: "Template status updated" });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({ title: "Unauthorized", description: "You are logged out. Logging in again...", variant: "destructive" });
+        setTimeout(() => { window.location.href = "/api/login"; }, 500);
+        return;
+      }
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
   const onSubmitCampaign = (data: EmailFormData) => {
     if (editingEmail) {
       updateCampaignMutation.mutate({ id: editingEmail.id, data });
@@ -436,6 +549,40 @@ export default function Emails() {
     setIsTemplateDialogOpen(false);
     setEditingTemplate(null);
     templateForm.reset();
+  };
+
+  const handleEditLibraryTemplate = (template: EmailTemplateLibrary) => {
+    setEditingLibraryTemplate(template);
+    libraryTemplateForm.reset({
+      name: template.name,
+      description: template.description || "",
+      subject: template.subject,
+      content: template.content,
+      category: template.category || "general",
+      tags: template.tags || [],
+      isActive: template.isActive ?? true,
+      headerImageUrl: template.headerImageUrl || "",
+      styles: template.styles as any,
+    });
+    setIsLibraryDialogOpen(true);
+  };
+
+  const handleLibraryDialogClose = () => {
+    setIsLibraryDialogOpen(false);
+    setEditingLibraryTemplate(null);
+    libraryTemplateForm.reset();
+  };
+
+  const onSubmitLibraryTemplate = (data: LibraryTemplateFormData) => {
+    if (editingLibraryTemplate) {
+      updateLibraryTemplateMutation.mutate({ id: editingLibraryTemplate.id, data });
+    } else {
+      createLibraryTemplateMutation.mutate(data);
+    }
+  };
+
+  const handleRemoveLibraryImage = () => {
+    libraryTemplateForm.setValue("headerImageUrl", "");
   };
 
   const sendTestEmailMutation = useMutation({
@@ -1563,26 +1710,48 @@ export default function Emails() {
             </TabsContent>
 
             <TabsContent value="library">
+              {isSuperAdmin && (
+                <div className="flex justify-end mb-4">
+                  <Button size="sm" onClick={() => setIsLibraryDialogOpen(true)} data-testid="button-add-library-template">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add to Library
+                  </Button>
+                </div>
+              )}
               {libraryLoading ? (
                 <div className="text-center py-8 text-muted-foreground">Loading templates...</div>
               ) : libraryTemplates.length === 0 ? (
                 <EmptyState
                   icon={Library}
                   title="No library templates available"
-                  description="The template library is empty. Super admins can add templates to share across organizations."
+                  description={isSuperAdmin ? "Add templates to the library to share across organizations." : "The template library is empty. Super admins can add templates to share across organizations."}
+                  action={isSuperAdmin ? {
+                    label: "Add Template",
+                    onClick: () => setIsLibraryDialogOpen(true),
+                  } : undefined}
                 />
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {libraryTemplates.map((template) => (
-                    <Card key={template.id} className="hover-elevate">
+                  {libraryTemplates
+                    .filter((template) => isSuperAdmin || template.isActive !== false)
+                    .map((template) => (
+                    <Card 
+                      key={template.id} 
+                      className={`hover-elevate ${template.isActive === false ? "opacity-60" : ""}`}
+                    >
                       <CardHeader className="pb-2">
                         <div className="flex items-start justify-between gap-2">
                           <CardTitle className="text-base line-clamp-1">{template.name}</CardTitle>
-                          {template.category && (
-                            <Badge variant="secondary" className="text-xs shrink-0">
-                              {titleCase(template.category.replace(/_/g, " "))}
-                            </Badge>
-                          )}
+                          <div className="flex items-center gap-1 shrink-0">
+                            {template.isActive === false && (
+                              <Badge variant="outline" className="text-xs">Inactive</Badge>
+                            )}
+                            {template.category && (
+                              <Badge variant="secondary" className="text-xs">
+                                {titleCase(template.category.replace(/_/g, " "))}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                         {template.description && (
                           <CardDescription className="text-sm line-clamp-2">{template.description}</CardDescription>
@@ -1597,6 +1766,39 @@ export default function Emails() {
                             {template.tags.slice(0, 3).map((tag, idx) => (
                               <Badge key={idx} variant="outline" className="text-xs">{tag}</Badge>
                             ))}
+                          </div>
+                        )}
+                        {isSuperAdmin && (
+                          <div className="flex items-center justify-between mb-3 py-2 border-t">
+                            <div className="flex items-center gap-2">
+                              <Label htmlFor={`active-${template.id}`} className="text-sm">Active</Label>
+                              <Switch
+                                id={`active-${template.id}`}
+                                checked={template.isActive !== false}
+                                onCheckedChange={(checked) => 
+                                  toggleLibraryTemplateActiveMutation.mutate({ id: template.id, isActive: checked })
+                                }
+                                data-testid={`switch-active-library-template-${template.id}`}
+                              />
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEditLibraryTemplate(template)}
+                                data-testid={`button-edit-library-template-${template.id}`}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => deleteLibraryTemplateMutation.mutate(template.id)}
+                                data-testid={`button-delete-library-template-${template.id}`}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
                         )}
                         <div className="flex gap-2">
@@ -1631,6 +1833,421 @@ export default function Emails() {
                   ))}
                 </div>
               )}
+
+              {/* Library Template Dialog for Super Admins */}
+              <Dialog open={isLibraryDialogOpen} onOpenChange={(open) => open ? setIsLibraryDialogOpen(true) : handleLibraryDialogClose()}>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>{editingLibraryTemplate ? "Edit Library Template" : "Add Library Template"}</DialogTitle>
+                    <DialogDescription>
+                      {editingLibraryTemplate ? "Update this template in the shared library" : "Create a template to share across all organizations"}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <Form {...libraryTemplateForm}>
+                    <form onSubmit={libraryTemplateForm.handleSubmit(onSubmitLibraryTemplate)} className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={libraryTemplateForm.control}
+                          name="name"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Template Name</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="e.g., Welcome Email" data-testid="input-library-template-name" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={libraryTemplateForm.control}
+                          name="category"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Category</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                  <SelectTrigger data-testid="select-library-template-category">
+                                    <SelectValue placeholder="Select category" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="general">General</SelectItem>
+                                  <SelectItem value="registration">Registration</SelectItem>
+                                  <SelectItem value="reminder">Reminder</SelectItem>
+                                  <SelectItem value="confirmation">Confirmation</SelectItem>
+                                  <SelectItem value="followup">Follow-up</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <FormField
+                        control={libraryTemplateForm.control}
+                        name="description"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Description (Optional)</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="Brief description of this template" data-testid="input-library-template-description" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={libraryTemplateForm.control}
+                        name="tags"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Tags (comma-separated)</FormLabel>
+                            <FormControl>
+                              <Input 
+                                value={(field.value || []).join(", ")}
+                                onChange={(e) => {
+                                  const tags = e.target.value.split(",").map(t => t.trim()).filter(t => t);
+                                  field.onChange(tags);
+                                }}
+                                placeholder="e.g., welcome, onboarding, first-time"
+                                data-testid="input-library-template-tags"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={libraryTemplateForm.control}
+                        name="isActive"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                            <div className="space-y-0.5">
+                              <FormLabel>Active</FormLabel>
+                              <p className="text-sm text-muted-foreground">
+                                Active templates are visible to all organizations
+                              </p>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                                data-testid="switch-library-template-active"
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={libraryTemplateForm.control}
+                        name="subject"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Subject Line</FormLabel>
+                            <FormControl>
+                              <div className="flex items-center gap-1">
+                                <Input {...field} ref={librarySubjectRef} placeholder="Email subject" data-testid="input-library-template-subject" className="flex-1" />
+                                <MergeTagPicker
+                                  onInsert={(tag) => field.onChange(field.value + tag)}
+                                  inputRef={librarySubjectRef}
+                                  value={field.value}
+                                  onChange={field.onChange}
+                                />
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={libraryTemplateForm.control}
+                        name="content"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Template Content</FormLabel>
+                            <FormControl>
+                              <div className="flex items-start gap-1">
+                                <Textarea
+                                  rows={12}
+                                  {...field}
+                                  ref={libraryContentRef}
+                                  placeholder="Write your email template content here. Use merge tags like {{event.name}}, {{attendee.firstName}}..."
+                                  data-testid="input-library-template-content"
+                                  className="flex-1"
+                                />
+                                <MergeTagPicker
+                                  onInsert={(tag) => field.onChange(field.value + tag)}
+                                  inputRef={libraryContentRef}
+                                  value={field.value}
+                                  onChange={field.onChange}
+                                />
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={libraryTemplateForm.control}
+                        name="headerImageUrl"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Header Image URL (Optional)</FormLabel>
+                            <FormControl>
+                              <div className="space-y-3">
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    {...field}
+                                    placeholder="https://example.com/header-image.png"
+                                    data-testid="input-library-header-image-url"
+                                    className="flex-1"
+                                  />
+                                  {field.value && (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={handleRemoveLibraryImage}
+                                      data-testid="button-remove-library-header-image"
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                </div>
+                                {field.value && (
+                                  <div className="relative">
+                                    <img
+                                      src={field.value}
+                                      alt="Header preview"
+                                      className="w-full max-h-40 object-contain rounded-md border"
+                                      data-testid="img-library-header-preview"
+                                      onError={(e) => {
+                                        (e.target as HTMLImageElement).style.display = 'none';
+                                      }}
+                                      onLoad={(e) => {
+                                        (e.target as HTMLImageElement).style.display = 'block';
+                                      }}
+                                    />
+                                  </div>
+                                )}
+                                <p className="text-xs text-muted-foreground">
+                                  Enter a URL to an image. Recommended size: 600x150 pixels.
+                                </p>
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <Accordion type="single" collapsible className="w-full">
+                        <AccordionItem value="styling">
+                          <AccordionTrigger data-testid="accordion-library-template-styling">
+                            <div className="flex items-center gap-2">
+                              <Palette className="h-4 w-4" />
+                              Styling Options
+                            </div>
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            <div className="space-y-4 pt-2">
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                  <Label>Text Alignment</Label>
+                                  <Select
+                                    value={libraryTemplateForm.watch("styles.alignment") || "left"}
+                                    onValueChange={(value) => libraryTemplateForm.setValue("styles.alignment", value as "left" | "center" | "right")}
+                                  >
+                                    <SelectTrigger data-testid="select-library-template-alignment">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {ALIGNMENT_OPTIONS.map((opt) => (
+                                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>Line Height</Label>
+                                  <Select
+                                    value={libraryTemplateForm.watch("styles.lineHeight") || "normal"}
+                                    onValueChange={(value) => libraryTemplateForm.setValue("styles.lineHeight", value as "tight" | "normal" | "relaxed")}
+                                  >
+                                    <SelectTrigger data-testid="select-library-template-line-height">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {LINE_HEIGHT_OPTIONS.map((opt) => (
+                                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+
+                              <div className="border-t pt-4">
+                                <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                                  <Type className="h-4 w-4" />
+                                  Heading Styles
+                                </h4>
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="space-y-2">
+                                    <Label>Heading Font</Label>
+                                    <Select
+                                      value={libraryTemplateForm.watch("styles.headingFont") || "default"}
+                                      onValueChange={(value) => libraryTemplateForm.setValue("styles.headingFont", value === "default" ? "" : value)}
+                                    >
+                                      <SelectTrigger data-testid="select-library-template-heading-font">
+                                        <SelectValue placeholder="Default" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="default">Default</SelectItem>
+                                        {FONT_OPTIONS.map((opt) => (
+                                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label>Heading Size</Label>
+                                    <Select
+                                      value={libraryTemplateForm.watch("styles.headingSize") || "2xl"}
+                                      onValueChange={(value) => libraryTemplateForm.setValue("styles.headingSize", value as any)}
+                                    >
+                                      <SelectTrigger data-testid="select-library-template-heading-size">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {HEADING_SIZE_OPTIONS.map((opt) => (
+                                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label>Heading Weight</Label>
+                                    <Select
+                                      value={libraryTemplateForm.watch("styles.headingWeight") || "semibold"}
+                                      onValueChange={(value) => libraryTemplateForm.setValue("styles.headingWeight", value as any)}
+                                    >
+                                      <SelectTrigger data-testid="select-library-template-heading-weight">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {HEADING_WEIGHT_OPTIONS.map((opt) => (
+                                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label>Heading Color</Label>
+                                    <div className="flex items-center gap-2">
+                                      <input
+                                        type="color"
+                                        value={libraryTemplateForm.watch("styles.headingColor") || "#1f2937"}
+                                        onChange={(e) => libraryTemplateForm.setValue("styles.headingColor", e.target.value)}
+                                        className="h-9 w-12 rounded border cursor-pointer"
+                                        data-testid="input-library-template-heading-color-picker"
+                                      />
+                                      <Input
+                                        value={libraryTemplateForm.watch("styles.headingColor") || ""}
+                                        onChange={(e) => libraryTemplateForm.setValue("styles.headingColor", e.target.value)}
+                                        placeholder="#1f2937"
+                                        className="flex-1 font-mono text-sm"
+                                        data-testid="input-library-template-heading-color"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="border-t pt-4">
+                                <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                                  <Type className="h-4 w-4" />
+                                  Body Styles
+                                </h4>
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="space-y-2">
+                                    <Label>Body Font</Label>
+                                    <Select
+                                      value={libraryTemplateForm.watch("styles.bodyFont") || "default"}
+                                      onValueChange={(value) => libraryTemplateForm.setValue("styles.bodyFont", value === "default" ? "" : value)}
+                                    >
+                                      <SelectTrigger data-testid="select-library-template-body-font">
+                                        <SelectValue placeholder="Default" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="default">Default</SelectItem>
+                                        {FONT_OPTIONS.map((opt) => (
+                                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label>Body Size</Label>
+                                    <Select
+                                      value={libraryTemplateForm.watch("styles.bodySize") || "base"}
+                                      onValueChange={(value) => libraryTemplateForm.setValue("styles.bodySize", value as any)}
+                                    >
+                                      <SelectTrigger data-testid="select-library-template-body-size">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {BODY_SIZE_OPTIONS.map((opt) => (
+                                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <div className="space-y-2 col-span-2">
+                                    <Label>Body Color</Label>
+                                    <div className="flex items-center gap-2">
+                                      <input
+                                        type="color"
+                                        value={libraryTemplateForm.watch("styles.bodyColor") || "#4b5563"}
+                                        onChange={(e) => libraryTemplateForm.setValue("styles.bodyColor", e.target.value)}
+                                        className="h-9 w-12 rounded border cursor-pointer"
+                                        data-testid="input-library-template-body-color-picker"
+                                      />
+                                      <Input
+                                        value={libraryTemplateForm.watch("styles.bodyColor") || ""}
+                                        onChange={(e) => libraryTemplateForm.setValue("styles.bodyColor", e.target.value)}
+                                        placeholder="#4b5563"
+                                        className="flex-1 font-mono text-sm"
+                                        data-testid="input-library-template-body-color"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      </Accordion>
+
+                      <div className="flex justify-end gap-2 pt-4">
+                        <Button type="button" variant="outline" onClick={handleLibraryDialogClose}>
+                          Cancel
+                        </Button>
+                        <Button
+                          type="submit"
+                          disabled={createLibraryTemplateMutation.isPending || updateLibraryTemplateMutation.isPending}
+                          data-testid="button-submit-library-template"
+                        >
+                          {createLibraryTemplateMutation.isPending || updateLibraryTemplateMutation.isPending
+                            ? "Saving..."
+                            : editingLibraryTemplate
+                            ? "Update Template"
+                            : "Add to Library"}
+                        </Button>
+                      </div>
+                    </form>
+                  </Form>
+                </DialogContent>
+              </Dialog>
             </TabsContent>
           </Tabs>
         </div>

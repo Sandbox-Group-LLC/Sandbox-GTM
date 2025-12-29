@@ -8636,6 +8636,19 @@ export async function registerRoutes(
       const organizationId = await getOrganizationId(userId, req.session);
       const { eventId } = req.body;
       
+      // Check if template exists and is active (or user is super admin)
+      const libraryTemplate = await storage.getEmailTemplateLibrary(req.params.id);
+      if (!libraryTemplate) {
+        return res.status(404).json({ message: "Library template not found" });
+      }
+      
+      const user = await storage.getUser(userId);
+      const userIsSuperAdmin = user && isSuperAdmin(user.email, user.isAdmin ?? undefined);
+      
+      if (!libraryTemplate.isActive && !userIsSuperAdmin) {
+        return res.status(403).json({ message: "This template is not available for import" });
+      }
+      
       const template = await storage.importLibraryTemplate(req.params.id, organizationId, eventId);
       res.status(201).json(template);
     } catch (error: any) {
