@@ -90,6 +90,8 @@ const templateFormSchema = z.object({
 const libraryTemplateFormSchema = z.object({
   name: z.string().min(1, "Template name is required"),
   description: z.string().optional(),
+  purpose: z.string().optional(),
+  timing: z.string().optional(),
   subject: z.string().min(1, "Subject is required"),
   content: z.string().min(1, "Content is required"),
   category: z.string().default("general"),
@@ -249,6 +251,8 @@ export default function Emails() {
     defaultValues: {
       name: "",
       description: "",
+      purpose: "",
+      timing: "",
       subject: "",
       content: "",
       category: "general",
@@ -558,6 +562,8 @@ export default function Emails() {
     libraryTemplateForm.reset({
       name: template.name,
       description: template.description || "",
+      purpose: template.purpose || "",
+      timing: template.timing || "",
       subject: template.subject,
       content: template.content,
       category: template.category || "general",
@@ -1895,6 +1901,32 @@ export default function Emails() {
                             <FormLabel>Description (Optional)</FormLabel>
                             <FormControl>
                               <Input {...field} placeholder="Brief description of this template" data-testid="input-library-template-description" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={libraryTemplateForm.control}
+                        name="purpose"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Purpose (Optional)</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="e.g., Drive registrations, nurture leads" data-testid="input-library-template-purpose" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={libraryTemplateForm.control}
+                        name="timing"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Timing (Optional)</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="e.g., 2 weeks before event, immediately after registration" data-testid="input-library-template-timing" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>

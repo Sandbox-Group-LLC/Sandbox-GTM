@@ -1147,6 +1147,8 @@ export const emailTemplateLibrary = pgTable("email_template_library", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: varchar("name", { length: 100 }).notNull(),
   description: text("description"),
+  purpose: text("purpose"),
+  timing: text("timing"),
   subject: varchar("subject", { length: 255 }).notNull(),
   content: text("content").notNull(),
   headerImageUrl: text("header_image_url"),
