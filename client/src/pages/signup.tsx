@@ -96,7 +96,7 @@ export default function Signup() {
             <div className="space-y-2">
               <Label htmlFor="invite-code" className="flex items-center gap-2">
                 <Tag className="h-4 w-4" />
-                Activation Key (optional)
+                Activation Key
               </Label>
               <div className="flex gap-2">
                 <div className="relative flex-1">

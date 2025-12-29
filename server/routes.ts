@@ -4225,9 +4225,9 @@ export async function registerRoutes(
         });
       }
       
-      // Default: don't require invite code for regular users
+      // Require invite code for all new sign-ups (except super admins who are handled above)
       return res.json({
-        requiresInvite: false,
+        requiresInvite: true,
         userIsSuperAdmin: false,
       });
     } catch (error) {
