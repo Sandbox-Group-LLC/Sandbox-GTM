@@ -254,6 +254,9 @@ import {
   type InsertApiKey,
   type ApiKeyAuditLog,
   type InsertApiKeyAuditLog,
+  superAdminAuditLogs,
+  type SuperAdminAuditLog,
+  type InsertSuperAdminAuditLog,
 } from "@shared/schema";
 import crypto from "crypto";
 import { encrypt, decrypt } from "./encryption";
@@ -880,6 +883,13 @@ export interface IStorage {
   // API Key Audit Logs
   createApiKeyAuditLog(data: InsertApiKeyAuditLog): Promise<ApiKeyAuditLog>;
   getApiKeyAuditLogs(organizationId: string, apiKeyId?: string, limit?: number): Promise<ApiKeyAuditLog[]>;
+
+  // Super Admin Audit Log operations
+  createSuperAdminAuditLog(data: InsertSuperAdminAuditLog): Promise<SuperAdminAuditLog>;
+  getSuperAdminAuditLogs(limit?: number): Promise<SuperAdminAuditLog[]>;
+
+  // Super Admin operations
+  getAllOrganizationsBasic(): Promise<Array<{ id: string; name: string; slug: string }>>;
 }
 
 // Types for Moments Analytics
@@ -5680,6 +5690,29 @@ export class DatabaseStorage implements IStorage {
       .where(eq(apiKeyAuditLogs.organizationId, organizationId))
       .orderBy(desc(apiKeyAuditLogs.occurredAt))
       .limit(limit);
+  }
+
+  // Super Admin Audit Logs
+  async createSuperAdminAuditLog(data: InsertSuperAdminAuditLog): Promise<SuperAdminAuditLog> {
+    const [result] = await db.insert(superAdminAuditLogs).values(data).returning();
+    return result;
+  }
+
+  async getSuperAdminAuditLogs(limit: number = 100): Promise<SuperAdminAuditLog[]> {
+    return await db.select().from(superAdminAuditLogs)
+      .orderBy(desc(superAdminAuditLogs.createdAt))
+      .limit(limit);
+  }
+
+  // Super Admin operations
+  async getAllOrganizationsBasic(): Promise<Array<{ id: string; name: string; slug: string }>> {
+    return await db.select({
+      id: organizations.id,
+      name: organizations.name,
+      slug: organizations.slug,
+    }).from(organizations)
+      .where(eq(organizations.isArchived, false))
+      .orderBy(organizations.name);
   }
 }
 

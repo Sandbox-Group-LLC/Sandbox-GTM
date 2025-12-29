@@ -676,8 +676,23 @@ export async function registerRoutes(
   };
 
   // Helper function to get user's organization (creates default if none exists)
-  // Prioritizes: 1) Session preferred org, 2) Invited orgs (non-owner), 3) Non-default orgs, 4) First available
-  async function getOrganizationId(userId: string, session?: any): Promise<string> {
+  // Prioritizes: 1) Super admin session org, 2) Session preferred org, 3) Invited orgs (non-owner), 4) Non-default orgs, 5) First available
+  async function getOrganizationId(userId: string, session?: any, userEmail?: string, userIsAdmin?: boolean): Promise<string> {
+    // If user email/isAdmin not provided, fetch them for super admin check
+    let email = userEmail;
+    let isAdmin = userIsAdmin;
+    if (email === undefined) {
+      const user = await storage.getUser(userId);
+      email = user?.email || undefined;
+      isAdmin = user?.isAdmin;
+    }
+    
+    // Super admin context takes highest priority - they can access any org
+    if (isSuperAdmin(email, isAdmin) && session?.organizationId) {
+      logInfo(`Super admin using session organization: ${session.organizationId}`, 'OrgRouting');
+      return session.organizationId;
+    }
+    
     const memberships = await storage.getUserOrganizations(userId);
     
     // If session has a preferred organization, use it if user is still a member
@@ -757,7 +772,30 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
-      res.json(user);
+      
+      // Include session info for super admin support
+      const activeOrganizationId = req.session?.organizationId || null;
+      const superAdmin = isSuperAdmin(user?.email, user?.isAdmin);
+      
+      // For super admins, include the active organization details
+      let activeOrganization = null;
+      if (superAdmin && activeOrganizationId) {
+        const org = await storage.getOrganization(activeOrganizationId);
+        if (org) {
+          activeOrganization = {
+            id: org.id,
+            name: org.name,
+            slug: org.slug,
+          };
+        }
+      }
+      
+      res.json({
+        ...user,
+        activeOrganizationId,
+        activeOrganization,
+        isSuperAdmin: superAdmin,
+      });
     } catch (error) {
       logError("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
@@ -788,6 +826,206 @@ export async function registerRoutes(
     } catch (error) {
       logError("Error updating user profile:", error);
       res.status(500).json({ message: "Failed to update user profile" });
+    }
+  });
+
+  // ===== SUPER ADMIN ENDPOINTS =====
+  
+  // GET /api/super-admin/organizations - Get all organizations (super admin only)
+  app.get('/api/super-admin/organizations', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!isSuperAdmin(user?.email, user?.isAdmin)) {
+        return res.status(403).json({ message: "Forbidden: Super admin access required" });
+      }
+      
+      // Get all organizations (basic info only)
+      const organizations = await storage.getAllOrganizationsBasic();
+      
+      // Get the user's current active organization from session
+      const currentOrganizationId = req.session?.organizationId || null;
+      
+      res.json({
+        organizations,
+        currentOrganizationId,
+      });
+    } catch (error) {
+      logError("Error fetching organizations for super admin:", error);
+      res.status(500).json({ message: "Failed to fetch organizations" });
+    }
+  });
+
+  // POST /api/super-admin/session/organization - Switch organization context (super admin only)
+  app.post('/api/super-admin/session/organization', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!isSuperAdmin(user?.email, user?.isAdmin)) {
+        return res.status(403).json({ message: "Forbidden: Super admin access required" });
+      }
+      
+      const { organizationId } = req.body;
+      
+      if (!organizationId) {
+        return res.status(400).json({ message: "organizationId is required" });
+      }
+      
+      // Verify the organization exists
+      const organization = await storage.getOrganization(organizationId);
+      if (!organization) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+      
+      // Store the previous organization ID for audit logging
+      const previousOrganizationId = req.session?.organizationId || null;
+      
+      // Regenerate session to prevent session fixation attacks
+      await new Promise<void>((resolve, reject) => {
+        req.session.regenerate((err: any) => {
+          if (err) {
+            logError("Error regenerating session:", err);
+            reject(err);
+          } else {
+            resolve();
+          }
+        });
+      });
+      
+      // After regenerate, session is fresh - re-set the org context
+      req.session.organizationId = organizationId;
+      
+      // Save the session explicitly and create audit log only on success
+      await new Promise<void>((resolve, reject) => {
+        req.session.save(async (err: any) => {
+          if (err) {
+            logError("Error saving session:", err);
+            reject(err);
+          } else {
+            try {
+              await storage.createSuperAdminAuditLog({
+                superAdminUserId: userId,
+                superAdminEmail: user?.email || 'unknown',
+                actedOrganizationId: organizationId,
+                action: 'organization_switch',
+                metadata: {
+                  previousOrganizationId,
+                  newOrganizationId: organizationId,
+                  organizationName: organization.name,
+                  userAgent: req.headers['user-agent'],
+                  sessionRegenerated: true,
+                },
+              });
+              
+              logInfo(`Super admin ${user?.email} switched to organization ${organization.name} (${organizationId}) with session regeneration`);
+              resolve();
+            } catch (auditErr) {
+              logError("Error creating audit log:", auditErr);
+              resolve();
+            }
+          }
+        });
+      });
+      
+      // Get user's home organization for the response
+      const memberships = await storage.getUserOrganizations(userId);
+      let homeOrganizationId: string | null = null;
+      let homeOrganization: { id: string; name: string; slug: string } | null = null;
+      
+      if (memberships.length > 0) {
+        homeOrganizationId = memberships[0].organizationId;
+        const homeOrg = await storage.getOrganization(homeOrganizationId);
+        if (homeOrg && !homeOrg.isArchived) {
+          homeOrganization = {
+            id: homeOrg.id,
+            name: homeOrg.name,
+            slug: homeOrg.slug,
+          };
+        }
+      }
+      
+      res.json({
+        success: true,
+        message: "Organization switched successfully",
+        organizationId,
+        activeOrganizationId: organizationId,
+        organization: {
+          id: organization.id,
+          name: organization.name,
+          slug: organization.slug,
+        },
+        homeOrganizationId,
+        homeOrganization,
+      });
+    } catch (error) {
+      logError("Error switching organization for super admin:", error);
+      res.status(500).json({ message: "Failed to switch organization" });
+    }
+  });
+
+  // GET /api/super-admin/session - Get current super admin session info
+  app.get('/api/super-admin/session', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      const superAdmin = isSuperAdmin(user?.email, user?.isAdmin);
+      
+      if (!superAdmin) {
+        return res.status(403).json({ message: "Forbidden: Super admin access required" });
+      }
+      
+      const activeOrganizationId = req.session?.organizationId || null;
+      let activeOrganization = null;
+      
+      if (activeOrganizationId) {
+        const org = await storage.getOrganization(activeOrganizationId);
+        if (org) {
+          activeOrganization = {
+            id: org.id,
+            name: org.name,
+            slug: org.slug,
+          };
+        }
+      }
+      
+      // Get user's home organization (first membership, sorted by creation date)
+      const memberships = await storage.getUserOrganizations(userId);
+      let homeOrganizationId: string | null = null;
+      let homeOrganization: { id: string; name: string; slug: string } | null = null;
+      
+      if (memberships.length > 0) {
+        // The first membership is typically the home organization
+        const homeMembership = memberships[0];
+        homeOrganizationId = homeMembership.organizationId;
+        const homeOrg = await storage.getOrganization(homeOrganizationId);
+        if (homeOrg && !homeOrg.isArchived) {
+          homeOrganization = {
+            id: homeOrg.id,
+            name: homeOrg.name,
+            slug: homeOrg.slug,
+          };
+        }
+      }
+      
+      res.json({
+        isSuperAdmin: true,
+        activeOrganizationId,
+        activeOrganization,
+        homeOrganizationId,
+        homeOrganization,
+        user: {
+          id: user?.id,
+          email: user?.email,
+          firstName: user?.firstName,
+          lastName: user?.lastName,
+        },
+      });
+    } catch (error) {
+      logError("Error fetching super admin session:", error);
+      res.status(500).json({ message: "Failed to fetch session" });
     }
   });
 
@@ -884,8 +1122,19 @@ export async function registerRoutes(
   app.get('/api/auth/organization', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      // If super admin with session organization, use that instead of their home org
+      if (isSuperAdmin(user?.email, user?.isAdmin) && req.session?.organizationId) {
+        const activeOrg = await storage.getOrganization(req.session.organizationId);
+        if (activeOrg) {
+          logInfo(`GET /api/auth/organization: super admin viewing org ${req.session.organizationId}`, 'OrgRouting');
+          return res.json(sanitizeOrganization(activeOrg));
+        }
+      }
+      
       // Use session-aware helper to respect preferred organization from invitation acceptance
-      const organizationId = await getOrganizationId(userId, req.session);
+      const organizationId = await getOrganizationId(userId, req.session, user?.email, user?.isAdmin);
       const org = await storage.getOrganization(organizationId);
       logInfo(`GET /api/auth/organization: returning org ${organizationId} for user ${userId}`, 'OrgRouting');
       res.json(sanitizeOrganization(org));
@@ -968,7 +1217,22 @@ export async function registerRoutes(
   app.get('/api/auth/membership', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const organizationId = await getOrganizationId(userId, req.session);
+      const user = await storage.getUser(userId);
+      
+      // If super admin with session organization, return elevated super_admin membership
+      // Super admins retain full access while inspecting client tenants
+      if (isSuperAdmin(user?.email, user?.isAdmin) && req.session?.organizationId) {
+        logInfo(`GET /api/auth/membership: super admin with elevated access to org ${req.session.organizationId}`, 'OrgRouting');
+        const allPermissions: string[] = [...FEATURE_PERMISSIONS];
+        return res.json({
+          role: 'super_admin',
+          permissions: allPermissions,
+          organizationId: req.session.organizationId,
+          isSuperAdminContext: true
+        });
+      }
+      
+      const organizationId = await getOrganizationId(userId, req.session, user?.email, user?.isAdmin);
       const member = await storage.getOrganizationMember(organizationId, userId);
       
       // Cast FEATURE_PERMISSIONS to string array for response

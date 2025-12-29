@@ -5,10 +5,12 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { useAuth } from "@/hooks/useAuth";
 import { useSignupStatus } from "@/hooks/useSignupStatus";
+import { OrgSwitcher } from "@/components/org-switcher";
+import { SuperAdminBanner } from "@/components/super-admin-banner";
 import NotFound from "@/pages/not-found";
 import RequireInviteCode from "@/pages/require-invite-code";
 import Landing from "@/pages/landing";
@@ -83,14 +85,22 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
     "--sidebar-width": "16rem",
     "--sidebar-width-icon": "3rem",
   };
+  const { user, organization } = useAuth();
 
   return (
     <SidebarProvider style={sidebarStyle as React.CSSProperties}>
       <div className="flex h-screen w-full">
         <AppSidebar />
-        <main className="flex-1 flex flex-col overflow-auto">
-          {children}
-        </main>
+        <div className="flex-1 flex flex-col overflow-auto">
+          {user?.isSuperAdmin && <SuperAdminBanner />}
+          <header className="flex items-center justify-between gap-4 px-4 py-2 border-b shrink-0">
+            <SidebarTrigger data-testid="button-sidebar-trigger" />
+            {user?.isSuperAdmin && <OrgSwitcher />}
+          </header>
+          <main className="flex-1 flex flex-col overflow-auto">
+            {children}
+          </main>
+        </div>
       </div>
     </SidebarProvider>
   );

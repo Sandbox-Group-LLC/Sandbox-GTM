@@ -2122,6 +2122,26 @@ export const apiKeyAuditLogsRelations = relations(apiKeyAuditLogs, ({ one }) => 
   organization: one(organizations, { fields: [apiKeyAuditLogs.organizationId], references: [organizations.id] }),
 }));
 
+// Super Admin Audit Logs - track super admin actions across organizations
+export const superAdminAuditLogs = pgTable("super_admin_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  superAdminUserId: varchar("super_admin_user_id").references(() => users.id).notNull(),
+  superAdminEmail: varchar("super_admin_email", { length: 255 }).notNull(),
+  actedOrganizationId: varchar("acted_organization_id").references(() => organizations.id).notNull(),
+  action: varchar("action", { length: 100 }).notNull(),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("super_admin_audit_user_idx").on(table.superAdminUserId),
+  index("super_admin_audit_org_idx").on(table.actedOrganizationId),
+  index("super_admin_audit_created_idx").on(table.createdAt),
+]);
+
+export const superAdminAuditLogsRelations = relations(superAdminAuditLogs, ({ one }) => ({
+  superAdmin: one(users, { fields: [superAdminAuditLogs.superAdminUserId], references: [users.id] }),
+  organization: one(organizations, { fields: [superAdminAuditLogs.actedOrganizationId], references: [organizations.id] }),
+}));
+
 // Moments relations
 export const momentsRelations = relations(moments, ({ one, many }) => ({
   organization: one(organizations, { fields: [moments.organizationId], references: [organizations.id] }),
@@ -2241,6 +2261,7 @@ export const insertEventLeadSchema = createInsertSchema(eventLeads).omit({ id: t
 export const insertSessionCheckInSchema = createInsertSchema(sessionCheckIns).omit({ id: true, checkedInAt: true });
 export const insertApiKeySchema = createInsertSchema(apiKeys).omit({ id: true, createdAt: true, updatedAt: true, lastUsedAt: true, lastRotatedAt: true });
 export const insertApiKeyAuditLogSchema = createInsertSchema(apiKeyAuditLogs).omit({ id: true, occurredAt: true });
+export const insertSuperAdminAuditLogSchema = createInsertSchema(superAdminAuditLogs).omit({ id: true, createdAt: true });
 
 // Types
 export type UpsertUser = typeof users.$inferInsert;
@@ -2411,3 +2432,5 @@ export type InsertApiKey = z.infer<typeof insertApiKeySchema>;
 export type ApiKey = typeof apiKeys.$inferSelect;
 export type InsertApiKeyAuditLog = z.infer<typeof insertApiKeyAuditLogSchema>;
 export type ApiKeyAuditLog = typeof apiKeyAuditLogs.$inferSelect;
+export type InsertSuperAdminAuditLog = z.infer<typeof insertSuperAdminAuditLogSchema>;
+export type SuperAdminAuditLog = typeof superAdminAuditLogs.$inferSelect;
