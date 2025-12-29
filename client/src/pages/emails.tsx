@@ -41,7 +41,8 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { titleCase } from "@/lib/utils";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Mail, Send, Clock, CheckCircle, FileText, Copy, Trash2, X, Type, Palette } from "lucide-react";
+import { Plus, Mail, Send, Clock, CheckCircle, FileText, Copy, Trash2, X, Type, Palette, Library } from "lucide-react";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { EventSelectField } from "@/components/event-select-field";
 import { MergeTagPicker } from "@/components/merge-tag-picker";
 import {
@@ -50,7 +51,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { EmailCampaign, EmailTemplate, Event, BrandKit } from "@shared/schema";
+import type { EmailCampaign, EmailTemplate, Event, BrandKit, EmailTemplateLibrary } from "@shared/schema";
 
 const emailStylesSchema = z.object({
   alignment: z.enum(["left", "center", "right"]).optional(),
@@ -160,6 +161,7 @@ export default function Emails() {
   const [editingEmail, setEditingEmail] = useState<EmailCampaign | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<EmailTemplate | null>(null);
   const [eventFilter, setEventFilter] = useState<string>("all");
+  const [selectedLibraryTemplate, setSelectedLibraryTemplate] = useState<EmailTemplateLibrary | null>(null);
 
   const campaignSubjectRef = useRef<HTMLInputElement>(null);
   const campaignContentRef = useRef<HTMLTextAreaElement>(null);
@@ -182,6 +184,10 @@ export default function Emails() {
 
   const { data: brandKits = [] } = useQuery<BrandKit[]>({
     queryKey: ["/api/brand-kits"],
+  });
+
+  const { data: libraryTemplates = [], isLoading: libraryLoading } = useQuery<EmailTemplateLibrary[]>({
+    queryKey: ["/api/email-template-library"],
   });
 
   const eventMap = new Map(events.map((e) => [e.id, e.name]));
@@ -342,6 +348,20 @@ export default function Emails() {
         return;
       }
       toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const importLibraryTemplateMutation = useMutation({
+    mutationFn: async ({ templateId, eventId }: { templateId: string; eventId?: string }) => {
+      return await apiRequest("POST", `/api/email-template-library/${templateId}/import`, { eventId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/email-templates"] });
+      toast({ title: "Template imported successfully!" });
+      setActiveTab("templates");
+    },
+    onError: () => {
+      toast({ title: "Failed to import template", variant: "destructive" });
     },
   });
 
@@ -1484,6 +1504,10 @@ export default function Emails() {
                 <FileText className="h-4 w-4 mr-2" />
                 Templates
               </TabsTrigger>
+              <TabsTrigger value="library" data-testid="tab-library">
+                <Library className="h-4 w-4 mr-2" />
+                Template Library
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="campaigns">
@@ -1527,6 +1551,77 @@ export default function Emails() {
                   emptyMessage="No email templates found"
                   getRowKey={(template) => template.id}
                 />
+              )}
+            </TabsContent>
+
+            <TabsContent value="library">
+              {libraryLoading ? (
+                <div className="text-center py-8 text-muted-foreground">Loading templates...</div>
+              ) : libraryTemplates.length === 0 ? (
+                <EmptyState
+                  icon={Library}
+                  title="No library templates available"
+                  description="The template library is empty. Super admins can add templates to share across organizations."
+                />
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {libraryTemplates.map((template) => (
+                    <Card key={template.id} className="hover-elevate">
+                      <CardHeader className="pb-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <CardTitle className="text-base line-clamp-1">{template.name}</CardTitle>
+                          {template.category && (
+                            <Badge variant="secondary" className="text-xs shrink-0">
+                              {titleCase(template.category.replace(/_/g, " "))}
+                            </Badge>
+                          )}
+                        </div>
+                        {template.description && (
+                          <CardDescription className="text-sm line-clamp-2">{template.description}</CardDescription>
+                        )}
+                      </CardHeader>
+                      <CardContent className="pt-2">
+                        <div className="text-sm text-muted-foreground mb-3 line-clamp-1">
+                          Subject: {template.subject}
+                        </div>
+                        {template.tags && template.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mb-3">
+                            {template.tags.slice(0, 3).map((tag, idx) => (
+                              <Badge key={idx} variant="outline" className="text-xs">{tag}</Badge>
+                            ))}
+                          </div>
+                        )}
+                        <div className="flex gap-2">
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button variant="outline" size="sm" onClick={() => setSelectedLibraryTemplate(template)} data-testid={`button-preview-library-${template.id}`}>
+                                Preview
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-2xl max-h-[80vh] overflow-auto">
+                              <DialogHeader>
+                                <DialogTitle>{template.name}</DialogTitle>
+                                <DialogDescription>{template.subject}</DialogDescription>
+                              </DialogHeader>
+                              <div 
+                                className="prose prose-sm max-w-none border rounded-md p-4 bg-muted/30"
+                                dangerouslySetInnerHTML={{ __html: template.content }}
+                              />
+                            </DialogContent>
+                          </Dialog>
+                          <Button 
+                            size="sm" 
+                            onClick={() => importLibraryTemplateMutation.mutate({ templateId: template.id })}
+                            disabled={importLibraryTemplateMutation.isPending}
+                            data-testid={`button-import-library-${template.id}`}
+                          >
+                            {importLibraryTemplateMutation.isPending ? "Importing..." : "Import"}
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               )}
             </TabsContent>
           </Tabs>
