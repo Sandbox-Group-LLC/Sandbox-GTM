@@ -176,6 +176,7 @@ export default function Emails() {
   const [isCampaignDialogOpen, setIsCampaignDialogOpen] = useState(false);
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
   const [isLibraryDialogOpen, setIsLibraryDialogOpen] = useState(false);
+  const [libraryTagsInput, setLibraryTagsInput] = useState("");
   const [editingEmail, setEditingEmail] = useState<EmailCampaign | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<EmailTemplate | null>(null);
   const [editingLibraryTemplate, setEditingLibraryTemplate] = useState<EmailTemplateLibrary | null>(null);
@@ -553,6 +554,7 @@ export default function Emails() {
 
   const handleEditLibraryTemplate = (template: EmailTemplateLibrary) => {
     setEditingLibraryTemplate(template);
+    setLibraryTagsInput((template.tags || []).join(", "));
     libraryTemplateForm.reset({
       name: template.name,
       description: template.description || "",
@@ -570,6 +572,7 @@ export default function Emails() {
   const handleLibraryDialogClose = () => {
     setIsLibraryDialogOpen(false);
     setEditingLibraryTemplate(null);
+    setLibraryTagsInput("");
     libraryTemplateForm.reset();
   };
 
@@ -1905,9 +1908,10 @@ export default function Emails() {
                             <FormLabel>Tags (comma-separated)</FormLabel>
                             <FormControl>
                               <Input 
-                                value={(field.value || []).join(", ")}
-                                onChange={(e) => {
-                                  const tags = e.target.value.split(",").map(t => t.trim()).filter(t => t);
+                                value={libraryTagsInput}
+                                onChange={(e) => setLibraryTagsInput(e.target.value)}
+                                onBlur={() => {
+                                  const tags = libraryTagsInput.split(",").map(t => t.trim()).filter(t => t);
                                   field.onChange(tags);
                                 }}
                                 placeholder="e.g., welcome, onboarding, first-time"
