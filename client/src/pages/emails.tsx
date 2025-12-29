@@ -203,7 +203,7 @@ const categoryLabels: Record<string, string> = {
 export default function Emails() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const isSuperAdmin = user?.email?.toLowerCase().endsWith("@makemysandbox.com") ?? false;
+  const isSuperAdmin = (user?.email?.toLowerCase().endsWith("@makemysandbox.com") || user?.isAdmin) ?? false;
 
   const [activeTab, setActiveTab] = useState("campaigns");
   const [isCampaignDialogOpen, setIsCampaignDialogOpen] = useState(false);

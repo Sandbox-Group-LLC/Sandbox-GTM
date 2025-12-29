@@ -174,7 +174,7 @@ export function AppSidebar() {
   const isProgramActive = location === "/events" || location === "/registration" || location === "/site-builder" || location === "/custom-fields";
   const isContentActive = location === "/content" || location === "/documents";
   
-  const isSuperAdmin = user?.email?.toLowerCase().endsWith("@makemysandbox.com") ?? false;
+  const isSuperAdmin = (user?.email?.toLowerCase().endsWith("@makemysandbox.com") || user?.isAdmin) ?? false;
   
   // Permission checks for each section
   const canViewPrograms = hasPermission('programs');

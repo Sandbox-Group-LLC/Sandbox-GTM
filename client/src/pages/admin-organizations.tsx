@@ -79,11 +79,12 @@ function getInviteCodeStatus(code: SignupInviteCode): { label: string; variant: 
 }
 
 export default function AdminOrganizations() {
-  const { user } = useAuth();
+  const { user, isLoading: userLoading } = useAuth();
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   
-  const isSuperAdmin = user?.email?.toLowerCase().endsWith("@makemysandbox.com") ?? false;
+  // Check both the email domain AND the isAdmin flag from the API
+  const isSuperAdmin = (user?.email?.toLowerCase().endsWith("@makemysandbox.com") || user?.isAdmin) ?? false;
   
   const { data: organizations, isLoading } = useQuery<OrganizationWithStats[]>({
     queryKey: ["/api/admin/organizations"],
@@ -186,6 +187,21 @@ export default function AdminOrganizations() {
   const onSubmit = (data: FormValues) => {
     createMutation.mutate(data);
   };
+
+  // Show loading while user is being fetched to avoid premature "Access Denied"
+  if (userLoading) {
+    return (
+      <div className="flex flex-col h-full">
+        <PageHeader 
+          title="Organizations" 
+          breadcrumbs={[{ label: "Admin" }, { label: "Organizations" }]}
+        />
+        <div className="flex-1 overflow-auto p-6 flex items-center justify-center">
+          <div className="text-muted-foreground">Loading...</div>
+        </div>
+      </div>
+    );
+  }
 
   if (!isSuperAdmin) {
     return (
