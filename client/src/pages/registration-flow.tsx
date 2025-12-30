@@ -1364,7 +1364,7 @@ export default function RegistrationFlow() {
 
       {/* Package Customize Dialog - hoisted to top level to prevent remount on mobile */}
       <Dialog open={customizeDialogOpen} onOpenChange={setCustomizeDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Customize Package for Event</DialogTitle>
             <DialogDescription>
@@ -1412,7 +1412,7 @@ export default function RegistrationFlow() {
 
       {/* Custom Field Config Dialog - hoisted to top level to prevent remount on mobile */}
       <Dialog open={customFieldConfigDialogOpen} onOpenChange={setCustomFieldConfigDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle data-testid="dialog-title-custom-field-config">
               Configure Custom Field for Event
