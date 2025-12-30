@@ -229,6 +229,17 @@ export default function CustomFields() {
   const { data: customFields = [], isLoading } = useQuery<CustomField[]>({
     queryKey: ["/api/custom-fields"],
   });
+  
+  // Fetch attendee types for parent field option
+  const { data: attendeeTypes = [] } = useQuery<{ id: string; type: string }[]>({
+    queryKey: ["/api/attendee-types"],
+  });
+  
+  // Get unique attendee type names for the dropdown
+  const uniqueAttendeeTypeNames = [...new Set(attendeeTypes.map(at => at.type))].sort();
+  
+  // Special marker for attendee type as parent field
+  const ATTENDEE_TYPE_PARENT_ID = "__attendeeType__";
 
   const form = useForm<CustomFieldFormData>({
     resolver: zodResolver(customFieldFormSchema),
@@ -432,6 +443,10 @@ export default function CustomFields() {
   // Helper to get parent field label
   const getParentFieldLabel = (field: CustomField) => {
     if (!field.parentFieldId) return null;
+    // Handle special attendee type marker
+    if (field.parentFieldId === ATTENDEE_TYPE_PARENT_ID) {
+      return "Attendee Type";
+    }
     const parent = customFields.find(f => f.id === field.parentFieldId);
     return parent?.label ?? null;
   };
@@ -688,6 +703,12 @@ export default function CustomFields() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">None</SelectItem>
+                        {/* Attendee Type as a special parent option */}
+                        {uniqueAttendeeTypeNames.length > 0 && (
+                          <SelectItem value={ATTENDEE_TYPE_PARENT_ID}>
+                            Attendee Type
+                          </SelectItem>
+                        )}
                         {customFields
                           .filter((f) => 
                             (f.fieldType === "select" || f.fieldType === "checkbox") &&
@@ -707,6 +728,36 @@ export default function CustomFields() {
                   </FormItem>
 
                   {parentFieldId && (() => {
+                    // Handle attendee type as parent
+                    if (parentFieldId === ATTENDEE_TYPE_PARENT_ID) {
+                      return (
+                        <div className="space-y-2">
+                          <Label className="text-sm">Show when attendee type is</Label>
+                          <div className="space-y-2 border rounded-md p-3">
+                            {uniqueAttendeeTypeNames.map((typeName) => (
+                              <div key={typeName} className="flex items-center gap-2">
+                                <Checkbox
+                                  id={`trigger-type-${typeName}`}
+                                  checked={parentTriggerValues.includes(typeName)}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) {
+                                      setParentTriggerValues([...parentTriggerValues, typeName]);
+                                    } else {
+                                      setParentTriggerValues(parentTriggerValues.filter(v => v !== typeName));
+                                    }
+                                  }}
+                                  data-testid={`checkbox-trigger-type-${typeName}`}
+                                />
+                                <Label htmlFor={`trigger-type-${typeName}`} className="text-sm cursor-pointer">
+                                  {titleCase(typeName)}
+                                </Label>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+                    
                     const selectedParent = customFields.find(f => f.id === parentFieldId);
                     const parentOptions = selectedParent?.options ?? [];
                     if (parentOptions.length === 0 && selectedParent?.fieldType === "checkbox") {
