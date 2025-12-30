@@ -10543,7 +10543,21 @@ ${urls.map(u => `  <url>
       if (isInternal !== undefined) filters.isInternal = isInternal === 'true';
       
       const meetings = await storage.getAttendeeMeetings(event.organizationId, eventId, filters);
-      res.json(meetings);
+      
+      // Enrich meetings with attendee details
+      const enrichedMeetings = await Promise.all(meetings.map(async (meeting) => {
+        const [invitee, requester] = await Promise.all([
+          meeting.inviteeId ? storage.getAttendee(meeting.inviteeId, event.organizationId) : null,
+          meeting.requesterId ? storage.getAttendee(meeting.requesterId, event.organizationId) : null,
+        ]);
+        return {
+          ...meeting,
+          invitee: invitee ? { id: invitee.id, firstName: invitee.firstName, lastName: invitee.lastName, email: invitee.email } : null,
+          requester: requester ? { id: requester.id, firstName: requester.firstName, lastName: requester.lastName, email: requester.email } : null,
+        };
+      }));
+      
+      res.json(enrichedMeetings);
     } catch (error) {
       logError("Error fetching meetings:", error);
       res.status(500).json({ message: "Failed to fetch meetings" });

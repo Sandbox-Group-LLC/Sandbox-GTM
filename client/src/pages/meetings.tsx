@@ -33,10 +33,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import {
   Users,
   Plus,
-  Calendar,
+  CalendarIcon,
   Target,
   CheckCircle,
   Clock,
@@ -343,12 +347,48 @@ export default function Meetings() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>Date & Time</Label>
-                      <input
-                        type="datetime-local"
-                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                        value={newMeetingData.startTime}
-                        onChange={(e) => setNewMeetingData({ ...newMeetingData, startTime: e.target.value })}
+                      <Label>Date</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !newMeetingData.startTime && "text-muted-foreground"
+                            )}
+                            data-testid="button-meeting-date"
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {newMeetingData.startTime ? format(new Date(newMeetingData.startTime), "PPP") : "Select date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <CalendarComponent
+                            mode="single"
+                            selected={newMeetingData.startTime ? new Date(newMeetingData.startTime) : undefined}
+                            onSelect={(date) => {
+                              if (date) {
+                                const existing = newMeetingData.startTime ? new Date(newMeetingData.startTime) : new Date();
+                                date.setHours(existing.getHours(), existing.getMinutes());
+                                setNewMeetingData({ ...newMeetingData, startTime: date.toISOString() });
+                              }
+                            }}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Time</Label>
+                      <Input
+                        type="time"
+                        value={newMeetingData.startTime ? format(new Date(newMeetingData.startTime), "HH:mm") : "09:00"}
+                        onChange={(e) => {
+                          const [hours, minutes] = e.target.value.split(":").map(Number);
+                          const date = newMeetingData.startTime ? new Date(newMeetingData.startTime) : new Date();
+                          date.setHours(hours, minutes);
+                          setNewMeetingData({ ...newMeetingData, startTime: date.toISOString() });
+                        }}
                         data-testid="input-meeting-time"
                       />
                     </div>
