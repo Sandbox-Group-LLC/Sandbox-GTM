@@ -168,7 +168,7 @@ export function AppSidebar() {
 
   const isPerformanceActive = location === "/" || location === "/acquisition" || location === "/engagement-signals" || location === "/revenue-snapshot";
   const isGtmActive = location === "/attendees" || location === "/import-attendees" || location === "/attendee-types" || location === "/invite-codes" || location === "/activation-links" || location === "/packages" || location === "/emails" || location === "/email-analytics" || location === "/social";
-  const isEngagementActive = location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/topics" || location === "/engagement-moments" || location === "/check-in";
+  const isEngagementActive = location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/topics" || location === "/engagement-moments" || location === "/check-in" || location === "/meetings";
   const isRevenueActive = location === "/pipeline" || location === "/sales-handoff" || location === "/follow-up" || location === "/roi";
   const isExecutionActive = location === "/run-of-show" || location === "/deliverables" || location === "/vendors" || location === "/budget" || location === "/sponsors" || location === "/sponsor-tasks" || location === "/rooms";
   const isProgramActive = location === "/events" || location === "/registration" || location === "/site-builder" || location === "/custom-fields";
@@ -528,6 +528,19 @@ export function AppSidebar() {
                   <Link href="/check-in">
                     <QrCode className="h-4 w-4" />
                     <span>Engagement Capture</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location === "/meetings"}
+                  data-testid="nav-meetings"
+                >
+                  <Link href="/meetings">
+                    <Users className="h-4 w-4" />
+                    <span>Meetings</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

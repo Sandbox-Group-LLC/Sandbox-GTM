@@ -11,7 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useSignupStatus } from "@/hooks/useSignupStatus";
 import { OrgSwitcher } from "@/components/org-switcher";
 import { SuperAdminBanner } from "@/components/super-admin-banner";
-import type { BrandKit } from "@shared/schema";
+import type { BrandKit as BrandKitType } from "@shared/schema";
 import NotFound from "@/pages/not-found";
 import RequireInviteCode from "@/pages/require-invite-code";
 import Landing from "@/pages/landing";
@@ -80,6 +80,7 @@ import PortalLiveMoments from "@/pages/portal-live-moments";
 import PublicMoment from "@/pages/public-moment";
 import PortalMoment from "@/pages/portal-moment";
 import BrandKit from "@/pages/brand-kit";
+import Meetings from "@/pages/meetings";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const sidebarStyle = {
@@ -88,7 +89,7 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   };
   const { user, organization } = useAuth();
 
-  const { data: defaultBrandKit } = useQuery<BrandKit>({
+  const { data: defaultBrandKit } = useQuery<BrandKitType>({
     queryKey: ["/api/brand-kits/default"],
     enabled: !!user,
     retry: false,
@@ -271,6 +272,7 @@ function Router() {
         <Route path="/roi" component={ROI} />
         <Route path="/run-of-show" component={RunOfShow} />
         <Route path="/vendors" component={Vendors} />
+        <Route path="/meetings" component={Meetings} />
         <Route component={NotFound} />
       </Switch>
     </AuthenticatedLayout>
