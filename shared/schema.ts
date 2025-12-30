@@ -2180,7 +2180,57 @@ export const attendeeAvailabilitySlots = pgTable("attendee_availability_slots", 
   index("availability_slots_attendee_idx").on(table.attendeeId),
 ]);
 
-// Attendee Meetings - scheduled 1:1 meetings between attendees
+// Meeting Intent Types - for pre-meeting goal capture
+export const MEETING_INTENT_TYPES = [
+  'exploring_solution',
+  'evaluating_fit',
+  'existing_customer',
+  'partner_discussion',
+  'executive_introduction',
+  'networking',
+] as const;
+
+export type MeetingIntentType = typeof MEETING_INTENT_TYPES[number];
+
+// Meeting Outcome Types - for post-meeting capture (internal only)
+export const MEETING_OUTCOME_TYPES = [
+  'no_fit',
+  'early_interest',
+  'active_opportunity',
+  'follow_up_scheduled',
+  'deal_in_progress',
+] as const;
+
+export type MeetingOutcomeType = typeof MEETING_OUTCOME_TYPES[number];
+
+// Deal Range Types
+export const DEAL_RANGE_TYPES = [
+  'under_25k',
+  '25k_to_100k',
+  'over_100k',
+] as const;
+
+export type DealRangeType = typeof DEAL_RANGE_TYPES[number];
+
+// Timeline Types
+export const TIMELINE_TYPES = [
+  'now',
+  'this_quarter',
+  'later',
+] as const;
+
+export type TimelineType = typeof TIMELINE_TYPES[number];
+
+// Intent Strength Types (system-computed)
+export const INTENT_STRENGTH_TYPES = [
+  'low',
+  'medium',
+  'high',
+] as const;
+
+export type IntentStrengthType = typeof INTENT_STRENGTH_TYPES[number];
+
+// Attendee Meetings - scheduled 1:1 meetings between attendees with intent and outcome capture
 export const attendeeMeetings = pgTable("attendee_meetings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
@@ -2192,16 +2242,41 @@ export const attendeeMeetings = pgTable("attendee_meetings", {
   endTime: timestamp("end_time").notNull(),
   location: varchar("location", { length: 255 }),
   virtualLink: text("virtual_link"),
-  status: varchar("status", { length: 20 }).default("pending").notNull(), // 'pending', 'accepted', 'declined', 'cancelled'
+  status: varchar("status", { length: 20 }).default("pending").notNull(), // 'pending', 'accepted', 'declined', 'cancelled', 'completed'
   message: text("message"),
   declineReason: text("decline_reason"),
   respondedAt: timestamp("responded_at"),
+  
+  // Meeting Intent (Pre-Meeting) - Required when requesting
+  intentType: varchar("intent_type", { length: 50 }), // MeetingIntentType
+  
+  // Meeting Outcome (Post-Meeting - Internal Only)
+  outcomeType: varchar("outcome_type", { length: 50 }), // MeetingOutcomeType
+  dealRange: varchar("deal_range", { length: 20 }), // DealRangeType
+  timeline: varchar("timeline", { length: 20 }), // TimelineType
+  outcomeNotes: text("outcome_notes"),
+  outcomeCapturedAt: timestamp("outcome_captured_at"),
+  outcomeCapturedBy: varchar("outcome_captured_by").references(() => users.id),
+  
+  // Intent Strength (System-Computed)
+  intentStrength: varchar("intent_strength", { length: 10 }), // IntentStrengthType
+  
+  // Attribution Fields
+  activationLinkId: varchar("activation_link_id").references(() => activationLinks.id),
+  packageId: varchar("package_id").references(() => packages.id),
+  
+  // Internal meeting flag (internal team member initiated)
+  isInternalMeeting: boolean("is_internal_meeting").default(false),
+  internalHostUserId: varchar("internal_host_user_id").references(() => users.id),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("attendee_meetings_event_idx").on(table.eventId),
   index("attendee_meetings_requester_idx").on(table.requesterId),
   index("attendee_meetings_invitee_idx").on(table.inviteeId),
+  index("attendee_meetings_intent_idx").on(table.intentType),
+  index("attendee_meetings_outcome_idx").on(table.outcomeType),
 ]);
 
 // Networking relations
@@ -2224,6 +2299,10 @@ export const attendeeMeetingsRelations = relations(attendeeMeetings, ({ one }) =
   requester: one(attendees, { fields: [attendeeMeetings.requesterId], references: [attendees.id] }),
   invitee: one(attendees, { fields: [attendeeMeetings.inviteeId], references: [attendees.id] }),
   slot: one(attendeeAvailabilitySlots, { fields: [attendeeMeetings.slotId], references: [attendeeAvailabilitySlots.id] }),
+  outcomeCapturedByUser: one(users, { fields: [attendeeMeetings.outcomeCapturedBy], references: [users.id] }),
+  internalHost: one(users, { fields: [attendeeMeetings.internalHostUserId], references: [users.id] }),
+  activationLink: one(activationLinks, { fields: [attendeeMeetings.activationLinkId], references: [activationLinks.id] }),
+  package: one(packages, { fields: [attendeeMeetings.packageId], references: [packages.id] }),
 }));
 
 // Moments relations
@@ -2521,3 +2600,9 @@ export type InsertApiKeyAuditLog = z.infer<typeof insertApiKeyAuditLogSchema>;
 export type ApiKeyAuditLog = typeof apiKeyAuditLogs.$inferSelect;
 export type InsertSuperAdminAuditLog = z.infer<typeof insertSuperAdminAuditLogSchema>;
 export type SuperAdminAuditLog = typeof superAdminAuditLogs.$inferSelect;
+export type InsertAttendeeConnection = z.infer<typeof insertAttendeeConnectionSchema>;
+export type AttendeeConnection = typeof attendeeConnections.$inferSelect;
+export type InsertAttendeeAvailabilitySlot = z.infer<typeof insertAttendeeAvailabilitySlotSchema>;
+export type AttendeeAvailabilitySlot = typeof attendeeAvailabilitySlots.$inferSelect;
+export type InsertAttendeeMeeting = z.infer<typeof insertAttendeeMeetingSchema>;
+export type AttendeeMeeting = typeof attendeeMeetings.$inferSelect;
