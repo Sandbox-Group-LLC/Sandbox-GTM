@@ -429,7 +429,6 @@ export default function RegistrationFlow() {
 
   // Open the custom field config dialog
   const openCustomFieldConfigDialog = (field: CustomField) => {
-    console.log('openCustomFieldConfigDialog called for field:', field.id, field.label);
     const setting = getCustomFieldSetting(field.id);
     setEditingCustomField(field);
     setCustomFieldOverride({
@@ -439,7 +438,6 @@ export default function RegistrationFlow() {
       parentFieldId: setting?.parentFieldId ?? null,
       parentTriggerValues: setting?.parentTriggerValues ?? null,
     });
-    console.log('Setting customFieldConfigDialogOpen to true');
     setCustomFieldConfigDialogOpen(true);
   };
 
@@ -681,15 +679,16 @@ export default function RegistrationFlow() {
                             </Badge>
                           )}
                         </div>
-                        <div className="flex items-center gap-2">
-                          <button
+                        <div className="flex items-center gap-2" style={{ touchAction: 'manipulation', pointerEvents: 'auto' }}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             type="button"
-                            className="inline-flex items-center justify-center h-9 w-9 rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                             onClick={() => openCustomFieldConfigDialog(field)}
                             data-testid={`button-configure-field-${field.id}`}
                           >
                             <Settings2 className="h-4 w-4" />
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     );
@@ -712,15 +711,16 @@ export default function RegistrationFlow() {
                             <span className="text-xs text-muted-foreground">(org default)</span>
                           )}
                         </div>
-                        <div className="flex items-center gap-2">
-                          <button
+                        <div className="flex items-center gap-2" style={{ touchAction: 'manipulation', pointerEvents: 'auto' }}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             type="button"
-                            className="inline-flex items-center justify-center h-9 w-9 rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                             onClick={() => openCustomFieldConfigDialog(field)}
                             data-testid={`button-configure-field-${field.id}`}
                           >
                             <Settings2 className="h-4 w-4" />
-                          </button>
+                          </Button>
                           <Switch
                             id={`custom-field-${field.id}`}
                             checked={isActive}
