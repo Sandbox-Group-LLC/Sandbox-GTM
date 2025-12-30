@@ -1526,18 +1526,18 @@ export default function RegistrationFlow() {
                 )}
               </div>
               <Select
-                value={customFieldOverride.parentFieldId ?? editingCustomField?.parentFieldId ?? ""}
+                value={customFieldOverride.parentFieldId ?? editingCustomField?.parentFieldId ?? "__none__"}
                 onValueChange={(value) => setCustomFieldOverride(prev => ({ 
                   ...prev, 
-                  parentFieldId: value || null,
-                  parentTriggerValues: value ? prev.parentTriggerValues : null
+                  parentFieldId: value === "__none__" ? null : value,
+                  parentTriggerValues: value === "__none__" ? null : prev.parentTriggerValues
                 }))}
               >
                 <SelectTrigger data-testid="select-cf-parent-field">
                   <SelectValue placeholder="No conditional visibility" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No conditional visibility</SelectItem>
+                  <SelectItem value="__none__">No conditional visibility</SelectItem>
                   {getParentFieldOptions().map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
