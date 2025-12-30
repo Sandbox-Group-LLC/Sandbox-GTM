@@ -93,10 +93,11 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
         <AppSidebar />
         <div className="flex-1 flex flex-col overflow-auto">
           {user?.isSuperAdmin && <SuperAdminBanner />}
-          <header className="flex items-center justify-between gap-4 px-4 py-2 border-b shrink-0">
-            <SidebarTrigger data-testid="button-sidebar-trigger" />
-            {user?.isSuperAdmin && <OrgSwitcher />}
-          </header>
+          {user?.isSuperAdmin && (
+            <header className="flex items-center justify-end gap-4 px-4 py-2 border-b shrink-0">
+              <OrgSwitcher />
+            </header>
+          )}
           <main className="flex-1 flex flex-col overflow-auto">
             {children}
           </main>
