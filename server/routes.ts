@@ -18,6 +18,7 @@ import { promisify } from "util";
 import { resolveTxt } from "dns/promises";
 import { parseUserAgent, isBot, getTimeContext, getGeoFromIP, extractRealIP } from "./tracking-utils";
 import { calculateMilestoneStatus, getStatusLabel, getStatusColor, type MilestoneStatusResult } from "./acquisitionStatus";
+import { isApiAuthenticated } from "./apiAuth";
 
 const scryptAsync = promisify(scrypt);
 
@@ -2373,7 +2374,7 @@ export async function registerRoutes(
   // GET /api/organization/api-keys/scopes - Get available scopes
   app.get('/api/organization/api-keys/scopes', isAuthenticated, async (req: any, res) => {
     try {
-      const scopeDescriptions = {
+      const scopeDescriptions: Record<string, string> = {
         'events.read': 'Read event information (name, dates, venue, settings)',
         'attendees.read': 'Read attendee data (names, emails, registration info)',
         'leads.read': 'Read lead capture data',
@@ -2381,6 +2382,7 @@ export async function registerRoutes(
         'speakers.read': 'Read speaker profiles and bios',
         'analytics.read': 'Read analytics and statistics',
         'sponsors.read': 'Read sponsor information',
+        'checkin.write': 'Check in attendees at events (for badge printing integrations like Xtag)',
       };
       
       res.json(API_KEY_SCOPES.map(scope => ({
@@ -2390,6 +2392,185 @@ export async function registerRoutes(
     } catch (error) {
       logError("Error fetching scopes:", error);
       res.status(500).json({ message: "Failed to fetch scopes" });
+    }
+  });
+
+  // =====================================================
+  // EXTERNAL API ENDPOINTS (for third-party integrations like Xtag badge printing)
+  // These endpoints use API key authentication via Bearer token
+  // =====================================================
+
+  // GET /api/external/events - List events for the organization
+  app.get('/api/external/events', isApiAuthenticated(['events.read']), async (req: any, res) => {
+    try {
+      const organizationId = req.apiKey.organizationId;
+      const events = await storage.getEvents(organizationId);
+      
+      // Return sanitized event data
+      const sanitizedEvents = events.map(event => ({
+        id: event.id,
+        name: event.name,
+        slug: event.slug,
+        description: event.description,
+        startDate: event.startDate,
+        endDate: event.endDate,
+        timezone: event.timezone,
+        venueName: event.venueName,
+        venueAddress: event.venueAddress,
+        city: event.city,
+        state: event.state,
+        country: event.country,
+        status: event.status,
+        eventType: event.eventType,
+        attendeeCount: event.attendeeCount,
+      }));
+      
+      // Log API access
+      await storage.createApiKeyAuditLog({
+        apiKeyId: req.apiKey.apiKeyId,
+        organizationId,
+        route: '/api/external/events',
+        method: 'GET',
+        statusCode: 200,
+        ipHash: createHash('sha256').update(req.ip || 'unknown').digest('hex'),
+        userAgent: req.headers['user-agent']?.substring(0, 500),
+        latencyMs: Date.now() - (req._startTime || Date.now()),
+      });
+      
+      res.json({ events: sanitizedEvents, total: sanitizedEvents.length });
+    } catch (error) {
+      logError("Error in external events API:", error);
+      res.status(500).json({ error: 'internal_error', message: "Failed to fetch events" });
+    }
+  });
+
+  // GET /api/external/events/:eventId/attendees - List attendees for an event
+  app.get('/api/external/events/:eventId/attendees', isApiAuthenticated(['attendees.read']), async (req: any, res) => {
+    try {
+      const organizationId = req.apiKey.organizationId;
+      const { eventId } = req.params;
+      
+      // Verify event belongs to this organization
+      const event = await storage.getEvent(organizationId, eventId);
+      if (!event) {
+        return res.status(404).json({ error: 'not_found', message: "Event not found" });
+      }
+      
+      const attendees = await storage.getAttendees(organizationId, eventId);
+      
+      // Return sanitized attendee data suitable for badge printing
+      const sanitizedAttendees = attendees.map(attendee => ({
+        id: attendee.id,
+        firstName: attendee.firstName,
+        lastName: attendee.lastName,
+        email: attendee.email,
+        company: attendee.company,
+        jobTitle: attendee.jobTitle,
+        phone: attendee.phone,
+        registrationStatus: attendee.registrationStatus,
+        attendeeTypeId: attendee.attendeeTypeId,
+        packageId: attendee.packageId,
+        checkedInAt: attendee.checkedInAt,
+        badgeCode: attendee.badgeCode,
+        customFieldData: attendee.customFieldData,
+        dietaryRestrictions: attendee.dietaryRestrictions,
+        accessibilityNeeds: attendee.accessibilityNeeds,
+      }));
+      
+      // Log API access
+      await storage.createApiKeyAuditLog({
+        apiKeyId: req.apiKey.apiKeyId,
+        organizationId,
+        route: `/api/external/events/${eventId}/attendees`,
+        method: 'GET',
+        statusCode: 200,
+        ipHash: createHash('sha256').update(req.ip || 'unknown').digest('hex'),
+        userAgent: req.headers['user-agent']?.substring(0, 500),
+        latencyMs: Date.now() - (req._startTime || Date.now()),
+      });
+      
+      res.json({ attendees: sanitizedAttendees, total: sanitizedAttendees.length, eventId });
+    } catch (error) {
+      logError("Error in external attendees API:", error);
+      res.status(500).json({ error: 'internal_error', message: "Failed to fetch attendees" });
+    }
+  });
+
+  // PATCH /api/external/attendees/:attendeeId/checkin - Check in an attendee
+  app.patch('/api/external/attendees/:attendeeId/checkin', isApiAuthenticated(['checkin.write']), async (req: any, res) => {
+    try {
+      const organizationId = req.apiKey.organizationId;
+      const { attendeeId } = req.params;
+      const { checkedIn = true, notes } = req.body;
+      
+      // Find the attendee across all events in this organization
+      const allEvents = await storage.getEvents(organizationId);
+      let foundAttendee = null;
+      let foundEventId = null;
+      
+      for (const event of allEvents) {
+        const attendees = await storage.getAttendees(organizationId, event.id);
+        const attendee = attendees.find(a => a.id === attendeeId);
+        if (attendee) {
+          foundAttendee = attendee;
+          foundEventId = event.id;
+          break;
+        }
+      }
+      
+      if (!foundAttendee) {
+        return res.status(404).json({ error: 'not_found', message: "Attendee not found" });
+      }
+      
+      // Update the attendee check-in status
+      const updateData: any = {};
+      
+      if (checkedIn) {
+        updateData.checkedInAt = new Date();
+        updateData.registrationStatus = 'checked_in';
+        if (notes) {
+          updateData.notes = foundAttendee.notes 
+            ? `${foundAttendee.notes}\n[Check-in via API]: ${notes}`
+            : `[Check-in via API]: ${notes}`;
+        }
+      } else {
+        // Allow un-checking in (setting to null)
+        updateData.checkedInAt = null;
+        updateData.registrationStatus = 'confirmed';
+      }
+      
+      const updatedAttendee = await storage.updateAttendee(organizationId, attendeeId, updateData);
+      
+      // Log API access
+      await storage.createApiKeyAuditLog({
+        apiKeyId: req.apiKey.apiKeyId,
+        organizationId,
+        route: `/api/external/attendees/${attendeeId}/checkin`,
+        method: 'PATCH',
+        statusCode: 200,
+        ipHash: createHash('sha256').update(req.ip || 'unknown').digest('hex'),
+        userAgent: req.headers['user-agent']?.substring(0, 500),
+        latencyMs: Date.now() - (req._startTime || Date.now()),
+        metadata: { checkedIn, eventId: foundEventId },
+      });
+      
+      res.json({
+        success: true,
+        attendee: {
+          id: updatedAttendee?.id,
+          firstName: updatedAttendee?.firstName,
+          lastName: updatedAttendee?.lastName,
+          email: updatedAttendee?.email,
+          company: updatedAttendee?.company,
+          jobTitle: updatedAttendee?.jobTitle,
+          registrationStatus: updatedAttendee?.registrationStatus,
+          checkedInAt: updatedAttendee?.checkedInAt,
+        },
+        message: checkedIn ? 'Attendee checked in successfully' : 'Attendee check-in status removed',
+      });
+    } catch (error) {
+      logError("Error in external check-in API:", error);
+      res.status(500).json({ error: 'internal_error', message: "Failed to update check-in status" });
     }
   });
 

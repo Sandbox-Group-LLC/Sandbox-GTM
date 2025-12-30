@@ -2092,6 +2092,7 @@ export const API_KEY_SCOPES = [
   'speakers.read',     // Read speaker data
   'analytics.read',    // Read analytics data
   'sponsors.read',     // Read sponsor data
+  'checkin.write',     // Check in attendees (for badge printing integrations)
 ] as const;
 
 export type ApiKeyScope = typeof API_KEY_SCOPES[number];
