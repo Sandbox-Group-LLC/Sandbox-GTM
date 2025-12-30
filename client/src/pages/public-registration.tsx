@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, Link, useSearch } from "wouter";
-import { useForm } from "react-hook-form";
+import { useForm, UseFormWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { loadStripe, Stripe } from "@stripe/stripe-js";
@@ -1553,6 +1553,8 @@ export default function PublicRegistration() {
                               key={customField.id}
                               customField={customField}
                               control={form.control}
+                              allCustomFields={sortedCustomFields}
+                              watch={form.watch}
                               inputStyles={inputStyles}
                               labelStyles={labelStyles}
                             />
@@ -1821,7 +1823,39 @@ function SectionRenderer({ section, event, slug, theme }: { section: Section; ev
   }
 }
 
-function CustomFieldRenderer({ customField, control, inputStyles, labelStyles }: { customField: CustomField; control: any; inputStyles?: React.CSSProperties; labelStyles?: React.CSSProperties }) {
+function CustomFieldRenderer({ 
+  customField, 
+  control, 
+  allCustomFields, 
+  watch, 
+  inputStyles, 
+  labelStyles 
+}: { 
+  customField: CustomField; 
+  control: any; 
+  allCustomFields: CustomField[]; 
+  watch: UseFormWatch<any>; 
+  inputStyles?: React.CSSProperties; 
+  labelStyles?: React.CSSProperties 
+}) {
+  // Check conditional visibility based on parent field
+  if (customField.parentFieldId && customField.parentTriggerValues?.length) {
+    const parentField = allCustomFields.find(f => f.id === customField.parentFieldId);
+    if (parentField) {
+      const parentValue = watch(`customData.${parentField.name}`);
+      
+      if (parentField.fieldType === "checkbox") {
+        // For checkbox, parentValue is boolean, trigger is "true"
+        const shouldShow = parentValue === true && customField.parentTriggerValues.includes("true");
+        if (!shouldShow) return null;
+      } else if (parentField.fieldType === "select") {
+        // For select, parentValue is string option
+        const shouldShow = customField.parentTriggerValues.includes(parentValue as string);
+        if (!shouldShow) return null;
+      }
+    }
+  }
+
   const fieldName = `customData.${customField.name}` as const;
   const labelText = customField.required ? customField.label : `${customField.label} (optional)`;
 
