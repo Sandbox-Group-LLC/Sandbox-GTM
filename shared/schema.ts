@@ -2,6 +2,7 @@ import { sql, relations } from "drizzle-orm";
 import {
   index,
   uniqueIndex,
+  unique,
   jsonb,
   pgTable,
   timestamp,
@@ -673,6 +674,23 @@ export const customFields = pgTable("custom_fields", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+// Event Custom Field Settings - per-event overrides for custom field behavior
+export const eventCustomFieldSettings = pgTable("event_custom_field_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id, { onDelete: "cascade" }).notNull(),
+  customFieldId: varchar("custom_field_id").references(() => customFields.id, { onDelete: "cascade" }).notNull(),
+  required: boolean("required"), // Override for required status (null = use org default)
+  isActive: boolean("is_active"), // Override for active status (null = use org default)
+  displayOrder: integer("display_order"), // Override for display order (null = use org default)
+  parentFieldId: varchar("parent_field_id"), // Override for parent field (null = use org default)
+  parentTriggerValues: text("parent_trigger_values").array(), // Override for trigger values
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueEventField: unique().on(table.eventId, table.customFieldId),
+}));
 
 // Attendees table
 export const attendees = pgTable("attendees", {
@@ -2399,6 +2417,7 @@ export const insertEventPageSchema = createInsertSchema(eventPages).omit({ id: t
 export const insertPageVersionSchema = createInsertSchema(pageVersions).omit({ id: true, createdAt: true });
 export const insertRegistrationConfigSchema = createInsertSchema(registrationConfigs).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertCustomFieldSchema = createInsertSchema(customFields).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertEventCustomFieldSettingSchema = createInsertSchema(eventCustomFieldSettings).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertContentAssetSchema = createInsertSchema(contentAssets).omit({ id: true, createdAt: true });
 export const insertEventSponsorSchema = createInsertSchema(eventSponsors).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSponsorContactSchema = createInsertSchema(sponsorContacts).omit({ id: true, createdAt: true, updatedAt: true });
@@ -2529,6 +2548,8 @@ export type InsertRegistrationConfig = z.infer<typeof insertRegistrationConfigSc
 export type RegistrationConfig = typeof registrationConfigs.$inferSelect;
 export type InsertCustomField = z.infer<typeof insertCustomFieldSchema>;
 export type CustomField = typeof customFields.$inferSelect;
+export type InsertEventCustomFieldSetting = z.infer<typeof insertEventCustomFieldSettingSchema>;
+export type EventCustomFieldSetting = typeof eventCustomFieldSettings.$inferSelect;
 export type InsertContentAsset = z.infer<typeof insertContentAssetSchema>;
 export type ContentAsset = typeof contentAssets.$inferSelect;
 export type InsertEventSponsor = z.infer<typeof insertEventSponsorSchema>;
