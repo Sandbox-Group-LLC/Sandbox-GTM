@@ -42,7 +42,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { titleCase } from "@/lib/utils";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Mail, Send, Clock, CheckCircle, FileText, Copy, Trash2, X, Type, Palette, Library, Pencil, Info } from "lucide-react";
+import { Plus, Mail, Send, Clock, CheckCircle, FileText, Copy, Trash2, X, Type, Palette, Library, Pencil, Info, AlertTriangle } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { EventSelectField } from "@/components/event-select-field";
 import { MergeTagPicker } from "@/components/merge-tag-picker";
@@ -91,7 +91,33 @@ const templateFormSchema = z.object({
   campaignRole: z.string().default("general"),
   headerImageUrl: z.string().optional(),
   isInviteEmail: z.boolean().default(false),
+  includeInAcquisitionFunnel: z.boolean().default(false),
   styles: emailStylesSchema,
+}).superRefine((data, ctx) => {
+  // When includeInAcquisitionFunnel is ON, classification fields are required
+  if (data.includeInAcquisitionFunnel) {
+    if (!data.campaignType) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Campaign Type is required when tracking in Acquisition Funnel",
+        path: ["campaignType"],
+      });
+    }
+    if (!data.funnelStage) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Funnel Stage is required when tracking in Acquisition Funnel",
+        path: ["funnelStage"],
+      });
+    }
+    if (!data.campaignRole || data.campaignRole === "general") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Campaign Role is required when tracking in Acquisition Funnel",
+        path: ["campaignRole"],
+      });
+    }
+  }
 });
 
 const libraryTemplateFormSchema = z.object({
@@ -273,6 +299,7 @@ export default function Emails() {
       campaignRole: "general",
       headerImageUrl: "",
       isInviteEmail: false,
+      includeInAcquisitionFunnel: false,
       styles: {},
     },
   });
@@ -557,6 +584,7 @@ export default function Emails() {
       campaignRole: template.campaignRole || "general",
       headerImageUrl: template.headerImageUrl || "",
       isInviteEmail: template.isInviteEmail || false,
+      includeInAcquisitionFunnel: template.includeInAcquisitionFunnel || false,
       styles: template.styles || {},
     });
     setIsTemplateDialogOpen(true);
@@ -771,6 +799,41 @@ export default function Emails() {
       cell: (template: EmailTemplate) => (
         <Badge variant="outline">{getCampaignRoleLabel(template.campaignRole || "general")}</Badge>
       ),
+    },
+    {
+      key: "trackingStatus",
+      header: "Funnel Tracking",
+      cell: (template: EmailTemplate) => {
+        const isTracked = template.includeInAcquisitionFunnel && 
+                          template.campaignType && 
+                          template.funnelStage && 
+                          template.campaignRole && 
+                          template.campaignRole !== "general";
+        return (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center gap-1.5">
+                {isTracked ? (
+                  <>
+                    <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                    <span className="text-sm text-green-600 dark:text-green-400">Tracked</span>
+                  </>
+                ) : (
+                  <>
+                    <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/50" />
+                    <span className="text-sm text-muted-foreground">Untracked</span>
+                  </>
+                )}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              {isTracked 
+                ? "This email is included in Acquisition Funnel analytics."
+                : "This email is excluded from Acquisition Funnel analytics because campaign fields are incomplete."}
+            </TooltipContent>
+          </Tooltip>
+        );
+      },
     },
     {
       key: "createdAt",
@@ -1276,17 +1339,54 @@ export default function Emails() {
                     
                     {/* Campaign Classification Section */}
                     <div className="space-y-4 rounded-lg border p-4">
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-medium">Campaign Classification</h4>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-xs">
-                            <p>Classify this template to help organize your campaigns and track performance in the Acquisition Funnel.</p>
-                          </TooltipContent>
-                        </Tooltip>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-medium">Campaign Classification</h4>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              <p>These fields help Sandbox understand the purpose of this email so results can be measured accurately.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                        
+                        {/* Include in Acquisition Funnel Toggle */}
+                        <FormField
+                          control={templateForm.control}
+                          name="includeInAcquisitionFunnel"
+                          render={({ field }) => (
+                            <FormItem className="flex items-center gap-2 space-y-0">
+                              <FormLabel className="text-sm font-normal">Include in Acquisition Funnel</FormLabel>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs">
+                                  <p>Enable this to include this email's engagement data in acquisition and conversion reporting.</p>
+                                </TooltipContent>
+                              </Tooltip>
+                              <FormControl>
+                                <Switch
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                  data-testid="switch-include-acquisition-funnel"
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
                       </div>
+                      
+                      {/* Warning when toggle is OFF and fields are incomplete */}
+                      {!templateForm.watch("includeInAcquisitionFunnel") && 
+                       (!templateForm.watch("campaignType") || !templateForm.watch("funnelStage") || !templateForm.watch("campaignRole") || templateForm.watch("campaignRole") === "general") && (
+                        <div className="flex items-start gap-2 rounded-md bg-amber-50 dark:bg-amber-950/30 p-3 text-amber-800 dark:text-amber-200">
+                          <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                          <p className="text-sm">This email will not appear in Acquisition Funnel reporting unless campaign fields are completed.</p>
+                        </div>
+                      )}
                       
                       <div className="grid grid-cols-3 gap-4">
                         <FormField
@@ -1294,7 +1394,9 @@ export default function Emails() {
                           name="campaignType"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Campaign Type</FormLabel>
+                              <FormLabel>
+                                Campaign Type{templateForm.watch("includeInAcquisitionFunnel") && " *"}
+                              </FormLabel>
                               <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
                                   <SelectTrigger data-testid="select-template-campaign-type">
@@ -1318,7 +1420,9 @@ export default function Emails() {
                           name="funnelStage"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Funnel Stage</FormLabel>
+                              <FormLabel>
+                                Funnel Stage{templateForm.watch("includeInAcquisitionFunnel") && " *"}
+                              </FormLabel>
                               <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
                                   <SelectTrigger data-testid="select-template-funnel-stage">
@@ -1342,7 +1446,9 @@ export default function Emails() {
                           name="campaignRole"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Campaign Role</FormLabel>
+                              <FormLabel>
+                                Campaign Role{templateForm.watch("includeInAcquisitionFunnel") && " *"}
+                              </FormLabel>
                               <Select onValueChange={field.onChange} value={field.value || "general"}>
                                 <FormControl>
                                   <SelectTrigger data-testid="select-template-campaign-role">

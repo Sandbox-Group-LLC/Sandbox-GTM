@@ -1202,6 +1202,7 @@ export const emailTemplates = pgTable("email_templates", {
   }>().default({}),
   isDefault: boolean("is_default").default(false),
   isInviteEmail: boolean("is_invite_email").default(false),
+  includeInAcquisitionFunnel: boolean("include_in_acquisition_funnel").default(false),
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
