@@ -12871,6 +12871,93 @@ ${urls.map(u => `  <url>
     }
   });
 
+  // Event Custom Field Settings endpoints (per-event overrides)
+  app.get("/api/events/:eventId/custom-field-settings", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const settings = await storage.getEventCustomFieldSettings(organizationId, req.params.eventId);
+      res.json(settings);
+    } catch (error) {
+      logError("Error fetching event custom field settings:", error);
+      res.status(500).json({ message: "Failed to fetch event custom field settings" });
+    }
+  });
+
+  app.put("/api/events/:eventId/custom-field-settings/:customFieldId", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      
+      // Extract only allowed fields from body to prevent ID tampering
+      const { required, isActive, displayOrder, parentFieldId, parentTriggerValues } = req.body;
+      
+      const setting = await storage.upsertEventCustomFieldSetting({
+        organizationId,
+        eventId: req.params.eventId,
+        customFieldId: req.params.customFieldId,
+        required: required !== undefined ? Boolean(required) : undefined,
+        isActive: isActive !== undefined ? Boolean(isActive) : undefined,
+        displayOrder: displayOrder !== undefined ? Number(displayOrder) : undefined,
+        parentFieldId: parentFieldId ?? undefined,
+        parentTriggerValues: Array.isArray(parentTriggerValues) ? parentTriggerValues : undefined,
+      });
+      res.json(setting);
+    } catch (error) {
+      logError("Error updating event custom field setting:", error);
+      res.status(500).json({ message: "Failed to update event custom field setting" });
+    }
+  });
+
+  app.delete("/api/events/:eventId/custom-field-settings/:customFieldId", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      await storage.deleteEventCustomFieldSetting(organizationId, req.params.eventId, req.params.customFieldId);
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting event custom field setting:", error);
+      res.status(500).json({ message: "Failed to delete event custom field setting" });
+    }
+  });
+
+  app.put("/api/events/:eventId/custom-field-settings", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { settings } = req.body;
+      if (!Array.isArray(settings)) {
+        return res.status(400).json({ message: "Settings must be an array" });
+      }
+      
+      // Validate and sanitize each setting to prevent ID tampering
+      const enrichedSettings = settings.map((s: any) => {
+        if (!s.customFieldId || typeof s.customFieldId !== 'string') {
+          throw new Error("Each setting must have a valid customFieldId");
+        }
+        return {
+          organizationId,
+          eventId: req.params.eventId,
+          customFieldId: s.customFieldId,
+          required: s.required !== undefined ? Boolean(s.required) : undefined,
+          isActive: s.isActive !== undefined ? Boolean(s.isActive) : undefined,
+          displayOrder: s.displayOrder !== undefined ? Number(s.displayOrder) : undefined,
+          parentFieldId: s.parentFieldId ?? undefined,
+          parentTriggerValues: Array.isArray(s.parentTriggerValues) ? s.parentTriggerValues : undefined,
+        };
+      });
+      
+      const results = await storage.bulkUpsertEventCustomFieldSettings(enrichedSettings);
+      res.json(results);
+    } catch (error: any) {
+      logError("Error bulk updating event custom field settings:", error);
+      if (error.message?.includes("customFieldId")) {
+        return res.status(400).json({ message: error.message });
+      }
+      res.status(500).json({ message: "Failed to update event custom field settings" });
+    }
+  });
+
   // Public custom fields endpoint (no auth required)
   app.get("/api/public/custom-fields/:slug", async (req, res) => {
     try {
