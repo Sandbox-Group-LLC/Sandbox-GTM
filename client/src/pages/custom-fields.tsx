@@ -236,7 +236,7 @@ export default function CustomFields() {
   });
   
   // Get unique attendee type names for the dropdown
-  const uniqueAttendeeTypeNames = [...new Set(attendeeTypes.map(at => at.type))].sort();
+  const uniqueAttendeeTypeNames = Array.from(new Set(attendeeTypes.map(at => at.type))).sort();
   
   // Special marker for attendee type as parent field
   const ATTENDEE_TYPE_PARENT_ID = "__attendeeType__";
@@ -703,12 +703,10 @@ export default function CustomFields() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">None</SelectItem>
-                        {/* Attendee Type as a special parent option */}
-                        {uniqueAttendeeTypeNames.length > 0 && (
-                          <SelectItem value={ATTENDEE_TYPE_PARENT_ID}>
-                            Attendee Type
-                          </SelectItem>
-                        )}
+                        {/* Attendee Type as a special parent option - always show */}
+                        <SelectItem value={ATTENDEE_TYPE_PARENT_ID}>
+                          Attendee Type
+                        </SelectItem>
                         {customFields
                           .filter((f) => 
                             (f.fieldType === "select" || f.fieldType === "checkbox") &&
@@ -730,6 +728,22 @@ export default function CustomFields() {
                   {parentFieldId && (() => {
                     // Handle attendee type as parent
                     if (parentFieldId === ATTENDEE_TYPE_PARENT_ID) {
+                      if (uniqueAttendeeTypeNames.length === 0) {
+                        // No attendee types exist yet - show helpful message
+                        return (
+                          <div className="space-y-2">
+                            <Label className="text-sm">Show when attendee type is</Label>
+                            <div className="border rounded-md p-4 bg-muted/30 text-center">
+                              <p className="text-sm text-muted-foreground mb-2">
+                                No attendee types found in your events.
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                To use this feature, create attendee types in your events first (e.g., "speaker", "attendee", "exhibitor").
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      }
                       return (
                         <div className="space-y-2">
                           <Label className="text-sm">Show when attendee type is</Label>
