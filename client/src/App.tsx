@@ -89,7 +89,7 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   };
   const { user, organization } = useAuth();
 
-  const { data: defaultBrandKit } = useQuery<BrandKitType>({
+  const { data: defaultBrandKit } = useQuery<BrandKitType | null>({
     queryKey: ["/api/brand-kits/default", organization?.id],
     queryFn: async () => {
       const res = await fetch("/api/brand-kits/default", { credentials: "include" });
@@ -99,8 +99,9 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
       }
       return res.json();
     },
-    enabled: !!user,
+    enabled: !!user && !!organization?.id,
     retry: false,
+    staleTime: 0,
   });
 
   const showHeader = user?.isSuperAdmin || defaultBrandKit?.logoUrl;
