@@ -14,6 +14,7 @@ const TOKEN_EXPIRY = {
   open: 365 * 24 * 60 * 60, // 1 year for open tracking
   click: 365 * 24 * 60 * 60, // 1 year for click tracking
   unsubscribe: 30 * 24 * 60 * 60, // 30 days for unsubscribe
+  meeting_response: 30 * 24 * 60 * 60, // 30 days for meeting response
 };
 
 function getSigningSecret(): string {
@@ -77,6 +78,61 @@ export function validateTrackingToken(token: string): {
     const now = Math.floor(Date.now() / 1000);
     const expiry = TOKEN_EXPIRY[data.type as keyof typeof TOKEN_EXPIRY] || TOKEN_EXPIRY.click;
     if (now - data.ts > expiry) {
+      return { valid: true, expired: true, data };
+    }
+    
+    return { valid: true, expired: false, data };
+  } catch {
+    return { valid: false, expired: false };
+  }
+}
+
+// Create a signed token for meeting responses (confirm/decline)
+export function createMeetingResponseToken(payload: {
+  meetingId: string;
+  organizationId: string;
+  response: 'confirm' | 'decline';
+}): string {
+  const timestamp = Math.floor(Date.now() / 1000);
+  const data = { ...payload, type: 'meeting_response' as const, ts: timestamp };
+  const dataStr = JSON.stringify(data);
+  const signature = generateSignature(dataStr);
+  const token = Buffer.from(JSON.stringify({ d: data, s: signature })).toString('base64url');
+  return token;
+}
+
+// Validate and decode a meeting response token
+export function validateMeetingResponseToken(token: string): {
+  valid: boolean;
+  expired: boolean;
+  data?: {
+    meetingId: string;
+    organizationId: string;
+    response: 'confirm' | 'decline';
+    type: 'meeting_response';
+    ts: number;
+  };
+} {
+  try {
+    const decoded = JSON.parse(Buffer.from(token, 'base64url').toString('utf-8'));
+    const { d: data, s: signature } = decoded;
+    
+    if (!data || !signature || data.type !== 'meeting_response') {
+      return { valid: false, expired: false };
+    }
+    
+    // Verify signature using timing-safe comparison
+    const expectedSignature = generateSignature(JSON.stringify(data));
+    const signatureBuffer = Buffer.from(signature, 'hex');
+    const expectedBuffer = Buffer.from(expectedSignature, 'hex');
+    
+    if (signatureBuffer.length !== expectedBuffer.length || !timingSafeEqual(signatureBuffer, expectedBuffer)) {
+      return { valid: false, expired: false };
+    }
+    
+    // Check expiry (30 days)
+    const now = Math.floor(Date.now() / 1000);
+    if (now - data.ts > TOKEN_EXPIRY.meeting_response) {
       return { valid: true, expired: true, data };
     }
     
@@ -1001,6 +1057,8 @@ export async function sendMeetingInvitationEmail(params: {
   attendeeFirstName: string;
   eventName: string;
   organizationName: string;
+  meetingId: string;
+  organizationId: string;
   meetingTitle?: string;
   meetingDescription?: string;
   intentType?: string;
@@ -1013,6 +1071,8 @@ export async function sendMeetingInvitationEmail(params: {
     attendeeFirstName, 
     eventName, 
     organizationName,
+    meetingId,
+    organizationId,
     meetingTitle,
     meetingDescription,
     intentType,
@@ -1046,6 +1106,25 @@ export async function sendMeetingInvitationEmail(params: {
 
   const intentLabel = intentType ? (INTENT_TYPE_LABELS[intentType] || intentType) : null;
 
+  // Generate confirm/decline tokens and URLs
+  const baseUrl = process.env.REPLIT_DEPLOYMENT_URL || process.env.REPLIT_DEV_DOMAIN 
+    ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
+    : 'http://localhost:5000';
+  
+  const confirmToken = createMeetingResponseToken({
+    meetingId,
+    organizationId,
+    response: 'confirm',
+  });
+  const declineToken = createMeetingResponseToken({
+    meetingId,
+    organizationId,
+    response: 'decline',
+  });
+  
+  const confirmUrl = `${baseUrl}/api/meetings/respond/${confirmToken}`;
+  const declineUrl = `${baseUrl}/api/meetings/respond/${declineToken}`;
+
   try {
     const { data, error } = await resend.emails.send({
       from: FROM_EMAIL,
@@ -1076,6 +1155,12 @@ export async function sendMeetingInvitationEmail(params: {
             <p style="color: #555; margin: 0; font-style: italic;">${meetingDescription}</p>
           </div>
           ` : ''}
+          
+          <div style="margin: 30px 0; text-align: center;">
+            <p style="color: #555; font-size: 14px; margin-bottom: 15px;">Please respond to this meeting request:</p>
+            <a href="${confirmUrl}" style="display: inline-block; background-color: #22c55e; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; margin-right: 10px;">Confirm Attendance</a>
+            <a href="${declineUrl}" style="display: inline-block; background-color: #ef4444; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">Decline</a>
+          </div>
           
           <p style="color: #555; font-size: 16px; line-height: 1.6;">
             We look forward to meeting with you!

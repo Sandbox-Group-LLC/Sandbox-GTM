@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { sendNewOrganizationAlert, sendCampaignEmails, sendTestEmail, validateTrackingToken, verifyResendWebhookSignature, isValidRedirectUrl, sendReviewerNotificationEmail, sendSubmissionAcceptanceEmail, sendTeamInvitationEmail, sendNewLeadNotification, sendSponsorTaskRejectionEmail, sendMeetingInvitationEmail } from "./email";
+import { sendNewOrganizationAlert, sendCampaignEmails, sendTestEmail, validateTrackingToken, validateMeetingResponseToken, verifyResendWebhookSignature, isValidRedirectUrl, sendReviewerNotificationEmail, sendSubmissionAcceptanceEmail, sendTeamInvitationEmail, sendNewLeadNotification, sendSponsorTaskRejectionEmail, sendMeetingInvitationEmail } from "./email";
 import { createPaymentIntent, getPaymentIntent, calculateFinalPrice } from "./stripe";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
@@ -10678,6 +10678,8 @@ ${urls.map(u => `  <url>
             attendeeFirstName: invitee.firstName || 'Attendee',
             eventName: event.name,
             organizationName: organization?.name || 'Event Organizer',
+            meetingId: meeting.id,
+            organizationId: event.organizationId,
             meetingTitle: meeting.title || undefined,
             meetingDescription: meeting.description || undefined,
             intentType: meeting.intentType || undefined,
@@ -14066,6 +14068,135 @@ ${urls.map(u => `  <url>
       logError("Error updating review:", error);
       const message = error.errors ? error.errors.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', ') : "Invalid review data";
       res.status(400).json({ message });
+    }
+  });
+
+  // Meeting Response Endpoint (PUBLIC - no auth required, but token validation)
+  // Allows attendees to confirm or decline meetings from email links
+  app.get("/api/meetings/respond/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+      
+      // Validate the signed token
+      const validation = validateMeetingResponseToken(token);
+      
+      if (!validation.valid) {
+        logWarn('Invalid meeting response token', 'MeetingResponse');
+        return res.status(400).send(`
+          <!DOCTYPE html>
+          <html>
+          <head><title>Invalid Link</title></head>
+          <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+            <h1 style="color: #ef4444;">Invalid Link</h1>
+            <p>This meeting response link is invalid. Please contact the event organizer.</p>
+          </body>
+          </html>
+        `);
+      }
+      
+      if (validation.expired) {
+        logWarn('Expired meeting response token', 'MeetingResponse');
+        return res.status(400).send(`
+          <!DOCTYPE html>
+          <html>
+          <head><title>Link Expired</title></head>
+          <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+            <h1 style="color: #f59e0b;">Link Expired</h1>
+            <p>This meeting response link has expired. Please contact the event organizer.</p>
+          </body>
+          </html>
+        `);
+      }
+      
+      const { meetingId, organizationId, response } = validation.data!;
+      
+      // Get the meeting
+      const meeting = await storage.getAttendeeMeeting(organizationId, meetingId);
+      if (!meeting) {
+        return res.status(404).send(`
+          <!DOCTYPE html>
+          <html>
+          <head><title>Meeting Not Found</title></head>
+          <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+            <h1 style="color: #ef4444;">Meeting Not Found</h1>
+            <p>This meeting may have been cancelled or no longer exists.</p>
+          </body>
+          </html>
+        `);
+      }
+      
+      // Check if already responded
+      if (meeting.status === 'confirmed' || meeting.status === 'declined') {
+        const statusText = meeting.status === 'confirmed' ? 'confirmed' : 'declined';
+        return res.status(200).send(`
+          <!DOCTYPE html>
+          <html>
+          <head><title>Already Responded</title></head>
+          <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+            <h1 style="color: #6b7280;">Already Responded</h1>
+            <p>You have already ${statusText} this meeting.</p>
+          </body>
+          </html>
+        `);
+      }
+      
+      // Update the meeting status
+      const newStatus = response === 'confirm' ? 'confirmed' : 'declined';
+      await storage.updateAttendeeMeeting(organizationId, meetingId, { status: newStatus });
+      
+      logInfo(`Meeting ${meetingId} ${newStatus} by attendee via email link`, 'MeetingResponse');
+      
+      // Get event details for the success page
+      const event = meeting.eventId ? await storage.getEventById(meeting.eventId) : null;
+      
+      if (response === 'confirm') {
+        return res.status(200).send(`
+          <!DOCTYPE html>
+          <html>
+          <head><title>Meeting Confirmed</title></head>
+          <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+            <div style="max-width: 500px; margin: 0 auto;">
+              <div style="font-size: 48px; margin-bottom: 20px;">&#10003;</div>
+              <h1 style="color: #22c55e;">Meeting Confirmed</h1>
+              <p style="color: #555; font-size: 18px;">Thank you! You have confirmed your attendance.</p>
+              ${meeting.title ? `<p style="color: #333; font-weight: bold; margin-top: 20px;">${meeting.title}</p>` : ''}
+              ${event?.name ? `<p style="color: #666;">at ${event.name}</p>` : ''}
+              ${meeting.startTime ? `<p style="color: #666;">${new Date(meeting.startTime).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</p>` : ''}
+              ${meeting.location ? `<p style="color: #666;">Location: ${meeting.location}</p>` : ''}
+              <p style="color: #999; margin-top: 30px; font-size: 14px;">We look forward to seeing you!</p>
+            </div>
+          </body>
+          </html>
+        `);
+      } else {
+        return res.status(200).send(`
+          <!DOCTYPE html>
+          <html>
+          <head><title>Meeting Declined</title></head>
+          <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+            <div style="max-width: 500px; margin: 0 auto;">
+              <h1 style="color: #ef4444;">Meeting Declined</h1>
+              <p style="color: #555; font-size: 18px;">You have declined this meeting request.</p>
+              ${meeting.title ? `<p style="color: #333; font-weight: bold; margin-top: 20px;">${meeting.title}</p>` : ''}
+              ${event?.name ? `<p style="color: #666;">at ${event.name}</p>` : ''}
+              <p style="color: #999; margin-top: 30px; font-size: 14px;">The organizer has been notified.</p>
+            </div>
+          </body>
+          </html>
+        `);
+      }
+    } catch (error: any) {
+      logError('Error processing meeting response:', error);
+      return res.status(500).send(`
+        <!DOCTYPE html>
+        <html>
+        <head><title>Error</title></head>
+        <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+          <h1 style="color: #ef4444;">Something Went Wrong</h1>
+          <p>Please try again or contact the event organizer.</p>
+        </body>
+        </html>
+      `);
     }
   });
 
