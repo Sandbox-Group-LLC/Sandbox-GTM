@@ -91,6 +91,14 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
 
   const { data: defaultBrandKit } = useQuery<BrandKitType>({
     queryKey: ["/api/brand-kits/default", organization?.id],
+    queryFn: async () => {
+      const res = await fetch("/api/brand-kits/default", { credentials: "include" });
+      if (!res.ok) {
+        if (res.status === 404) return null;
+        throw new Error("Failed to fetch brand kit");
+      }
+      return res.json();
+    },
     enabled: !!user,
     retry: false,
   });
