@@ -231,7 +231,7 @@ export default function Meetings() {
 
   const captureOutcomeMutation = useMutation({
     mutationFn: async (data: { meetingId: string; outcome: typeof outcomeData }) => {
-      const res = await apiRequest("PATCH", `/api/events/${selectedEventId}/meetings/${data.meetingId}/outcome`, data.outcome);
+      const res = await apiRequest("POST", `/api/events/${selectedEventId}/meetings/${data.meetingId}/outcome`, data.outcome);
       return res.json();
     },
     onSuccess: () => {
