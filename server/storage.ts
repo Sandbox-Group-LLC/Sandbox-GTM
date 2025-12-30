@@ -1134,20 +1134,20 @@ export class DatabaseStorage implements IStorage {
       { name: 'termsAndconditions', label: 'I have read the terms and conditions.', fieldType: 'checkbox', displayOrder: 9 },
     ];
     
-    // Get existing global custom fields for this organization
+    // Get ALL existing custom fields for this organization (not just global ones)
+    // to check for both name and label duplicates
     const existingFields = await db.select().from(customFields).where(
-      and(
-        eq(customFields.organizationId, organizationId),
-        eq(customFields.isGlobal, true)
-      )
+      eq(customFields.organizationId, organizationId)
     );
     const existingNames = new Set(existingFields.map(f => f.name));
+    const existingLabels = new Set(existingFields.map(f => f.label.toLowerCase().trim()));
     
     let seeded = 0;
     let skipped = 0;
     
     for (const field of defaultCustomFields) {
-      if (existingNames.has(field.name)) {
+      // Skip if name OR label already exists (case-insensitive for labels)
+      if (existingNames.has(field.name) || existingLabels.has(field.label.toLowerCase().trim())) {
         skipped++;
         continue;
       }

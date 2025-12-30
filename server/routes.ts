@@ -12786,6 +12786,18 @@ ${urls.map(u => `  <url>
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId, req.session);
       const data = insertCustomFieldSchema.parse({ ...req.body, organizationId });
+      
+      // Check for duplicate label in the same organization
+      const existingFields = await storage.getCustomFields(organizationId);
+      const duplicateLabel = existingFields.find(f => 
+        f.label.toLowerCase().trim() === data.label.toLowerCase().trim()
+      );
+      if (duplicateLabel) {
+        return res.status(400).json({ 
+          message: `A custom field with the label "${data.label}" already exists. Please use a different label.` 
+        });
+      }
+      
       const field = await storage.createCustomField(data);
       res.status(201).json(field);
     } catch (error) {
@@ -12821,6 +12833,21 @@ ${urls.map(u => `  <url>
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId, req.session);
+      
+      // Check for duplicate label if label is being updated
+      if (req.body.label) {
+        const existingFields = await storage.getCustomFields(organizationId);
+        const duplicateLabel = existingFields.find(f => 
+          f.id !== req.params.id && 
+          f.label.toLowerCase().trim() === req.body.label.toLowerCase().trim()
+        );
+        if (duplicateLabel) {
+          return res.status(400).json({ 
+            message: `A custom field with the label "${req.body.label}" already exists. Please use a different label.` 
+          });
+        }
+      }
+      
       const field = await storage.updateCustomField(organizationId, req.params.id, req.body);
       if (!field) {
         return res.status(404).json({ message: "Custom field not found" });
