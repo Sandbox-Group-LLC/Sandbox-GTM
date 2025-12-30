@@ -142,6 +142,9 @@ import {
   type InsertRegistrationConfig,
   type CustomField,
   type InsertCustomField,
+  eventCustomFieldSettings,
+  type EventCustomFieldSetting,
+  type InsertEventCustomFieldSetting,
   type ContentAsset,
   type InsertContentAsset,
   type EventSponsor,
@@ -613,6 +616,13 @@ export interface IStorage {
   updateCustomField(organizationId: string, id: string, field: Partial<InsertCustomField>): Promise<CustomField | undefined>;
   deleteCustomField(organizationId: string, id: string): Promise<void>;
   getActiveCustomFieldsByEventSlug(slug: string): Promise<CustomField[]>;
+
+  // Event Custom Field Settings operations (per-event overrides)
+  getEventCustomFieldSettings(organizationId: string, eventId: string): Promise<EventCustomFieldSetting[]>;
+  getEventCustomFieldSetting(organizationId: string, eventId: string, customFieldId: string): Promise<EventCustomFieldSetting | undefined>;
+  upsertEventCustomFieldSetting(setting: InsertEventCustomFieldSetting): Promise<EventCustomFieldSetting>;
+  deleteEventCustomFieldSetting(organizationId: string, eventId: string, customFieldId: string): Promise<void>;
+  bulkUpsertEventCustomFieldSettings(settings: InsertEventCustomFieldSetting[]): Promise<EventCustomFieldSetting[]>;
 
   // Content Asset operations
   createContentAsset(asset: InsertContentAsset): Promise<ContentAsset>;
@@ -3397,6 +3407,67 @@ export class DatabaseStorage implements IStorage {
     return allActiveFields.filter(field => 
       field.isGlobal === true || enabledCustomFieldIds.includes(field.id)
     );
+  }
+
+  // Event Custom Field Settings operations (per-event overrides)
+  async getEventCustomFieldSettings(organizationId: string, eventId: string): Promise<EventCustomFieldSetting[]> {
+    return db.select().from(eventCustomFieldSettings)
+      .where(and(
+        eq(eventCustomFieldSettings.organizationId, organizationId),
+        eq(eventCustomFieldSettings.eventId, eventId)
+      ));
+  }
+
+  async getEventCustomFieldSetting(organizationId: string, eventId: string, customFieldId: string): Promise<EventCustomFieldSetting | undefined> {
+    const [setting] = await db.select().from(eventCustomFieldSettings)
+      .where(and(
+        eq(eventCustomFieldSettings.organizationId, organizationId),
+        eq(eventCustomFieldSettings.eventId, eventId),
+        eq(eventCustomFieldSettings.customFieldId, customFieldId)
+      ));
+    return setting;
+  }
+
+  async upsertEventCustomFieldSetting(setting: InsertEventCustomFieldSetting): Promise<EventCustomFieldSetting> {
+    // Only update fields that are explicitly provided (not undefined)
+    // This prevents wiping out existing values during partial updates
+    const updateSet: Record<string, unknown> = {
+      updatedAt: new Date(),
+    };
+    if (setting.required !== undefined) updateSet.required = setting.required;
+    if (setting.isActive !== undefined) updateSet.isActive = setting.isActive;
+    if (setting.displayOrder !== undefined) updateSet.displayOrder = setting.displayOrder;
+    if (setting.parentFieldId !== undefined) updateSet.parentFieldId = setting.parentFieldId;
+    if (setting.parentTriggerValues !== undefined) updateSet.parentTriggerValues = setting.parentTriggerValues;
+
+    const [result] = await db
+      .insert(eventCustomFieldSettings)
+      .values(setting)
+      .onConflictDoUpdate({
+        target: [eventCustomFieldSettings.eventId, eventCustomFieldSettings.customFieldId],
+        set: updateSet,
+      })
+      .returning();
+    return result;
+  }
+
+  async deleteEventCustomFieldSetting(organizationId: string, eventId: string, customFieldId: string): Promise<void> {
+    await db.delete(eventCustomFieldSettings)
+      .where(and(
+        eq(eventCustomFieldSettings.organizationId, organizationId),
+        eq(eventCustomFieldSettings.eventId, eventId),
+        eq(eventCustomFieldSettings.customFieldId, customFieldId)
+      ));
+  }
+
+  async bulkUpsertEventCustomFieldSettings(settings: InsertEventCustomFieldSetting[]): Promise<EventCustomFieldSetting[]> {
+    if (settings.length === 0) return [];
+    const results: EventCustomFieldSetting[] = [];
+    for (const setting of settings) {
+      const result = await this.upsertEventCustomFieldSetting(setting);
+      results.push(result);
+    }
+    return results;
   }
 
   // Content Asset operations
