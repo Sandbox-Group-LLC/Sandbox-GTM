@@ -1,0 +1,102 @@
+TASK: Wire Contact-Level Intent Promotion from Meetings into Engagement Signals
+
+Context
+Sandbox captures structured meeting intent (pre-meeting) and meeting outcomes (post-meeting).
+Meeting Quality metrics are already working at the activity level.
+We now need to PROMOTE qualifying engagement signals to the CONTACT level.
+
+Engagement Signals dashboard includes:
+- Hot Leads (sales-ready contacts)
+- High-Intent Audience (contacts showing buying signals)
+
+Goal
+When a meeting outcome demonstrates strong buying intent, automatically:
+1) Promote the contact to Hot Lead (if thresholds are met)
+2) Ensure the contact appears in High-Intent Audience
+3) Keep Meeting Quality as the activity-level view
+
+------------------------------------
+1. Define Contact-Level Intent Flags
+------------------------------------
+
+Add the following computed fields on Contact (or Attendee):
+
+- contact.intent_status:
+  enum: [none, engaged, high_intent, hot_lead]
+
+- contact.sales_ready (boolean)
+
+- contact.intent_sources (array of references)
+  e.g. meetings, sessions, engagement moments
+
+------------------------------------
+2. Promotion Rules: Meeting → Hot Lead
+------------------------------------
+
+When a meeting outcome is submitted, evaluate promotion rules.
+
+PROMOTE CONTACT TO HOT LEAD if ANY are true:
+- meeting.outcome_type == "Active opportunity"
+- meeting.outcome_type == "Deal in progress"
+- meeting.deal_range >= "$100k+"
+- meeting.follow_up_scheduled == true
+
+Actions on promotion:
+- contact.intent_status = "hot_lead"
+- contact.sales_ready = true
+- Add meeting reference to contact.intent_sources
+
+------------------------------------
+3. Promotion Rules: Meeting → High-Intent Audience
+------------------------------------
+
+PROMOTE CONTACT TO HIGH-INTENT if ANY are true:
+- meeting.intent_type is classified as high-intent
+- meeting.outcome_type == "Early interest"
+- meeting.outcome_type == "Active opportunity"
+- contact has multiple medium-intent engagements
+- contact.sales_ready == true
+
+Actions:
+- contact.intent_status = max(existing, "high_intent")
+- Add meeting reference to contact.intent_sources
+
+IMPORTANT:
+Hot Leads MUST always be included in High-Intent Audience.
+High-Intent Audience is a superset of Hot Leads.
+
+------------------------------------
+4. Engagement Signals Dashboard Wiring
+------------------------------------
+
+Update widgets:
+
+Hot Leads widget:
+- Count contacts where contact.sales_ready == true
+- Display list of contacts flagged as hot_lead
+
+High-Intent Audience widget:
+- Display contacts where intent_status IN ("high_intent", "hot_lead")
+- Exclude contacts with intent_status == "none"
+
+Meeting Quality widget:
+- Remains activity-level
+- Does NOT change
+
+------------------------------------
+5. Guardrails
+------------------------------------
+
+- Do NOT require CRM integration
+- Use only first-party Sandbox data
+- Promotions should be idempotent (no duplicate promotions)
+- Promotion logic should re-evaluate if meeting data changes
+
+------------------------------------
+Success Criteria
+------------------------------------
+
+- A high-intent meeting with $100k+ opportunity promotes the contact to Hot Lead
+- That same contact appears in High-Intent Audience
+- Engagement Signals dashboard reflects this immediately
+- No vanity metrics are introduced

@@ -902,6 +902,11 @@ export interface IStorage {
   updateAttendeeMeeting(organizationId: string, id: string, data: Partial<InsertAttendeeMeeting>): Promise<AttendeeMeeting | undefined>;
   captureAttendeeOutcome(organizationId: string, meetingId: string, data: { outcomeType: string; dealRange?: string; timeline?: string; outcomeNotes?: string; outcomeCapturedBy: string }): Promise<AttendeeMeeting | undefined>;
   getMeetingQualityStats(organizationId: string, eventId: string): Promise<{ totalMeetings: number; pendingMeetings: number; completedMeetings: number; outcomesRecorded: number; highIntentMeetings: number; mediumIntentMeetings: number; lowIntentMeetings: number; outcomeBreakdown: { type: string; count: number }[]; intentBreakdown: { type: string; count: number }[] }>;
+  
+  // Contact Intent Promotion
+  promoteAttendeeIntent(organizationId: string, attendeeId: string, source: { type: string; id: string }, outcomeType: string, dealRange?: string): Promise<Attendee | undefined>;
+  getHotLeads(organizationId: string, eventId?: string): Promise<Attendee[]>;
+  getHighIntentContacts(organizationId: string, eventId?: string): Promise<Attendee[]>;
 }
 
 // Types for Moments Analytics
@@ -5939,6 +5944,89 @@ export class DatabaseStorage implements IStorage {
       intentBreakdown,
       outcomeBreakdown,
     };
+  }
+
+  async promoteAttendeeIntent(
+    organizationId: string, 
+    attendeeId: string, 
+    source: { type: string; id: string }, 
+    outcomeType: string, 
+    dealRange?: string
+  ): Promise<Attendee | undefined> {
+    // Get current attendee
+    const attendee = await this.getAttendee(organizationId, attendeeId);
+    if (!attendee) return undefined;
+
+    // Determine new intent status based on promotion rules
+    let newIntentStatus = attendee.intentStatus || 'none';
+    let salesReady = attendee.salesReady || false;
+
+    // Hot Lead promotion rules
+    const isHotLead = 
+      outcomeType === 'active_opportunity' ||
+      outcomeType === 'deal_in_progress' ||
+      dealRange === 'over_100k' ||
+      outcomeType === 'follow_up_scheduled';
+
+    // High-Intent promotion rules
+    const isHighIntent = 
+      outcomeType === 'early_interest' ||
+      outcomeType === 'active_opportunity';
+
+    if (isHotLead) {
+      newIntentStatus = 'hot_lead';
+      salesReady = true;
+    } else if (isHighIntent && newIntentStatus !== 'hot_lead') {
+      newIntentStatus = 'high_intent';
+    } else if (outcomeType && newIntentStatus === 'none') {
+      newIntentStatus = 'engaged';
+    }
+
+    // Build updated intent sources array (idempotent - don't duplicate)
+    const existingSources = (attendee.intentSources || []) as { type: string; id: string; createdAt: string }[];
+    const alreadyExists = existingSources.some(s => s.type === source.type && s.id === source.id);
+    const newSources = alreadyExists 
+      ? existingSources 
+      : [...existingSources, { ...source, createdAt: new Date().toISOString() }];
+
+    // Update attendee
+    const [updated] = await db
+      .update(attendees)
+      .set({ 
+        intentStatus: newIntentStatus, 
+        salesReady, 
+        intentSources: newSources,
+        updatedAt: new Date() 
+      })
+      .where(and(eq(attendees.organizationId, organizationId), eq(attendees.id, attendeeId)))
+      .returning();
+
+    return updated;
+  }
+
+  async getHotLeads(organizationId: string, eventId?: string): Promise<Attendee[]> {
+    const conditions = [
+      eq(attendees.organizationId, organizationId),
+      eq(attendees.salesReady, true),
+    ];
+    if (eventId) {
+      conditions.push(eq(attendees.eventId, eventId));
+    }
+    return db.select().from(attendees).where(and(...conditions)).orderBy(desc(attendees.updatedAt));
+  }
+
+  async getHighIntentContacts(organizationId: string, eventId?: string): Promise<Attendee[]> {
+    const conditions = [
+      eq(attendees.organizationId, organizationId),
+      or(
+        eq(attendees.intentStatus, 'high_intent'),
+        eq(attendees.intentStatus, 'hot_lead')
+      ),
+    ];
+    if (eventId) {
+      conditions.push(eq(attendees.eventId, eventId));
+    }
+    return db.select().from(attendees).where(and(...conditions)).orderBy(desc(attendees.updatedAt));
   }
 }
 

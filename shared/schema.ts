@@ -702,6 +702,10 @@ export const attendees = pgTable("attendees", {
   utmTerm: varchar("utm_term", { length: 255 }),
   customData: jsonb("custom_data").$type<Record<string, string | boolean | string[]>>(),
   passwordHash: varchar("password_hash", { length: 255 }),
+  // Contact-level intent tracking for buyer signals
+  intentStatus: varchar("intent_status", { length: 50 }).default("none"), // none, engaged, high_intent, hot_lead
+  salesReady: boolean("sales_ready").default(false),
+  intentSources: jsonb("intent_sources").$type<{ type: string; id: string; createdAt: string }[]>().default([]),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -2202,6 +2206,15 @@ export const MEETING_OUTCOME_TYPES = [
 ] as const;
 
 export type MeetingOutcomeType = typeof MEETING_OUTCOME_TYPES[number];
+
+// Contact Intent Status - for promotion from meetings/engagements
+export const CONTACT_INTENT_STATUS = [
+  'none',
+  'engaged',
+  'high_intent',
+  'hot_lead',
+] as const;
+export type ContactIntentStatus = typeof CONTACT_INTENT_STATUS[number];
 
 // Deal Range Types
 export const DEAL_RANGE_TYPES = [

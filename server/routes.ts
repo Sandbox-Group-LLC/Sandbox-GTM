@@ -10591,6 +10591,50 @@ ${urls.map(u => `  <url>
     }
   });
 
+  // Get hot leads (sales-ready contacts)
+  app.get("/api/organizations/:organizationId/hot-leads", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { organizationId } = req.params;
+      const eventId = req.query.eventId as string | undefined;
+      
+      // Check user has access to this organization
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === organizationId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const hotLeads = await storage.getHotLeads(organizationId, eventId);
+      res.json(hotLeads);
+    } catch (error) {
+      logError("Error fetching hot leads:", error);
+      res.status(500).json({ message: "Failed to fetch hot leads" });
+    }
+  });
+
+  // Get high-intent audience (contacts showing buying signals)
+  app.get("/api/organizations/:organizationId/high-intent-contacts", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { organizationId } = req.params;
+      const eventId = req.query.eventId as string | undefined;
+      
+      // Check user has access to this organization
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === organizationId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const highIntentContacts = await storage.getHighIntentContacts(organizationId, eventId);
+      res.json(highIntentContacts);
+    } catch (error) {
+      logError("Error fetching high-intent contacts:", error);
+      res.status(500).json({ message: "Failed to fetch high-intent contacts" });
+    }
+  });
+
   // Get single meeting details
   app.get("/api/events/:eventId/meetings/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
@@ -10791,6 +10835,17 @@ ${urls.map(u => `  <url>
         outcomeNotes: req.body.outcomeNotes,
         outcomeCapturedBy: userId,
       });
+      
+      // Promote attendee intent based on meeting outcome
+      if (meeting && meeting.inviteeId) {
+        await storage.promoteAttendeeIntent(
+          event.organizationId,
+          meeting.inviteeId,
+          { type: 'meeting', id: meeting.id },
+          req.body.outcomeType,
+          req.body.dealRange
+        );
+      }
       
       // Automatically set status to 'completed' when outcome is captured
       // (the meeting happened if we're capturing an outcome)
