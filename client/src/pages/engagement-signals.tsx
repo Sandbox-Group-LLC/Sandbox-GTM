@@ -167,7 +167,6 @@ export default function EngagementSignals() {
           </Select>
         }
       />
-
       <div className="flex-1 overflow-auto p-6 space-y-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full max-w-md grid-cols-2">
@@ -307,7 +306,7 @@ export default function EngagementSignals() {
               <Card>
                 <CardHeader>
                   <CardTitle>High-Intent Audience</CardTitle>
-                  <CardDescription>Contacts showing buying signals ready for follow-up</CardDescription>
+                  <CardDescription>Contacts ready for follow-up, identified through cumulative buying signals across meetings and engagement.</CardDescription>
                 </CardHeader>
                 <CardContent className="h-64 overflow-auto">
                   {highIntentLoading ? (
