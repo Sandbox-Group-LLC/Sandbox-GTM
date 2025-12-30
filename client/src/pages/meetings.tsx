@@ -195,10 +195,10 @@ export default function Meetings() {
   });
 
   const { data: attendees } = useQuery<Attendee[]>({
-    queryKey: ["/api/events", selectedEventId, "attendees"],
+    queryKey: ["/api/attendees", { eventId: selectedEventId }],
     enabled: selectedEventId !== "all",
     queryFn: async () => {
-      const res = await fetch(`/api/events/${selectedEventId}/attendees`, { credentials: "include" });
+      const res = await fetch(`/api/attendees?eventId=${selectedEventId}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch attendees");
       return res.json();
     },
