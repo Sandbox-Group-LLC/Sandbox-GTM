@@ -1,0 +1,157 @@
+REPLIT TASK: Implement Meeting Intent + Outcome Capture and Surface as Engagement Signals
+
+Context
+Sandbox includes a 1:1 Meetings feature used by both external attendees and the organizing company’s internal sales team.
+Meetings should capture buyer intent and outcomes, not just scheduling logistics.
+
+This feature should:
+- Work without CRM integration
+- Generate first-party intent signals
+- Feed the Engagement Signals dashboard (not raw metrics)
+- Upgrade naturally when a CRM is connected later
+
+Meetings exist under Engagement in the sidebar.
+Engagement Signals focuses on qualitative buying signals and follow-up readiness.
+
+---------------------------------------------
+1. Meeting Intent Capture (Pre-Meeting)
+---------------------------------------------
+
+When a meeting is REQUESTED (external or internal), require ONE field:
+
+Field:
+"Primary Goal of This Meeting"
+
+Single-select options:
+- Exploring a solution
+- Evaluating fit
+- Existing customer conversation
+- Partner discussion
+- Executive introduction
+- Networking / relationship building
+
+Rules:
+- Required to request a meeting
+- Visible to internal meeting hosts
+- Stored as meeting.intent_type
+- Do NOT expose sales language in the external portal
+
+---------------------------------------------
+2. Meeting Outcome Capture (Post-Meeting – Internal Only)
+---------------------------------------------
+
+After the meeting end time, prompt INTERNAL attendees with a lightweight outcome form.
+
+Fields:
+
+Meeting Outcome (required, single-select):
+- No fit
+- Early interest
+- Active opportunity
+- Follow-up scheduled
+- Deal in progress
+
+Optional fields:
+- Estimated deal size (range-based, e.g. <$25k, $25k–$100k, $100k+)
+- Expected timeline:
+  - Now
+  - This quarter
+  - Later
+
+Rules:
+- 30-second completion target
+- Non-blocking but persistently nudged until completed
+- Stored as meeting.outcome_type, meeting.deal_range, meeting.timeline
+
+---------------------------------------------
+3. Intent Strength Scoring (System-Computed)
+---------------------------------------------
+
+Compute an Intent Strength value for each meeting:
+
+Intent Strength:
+- Low
+- Medium
+- High
+
+Inputs may include:
+- Meeting intent_type
+- Outcome_type
+- Attendee ICP fit (role, company type, function)
+- Follow-up scheduled flag
+
+Expose Intent Strength:
+- On meeting detail view
+- In Engagement Signals dashboard
+- As a filter for follow-up prioritization
+
+---------------------------------------------
+4. Internal vs External Portal Behavior
+---------------------------------------------
+
+External Portal:
+- Request meetings
+- Select meeting intent
+- Manage availability
+- View confirmed meetings
+
+Internal Portal:
+- View meeting intent BEFORE the meeting
+- View attendee profile context (role, company, experience package, activation key)
+- Capture meeting outcome AFTER the meeting
+- See intent strength and follow-up readiness
+
+---------------------------------------------
+5. Engagement Signals: Meeting Quality
+---------------------------------------------
+
+Add a "Meeting Quality" section to the Engagement Signals dashboard.
+
+This section should emphasize signals, not raw counts.
+
+Surface:
+- High-intent meetings
+- Meetings with ICP-fit attendees
+- Meetings resulting in follow-up
+- Meetings flagged as Active Opportunity or Deal in Progress
+
+Avoid vanity metrics like total meetings scheduled.
+
+---------------------------------------------
+6. Attribution & Context (Silent but Critical)
+---------------------------------------------
+
+Each meeting should be attributable to:
+- Program
+- Activation Key
+- Acquisition Campaign (if available)
+- Experience Package
+- Sessions attended (if applicable)
+
+This enables later analysis of:
+- Which acquisition sources drive buying conversations
+- Which experiences correlate with deal intent
+
+---------------------------------------------
+7. CRM-Agnostic by Design
+---------------------------------------------
+
+Do NOT require CRM integration for this feature to work.
+
+Without CRM:
+- Outcomes power Engagement Signals
+- Deal ranges contribute to Revenue Impact (estimated)
+
+With CRM (future):
+- Sync outcomes to Opportunities
+- Replace estimated pipeline with actual pipeline
+
+---------------------------------------------
+Goal
+---------------------------------------------
+
+Transform meetings from a scheduling tool into a first-party buyer intent system that:
+- Works immediately
+- Drives follow-up prioritization
+- Feeds Engagement Signals
+- Makes Revenue Impact visible even before CRM integration
