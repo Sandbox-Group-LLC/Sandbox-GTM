@@ -380,17 +380,69 @@ export default function Meetings() {
                     </div>
                     <div className="space-y-2">
                       <Label>Time</Label>
-                      <Input
-                        type="time"
-                        value={newMeetingData.startTime ? format(new Date(newMeetingData.startTime), "HH:mm") : "09:00"}
-                        onChange={(e) => {
-                          const [hours, minutes] = e.target.value.split(":").map(Number);
-                          const date = newMeetingData.startTime ? new Date(newMeetingData.startTime) : new Date();
-                          date.setHours(hours, minutes);
-                          setNewMeetingData({ ...newMeetingData, startTime: date.toISOString() });
-                        }}
-                        data-testid="input-meeting-time"
-                      />
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !newMeetingData.startTime && "text-muted-foreground"
+                            )}
+                            data-testid="button-meeting-time"
+                          >
+                            <Clock className="mr-2 h-4 w-4" />
+                            {newMeetingData.startTime ? format(new Date(newMeetingData.startTime), "h:mm a") : "Select time"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-4" align="start">
+                          <div className="flex gap-2">
+                            <div className="space-y-2">
+                              <Label className="text-xs text-muted-foreground">Hour</Label>
+                              <Select
+                                value={newMeetingData.startTime ? format(new Date(newMeetingData.startTime), "HH") : "09"}
+                                onValueChange={(hour) => {
+                                  const date = newMeetingData.startTime ? new Date(newMeetingData.startTime) : new Date();
+                                  date.setHours(parseInt(hour), date.getMinutes());
+                                  setNewMeetingData({ ...newMeetingData, startTime: date.toISOString() });
+                                }}
+                              >
+                                <SelectTrigger className="w-[70px]" data-testid="select-hour">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {Array.from({ length: 24 }, (_, i) => (
+                                    <SelectItem key={i} value={i.toString().padStart(2, "0")}>
+                                      {i.toString().padStart(2, "0")}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs text-muted-foreground">Minute</Label>
+                              <Select
+                                value={newMeetingData.startTime ? format(new Date(newMeetingData.startTime), "mm") : "00"}
+                                onValueChange={(minute) => {
+                                  const date = newMeetingData.startTime ? new Date(newMeetingData.startTime) : new Date();
+                                  date.setMinutes(parseInt(minute));
+                                  setNewMeetingData({ ...newMeetingData, startTime: date.toISOString() });
+                                }}
+                              >
+                                <SelectTrigger className="w-[70px]" data-testid="select-minute">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {["00", "15", "30", "45"].map((min) => (
+                                    <SelectItem key={min} value={min}>
+                                      {min}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                     <div className="space-y-2">
                       <Label>Message (optional)</Label>
