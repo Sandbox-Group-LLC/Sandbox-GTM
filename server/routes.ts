@@ -12752,8 +12752,9 @@ ${urls.map(u => `  <url>
       // Check if user is organization owner or super admin
       const user = await storage.getUser(userId);
       const member = await storage.getOrganizationMember(organizationId, userId);
+      const userIsSuperAdmin = isSuperAdmin(user?.email, user?.isAdmin ?? undefined);
       
-      if (!user?.isSuperAdmin && member?.role !== 'owner') {
+      if (!userIsSuperAdmin && member?.role !== 'owner') {
         return res.status(403).json({ message: "Only organization owners or super admins can seed default fields" });
       }
       
