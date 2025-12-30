@@ -90,7 +90,7 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const { user, organization } = useAuth();
 
   const { data: defaultBrandKit } = useQuery<BrandKitType>({
-    queryKey: ["/api/brand-kits/default"],
+    queryKey: ["/api/brand-kits/default", organization?.id],
     enabled: !!user,
     retry: false,
   });
