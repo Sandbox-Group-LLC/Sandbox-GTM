@@ -46,6 +46,7 @@ import {
   Clock,
   TrendingUp,
   ClipboardCheck,
+  Mail,
 } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -244,6 +245,19 @@ export default function Meetings() {
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to capture outcome.", variant: "destructive" });
+    },
+  });
+
+  const resendEmailMutation = useMutation({
+    mutationFn: async (meetingId: string) => {
+      const res = await apiRequest("POST", `/api/events/${selectedEventId}/meetings/${meetingId}/resend-email`, {});
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Email sent", description: "Meeting invitation email has been resent." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to resend email.", variant: "destructive" });
     },
   });
 
@@ -659,15 +673,27 @@ export default function Meetings() {
                             )}
                           </TableCell>
                           <TableCell className="text-right">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openOutcomeDialog(meeting)}
-                              data-testid={`button-capture-outcome-${meeting.id}`}
-                            >
-                              <ClipboardCheck className="h-4 w-4 mr-2" />
-                              {meeting.outcomeType ? "Edit" : "Capture"} Outcome
-                            </Button>
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => resendEmailMutation.mutate(meeting.id)}
+                                disabled={resendEmailMutation.isPending}
+                                data-testid={`button-resend-email-${meeting.id}`}
+                              >
+                                <Mail className="h-4 w-4 mr-2" />
+                                Resend Email
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openOutcomeDialog(meeting)}
+                                data-testid={`button-capture-outcome-${meeting.id}`}
+                              >
+                                <ClipboardCheck className="h-4 w-4 mr-2" />
+                                {meeting.outcomeType ? "Edit" : "Capture"} Outcome
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}

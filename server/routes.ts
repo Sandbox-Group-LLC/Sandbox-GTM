@@ -10806,6 +10806,69 @@ ${urls.map(u => `  <url>
     }
   });
 
+  // Resend meeting invitation email
+  app.post("/api/events/:eventId/meetings/:id/resend-email", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { eventId, id } = req.params;
+      
+      // Get the event to find the organization
+      const event = await storage.getEventById(eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      // Check user has access to this organization
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === event.organizationId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      // Verify meeting exists and belongs to this event
+      const meeting = await storage.getAttendeeMeeting(event.organizationId, id);
+      if (!meeting || meeting.eventId !== eventId) {
+        return res.status(404).json({ message: "Meeting not found" });
+      }
+      
+      // Get the attendee (invitee)
+      if (!meeting.inviteeId) {
+        return res.status(400).json({ message: "No invitee associated with this meeting" });
+      }
+      
+      const invitee = await storage.getAttendee(event.organizationId, meeting.inviteeId);
+      if (!invitee?.email) {
+        return res.status(400).json({ message: "Invitee has no email address" });
+      }
+      
+      const organization = await storage.getOrganization(event.organizationId);
+      const currentUser = await storage.getUser(userId);
+      
+      // Send the meeting invitation email
+      await sendMeetingInvitationEmail({
+        attendeeEmail: invitee.email,
+        attendeeFirstName: invitee.firstName || 'Attendee',
+        eventName: event.name,
+        organizationName: organization?.name || 'Event Organizer',
+        meetingId: meeting.id,
+        organizationId: event.organizationId,
+        meetingTitle: meeting.title || undefined,
+        meetingDescription: meeting.description || undefined,
+        intentType: meeting.intentType || undefined,
+        startTime: meeting.startTime || undefined,
+        location: meeting.location || undefined,
+        hostName: currentUser?.firstName && currentUser?.lastName 
+          ? `${currentUser.firstName} ${currentUser.lastName}` 
+          : undefined,
+      });
+      
+      res.json({ success: true, message: "Meeting invitation email sent" });
+    } catch (error: any) {
+      logError("Error resending meeting invitation email:", error);
+      res.status(500).json({ message: error.message || "Failed to resend meeting invitation email" });
+    }
+  });
+
   // ============================================
   // Moments - Live Engagement Routes
   // ============================================
