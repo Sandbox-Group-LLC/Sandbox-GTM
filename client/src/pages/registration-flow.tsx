@@ -683,7 +683,12 @@ export default function RegistrationFlow() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => openCustomFieldConfigDialog(field)}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              openCustomFieldConfigDialog(field);
+                            }}
+                            className="touch-manipulation"
                             data-testid={`button-configure-field-${field.id}`}
                           >
                             <Settings2 className="h-4 w-4" />
@@ -714,7 +719,12 @@ export default function RegistrationFlow() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => openCustomFieldConfigDialog(field)}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              openCustomFieldConfigDialog(field);
+                            }}
+                            className="touch-manipulation"
                             data-testid={`button-configure-field-${field.id}`}
                           >
                             <Settings2 className="h-4 w-4" />
