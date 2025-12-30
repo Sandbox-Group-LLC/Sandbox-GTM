@@ -51,6 +51,18 @@ interface MeetingStats {
   intentBreakdown: { type: string; count: number }[];
 }
 
+interface IntentContact {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  company: string | null;
+  intentStatus: string | null;
+  salesReady: boolean | null;
+  intentSources: { type: string; id: string; createdAt: string }[] | null;
+  updatedAt: Date | null;
+}
+
 const typeLabels: Record<string, string> = {
   poll_single: "Single Choice Poll",
   poll_multi: "Multi Choice Poll",
@@ -102,6 +114,32 @@ export default function EngagementSignals() {
     queryFn: async () => {
       const res = await fetch(`/api/events/${selectedEventId}/meetings/stats`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch meeting stats");
+      return res.json();
+    },
+  });
+
+  const { data: hotLeads, isLoading: hotLeadsLoading } = useQuery<IntentContact[]>({
+    queryKey: ["/api/organizations", organization?.id, "hot-leads", selectedEventId],
+    enabled: !!organization?.id,
+    queryFn: async () => {
+      const eventParam = selectedEventId && selectedEventId !== "all" ? `?eventId=${selectedEventId}` : "";
+      const res = await fetch(`/api/organizations/${organization?.id}/hot-leads${eventParam}`, { 
+        credentials: "include" 
+      });
+      if (!res.ok) throw new Error("Failed to fetch hot leads");
+      return res.json();
+    },
+  });
+
+  const { data: highIntentContacts, isLoading: highIntentLoading } = useQuery<IntentContact[]>({
+    queryKey: ["/api/organizations", organization?.id, "high-intent-contacts", selectedEventId],
+    enabled: !!organization?.id,
+    queryFn: async () => {
+      const eventParam = selectedEventId && selectedEventId !== "all" ? `?eventId=${selectedEventId}` : "";
+      const res = await fetch(`/api/organizations/${organization?.id}/high-intent-contacts${eventParam}`, { 
+        credentials: "include" 
+      });
+      if (!res.ok) throw new Error("Failed to fetch high-intent contacts");
       return res.json();
     },
   });
@@ -193,7 +231,9 @@ export default function EngagementSignals() {
                 <CardContent>
                   <div className="flex items-center justify-between gap-2">
                     <div>
-                      <p className="text-4xl font-bold">--</p>
+                      <p className="text-4xl font-bold" data-testid="text-hot-leads-count">
+                        {hotLeadsLoading ? "--" : (hotLeads?.length ?? 0)}
+                      </p>
                       <p className="text-sm text-muted-foreground mt-1">Sales-ready contacts</p>
                     </div>
                   </div>
@@ -269,12 +309,61 @@ export default function EngagementSignals() {
                   <CardTitle>High-Intent Audience</CardTitle>
                   <CardDescription>Contacts showing buying signals ready for follow-up</CardDescription>
                 </CardHeader>
-                <CardContent className="h-64 flex items-center justify-center text-muted-foreground">
-                  <div className="text-center">
-                    <Flame className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                    <p>Intent scoring coming soon</p>
-                    <p className="text-sm mt-2">AI-powered engagement analysis</p>
-                  </div>
+                <CardContent className="h-64 overflow-auto">
+                  {highIntentLoading ? (
+                    <div className="space-y-3">
+                      <Skeleton className="h-12 w-full" />
+                      <Skeleton className="h-12 w-full" />
+                      <Skeleton className="h-12 w-full" />
+                    </div>
+                  ) : highIntentContacts && highIntentContacts.length > 0 ? (
+                    <div className="space-y-2">
+                      {highIntentContacts.slice(0, 10).map((contact, index) => (
+                        <div 
+                          key={contact.id}
+                          className="flex items-center justify-between gap-2 p-3 rounded-lg bg-muted/50"
+                          data-testid={`row-high-intent-${index}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-2 h-2 rounded-full ${
+                              contact.intentStatus === 'hot_lead' ? 'bg-red-500' :
+                              contact.intentStatus === 'high_intent' ? 'bg-orange-500' :
+                              'bg-amber-500'
+                            }`} />
+                            <div>
+                              <p className="font-medium text-sm" data-testid={`text-contact-name-${index}`}>
+                                {contact.firstName} {contact.lastName}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {contact.company || contact.email}
+                              </p>
+                            </div>
+                          </div>
+                          <Badge 
+                            variant={contact.intentStatus === 'hot_lead' ? 'destructive' : 'secondary'}
+                            data-testid={`badge-intent-status-${index}`}
+                          >
+                            {contact.intentStatus === 'hot_lead' ? 'Hot Lead' :
+                             contact.intentStatus === 'high_intent' ? 'High Intent' :
+                             contact.intentStatus || 'Engaged'}
+                          </Badge>
+                        </div>
+                      ))}
+                      {highIntentContacts.length > 10 && (
+                        <p className="text-xs text-center text-muted-foreground pt-2">
+                          + {highIntentContacts.length - 10} more contacts
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-muted-foreground">
+                      <div className="text-center">
+                        <Flame className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                        <p>No high-intent contacts yet</p>
+                        <p className="text-sm mt-2">Capture meeting outcomes to identify buyers</p>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>

@@ -10605,7 +10605,16 @@ ${urls.map(u => `  <url>
         return res.status(403).json({ message: "Access denied" });
       }
       
-      const hotLeads = await storage.getHotLeads(organizationId, eventId);
+      // Validate eventId belongs to this organization if provided
+      let validatedEventId: string | undefined;
+      if (eventId) {
+        const event = await storage.getEventById(eventId);
+        if (event && event.organizationId === organizationId) {
+          validatedEventId = eventId;
+        }
+      }
+      
+      const hotLeads = await storage.getHotLeads(organizationId, validatedEventId);
       res.json(hotLeads);
     } catch (error) {
       logError("Error fetching hot leads:", error);
@@ -10627,7 +10636,16 @@ ${urls.map(u => `  <url>
         return res.status(403).json({ message: "Access denied" });
       }
       
-      const highIntentContacts = await storage.getHighIntentContacts(organizationId, eventId);
+      // Validate eventId belongs to this organization if provided
+      let validatedEventId: string | undefined;
+      if (eventId) {
+        const event = await storage.getEventById(eventId);
+        if (event && event.organizationId === organizationId) {
+          validatedEventId = eventId;
+        }
+      }
+      
+      const highIntentContacts = await storage.getHighIntentContacts(organizationId, validatedEventId);
       res.json(highIntentContacts);
     } catch (error) {
       logError("Error fetching high-intent contacts:", error);
