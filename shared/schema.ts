@@ -2147,6 +2147,85 @@ export const superAdminAuditLogsRelations = relations(superAdminAuditLogs, ({ on
   organization: one(organizations, { fields: [superAdminAuditLogs.actedOrganizationId], references: [organizations.id] }),
 }));
 
+// Attendee Connections - networking connections between attendees
+export const attendeeConnections = pgTable("attendee_connections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id).notNull(),
+  requesterId: varchar("requester_id").references(() => attendees.id).notNull(),
+  targetId: varchar("target_id").references(() => attendees.id).notNull(),
+  status: varchar("status", { length: 20 }).default("pending").notNull(), // 'pending', 'accepted', 'declined'
+  message: text("message"),
+  respondedAt: timestamp("responded_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("attendee_connections_event_idx").on(table.eventId),
+  index("attendee_connections_requester_idx").on(table.requesterId),
+  index("attendee_connections_target_idx").on(table.targetId),
+  uniqueIndex("attendee_connections_unique").on(table.eventId, table.requesterId, table.targetId),
+]);
+
+// Attendee Availability Slots - time slots when attendees are available for meetings
+export const attendeeAvailabilitySlots = pgTable("attendee_availability_slots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id).notNull(),
+  attendeeId: varchar("attendee_id").references(() => attendees.id).notNull(),
+  startTime: timestamp("start_time").notNull(),
+  endTime: timestamp("end_time").notNull(),
+  isBooked: boolean("is_booked").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("availability_slots_event_idx").on(table.eventId),
+  index("availability_slots_attendee_idx").on(table.attendeeId),
+]);
+
+// Attendee Meetings - scheduled 1:1 meetings between attendees
+export const attendeeMeetings = pgTable("attendee_meetings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id).notNull(),
+  requesterId: varchar("requester_id").references(() => attendees.id).notNull(),
+  inviteeId: varchar("invitee_id").references(() => attendees.id).notNull(),
+  slotId: varchar("slot_id").references(() => attendeeAvailabilitySlots.id),
+  startTime: timestamp("start_time").notNull(),
+  endTime: timestamp("end_time").notNull(),
+  location: varchar("location", { length: 255 }),
+  virtualLink: text("virtual_link"),
+  status: varchar("status", { length: 20 }).default("pending").notNull(), // 'pending', 'accepted', 'declined', 'cancelled'
+  message: text("message"),
+  declineReason: text("decline_reason"),
+  respondedAt: timestamp("responded_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("attendee_meetings_event_idx").on(table.eventId),
+  index("attendee_meetings_requester_idx").on(table.requesterId),
+  index("attendee_meetings_invitee_idx").on(table.inviteeId),
+]);
+
+// Networking relations
+export const attendeeConnectionsRelations = relations(attendeeConnections, ({ one }) => ({
+  organization: one(organizations, { fields: [attendeeConnections.organizationId], references: [organizations.id] }),
+  event: one(events, { fields: [attendeeConnections.eventId], references: [events.id] }),
+  requester: one(attendees, { fields: [attendeeConnections.requesterId], references: [attendees.id] }),
+  target: one(attendees, { fields: [attendeeConnections.targetId], references: [attendees.id] }),
+}));
+
+export const attendeeAvailabilitySlotsRelations = relations(attendeeAvailabilitySlots, ({ one }) => ({
+  organization: one(organizations, { fields: [attendeeAvailabilitySlots.organizationId], references: [organizations.id] }),
+  event: one(events, { fields: [attendeeAvailabilitySlots.eventId], references: [events.id] }),
+  attendee: one(attendees, { fields: [attendeeAvailabilitySlots.attendeeId], references: [attendees.id] }),
+}));
+
+export const attendeeMeetingsRelations = relations(attendeeMeetings, ({ one }) => ({
+  organization: one(organizations, { fields: [attendeeMeetings.organizationId], references: [organizations.id] }),
+  event: one(events, { fields: [attendeeMeetings.eventId], references: [events.id] }),
+  requester: one(attendees, { fields: [attendeeMeetings.requesterId], references: [attendees.id] }),
+  invitee: one(attendees, { fields: [attendeeMeetings.inviteeId], references: [attendees.id] }),
+  slot: one(attendeeAvailabilitySlots, { fields: [attendeeMeetings.slotId], references: [attendeeAvailabilitySlots.id] }),
+}));
+
 // Moments relations
 export const momentsRelations = relations(moments, ({ one, many }) => ({
   organization: one(organizations, { fields: [moments.organizationId], references: [organizations.id] }),
@@ -2267,6 +2346,9 @@ export const insertSessionCheckInSchema = createInsertSchema(sessionCheckIns).om
 export const insertApiKeySchema = createInsertSchema(apiKeys).omit({ id: true, createdAt: true, updatedAt: true, lastUsedAt: true, lastRotatedAt: true });
 export const insertApiKeyAuditLogSchema = createInsertSchema(apiKeyAuditLogs).omit({ id: true, occurredAt: true });
 export const insertSuperAdminAuditLogSchema = createInsertSchema(superAdminAuditLogs).omit({ id: true, createdAt: true });
+export const insertAttendeeConnectionSchema = createInsertSchema(attendeeConnections).omit({ id: true, createdAt: true, respondedAt: true });
+export const insertAttendeeAvailabilitySlotSchema = createInsertSchema(attendeeAvailabilitySlots).omit({ id: true, createdAt: true });
+export const insertAttendeeMeetingSchema = createInsertSchema(attendeeMeetings).omit({ id: true, createdAt: true, updatedAt: true, respondedAt: true });
 
 // Types
 export type UpsertUser = typeof users.$inferInsert;
