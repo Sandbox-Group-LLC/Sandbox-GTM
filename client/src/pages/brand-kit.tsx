@@ -14,7 +14,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { ColorPicker } from "@/components/color-picker";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Loader2, Globe, Palette, Type, Image, Trash2, Edit2, Check, Star, ExternalLink, Plus } from "lucide-react";
+import { Loader2, Globe, Palette, Type, Image, Trash2, Edit2, Check, Star, ExternalLink, Plus, Upload, X } from "lucide-react";
+import { ObjectUploader } from "@/components/ObjectUploader";
 import type { BrandKit } from "@shared/schema";
 
 interface ExtractedBrand {
@@ -116,6 +117,10 @@ export default function BrandKitPage() {
 
   const { data: brandKits, isLoading: isLoadingKits } = useQuery<BrandKit[]>({
     queryKey: ["/api/brand-kits"],
+  });
+
+  const { data: defaultBrandKit } = useQuery<BrandKit>({
+    queryKey: ["/api/brand-kits/default"],
   });
 
   const extractMutation = useMutation({
@@ -237,6 +242,68 @@ export default function BrandKitPage() {
       });
     },
   });
+
+  const uploadLogoMutation = useMutation({
+    mutationFn: async (logoUrl: string) => {
+      if (defaultBrandKit) {
+        const response = await apiRequest("PATCH", `/api/brand-kits/${defaultBrandKit.id}`, { logoUrl });
+        return response.json();
+      } else {
+        const response = await apiRequest("POST", "/api/brand-kits", {
+          name: "Default Brand Kit",
+          logoUrl,
+          isDefault: true,
+        });
+        return response.json();
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/brand-kits"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/brand-kits/default"] });
+      toast({
+        title: "Logo Uploaded",
+        description: "Your organization logo has been saved.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Upload Failed",
+        description: error.message || "Failed to save logo",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const removeLogoMutation = useMutation({
+    mutationFn: async () => {
+      if (!defaultBrandKit) return;
+      const response = await apiRequest("PATCH", `/api/brand-kits/${defaultBrandKit.id}`, { logoUrl: null });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/brand-kits"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/brand-kits/default"] });
+      toast({
+        title: "Logo Removed",
+        description: "Your organization logo has been removed.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Remove Failed",
+        description: error.message || "Failed to remove logo",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleLogoUpload = (result: { uploadUrl: string }) => {
+    uploadLogoMutation.mutate(result.uploadUrl);
+  };
+
+  const handleRemoveLogo = () => {
+    removeLogoMutation.mutate();
+  };
 
   const handleExtract = () => {
     if (!url) {
@@ -734,6 +801,74 @@ export default function BrandKitPage() {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Image className="h-5 w-5" />
+                Organization Logo
+              </CardTitle>
+              <CardDescription>
+                Upload your organization's logo to display in the app header
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {defaultBrandKit?.logoUrl ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4 p-4 rounded-md border border-border bg-muted/50">
+                    <img
+                      src={defaultBrandKit.logoUrl}
+                      alt="Organization Logo"
+                      className="h-16 max-w-48 object-contain"
+                      data-testid="img-organization-logo"
+                    />
+                    <div className="flex-1">
+                      <p className="text-sm text-muted-foreground">Current logo</p>
+                    </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => handleRemoveLogo()}
+                      disabled={removeLogoMutation.isPending}
+                      data-testid="button-remove-logo"
+                    >
+                      {removeLogoMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <X className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <ObjectUploader
+                      accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                      buttonText="Replace Logo"
+                      buttonVariant="outline"
+                      onComplete={handleLogoUpload}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex flex-col items-center justify-center p-8 rounded-md border-2 border-dashed border-border">
+                    <Upload className="h-10 w-10 text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground text-center mb-4">
+                      No logo uploaded yet. Upload your organization logo to display in the app header.
+                    </p>
+                    <ObjectUploader
+                      accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                      buttonText="Upload Logo"
+                      buttonVariant="default"
+                      onComplete={handleLogoUpload}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Supported formats: PNG, JPG, SVG, WebP
+                  </p>
                 </div>
               )}
             </CardContent>

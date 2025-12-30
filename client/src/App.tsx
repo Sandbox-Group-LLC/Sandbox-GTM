@@ -1,7 +1,7 @@
 import { Switch, Route, useLocation } from "wouter";
 import { useEffect } from "react";
 import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useSignupStatus } from "@/hooks/useSignupStatus";
 import { OrgSwitcher } from "@/components/org-switcher";
 import { SuperAdminBanner } from "@/components/super-admin-banner";
+import type { BrandKit } from "@shared/schema";
 import NotFound from "@/pages/not-found";
 import RequireInviteCode from "@/pages/require-invite-code";
 import Landing from "@/pages/landing";
@@ -87,15 +88,35 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   };
   const { user, organization } = useAuth();
 
+  const { data: defaultBrandKit } = useQuery<BrandKit>({
+    queryKey: ["/api/brand-kits/default"],
+    enabled: !!user,
+    retry: false,
+  });
+
+  const showHeader = user?.isSuperAdmin || defaultBrandKit?.logoUrl;
+
   return (
     <SidebarProvider style={sidebarStyle as React.CSSProperties}>
       <div className="flex h-screen w-full">
         <AppSidebar />
         <div className="flex-1 flex flex-col overflow-auto">
           {user?.isSuperAdmin && <SuperAdminBanner />}
-          {user?.isSuperAdmin && (
-            <header className="flex items-center justify-end gap-4 px-4 py-2 border-b shrink-0">
-              <OrgSwitcher />
+          {showHeader && (
+            <header className="flex items-center justify-between gap-4 px-4 py-2 border-b shrink-0">
+              <div className="flex items-center gap-4">
+                {defaultBrandKit?.logoUrl && (
+                  <img
+                    src={defaultBrandKit.logoUrl}
+                    alt="Organization Logo"
+                    className="h-8 max-w-32 object-contain"
+                    data-testid="img-header-logo"
+                  />
+                )}
+              </div>
+              <div className="flex items-center gap-4">
+                {user?.isSuperAdmin && <OrgSwitcher />}
+              </div>
             </header>
           )}
           <main className="flex-1 flex flex-col overflow-auto">
