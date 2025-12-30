@@ -2224,6 +2224,7 @@ export function SectionRenderer({ section, event, sessions, speakers, sponsors, 
           style={{ 
             backgroundColor: navBgColor,
             color: navTextColor,
+            borderRadius: themeRadius,
             ...navBorderStyle
           }}
           data-testid={`section-navigation-${section.id}`}
