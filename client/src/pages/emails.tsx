@@ -86,7 +86,7 @@ const templateFormSchema = z.object({
   name: z.string().min(1, "Template name is required"),
   subject: z.string().min(1, "Subject is required"),
   content: z.string().min(1, "Content is required"),
-  category: z.string().default("general"),
+  campaignRole: z.string().default("general"),
   headerImageUrl: z.string().optional(),
   isInviteEmail: z.boolean().default(false),
   styles: emailStylesSchema,
@@ -192,12 +192,9 @@ const statusConfig: Record<string, { icon: typeof FileText; color: "default" | "
   sent: { icon: CheckCircle, color: "default" },
 };
 
-const categoryLabels: Record<string, string> = {
-  general: "General",
-  registration: "Registration",
-  reminder: "Reminder",
-  confirmation: "Confirmation",
-  followup: "Follow-up",
+const getCampaignRoleLabel = (value: string): string => {
+  const option = CAMPAIGN_ROLE_OPTIONS.find(opt => opt.value === value);
+  return option ? option.label : value;
 };
 
 export default function Emails() {
@@ -269,7 +266,7 @@ export default function Emails() {
       name: "",
       subject: "",
       content: "",
-      category: "general",
+      campaignRole: "general",
       headerImageUrl: "",
       isInviteEmail: false,
       styles: {},
@@ -551,7 +548,7 @@ export default function Emails() {
       name: template.name,
       subject: template.subject,
       content: template.content,
-      category: template.category || "general",
+      campaignRole: template.campaignRole || "general",
       headerImageUrl: template.headerImageUrl || "",
       isInviteEmail: template.isInviteEmail || false,
       styles: template.styles || {},
@@ -763,10 +760,10 @@ export default function Emails() {
       ),
     },
     {
-      key: "category",
-      header: "Category",
+      key: "campaignRole",
+      header: "Campaign Role",
       cell: (template: EmailTemplate) => (
-        <Badge variant="outline">{categoryLabels[template.category || "general"] || template.category}</Badge>
+        <Badge variant="outline">{getCampaignRoleLabel(template.campaignRole || "general")}</Badge>
       ),
     },
     {
@@ -1273,22 +1270,20 @@ export default function Emails() {
                       />
                       <FormField
                         control={templateForm.control}
-                        name="category"
+                        name="campaignRole"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Category</FormLabel>
+                            <FormLabel>Campaign Role</FormLabel>
                             <Select onValueChange={field.onChange} defaultValue={field.value}>
                               <FormControl>
-                                <SelectTrigger data-testid="select-template-category">
-                                  <SelectValue placeholder="Select category" />
+                                <SelectTrigger data-testid="select-template-campaign-role">
+                                  <SelectValue placeholder="Select campaign role" />
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="general">General</SelectItem>
-                                <SelectItem value="registration">Registration</SelectItem>
-                                <SelectItem value="reminder">Reminder</SelectItem>
-                                <SelectItem value="confirmation">Confirmation</SelectItem>
-                                <SelectItem value="followup">Follow-up</SelectItem>
+                                {CAMPAIGN_ROLE_OPTIONS.map(opt => (
+                                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
                             <FormMessage />

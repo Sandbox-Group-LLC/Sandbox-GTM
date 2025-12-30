@@ -3013,7 +3013,7 @@ export class DatabaseStorage implements IStorage {
       subject: libraryTemplate.subject,
       content: libraryTemplate.content,
       headerImageUrl: libraryTemplate.headerImageUrl,
-      category: libraryTemplate.category,
+      campaignRole: libraryTemplate.campaignRole,
       styles: libraryTemplate.styles,
       libraryTemplateId: libraryTemplateId,
     }).returning();
