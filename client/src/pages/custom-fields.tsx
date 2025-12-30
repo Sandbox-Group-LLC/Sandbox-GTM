@@ -325,6 +325,25 @@ export default function CustomFields() {
     },
   });
 
+  const seedDefaultsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/custom-fields/seed-defaults");
+      return await res.json();
+    },
+    onSuccess: (data: { message: string; seeded: number; skipped: number }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/custom-fields"] });
+      toast({ title: "Success", description: data.message || "Default fields have been seeded" });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({ title: "Unauthorized", description: "You are logged out. Logging in again...", variant: "destructive" });
+        setTimeout(() => { window.location.href = "/api/login"; }, 500);
+        return;
+      }
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -531,10 +550,20 @@ export default function CustomFields() {
         title="Properties"
         breadcrumbs={[{ label: "Programs", href: "/events" }, { label: "Properties" }]}
         actions={
-          <Button onClick={() => setIsDialogOpen(true)} data-testid="button-add-custom-field">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Property
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => seedDefaultsMutation.mutate()}
+              disabled={seedDefaultsMutation.isPending}
+              data-testid="button-seed-default-fields"
+            >
+              {seedDefaultsMutation.isPending ? "Seeding..." : "Seed Default Fields"}
+            </Button>
+            <Button onClick={() => setIsDialogOpen(true)} data-testid="button-add-custom-field">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Property
+            </Button>
+          </div>
         }
       />
 
