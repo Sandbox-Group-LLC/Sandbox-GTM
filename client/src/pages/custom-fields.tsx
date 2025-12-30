@@ -40,7 +40,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { titleCase } from "@/lib/utils";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Plus, Settings2, Trash2, Lock } from "lucide-react";
+import { Plus, Settings2, Trash2, Lock, Link2 } from "lucide-react";
 import type { CustomField } from "@shared/schema";
 
 // System properties that are built into the attendee profile
@@ -64,6 +64,8 @@ const customFieldFormSchema = z.object({
   isActive: z.boolean().default(true),
   attendeeOnly: z.boolean().default(false),
   isGlobal: z.boolean().default(false),
+  parentFieldId: z.string().nullable().optional(),
+  parentTriggerValues: z.array(z.string()).optional(),
 });
 
 type CustomFieldFormData = z.infer<typeof customFieldFormSchema>;
@@ -141,6 +143,10 @@ export default function CustomFields() {
   // Local state for toggles and field type to avoid form.watch issues
   const [toggles, setToggles] = useState<ToggleState>({ required: false, isActive: true, attendeeOnly: false, isGlobal: false });
   const [selectedFieldType, setSelectedFieldType] = useState<string>("text");
+  
+  // Parent-child conditional visibility state
+  const [parentFieldId, setParentFieldId] = useState<string | null>(null);
+  const [parentTriggerValues, setParentTriggerValues] = useState<string[]>([]);
   
   const handleToggleChange = useCallback((key: keyof ToggleState, value: boolean) => {
     setToggles(prev => ({ ...prev, [key]: value }));
@@ -249,6 +255,8 @@ export default function CustomFields() {
     });
     setSelectedFieldType(field.fieldType);
     setOptionsText((field.options ?? []).join("\n"));
+    setParentFieldId(field.parentFieldId ?? null);
+    setParentTriggerValues(field.parentTriggerValues ?? []);
     setIsDialogOpen(true);
   };
 
@@ -264,7 +272,13 @@ export default function CustomFields() {
       : [];
     
     // Merge toggle state with form data
-    const submitData = { ...data, ...toggles, options };
+    const submitData = { 
+      ...data, 
+      ...toggles, 
+      options,
+      parentFieldId: parentFieldId || null,
+      parentTriggerValues: parentFieldId ? parentTriggerValues : [],
+    };
 
     if (editingField) {
       updateMutation.mutate({ id: editingField.id, data: submitData });
@@ -280,8 +294,17 @@ export default function CustomFields() {
       setOptionsText("");
       setToggles({ required: false, isActive: true, attendeeOnly: false, isGlobal: false });
       setSelectedFieldType("text");
+      setParentFieldId(null);
+      setParentTriggerValues([]);
     }
     setIsDialogOpen(open);
+  };
+
+  // Helper to get parent field label
+  const getParentFieldLabel = (field: CustomField) => {
+    if (!field.parentFieldId) return null;
+    const parent = customFields.find(f => f.id === field.parentFieldId);
+    return parent?.label ?? null;
   };
 
   const columns = [
@@ -310,6 +333,21 @@ export default function CustomFields() {
     {
       key: "displayOrder",
       header: "Order",
+    },
+    {
+      key: "parentFieldId",
+      header: "Parent",
+      cell: (field: CustomField) => {
+        const parentLabel = getParentFieldLabel(field);
+        return parentLabel ? (
+          <Badge variant="outline" className="text-xs">
+            <Link2 className="h-3 w-3 mr-1" />
+            {parentLabel}
+          </Badge>
+        ) : (
+          <span className="text-muted-foreground text-sm">None</span>
+        );
+      },
     },
     {
       key: "isGlobal",
@@ -510,6 +548,105 @@ export default function CustomFields() {
                     </FormItem>
                   )}
                 />
+
+                {/* Conditional Visibility Section */}
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center gap-2">
+                    <Link2 className="h-4 w-4 text-muted-foreground" />
+                    <Label className="font-medium">Conditional Visibility</Label>
+                  </div>
+                  <FormItem>
+                    <FormLabel>Parent Field</FormLabel>
+                    <Select
+                      value={parentFieldId ?? "none"}
+                      onValueChange={(value) => {
+                        if (value === "none") {
+                          setParentFieldId(null);
+                          setParentTriggerValues([]);
+                        } else {
+                          setParentFieldId(value);
+                          setParentTriggerValues([]);
+                        }
+                      }}
+                    >
+                      <SelectTrigger data-testid="select-parent-field">
+                        <SelectValue placeholder="Select parent field" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        {customFields
+                          .filter((f) => 
+                            (f.fieldType === "select" || f.fieldType === "checkbox") &&
+                            f.isActive &&
+                            f.id !== editingField?.id
+                          )
+                          .map((f) => (
+                            <SelectItem key={f.id} value={f.id}>
+                              {f.label}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      Only show this field when a parent field has specific values
+                    </FormDescription>
+                  </FormItem>
+
+                  {parentFieldId && (() => {
+                    const selectedParent = customFields.find(f => f.id === parentFieldId);
+                    const parentOptions = selectedParent?.options ?? [];
+                    if (parentOptions.length === 0 && selectedParent?.fieldType === "checkbox") {
+                      return (
+                        <div className="space-y-2">
+                          <Label className="text-sm">Show when checked</Label>
+                          <div className="flex items-center gap-2 p-2 border rounded-md">
+                            <Checkbox
+                              id="trigger-checked"
+                              checked={parentTriggerValues.includes("true")}
+                              onCheckedChange={(checked) => {
+                                setParentTriggerValues(checked ? ["true"] : []);
+                              }}
+                              data-testid="checkbox-trigger-checked"
+                            />
+                            <Label htmlFor="trigger-checked" className="text-sm cursor-pointer">
+                              Parent checkbox is checked
+                            </Label>
+                          </div>
+                        </div>
+                      );
+                    }
+                    if (parentOptions.length > 0) {
+                      return (
+                        <div className="space-y-2">
+                          <Label className="text-sm">Show when parent value is</Label>
+                          <div className="space-y-2 border rounded-md p-3">
+                            {parentOptions.map((option) => (
+                              <div key={option} className="flex items-center gap-2">
+                                <Checkbox
+                                  id={`trigger-${option}`}
+                                  checked={parentTriggerValues.includes(option)}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) {
+                                      setParentTriggerValues([...parentTriggerValues, option]);
+                                    } else {
+                                      setParentTriggerValues(parentTriggerValues.filter(v => v !== option));
+                                    }
+                                  }}
+                                  data-testid={`checkbox-trigger-${option}`}
+                                />
+                                <Label htmlFor={`trigger-${option}`} className="text-sm cursor-pointer">
+                                  {option}
+                                </Label>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
+
                 <ToggleSection toggles={toggles} onToggleChange={handleToggleChange} />
                 <div className="flex justify-end gap-2 pt-4">
                   <Button
@@ -670,6 +807,12 @@ export default function CustomFields() {
                       )}
                       {field.attendeeOnly && (
                         <Badge variant="outline" className="text-xs">Attendee Only</Badge>
+                      )}
+                      {getParentFieldLabel(field) && (
+                        <Badge variant="outline" className="text-xs">
+                          <Link2 className="h-3 w-3 mr-1" />
+                          Child of: {getParentFieldLabel(field)}
+                        </Badge>
                       )}
                     </div>
                   </div>

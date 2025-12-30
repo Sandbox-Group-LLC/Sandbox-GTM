@@ -668,6 +668,8 @@ export const customFields = pgTable("custom_fields", {
   isActive: boolean("is_active").default(true),
   attendeeOnly: boolean("attendee_only").default(false), // Fields that should only be visible in attendee-facing forms, not admin forms
   isGlobal: boolean("is_global").default(false), // Global fields are automatically included in all events
+  parentFieldId: varchar("parent_field_id"), // Reference to parent field for conditional visibility
+  parentTriggerValues: text("parent_trigger_values").array(), // Values of parent field that trigger this field to be visible
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
