@@ -12333,6 +12333,29 @@ ${urls.map(u => `  <url>
     }
   });
 
+  app.patch("/api/custom-fields/reorder", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { orderedIds } = req.body as { orderedIds: string[] };
+      
+      if (!Array.isArray(orderedIds)) {
+        return res.status(400).json({ message: "orderedIds must be an array" });
+      }
+      
+      await Promise.all(
+        orderedIds.map((id, index) => 
+          storage.updateCustomField(organizationId, id, { displayOrder: index })
+        )
+      );
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      logError("Error reordering custom fields:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.patch("/api/custom-fields/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;

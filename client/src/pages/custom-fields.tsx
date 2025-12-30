@@ -40,7 +40,10 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { titleCase } from "@/lib/utils";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Plus, Settings2, Trash2, Lock, Link2 } from "lucide-react";
+import { Plus, Settings2, Trash2, Lock, Link2, GripVertical } from "lucide-react";
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import type { CustomField } from "@shared/schema";
 
 // System properties that are built into the attendee profile
@@ -133,6 +136,77 @@ const fieldTypeLabels: Record<string, string> = {
   checkbox: "Checkbox",
   number: "Number",
 };
+
+function SortableCustomFieldRow({ field, children }: { field: CustomField; children: React.ReactNode }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: field.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="flex items-center gap-2">
+      <button
+        type="button"
+        className="cursor-grab active:cursor-grabbing p-1 text-muted-foreground hover:text-foreground"
+        {...attributes}
+        {...listeners}
+        data-testid={`drag-handle-${field.id}`}
+      >
+        <GripVertical className="h-4 w-4" />
+      </button>
+      <div className="flex-1">{children}</div>
+    </div>
+  );
+}
+
+function SortableTableRow({ field, children }: { field: CustomField; children: React.ReactNode }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: field.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <tr
+      ref={setNodeRef}
+      style={style}
+      className="border-b last:border-0"
+      data-testid={`row-custom-field-${field.id}`}
+    >
+      <td className="p-3">
+        <button
+          type="button"
+          className="cursor-grab active:cursor-grabbing p-1 text-muted-foreground hover:text-foreground"
+          {...attributes}
+          {...listeners}
+          data-testid={`drag-handle-table-${field.id}`}
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+      </td>
+      {children}
+    </tr>
+  );
+}
 
 export default function CustomFields() {
   const { toast } = useToast();
@@ -234,6 +308,42 @@ export default function CustomFields() {
     },
   });
 
+  const reorderMutation = useMutation({
+    mutationFn: async (orderedIds: string[]) => {
+      await apiRequest("PATCH", "/api/custom-fields/reorder", { orderedIds });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/custom-fields"] });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({ title: "Unauthorized", description: "You are logged out. Logging in again...", variant: "destructive" });
+        setTimeout(() => { window.location.href = "/api/login"; }, 500);
+        return;
+      }
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const sortedFields = [...customFields].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = sortedFields.findIndex(f => f.id === active.id);
+      const newIndex = sortedFields.findIndex(f => f.id === over.id);
+      const newOrder = arrayMove(sortedFields, oldIndex, newIndex);
+      reorderMutation.mutate(newOrder.map(f => f.id));
+    }
+  }
+
   const handleEdit = (field: CustomField) => {
     setEditingField(field);
     form.reset({
@@ -329,10 +439,6 @@ export default function CustomFields() {
           <span className="text-muted-foreground text-sm">Optional</span>
         )
       ),
-    },
-    {
-      key: "displayOrder",
-      header: "Order",
     },
     {
       key: "parentFieldId",
@@ -527,27 +633,6 @@ export default function CustomFields() {
                     </FormDescription>
                   </FormItem>
                 )}
-                <FormField
-                  control={form.control}
-                  name="displayOrder"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Display Order</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min="0"
-                          {...field}
-                          data-testid="input-field-order"
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Lower numbers appear first
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
 
                 {/* Conditional Visibility Section */}
                 <div className="space-y-3 pt-2">
@@ -753,7 +838,7 @@ export default function CustomFields() {
               </p>
             </div>
           </div>
-          {customFields.length === 0 ? (
+          {sortedFields.length === 0 ? (
             <EmptyState
               icon={Settings2}
               title="No custom properties"
@@ -764,69 +849,145 @@ export default function CustomFields() {
               }}
             />
           ) : (
-            <>
-              {/* Mobile card view */}
-              <div className="md:hidden space-y-3">
-                {customFields.map((field) => (
-                  <div key={field.id} className="p-3 border rounded-md space-y-3" data-testid={`card-custom-field-${field.id}`}>
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="space-y-1 min-w-0 flex-1">
-                        <span className="font-medium text-sm block truncate">{field.label}</span>
-                        <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{field.name}</code>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={sortedFields.map(f => f.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                {/* Mobile card view */}
+                <div className="md:hidden space-y-3">
+                  {sortedFields.map((field) => (
+                    <SortableCustomFieldRow key={field.id} field={field}>
+                      <div className="p-3 border rounded-md space-y-3" data-testid={`card-custom-field-${field.id}`}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="space-y-1 min-w-0 flex-1">
+                            <span className="font-medium text-sm block truncate">{field.label}</span>
+                            <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{field.name}</code>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEdit(field)}
+                              data-testid={`button-edit-field-mobile-${field.id}`}
+                            >
+                              <Settings2 className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDelete(field.id)}
+                              data-testid={`button-delete-field-mobile-${field.id}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant="secondary" className="text-xs">
+                            {fieldTypeLabels[field.fieldType] || titleCase(field.fieldType)}
+                          </Badge>
+                          {field.required && (
+                            <Badge variant="default" className="text-xs">Required</Badge>
+                          )}
+                          {field.isActive ? (
+                            <Badge variant="outline" className="text-xs">Active</Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-xs">Inactive</Badge>
+                          )}
+                          {field.attendeeOnly && (
+                            <Badge variant="outline" className="text-xs">Attendee Only</Badge>
+                          )}
+                          {getParentFieldLabel(field) && (
+                            <Badge variant="outline" className="text-xs">
+                              <Link2 className="h-3 w-3 mr-1" />
+                              Child of: {getParentFieldLabel(field)}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEdit(field)}
-                          data-testid={`button-edit-field-mobile-${field.id}`}
-                        >
-                          <Settings2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(field.id)}
-                          data-testid={`button-delete-field-mobile-${field.id}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="secondary" className="text-xs">
-                        {fieldTypeLabels[field.fieldType] || titleCase(field.fieldType)}
-                      </Badge>
-                      {field.required && (
-                        <Badge variant="default" className="text-xs">Required</Badge>
-                      )}
-                      {field.isActive ? (
-                        <Badge variant="outline" className="text-xs">Active</Badge>
-                      ) : (
-                        <Badge variant="secondary" className="text-xs">Inactive</Badge>
-                      )}
-                      {field.attendeeOnly && (
-                        <Badge variant="outline" className="text-xs">Attendee Only</Badge>
-                      )}
-                      {getParentFieldLabel(field) && (
-                        <Badge variant="outline" className="text-xs">
-                          <Link2 className="h-3 w-3 mr-1" />
-                          Child of: {getParentFieldLabel(field)}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              {/* Desktop table view */}
-              <div className="hidden md:block">
-                <DataTable
-                  data={customFields}
-                  columns={columns}
-                  getRowKey={(field) => field.id}
-                />
-              </div>
-            </>
+                    </SortableCustomFieldRow>
+                  ))}
+                </div>
+                {/* Desktop table view with drag handles */}
+                <div className="hidden md:block rounded-md border overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="w-8 p-3"></th>
+                        <th className="text-left p-3 font-medium">Name</th>
+                        <th className="text-left p-3 font-medium">Label</th>
+                        <th className="text-left p-3 font-medium">Type</th>
+                        <th className="text-left p-3 font-medium">Required</th>
+                        <th className="text-left p-3 font-medium">Status</th>
+                        <th className="text-left p-3 font-medium">Scope</th>
+                        <th className="w-20 p-3"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sortedFields.map((field) => (
+                        <SortableTableRow key={field.id} field={field}>
+                          <td className="p-3">
+                            <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{field.name}</code>
+                          </td>
+                          <td className="p-3">{field.label}</td>
+                          <td className="p-3">
+                            <Badge variant="secondary" className="text-xs">
+                              {fieldTypeLabels[field.fieldType] || titleCase(field.fieldType)}
+                            </Badge>
+                          </td>
+                          <td className="p-3">
+                            {field.required ? (
+                              <Badge variant="default" className="text-xs">Required</Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">Optional</span>
+                            )}
+                          </td>
+                          <td className="p-3">
+                            {field.isActive ? (
+                              <Badge variant="default" className="text-xs">Active</Badge>
+                            ) : (
+                              <Badge variant="secondary" className="text-xs">Inactive</Badge>
+                            )}
+                          </td>
+                          <td className="p-3">
+                            {field.isGlobal ? (
+                              <Badge variant="default" className="text-xs">Global</Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">Per Event</span>
+                            )}
+                          </td>
+                          <td className="p-3">
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEdit(field)}
+                                data-testid={`button-edit-field-${field.id}`}
+                              >
+                                <Settings2 className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDelete(field.id)}
+                                data-testid={`button-delete-field-${field.id}`}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </td>
+                        </SortableTableRow>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </SortableContext>
+            </DndContext>
           )}
         </div>
       </div>
