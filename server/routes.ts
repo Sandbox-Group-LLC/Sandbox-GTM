@@ -10632,10 +10632,20 @@ ${urls.map(u => `  <url>
         return res.status(400).json({ message: `Invalid intentType. Must be one of: ${MEETING_INTENT_TYPES.join(', ')}` });
       }
       
+      // For internal meetings, requesterId defaults to inviteeId since admin is the host
+      const requesterId = req.body.requesterId || req.body.inviteeId;
+      
+      // Parse dates if they're strings
+      const startTime = typeof req.body.startTime === 'string' ? new Date(req.body.startTime) : req.body.startTime;
+      const endTime = typeof req.body.endTime === 'string' ? new Date(req.body.endTime) : req.body.endTime;
+      
       const data = insertAttendeeMeetingSchema.parse({
         ...req.body,
         organizationId: event.organizationId,
         eventId,
+        requesterId,
+        startTime,
+        endTime,
         isInternalMeeting: true,
         internalHostUserId: userId,
       });
