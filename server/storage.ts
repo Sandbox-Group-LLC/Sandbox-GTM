@@ -1401,9 +1401,10 @@ export class DatabaseStorage implements IStorage {
     );
     await db.delete(cfpConfigs).where(eq(cfpConfigs.eventId, id));
     
-    // Delete session tracks and rooms before sessions
+    // Delete session tracks, rooms, and topics before sessions
     await db.delete(sessionTracks).where(eq(sessionTracks.eventId, id));
     await db.delete(sessionRooms).where(eq(sessionRooms.eventId, id));
+    await db.delete(sessionTopics).where(eq(sessionTopics.eventId, id));
     await db.delete(eventSessions).where(eq(eventSessions.eventId, id));
     
     await db.delete(budgetItems).where(eq(budgetItems.eventId, id));
