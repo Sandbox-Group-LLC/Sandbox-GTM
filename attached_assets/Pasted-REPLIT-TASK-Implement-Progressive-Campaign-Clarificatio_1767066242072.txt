@@ -1,0 +1,120 @@
+REPLIT TASK: Implement Progressive Campaign Clarification Logic + UX Copy
+
+Context
+Sandbox email templates and campaigns support Campaign Clarification properties
+(e.g. Campaign Type, Campaign Role, Audience Intent, Funnel Intent).
+These fields determine whether email activity is included in the Acquisition Funnel.
+
+We want to preserve sending velocity while ensuring only properly classified emails
+appear in GTM analytics.
+
+---------------------------------------------
+1. Behavioral Logic (Do NOT hard-require fields)
+---------------------------------------------
+
+Do NOT make Campaign Clarification fields required to send an email.
+
+Behavior rules:
+- Emails CAN be sent without Campaign Clarification fields populated
+- Emails missing required Campaign Clarification fields are:
+  - Excluded from the Acquisition Funnel
+  - Excluded from acquisition metrics and attribution
+
+This exclusion is intentional and correct.
+
+---------------------------------------------
+2. Add Acquisition Tracking Toggle
+---------------------------------------------
+
+Add a toggle to email templates and campaigns:
+
+Label:
+"Include in Acquisition Funnel"
+
+States:
+- OFF (default)
+- ON
+
+Behavior:
+- Toggle OFF:
+  - Campaign Clarification fields remain optional
+  - Email sends normally
+  - Email activity is excluded from Acquisition Funnel
+- Toggle ON:
+  - Campaign Clarification fields become required
+  - If required fields are missing, prevent save/publish
+  - Email activity is included in Acquisition Funnel and attribution logic
+
+---------------------------------------------
+3. Required Fields When Toggle = ON
+---------------------------------------------
+
+When "Include in Acquisition Funnel" is ON, require:
+- Campaign Type
+- Campaign Role
+- Funnel Intent (or equivalent acquisition intent field)
+
+Validate on:
+- Save
+- Publish
+- Send
+
+---------------------------------------------
+4. Warning Copy (Non-blocking)
+---------------------------------------------
+
+If toggle is OFF and any Campaign Clarification fields are empty, display this inline warning:
+
+⚠️ This email will not appear in Acquisition Funnel reporting unless campaign fields are completed.
+
+This warning:
+- Should NOT block sending
+- Should appear near Campaign Clarification fields
+- Should appear in both Template Builder and Campaign Builder
+
+---------------------------------------------
+5. Visual Status Indicators
+---------------------------------------------
+
+In email template lists and campaign views, add a status indicator:
+
+- Tracked (green check icon)
+  Tooltip:
+  "This email is included in Acquisition Funnel analytics."
+
+- Untracked (neutral / gray icon)
+  Tooltip:
+  "This email is excluded from Acquisition Funnel analytics because campaign fields are incomplete."
+
+---------------------------------------------
+6. Tooltip Copy (Required)
+---------------------------------------------
+
+Tooltip: "Include in Acquisition Funnel"
+"Enable this to include this email’s engagement data in acquisition and conversion reporting."
+
+Tooltip: Campaign Clarification Section
+"These fields help Sandbox understand the purpose of this email so results can be measured accurately."
+
+Tooltip: Funnel Exclusion
+"Only emails with campaign intent defined are included in Acquisition Funnel metrics."
+
+---------------------------------------------
+7. Empty-State Education (Optional but Recommended)
+---------------------------------------------
+
+If a user views the Acquisition Funnel and some emails are excluded, display helper text:
+
+"Some emails are excluded from this funnel because campaign intent was not defined."
+
+Include a link to:
+"Learn how to include emails in acquisition reporting"
+
+---------------------------------------------
+Goal
+---------------------------------------------
+
+Teach GTM discipline through UX — not enforcement —
+while preserving clean, trustworthy Acquisition Funnel data.
+
+This behavior should feel intentional, transparent, and empowering.
