@@ -100,6 +100,11 @@ import {
   SPONSOR_CONTACT_PERMISSIONS,
   API_KEY_SCOPES,
   insertApiKeySchema,
+  insertAttendeeMeetingSchema,
+  MEETING_INTENT_TYPES,
+  MEETING_OUTCOME_TYPES,
+  DEAL_RANGE_TYPES,
+  TIMELINE_TYPES,
 } from "@shared/schema";
 import { createMailchimpProvider } from "./integrations/mailchimp";
 import { decrypt, encrypt } from "./encryption";
@@ -10505,6 +10510,239 @@ ${urls.map(u => `  <url>
     } catch (error: any) {
       logError("Error updating feedback config:", error);
       res.status(400).json({ message: error.message || "Failed to update feedback config" });
+    }
+  });
+
+  // ============================================
+  // Attendee Meetings - Internal Meeting Management
+  // ============================================
+
+  // Get all meetings for an event with optional filters
+  app.get("/api/events/:eventId/meetings", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { eventId } = req.params;
+      const { status, intentType, isInternal } = req.query;
+      
+      // Get the event to find the organization
+      const event = await storage.getEventById(eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      // Check user has access to this organization
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === event.organizationId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const filters: { status?: string; intentType?: string; isInternal?: boolean } = {};
+      if (status) filters.status = status as string;
+      if (intentType) filters.intentType = intentType as string;
+      if (isInternal !== undefined) filters.isInternal = isInternal === 'true';
+      
+      const meetings = await storage.getAttendeeMeetings(event.organizationId, eventId, filters);
+      res.json(meetings);
+    } catch (error) {
+      logError("Error fetching meetings:", error);
+      res.status(500).json({ message: "Failed to fetch meetings" });
+    }
+  });
+
+  // Get meeting quality stats for analytics
+  app.get("/api/events/:eventId/meetings/stats", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { eventId } = req.params;
+      
+      // Get the event to find the organization
+      const event = await storage.getEventById(eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      // Check user has access to this organization
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === event.organizationId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const stats = await storage.getMeetingQualityStats(event.organizationId, eventId);
+      res.json(stats);
+    } catch (error) {
+      logError("Error fetching meeting stats:", error);
+      res.status(500).json({ message: "Failed to fetch meeting stats" });
+    }
+  });
+
+  // Get single meeting details
+  app.get("/api/events/:eventId/meetings/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { eventId, id } = req.params;
+      
+      // Get the event to find the organization
+      const event = await storage.getEventById(eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      // Check user has access to this organization
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === event.organizationId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const meeting = await storage.getAttendeeMeeting(event.organizationId, id);
+      if (!meeting || meeting.eventId !== eventId) {
+        return res.status(404).json({ message: "Meeting not found" });
+      }
+      
+      res.json(meeting);
+    } catch (error) {
+      logError("Error fetching meeting:", error);
+      res.status(500).json({ message: "Failed to fetch meeting" });
+    }
+  });
+
+  // Create internal meeting
+  app.post("/api/events/:eventId/meetings", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { eventId } = req.params;
+      
+      // Get the event to find the organization
+      const event = await storage.getEventById(eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      // Check user has access to this organization
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === event.organizationId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      // Validate intent type if provided
+      if (req.body.intentType && !MEETING_INTENT_TYPES.includes(req.body.intentType)) {
+        return res.status(400).json({ message: `Invalid intentType. Must be one of: ${MEETING_INTENT_TYPES.join(', ')}` });
+      }
+      
+      const data = insertAttendeeMeetingSchema.parse({
+        ...req.body,
+        organizationId: event.organizationId,
+        eventId,
+        isInternalMeeting: true,
+        internalHostUserId: userId,
+      });
+      
+      const meeting = await storage.createAttendeeMeeting(data);
+      res.status(201).json(meeting);
+    } catch (error: any) {
+      logError("Error creating meeting:", error);
+      res.status(400).json({ message: error.message || "Failed to create meeting" });
+    }
+  });
+
+  // Update meeting status/details
+  app.patch("/api/events/:eventId/meetings/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { eventId, id } = req.params;
+      
+      // Get the event to find the organization
+      const event = await storage.getEventById(eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      // Check user has access to this organization
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === event.organizationId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      // Verify meeting exists and belongs to this event
+      const existing = await storage.getAttendeeMeeting(event.organizationId, id);
+      if (!existing || existing.eventId !== eventId) {
+        return res.status(404).json({ message: "Meeting not found" });
+      }
+      
+      // Validate intent type if provided
+      if (req.body.intentType && !MEETING_INTENT_TYPES.includes(req.body.intentType)) {
+        return res.status(400).json({ message: `Invalid intentType. Must be one of: ${MEETING_INTENT_TYPES.join(', ')}` });
+      }
+      
+      const meeting = await storage.updateAttendeeMeeting(event.organizationId, id, req.body);
+      res.json(meeting);
+    } catch (error: any) {
+      logError("Error updating meeting:", error);
+      res.status(400).json({ message: error.message || "Failed to update meeting" });
+    }
+  });
+
+  // Capture meeting outcome (internal only)
+  app.post("/api/events/:eventId/meetings/:id/outcome", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { eventId, id } = req.params;
+      
+      // Get the event to find the organization
+      const event = await storage.getEventById(eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      // Check user has access to this organization
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === event.organizationId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      // Verify meeting exists and belongs to this event
+      const existing = await storage.getAttendeeMeeting(event.organizationId, id);
+      if (!existing || existing.eventId !== eventId) {
+        return res.status(404).json({ message: "Meeting not found" });
+      }
+      
+      // Validate required field
+      if (!req.body.outcomeType) {
+        return res.status(400).json({ message: "outcomeType is required" });
+      }
+      
+      // Validate outcome type
+      if (!MEETING_OUTCOME_TYPES.includes(req.body.outcomeType)) {
+        return res.status(400).json({ message: `Invalid outcomeType. Must be one of: ${MEETING_OUTCOME_TYPES.join(', ')}` });
+      }
+      
+      // Validate deal range if provided
+      if (req.body.dealRange && !DEAL_RANGE_TYPES.includes(req.body.dealRange)) {
+        return res.status(400).json({ message: `Invalid dealRange. Must be one of: ${DEAL_RANGE_TYPES.join(', ')}` });
+      }
+      
+      // Validate timeline if provided
+      if (req.body.timeline && !TIMELINE_TYPES.includes(req.body.timeline)) {
+        return res.status(400).json({ message: `Invalid timeline. Must be one of: ${TIMELINE_TYPES.join(', ')}` });
+      }
+      
+      const meeting = await storage.captureAttendeeOutcome(event.organizationId, id, {
+        outcomeType: req.body.outcomeType,
+        dealRange: req.body.dealRange,
+        timeline: req.body.timeline,
+        outcomeNotes: req.body.outcomeNotes,
+        outcomeCapturedBy: userId,
+      });
+      
+      res.json(meeting);
+    } catch (error: any) {
+      logError("Error capturing meeting outcome:", error);
+      res.status(400).json({ message: error.message || "Failed to capture meeting outcome" });
     }
   });
 

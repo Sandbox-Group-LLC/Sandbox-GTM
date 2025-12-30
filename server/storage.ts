@@ -257,6 +257,9 @@ import {
   superAdminAuditLogs,
   type SuperAdminAuditLog,
   type InsertSuperAdminAuditLog,
+  attendeeMeetings,
+  type AttendeeMeeting,
+  type InsertAttendeeMeeting,
 } from "@shared/schema";
 import crypto from "crypto";
 import { encrypt, decrypt } from "./encryption";
@@ -891,6 +894,14 @@ export interface IStorage {
 
   // Super Admin operations
   getAllOrganizationsBasic(): Promise<Array<{ id: string; name: string; slug: string }>>;
+
+  // Attendee Meeting operations
+  getAttendeeMeetings(organizationId: string, eventId: string, filters?: { status?: string; intentType?: string; isInternal?: boolean }): Promise<AttendeeMeeting[]>;
+  getAttendeeMeeting(organizationId: string, id: string): Promise<AttendeeMeeting | undefined>;
+  createAttendeeMeeting(data: InsertAttendeeMeeting): Promise<AttendeeMeeting>;
+  updateAttendeeMeeting(organizationId: string, id: string, data: Partial<InsertAttendeeMeeting>): Promise<AttendeeMeeting | undefined>;
+  captureAttendeeOutcome(organizationId: string, meetingId: string, data: { outcomeType: string; dealRange?: string; timeline?: string; outcomeNotes?: string; outcomeCapturedBy: string }): Promise<AttendeeMeeting | undefined>;
+  getMeetingQualityStats(organizationId: string, eventId: string): Promise<{ totalMeetings: number; outcomesCaptured: number; byIntent: Record<string, number>; byOutcome: Record<string, number>; avgDealRange: string }>;
 }
 
 // Types for Moments Analytics
@@ -5793,6 +5804,132 @@ export class DatabaseStorage implements IStorage {
     }).from(organizations)
       .where(eq(organizations.isArchived, false))
       .orderBy(organizations.name);
+  }
+
+  // Attendee Meeting operations
+  async getAttendeeMeetings(organizationId: string, eventId: string, filters?: { status?: string; intentType?: string; isInternal?: boolean }): Promise<AttendeeMeeting[]> {
+    const conditions = [
+      eq(attendeeMeetings.organizationId, organizationId),
+      eq(attendeeMeetings.eventId, eventId),
+    ];
+    
+    if (filters?.status) {
+      conditions.push(eq(attendeeMeetings.status, filters.status));
+    }
+    if (filters?.intentType) {
+      conditions.push(eq(attendeeMeetings.intentType, filters.intentType));
+    }
+    if (filters?.isInternal !== undefined) {
+      conditions.push(eq(attendeeMeetings.isInternalMeeting, filters.isInternal));
+    }
+    
+    return await db.select().from(attendeeMeetings)
+      .where(and(...conditions))
+      .orderBy(desc(attendeeMeetings.createdAt));
+  }
+
+  async getAttendeeMeeting(organizationId: string, id: string): Promise<AttendeeMeeting | undefined> {
+    const [result] = await db.select().from(attendeeMeetings)
+      .where(and(
+        eq(attendeeMeetings.organizationId, organizationId),
+        eq(attendeeMeetings.id, id)
+      ));
+    return result;
+  }
+
+  async createAttendeeMeeting(data: InsertAttendeeMeeting): Promise<AttendeeMeeting> {
+    const [result] = await db.insert(attendeeMeetings).values(data).returning();
+    return result;
+  }
+
+  async updateAttendeeMeeting(organizationId: string, id: string, data: Partial<InsertAttendeeMeeting>): Promise<AttendeeMeeting | undefined> {
+    const [result] = await db.update(attendeeMeetings)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(
+        eq(attendeeMeetings.organizationId, organizationId),
+        eq(attendeeMeetings.id, id)
+      ))
+      .returning();
+    return result;
+  }
+
+  async captureAttendeeOutcome(organizationId: string, meetingId: string, data: { outcomeType: string; dealRange?: string; timeline?: string; outcomeNotes?: string; outcomeCapturedBy: string }): Promise<AttendeeMeeting | undefined> {
+    // Calculate intent strength based on outcome type
+    let intentStrength: 'low' | 'medium' | 'high' = 'low';
+    if (data.outcomeType === 'deal_in_progress' || data.outcomeType === 'active_opportunity') {
+      intentStrength = 'high';
+    } else if (data.outcomeType === 'early_interest' || data.outcomeType === 'follow_up_scheduled') {
+      intentStrength = 'medium';
+    }
+
+    const [result] = await db.update(attendeeMeetings)
+      .set({
+        outcomeType: data.outcomeType,
+        dealRange: data.dealRange,
+        timeline: data.timeline,
+        outcomeNotes: data.outcomeNotes,
+        outcomeCapturedBy: data.outcomeCapturedBy,
+        outcomeCapturedAt: new Date(),
+        intentStrength,
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(attendeeMeetings.organizationId, organizationId),
+        eq(attendeeMeetings.id, meetingId)
+      ))
+      .returning();
+    return result;
+  }
+
+  async getMeetingQualityStats(organizationId: string, eventId: string): Promise<{ totalMeetings: number; outcomesCaptured: number; byIntent: Record<string, number>; byOutcome: Record<string, number>; avgDealRange: string }> {
+    const meetings = await db.select().from(attendeeMeetings)
+      .where(and(
+        eq(attendeeMeetings.organizationId, organizationId),
+        eq(attendeeMeetings.eventId, eventId)
+      ));
+
+    const totalMeetings = meetings.length;
+    const outcomesCaptured = meetings.filter(m => m.outcomeType).length;
+
+    // Count by intent type
+    const byIntent: Record<string, number> = {};
+    for (const meeting of meetings) {
+      if (meeting.intentType) {
+        byIntent[meeting.intentType] = (byIntent[meeting.intentType] || 0) + 1;
+      }
+    }
+
+    // Count by outcome type
+    const byOutcome: Record<string, number> = {};
+    for (const meeting of meetings) {
+      if (meeting.outcomeType) {
+        byOutcome[meeting.outcomeType] = (byOutcome[meeting.outcomeType] || 0) + 1;
+      }
+    }
+
+    // Calculate average deal range
+    const dealRangeValues: Record<string, number> = {
+      'under_25k': 12500,
+      '25k_to_100k': 62500,
+      'over_100k': 150000,
+    };
+    const dealRanges = meetings.filter(m => m.dealRange).map(m => dealRangeValues[m.dealRange!] || 0);
+    const avgValue = dealRanges.length > 0 ? dealRanges.reduce((a, b) => a + b, 0) / dealRanges.length : 0;
+    
+    let avgDealRange = 'N/A';
+    if (avgValue > 0) {
+      if (avgValue < 25000) avgDealRange = 'under_25k';
+      else if (avgValue <= 100000) avgDealRange = '25k_to_100k';
+      else avgDealRange = 'over_100k';
+    }
+
+    return {
+      totalMeetings,
+      outcomesCaptured,
+      byIntent,
+      byOutcome,
+      avgDealRange,
+    };
   }
 }
 
