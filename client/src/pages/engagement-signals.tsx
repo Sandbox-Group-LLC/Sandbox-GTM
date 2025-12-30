@@ -374,7 +374,7 @@ export default function EngagementSignals() {
                   <Handshake className="w-5 h-5 text-blue-500" />
                   Meeting Quality
                 </CardTitle>
-                <CardDescription>Internal meeting outcomes and buyer intent signals</CardDescription>
+                <CardDescription>Internal meeting outcomes that surface buyer intent and sales-ready conversations.</CardDescription>
               </CardHeader>
               <CardContent>
                 {selectedEventId === "all" ? (
