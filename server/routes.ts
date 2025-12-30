@@ -10792,6 +10792,13 @@ ${urls.map(u => `  <url>
         outcomeCapturedBy: userId,
       });
       
+      // Automatically set status to 'completed' when outcome is captured
+      // (the meeting happened if we're capturing an outcome)
+      if (meeting && meeting.status !== 'completed') {
+        const updatedMeeting = await storage.updateAttendeeMeeting(event.organizationId, id, { status: 'completed' });
+        return res.json(updatedMeeting);
+      }
+      
       res.json(meeting);
     } catch (error: any) {
       logError("Error capturing meeting outcome:", error);
