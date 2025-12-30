@@ -947,289 +947,6 @@ export default function RegistrationFlow() {
                 </div>
               )}
             </div>
-
-            <Dialog open={customizeDialogOpen} onOpenChange={setCustomizeDialogOpen}>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Customize Package for Event</DialogTitle>
-                  <DialogDescription>
-                    Override the price and features for "{editingPackage?.name}" for this specific event.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="override-price">Price Override</Label>
-                    <Input
-                      id="override-price"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={overridePrice}
-                      onChange={(e) => setOverridePrice(e.target.value)}
-                      placeholder="Enter price"
-                      data-testid="input-override-price"
-                    />
-                    <p className="text-xs text-muted-foreground">Base price: ${Number(editingPackage?.price || 0).toFixed(2)}</p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="override-features">Features (one per line)</Label>
-                    <textarea
-                      id="override-features"
-                      className="w-full min-h-24 p-3 border rounded-md bg-background resize-none text-sm"
-                      value={overrideFeatures}
-                      onChange={(e) => setOverrideFeatures(e.target.value)}
-                      placeholder="Enter features, one per line"
-                      data-testid="textarea-override-features"
-                    />
-                    <p className="text-xs text-muted-foreground">Base features: {(editingPackage?.features || []).join(", ") || "None"}</p>
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setCustomizeDialogOpen(false)} data-testid="button-cancel-override">
-                    Cancel
-                  </Button>
-                  <Button onClick={handleSaveOverride} disabled={upsertEventPackageMutation.isPending} data-testid="button-save-override">
-                    {upsertEventPackageMutation.isPending ? "Saving..." : "Save Override"}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-
-            <Dialog open={customFieldConfigDialogOpen} onOpenChange={setCustomFieldConfigDialogOpen}>
-              <DialogContent className="max-w-lg">
-                <DialogHeader>
-                  <DialogTitle data-testid="dialog-title-custom-field-config">
-                    Configure Custom Field for Event
-                  </DialogTitle>
-                  <DialogDescription>
-                    Override settings for "{editingCustomField?.label}" for this specific event.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-6 py-4">
-                  <div className="flex items-center justify-between p-3 border rounded-md">
-                    <div>
-                      <Label htmlFor="cf-required" className="cursor-pointer">Required</Label>
-                      <p className="text-sm text-muted-foreground">
-                        {customFieldOverride.required === null 
-                          ? `Using org default: ${editingCustomField?.required ? 'Yes' : 'No'}`
-                          : 'Overriding org default'}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {customFieldOverride.required !== null && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => setCustomFieldOverride(prev => ({ ...prev, required: null }))}
-                          data-testid="button-reset-required"
-                        >
-                          Reset
-                        </Button>
-                      )}
-                      <Switch
-                        id="cf-required"
-                        checked={customFieldOverride.required ?? editingCustomField?.required ?? false}
-                        onCheckedChange={(checked) => setCustomFieldOverride(prev => ({ ...prev, required: checked }))}
-                        data-testid="switch-cf-required"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between p-3 border rounded-md">
-                    <div>
-                      <Label htmlFor="cf-active" className="cursor-pointer">Active</Label>
-                      <p className="text-sm text-muted-foreground">
-                        {customFieldOverride.isActive === null 
-                          ? 'Using event setting'
-                          : 'Overriding event setting'}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {customFieldOverride.isActive !== null && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => setCustomFieldOverride(prev => ({ ...prev, isActive: null }))}
-                          data-testid="button-reset-active"
-                        >
-                          Reset
-                        </Button>
-                      )}
-                      <Switch
-                        id="cf-active"
-                        checked={customFieldOverride.isActive ?? step1Config.enabledCustomFieldIds.includes(editingCustomField?.id ?? '')}
-                        onCheckedChange={(checked) => setCustomFieldOverride(prev => ({ ...prev, isActive: checked }))}
-                        data-testid="switch-cf-active"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="cf-display-order">Display Order</Label>
-                      {customFieldOverride.displayOrder !== null && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => setCustomFieldOverride(prev => ({ ...prev, displayOrder: null }))}
-                          data-testid="button-reset-display-order"
-                        >
-                          Reset
-                        </Button>
-                      )}
-                    </div>
-                    <Input
-                      id="cf-display-order"
-                      type="number"
-                      min="0"
-                      value={customFieldOverride.displayOrder ?? editingCustomField?.displayOrder ?? 0}
-                      onChange={(e) => setCustomFieldOverride(prev => ({ 
-                        ...prev, 
-                        displayOrder: e.target.value ? parseInt(e.target.value, 10) : null 
-                      }))}
-                      placeholder="Display order"
-                      data-testid="input-cf-display-order"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Org default: {editingCustomField?.displayOrder ?? 0}
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="cf-parent-field">Conditional Visibility - Parent Field</Label>
-                      {customFieldOverride.parentFieldId !== null && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => setCustomFieldOverride(prev => ({ ...prev, parentFieldId: null, parentTriggerValues: null }))}
-                          data-testid="button-reset-parent-field"
-                        >
-                          Reset
-                        </Button>
-                      )}
-                    </div>
-                    <Select
-                      value={customFieldOverride.parentFieldId ?? editingCustomField?.parentFieldId ?? ""}
-                      onValueChange={(value) => setCustomFieldOverride(prev => ({ 
-                        ...prev, 
-                        parentFieldId: value || null,
-                        parentTriggerValues: value ? prev.parentTriggerValues : null
-                      }))}
-                    >
-                      <SelectTrigger data-testid="select-cf-parent-field">
-                        <SelectValue placeholder="No conditional visibility" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="">No conditional visibility</SelectItem>
-                        {getParentFieldOptions().map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">
-                      Show this field only when the selected parent field has specific values
-                    </p>
-                  </div>
-
-                  {(customFieldOverride.parentFieldId || editingCustomField?.parentFieldId) && (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label>Trigger Values</Label>
-                        {customFieldOverride.parentTriggerValues !== null && (
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => setCustomFieldOverride(prev => ({ ...prev, parentTriggerValues: null }))}
-                            data-testid="button-reset-trigger-values"
-                          >
-                            Reset
-                          </Button>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground mb-2">
-                        Select values that will make this field visible
-                      </p>
-                      {getTriggerValueOptions().length > 0 ? (
-                        <div className="flex flex-wrap gap-3 p-3 border rounded-md">
-                          {getTriggerValueOptions().map((value) => {
-                            const currentValues = customFieldOverride.parentTriggerValues ?? editingCustomField?.parentTriggerValues ?? [];
-                            const isChecked = currentValues.includes(value);
-                            return (
-                              <div key={value} className="flex items-center gap-2">
-                                <Checkbox
-                                  id={`trigger-${value}`}
-                                  checked={isChecked}
-                                  onCheckedChange={(checked) => {
-                                    const newValues = checked 
-                                      ? [...currentValues, value]
-                                      : currentValues.filter(v => v !== value);
-                                    setCustomFieldOverride(prev => ({ 
-                                      ...prev, 
-                                      parentTriggerValues: newValues.length > 0 ? newValues : null 
-                                    }));
-                                  }}
-                                  data-testid={`checkbox-trigger-${value}`}
-                                />
-                                <Label htmlFor={`trigger-${value}`} className="text-sm cursor-pointer">{value}</Label>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <div className="p-3 border rounded-md">
-                          <Input
-                            placeholder="Enter trigger values, comma-separated"
-                            value={(customFieldOverride.parentTriggerValues ?? editingCustomField?.parentTriggerValues ?? []).join(', ')}
-                            onChange={(e) => {
-                              const values = e.target.value.split(',').map(v => v.trim()).filter(Boolean);
-                              setCustomFieldOverride(prev => ({ 
-                                ...prev, 
-                                parentTriggerValues: values.length > 0 ? values : null 
-                              }));
-                            }}
-                            data-testid="input-trigger-values"
-                          />
-                          <p className="text-xs text-muted-foreground mt-2">
-                            Enter the values that will trigger this field to be visible
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <DialogFooter className="flex-col sm:flex-row gap-2">
-                  {hasCustomFieldOverride(editingCustomField?.id ?? '') && (
-                    <Button 
-                      variant="outline" 
-                      onClick={handleResetCustomFieldToDefaults} 
-                      disabled={deleteEventCustomFieldSettingMutation.isPending}
-                      className="mr-auto"
-                      data-testid="button-reset-to-defaults"
-                    >
-                      <RotateCcw className="h-4 w-4 mr-2" />
-                      Reset to Defaults
-                    </Button>
-                  )}
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setCustomFieldConfigDialogOpen(false)} 
-                    data-testid="button-cancel-cf-config"
-                  >
-                    Cancel
-                  </Button>
-                  <Button 
-                    onClick={handleSaveCustomFieldOverride} 
-                    disabled={upsertEventCustomFieldSettingMutation.isPending} 
-                    data-testid="button-save-cf-config"
-                  >
-                    {upsertEventCustomFieldSettingMutation.isPending ? "Saving..." : "Save Settings"}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
           </div>
         );
 
@@ -1644,6 +1361,291 @@ export default function RegistrationFlow() {
           </div>
         </div>
       </div>
+
+      {/* Package Customize Dialog - hoisted to top level to prevent remount on mobile */}
+      <Dialog open={customizeDialogOpen} onOpenChange={setCustomizeDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Customize Package for Event</DialogTitle>
+            <DialogDescription>
+              Override the price and features for "{editingPackage?.name}" for this specific event.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="override-price">Price Override</Label>
+              <Input
+                id="override-price"
+                type="number"
+                step="0.01"
+                min="0"
+                value={overridePrice}
+                onChange={(e) => setOverridePrice(e.target.value)}
+                placeholder="Enter price"
+                data-testid="input-override-price"
+              />
+              <p className="text-xs text-muted-foreground">Base price: ${Number(editingPackage?.price || 0).toFixed(2)}</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="override-features">Features (one per line)</Label>
+              <textarea
+                id="override-features"
+                className="w-full min-h-24 p-3 border rounded-md bg-background resize-none text-sm"
+                value={overrideFeatures}
+                onChange={(e) => setOverrideFeatures(e.target.value)}
+                placeholder="Enter features, one per line"
+                data-testid="textarea-override-features"
+              />
+              <p className="text-xs text-muted-foreground">Base features: {(editingPackage?.features || []).join(", ") || "None"}</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCustomizeDialogOpen(false)} data-testid="button-cancel-override">
+              Cancel
+            </Button>
+            <Button onClick={handleSaveOverride} disabled={upsertEventPackageMutation.isPending} data-testid="button-save-override">
+              {upsertEventPackageMutation.isPending ? "Saving..." : "Save Override"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Custom Field Config Dialog - hoisted to top level to prevent remount on mobile */}
+      <Dialog open={customFieldConfigDialogOpen} onOpenChange={setCustomFieldConfigDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle data-testid="dialog-title-custom-field-config">
+              Configure Custom Field for Event
+            </DialogTitle>
+            <DialogDescription>
+              Override settings for "{editingCustomField?.label}" for this specific event.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            <div className="flex items-center justify-between p-3 border rounded-md">
+              <div>
+                <Label htmlFor="cf-required" className="cursor-pointer">Required</Label>
+                <p className="text-sm text-muted-foreground">
+                  {customFieldOverride.required === null 
+                    ? `Using org default: ${editingCustomField?.required ? 'Yes' : 'No'}`
+                    : 'Overriding org default'}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {customFieldOverride.required !== null && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => setCustomFieldOverride(prev => ({ ...prev, required: null }))}
+                    data-testid="button-reset-required"
+                  >
+                    Reset
+                  </Button>
+                )}
+                <Switch
+                  id="cf-required"
+                  checked={customFieldOverride.required ?? editingCustomField?.required ?? false}
+                  onCheckedChange={(checked) => setCustomFieldOverride(prev => ({ ...prev, required: checked }))}
+                  data-testid="switch-cf-required"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between p-3 border rounded-md">
+              <div>
+                <Label htmlFor="cf-active" className="cursor-pointer">Active</Label>
+                <p className="text-sm text-muted-foreground">
+                  {customFieldOverride.isActive === null 
+                    ? 'Using event setting'
+                    : 'Overriding event setting'}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {customFieldOverride.isActive !== null && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => setCustomFieldOverride(prev => ({ ...prev, isActive: null }))}
+                    data-testid="button-reset-active"
+                  >
+                    Reset
+                  </Button>
+                )}
+                <Switch
+                  id="cf-active"
+                  checked={customFieldOverride.isActive ?? step1Config.enabledCustomFieldIds.includes(editingCustomField?.id ?? '')}
+                  onCheckedChange={(checked) => setCustomFieldOverride(prev => ({ ...prev, isActive: checked }))}
+                  data-testid="switch-cf-active"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="cf-display-order">Display Order</Label>
+                {customFieldOverride.displayOrder !== null && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => setCustomFieldOverride(prev => ({ ...prev, displayOrder: null }))}
+                    data-testid="button-reset-display-order"
+                  >
+                    Reset
+                  </Button>
+                )}
+              </div>
+              <Input
+                id="cf-display-order"
+                type="number"
+                min="0"
+                value={customFieldOverride.displayOrder ?? editingCustomField?.displayOrder ?? 0}
+                onChange={(e) => setCustomFieldOverride(prev => ({ 
+                  ...prev, 
+                  displayOrder: e.target.value ? parseInt(e.target.value, 10) : null 
+                }))}
+                placeholder="Display order"
+                data-testid="input-cf-display-order"
+              />
+              <p className="text-xs text-muted-foreground">
+                Org default: {editingCustomField?.displayOrder ?? 0}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="cf-parent-field">Conditional Visibility - Parent Field</Label>
+                {customFieldOverride.parentFieldId !== null && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => setCustomFieldOverride(prev => ({ ...prev, parentFieldId: null, parentTriggerValues: null }))}
+                    data-testid="button-reset-parent-field"
+                  >
+                    Reset
+                  </Button>
+                )}
+              </div>
+              <Select
+                value={customFieldOverride.parentFieldId ?? editingCustomField?.parentFieldId ?? ""}
+                onValueChange={(value) => setCustomFieldOverride(prev => ({ 
+                  ...prev, 
+                  parentFieldId: value || null,
+                  parentTriggerValues: value ? prev.parentTriggerValues : null
+                }))}
+              >
+                <SelectTrigger data-testid="select-cf-parent-field">
+                  <SelectValue placeholder="No conditional visibility" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">No conditional visibility</SelectItem>
+                  {getParentFieldOptions().map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Show this field only when the selected parent field has specific values
+              </p>
+            </div>
+
+            {(customFieldOverride.parentFieldId || editingCustomField?.parentFieldId) && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Trigger Values</Label>
+                  {customFieldOverride.parentTriggerValues !== null && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => setCustomFieldOverride(prev => ({ ...prev, parentTriggerValues: null }))}
+                      data-testid="button-reset-trigger-values"
+                    >
+                      Reset
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Select values that will make this field visible
+                </p>
+                {getTriggerValueOptions().length > 0 ? (
+                  <div className="flex flex-wrap gap-3 p-3 border rounded-md">
+                    {getTriggerValueOptions().map((value) => {
+                      const currentValues = customFieldOverride.parentTriggerValues ?? editingCustomField?.parentTriggerValues ?? [];
+                      const isChecked = currentValues.includes(value);
+                      return (
+                        <div key={value} className="flex items-center gap-2">
+                          <Checkbox
+                            id={`trigger-${value}`}
+                            checked={isChecked}
+                            onCheckedChange={(checked) => {
+                              const newValues = checked 
+                                ? [...currentValues, value]
+                                : currentValues.filter(v => v !== value);
+                              setCustomFieldOverride(prev => ({ 
+                                ...prev, 
+                                parentTriggerValues: newValues.length > 0 ? newValues : null 
+                              }));
+                            }}
+                            data-testid={`checkbox-trigger-${value}`}
+                          />
+                          <Label htmlFor={`trigger-${value}`} className="text-sm cursor-pointer">{value}</Label>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="p-3 border rounded-md">
+                    <Input
+                      placeholder="Enter trigger values, comma-separated"
+                      value={(customFieldOverride.parentTriggerValues ?? editingCustomField?.parentTriggerValues ?? []).join(', ')}
+                      onChange={(e) => {
+                        const values = e.target.value.split(',').map(v => v.trim()).filter(Boolean);
+                        setCustomFieldOverride(prev => ({ 
+                          ...prev, 
+                          parentTriggerValues: values.length > 0 ? values : null 
+                        }));
+                      }}
+                      data-testid="input-trigger-values"
+                    />
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Enter the values that will trigger this field to be visible
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            {hasCustomFieldOverride(editingCustomField?.id ?? '') && (
+              <Button 
+                variant="outline" 
+                onClick={handleResetCustomFieldToDefaults} 
+                disabled={deleteEventCustomFieldSettingMutation.isPending}
+                className="mr-auto"
+                data-testid="button-reset-to-defaults"
+              >
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Reset to Defaults
+              </Button>
+            )}
+            <Button 
+              variant="outline" 
+              onClick={() => setCustomFieldConfigDialogOpen(false)} 
+              data-testid="button-cancel-cf-config"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSaveCustomFieldOverride} 
+              disabled={upsertEventCustomFieldSettingMutation.isPending} 
+              data-testid="button-save-cf-config"
+            >
+              {upsertEventCustomFieldSettingMutation.isPending ? "Saving..." : "Save Settings"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
