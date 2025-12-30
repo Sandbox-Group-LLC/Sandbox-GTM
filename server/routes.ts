@@ -10547,8 +10547,8 @@ ${urls.map(u => `  <url>
       // Enrich meetings with attendee details
       const enrichedMeetings = await Promise.all(meetings.map(async (meeting) => {
         const [invitee, requester] = await Promise.all([
-          meeting.inviteeId ? storage.getAttendee(meeting.inviteeId, event.organizationId) : null,
-          meeting.requesterId ? storage.getAttendee(meeting.requesterId, event.organizationId) : null,
+          meeting.inviteeId ? storage.getAttendee(event.organizationId, meeting.inviteeId) : null,
+          meeting.requesterId ? storage.getAttendee(event.organizationId, meeting.requesterId) : null,
         ]);
         return {
           ...meeting,
