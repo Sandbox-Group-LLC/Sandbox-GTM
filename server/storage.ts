@@ -901,7 +901,7 @@ export interface IStorage {
   createAttendeeMeeting(data: InsertAttendeeMeeting): Promise<AttendeeMeeting>;
   updateAttendeeMeeting(organizationId: string, id: string, data: Partial<InsertAttendeeMeeting>): Promise<AttendeeMeeting | undefined>;
   captureAttendeeOutcome(organizationId: string, meetingId: string, data: { outcomeType: string; dealRange?: string; timeline?: string; outcomeNotes?: string; outcomeCapturedBy: string }): Promise<AttendeeMeeting | undefined>;
-  getMeetingQualityStats(organizationId: string, eventId: string): Promise<{ totalMeetings: number; outcomesCaptured: number; byIntent: Record<string, number>; byOutcome: Record<string, number>; avgDealRange: string }>;
+  getMeetingQualityStats(organizationId: string, eventId: string): Promise<{ totalMeetings: number; pendingMeetings: number; completedMeetings: number; outcomesRecorded: number; highIntentMeetings: number; mediumIntentMeetings: number; lowIntentMeetings: number; outcomeBreakdown: { type: string; count: number }[]; intentBreakdown: { type: string; count: number }[] }>;
 }
 
 // Types for Moments Analytics
@@ -5881,7 +5881,17 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  async getMeetingQualityStats(organizationId: string, eventId: string): Promise<{ totalMeetings: number; outcomesCaptured: number; byIntent: Record<string, number>; byOutcome: Record<string, number>; avgDealRange: string }> {
+  async getMeetingQualityStats(organizationId: string, eventId: string): Promise<{ 
+    totalMeetings: number; 
+    pendingMeetings: number;
+    completedMeetings: number;
+    outcomesRecorded: number; 
+    highIntentMeetings: number;
+    mediumIntentMeetings: number;
+    lowIntentMeetings: number;
+    outcomeBreakdown: { type: string; count: number }[];
+    intentBreakdown: { type: string; count: number }[];
+  }> {
     const meetings = await db.select().from(attendeeMeetings)
       .where(and(
         eq(attendeeMeetings.organizationId, organizationId),
@@ -5889,7 +5899,14 @@ export class DatabaseStorage implements IStorage {
       ));
 
     const totalMeetings = meetings.length;
-    const outcomesCaptured = meetings.filter(m => m.outcomeType).length;
+    const pendingMeetings = meetings.filter(m => m.status === 'pending').length;
+    const completedMeetings = meetings.filter(m => m.status === 'completed').length;
+    const outcomesRecorded = meetings.filter(m => m.outcomeType).length;
+
+    // Count by intent strength
+    const highIntentMeetings = meetings.filter(m => m.intentStrength === 'high').length;
+    const mediumIntentMeetings = meetings.filter(m => m.intentStrength === 'medium').length;
+    const lowIntentMeetings = meetings.filter(m => m.intentStrength === 'low').length;
 
     // Count by intent type
     const byIntent: Record<string, number> = {};
@@ -5907,28 +5924,20 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
-    // Calculate average deal range
-    const dealRangeValues: Record<string, number> = {
-      'under_25k': 12500,
-      '25k_to_100k': 62500,
-      'over_100k': 150000,
-    };
-    const dealRanges = meetings.filter(m => m.dealRange).map(m => dealRangeValues[m.dealRange!] || 0);
-    const avgValue = dealRanges.length > 0 ? dealRanges.reduce((a, b) => a + b, 0) / dealRanges.length : 0;
-    
-    let avgDealRange = 'N/A';
-    if (avgValue > 0) {
-      if (avgValue < 25000) avgDealRange = 'under_25k';
-      else if (avgValue <= 100000) avgDealRange = '25k_to_100k';
-      else avgDealRange = 'over_100k';
-    }
+    // Convert to array format for frontend
+    const intentBreakdown = Object.entries(byIntent).map(([type, count]) => ({ type, count }));
+    const outcomeBreakdown = Object.entries(byOutcome).map(([type, count]) => ({ type, count }));
 
     return {
       totalMeetings,
-      outcomesCaptured,
-      byIntent,
-      byOutcome,
-      avgDealRange,
+      pendingMeetings,
+      completedMeetings,
+      outcomesRecorded,
+      highIntentMeetings,
+      mediumIntentMeetings,
+      lowIntentMeetings,
+      intentBreakdown,
+      outcomeBreakdown,
     };
   }
 }

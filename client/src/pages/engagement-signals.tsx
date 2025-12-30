@@ -2,7 +2,7 @@ import { useState } from "react";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Activity, Zap, Flame, Users, RefreshCw, BarChart3, MessageSquare, Star, TrendingUp, CheckCircle, Radio, Clock } from "lucide-react";
+import { Activity, Zap, Flame, Users, RefreshCw, BarChart3, MessageSquare, Star, TrendingUp, CheckCircle, Radio, Clock, Handshake, Target } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +37,18 @@ interface MomentsAnalytics {
   liveVsEndedDistribution: { live: number; ended: number };
   responseRate: number;
   totalAttendeesWithAccess: number;
+}
+
+interface MeetingStats {
+  totalMeetings: number;
+  pendingMeetings: number;
+  completedMeetings: number;
+  outcomesRecorded: number;
+  highIntentMeetings: number;
+  mediumIntentMeetings: number;
+  lowIntentMeetings: number;
+  outcomeBreakdown: { type: string; count: number }[];
+  intentBreakdown: { type: string; count: number }[];
 }
 
 const typeLabels: Record<string, string> = {
@@ -80,6 +92,16 @@ export default function EngagementSignals() {
         credentials: "include" 
       });
       if (!res.ok) throw new Error("Failed to fetch moments analytics");
+      return res.json();
+    },
+  });
+
+  const { data: meetingStats, isLoading: meetingStatsLoading } = useQuery<MeetingStats>({
+    queryKey: ["/api/events", selectedEventId, "meetings", "stats"],
+    enabled: selectedEventId !== "all" && !!selectedEventId,
+    queryFn: async () => {
+      const res = await fetch(`/api/events/${selectedEventId}/meetings/stats`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch meeting stats");
       return res.json();
     },
   });
@@ -256,6 +278,112 @@ export default function EngagementSignals() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Meeting Quality Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Handshake className="w-5 h-5 text-blue-500" />
+                  Meeting Quality
+                </CardTitle>
+                <CardDescription>Internal meeting outcomes and buyer intent signals</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {selectedEventId === "all" ? (
+                  <div className="h-40 flex items-center justify-center text-muted-foreground">
+                    <div className="text-center">
+                      <Target className="h-10 w-10 mx-auto mb-3 opacity-20" />
+                      <p>Select a program to view meeting quality data</p>
+                    </div>
+                  </div>
+                ) : meetingStatsLoading ? (
+                  <div className="grid gap-4 md:grid-cols-4">
+                    {[1, 2, 3, 4].map((i) => (
+                      <Skeleton key={i} className="h-20 w-full" />
+                    ))}
+                  </div>
+                ) : meetingStats ? (
+                  <div className="space-y-4">
+                    <div className="grid gap-4 md:grid-cols-4">
+                      <div className="p-4 rounded-lg bg-muted/50">
+                        <p className="text-sm text-muted-foreground">Total Meetings</p>
+                        <p className="text-2xl font-bold" data-testid="text-total-meetings">
+                          {meetingStats.totalMeetings}
+                        </p>
+                      </div>
+                      <div className="p-4 rounded-lg bg-muted/50">
+                        <p className="text-sm text-muted-foreground">Completed</p>
+                        <p className="text-2xl font-bold" data-testid="text-completed-meetings">
+                          {meetingStats.completedMeetings}
+                        </p>
+                      </div>
+                      <div className="p-4 rounded-lg bg-muted/50">
+                        <p className="text-sm text-muted-foreground">Outcomes Recorded</p>
+                        <p className="text-2xl font-bold" data-testid="text-outcomes-recorded">
+                          {meetingStats.outcomesRecorded}
+                        </p>
+                      </div>
+                      <div className="p-4 rounded-lg bg-muted/50">
+                        <p className="text-sm text-muted-foreground">High Intent</p>
+                        <p className="text-2xl font-bold text-green-600" data-testid="text-high-intent-meetings">
+                          {meetingStats.highIntentMeetings}
+                        </p>
+                      </div>
+                    </div>
+
+                    {meetingStats.intentBreakdown && meetingStats.intentBreakdown.length > 0 && (
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div>
+                          <h4 className="text-sm font-medium mb-3">Intent Strength Distribution</h4>
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <div className="w-3 h-3 rounded-full bg-green-500" />
+                                <span className="text-sm">High Intent</span>
+                              </div>
+                              <span className="font-medium">{meetingStats.highIntentMeetings}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <div className="w-3 h-3 rounded-full bg-amber-500" />
+                                <span className="text-sm">Medium Intent</span>
+                              </div>
+                              <span className="font-medium">{meetingStats.mediumIntentMeetings}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <div className="w-3 h-3 rounded-full bg-gray-400" />
+                                <span className="text-sm">Low Intent</span>
+                              </div>
+                              <span className="font-medium">{meetingStats.lowIntentMeetings}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-medium mb-3">Outcome Breakdown</h4>
+                          <div className="space-y-2">
+                            {meetingStats.outcomeBreakdown.map((outcome) => (
+                              <div key={outcome.type} className="flex items-center justify-between">
+                                <span className="text-sm capitalize">{outcome.type.replace(/_/g, ' ')}</span>
+                                <Badge variant="secondary">{outcome.count}</Badge>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="h-40 flex items-center justify-center text-muted-foreground">
+                    <div className="text-center">
+                      <Handshake className="h-10 w-10 mx-auto mb-3 opacity-20" />
+                      <p>No meeting data available</p>
+                      <p className="text-sm mt-1">Schedule internal meetings to track buyer intent</p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="moments" className="mt-6 space-y-6">
