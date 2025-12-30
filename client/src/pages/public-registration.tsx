@@ -1557,6 +1557,7 @@ export default function PublicRegistration() {
                               watch={form.watch}
                               inputStyles={inputStyles}
                               labelStyles={labelStyles}
+                              attendeeType={attendeeTypeFromUrl}
                             />
                           ))}
                         </div>
@@ -1823,35 +1824,47 @@ function SectionRenderer({ section, event, slug, theme }: { section: Section; ev
   }
 }
 
+// Special marker for attendee type as parent field
+const ATTENDEE_TYPE_PARENT_ID = "__attendeeType__";
+
 function CustomFieldRenderer({ 
   customField, 
   control, 
   allCustomFields, 
   watch, 
   inputStyles, 
-  labelStyles 
+  labelStyles,
+  attendeeType 
 }: { 
   customField: CustomField; 
   control: any; 
   allCustomFields: CustomField[]; 
   watch: UseFormWatch<any>; 
   inputStyles?: React.CSSProperties; 
-  labelStyles?: React.CSSProperties 
+  labelStyles?: React.CSSProperties;
+  attendeeType?: string | null;
 }) {
   // Check conditional visibility based on parent field
   if (customField.parentFieldId && customField.parentTriggerValues?.length) {
-    const parentField = allCustomFields.find(f => f.id === customField.parentFieldId);
-    if (parentField) {
-      const parentValue = watch(`customData.${parentField.name}`);
-      
-      if (parentField.fieldType === "checkbox") {
-        // For checkbox, parentValue is boolean, trigger is "true"
-        const shouldShow = parentValue === true && customField.parentTriggerValues.includes("true");
-        if (!shouldShow) return null;
-      } else if (parentField.fieldType === "select") {
-        // For select, parentValue is string option
-        const shouldShow = customField.parentTriggerValues.includes(parentValue as string);
-        if (!shouldShow) return null;
+    // Handle attendee type as parent field (special case)
+    if (customField.parentFieldId === ATTENDEE_TYPE_PARENT_ID) {
+      // Show field only if current attendee type matches one of the trigger values
+      const shouldShow = attendeeType && customField.parentTriggerValues.includes(attendeeType);
+      if (!shouldShow) return null;
+    } else {
+      const parentField = allCustomFields.find(f => f.id === customField.parentFieldId);
+      if (parentField) {
+        const parentValue = watch(`customData.${parentField.name}`);
+        
+        if (parentField.fieldType === "checkbox") {
+          // For checkbox, parentValue is boolean, trigger is "true"
+          const shouldShow = parentValue === true && customField.parentTriggerValues.includes("true");
+          if (!shouldShow) return null;
+        } else if (parentField.fieldType === "select") {
+          // For select, parentValue is string option
+          const shouldShow = customField.parentTriggerValues.includes(parentValue as string);
+          if (!shouldShow) return null;
+        }
       }
     }
   }
