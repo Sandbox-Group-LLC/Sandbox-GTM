@@ -280,6 +280,7 @@ export interface IStorage {
   addOrganizationMember(member: InsertOrganizationMember): Promise<OrganizationMember>;
   getAllOrganizationsWithStats(): Promise<Array<Organization & { memberCount: number; eventCount: number; attendeeCount: number }>>;
   deleteOrganization(id: string): Promise<void>;
+  seedDefaultCustomFields(organizationId: string): Promise<{ seeded: number; skipped: number }>;
 
   // Organization Member operations
   getOrganizationMembers(organizationId: string): Promise<Array<OrganizationMember & { user: User }>>;
@@ -1102,6 +1103,55 @@ export class DatabaseStorage implements IStorage {
     await db.delete(events).where(eq(events.organizationId, id));
     await db.delete(organizationMembers).where(eq(organizationMembers.organizationId, id));
     await db.delete(organizations).where(eq(organizations.id, id));
+  }
+
+  async seedDefaultCustomFields(organizationId: string): Promise<{ seeded: number; skipped: number }> {
+    const defaultCustomFields = [
+      { name: 'role', label: 'What best describes your role in the company?', fieldType: 'select', options: ['Executive', 'Manager', 'Individual Contributor', 'Consultant', 'Other'], displayOrder: 1 },
+      { name: 'jobFunction', label: 'What is your job function?', fieldType: 'select', options: ['Sales', 'Marketing', 'Engineering', 'Product', 'Operations', 'Finance', 'HR', 'Other'], displayOrder: 2 },
+      { name: 'companyType', label: 'Company Type', fieldType: 'select', options: ['Enterprise', 'Mid-Market', 'SMB', 'Startup', 'Agency', 'Nonprofit', 'Government', 'Other'], displayOrder: 3 },
+      { name: 'country', label: 'Country', fieldType: 'select', options: ['United States', 'Canada', 'United Kingdom', 'Germany', 'France', 'Australia', 'Other'], displayOrder: 4 },
+      { name: 'dietaryRestrictions', label: 'Do you have any dietary restrictions?', fieldType: 'select', options: ['None', 'Vegetarian', 'Vegan', 'Gluten-Free', 'Kosher', 'Halal', 'Other'], displayOrder: 5 },
+      { name: 'emergencyContact', label: 'Emergency Contact', fieldType: 'text', displayOrder: 6 },
+      { name: 'emergencyPhone', label: 'Emergency Contact Phone', fieldType: 'text', displayOrder: 7 },
+      { name: 'emergencyEmail', label: 'Emergency Contact Email', fieldType: 'text', displayOrder: 8 },
+      { name: 'termsAndconditions', label: 'I have read the terms and conditions.', fieldType: 'checkbox', displayOrder: 9 },
+    ];
+    
+    // Get existing global custom fields for this organization
+    const existingFields = await db.select().from(customFields).where(
+      and(
+        eq(customFields.organizationId, organizationId),
+        eq(customFields.isGlobal, true)
+      )
+    );
+    const existingNames = new Set(existingFields.map(f => f.name));
+    
+    let seeded = 0;
+    let skipped = 0;
+    
+    for (const field of defaultCustomFields) {
+      if (existingNames.has(field.name)) {
+        skipped++;
+        continue;
+      }
+      
+      await db.insert(customFields).values({
+        organizationId,
+        name: field.name,
+        label: field.label,
+        fieldType: field.fieldType,
+        options: field.options || null,
+        displayOrder: field.displayOrder,
+        isActive: true,
+        isGlobal: true,
+        required: false,
+        attendeeOnly: false,
+      });
+      seeded++;
+    }
+    
+    return { seeded, skipped };
   }
 
   // Organization Member operations

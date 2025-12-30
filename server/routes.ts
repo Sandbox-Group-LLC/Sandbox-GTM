@@ -12308,6 +12308,32 @@ ${urls.map(u => `  <url>
   });
 
   // Custom Fields routes
+  
+  // Seed default global custom fields for the current organization (super admin only)
+  app.post("/api/custom-fields/seed-defaults", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      
+      // Check if user is organization owner or super admin
+      const user = await storage.getUser(userId);
+      const member = await storage.getOrganizationMember(organizationId, userId);
+      
+      if (!user?.isSuperAdmin && member?.role !== 'owner') {
+        return res.status(403).json({ message: "Only organization owners or super admins can seed default fields" });
+      }
+      
+      const result = await storage.seedDefaultCustomFields(organizationId);
+      res.json({ 
+        message: `Seeded ${result.seeded} default fields, skipped ${result.skipped} existing fields`,
+        ...result 
+      });
+    } catch (error) {
+      logError("Error seeding default custom fields:", error);
+      res.status(500).json({ message: "Failed to seed default custom fields" });
+    }
+  });
+
   app.get("/api/custom-fields", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
