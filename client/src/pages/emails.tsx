@@ -86,6 +86,8 @@ const templateFormSchema = z.object({
   name: z.string().min(1, "Template name is required"),
   subject: z.string().min(1, "Subject is required"),
   content: z.string().min(1, "Content is required"),
+  campaignType: z.string().optional(),
+  funnelStage: z.string().optional(),
   campaignRole: z.string().default("general"),
   headerImageUrl: z.string().optional(),
   isInviteEmail: z.boolean().default(false),
@@ -266,6 +268,8 @@ export default function Emails() {
       name: "",
       subject: "",
       content: "",
+      campaignType: "",
+      funnelStage: "",
       campaignRole: "general",
       headerImageUrl: "",
       isInviteEmail: false,
@@ -548,6 +552,8 @@ export default function Emails() {
       name: template.name,
       subject: template.subject,
       content: template.content,
+      campaignType: template.campaignType || "",
+      funnelStage: template.funnelStage || "",
       campaignRole: template.campaignRole || "general",
       headerImageUrl: template.headerImageUrl || "",
       isInviteEmail: template.isInviteEmail || false,
@@ -1254,42 +1260,119 @@ export default function Emails() {
                 </DialogHeader>
                 <Form {...templateForm}>
                   <form onSubmit={templateForm.handleSubmit(onSubmitTemplate)} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={templateForm.control}
-                        name="name"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Template Name</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="e.g., Welcome Email" data-testid="input-template-name" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={templateForm.control}
-                        name="campaignRole"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Campaign Role</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl>
-                                <SelectTrigger data-testid="select-template-campaign-role">
-                                  <SelectValue placeholder="Select campaign role" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {CAMPAIGN_ROLE_OPTIONS.map(opt => (
-                                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                    <FormField
+                      control={templateForm.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Template Name</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="e.g., Welcome Email" data-testid="input-template-name" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    {/* Campaign Classification Section */}
+                    <div className="space-y-4 rounded-lg border p-4">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-medium">Campaign Classification</h4>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            <p>Classify this template to help organize your campaigns and track performance in the Acquisition Funnel.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      
+                      <div className="grid grid-cols-3 gap-4">
+                        <FormField
+                          control={templateForm.control}
+                          name="campaignType"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Campaign Type</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                  <SelectTrigger data-testid="select-template-campaign-type">
+                                    <SelectValue placeholder="Select type" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {CAMPAIGN_TYPE_OPTIONS.map(opt => (
+                                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <p className="text-xs text-muted-foreground">Purpose of the campaign</p>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={templateForm.control}
+                          name="funnelStage"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Funnel Stage</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                  <SelectTrigger data-testid="select-template-funnel-stage">
+                                    <SelectValue placeholder="Select stage" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {FUNNEL_STAGE_OPTIONS.map(opt => (
+                                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <p className="text-xs text-muted-foreground">Where in the funnel?</p>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={templateForm.control}
+                          name="campaignRole"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Campaign Role</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value || "general"}>
+                                <FormControl>
+                                  <SelectTrigger data-testid="select-template-campaign-role">
+                                    <SelectValue placeholder="Select role" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {CAMPAIGN_ROLE_OPTIONS.map(opt => (
+                                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <p className="text-xs text-muted-foreground">What job does this email do?</p>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      
+                      {/* Tag Intelligence Preview */}
+                      {(templateForm.watch("campaignType") || templateForm.watch("funnelStage") || templateForm.watch("campaignRole")) && (
+                        <div className="rounded-md bg-muted p-3">
+                          <p className="text-sm text-muted-foreground">Sandbox will treat this email as:</p>
+                          <p className="font-medium mt-1">
+                            {CAMPAIGN_TYPE_OPTIONS.find(o => o.value === templateForm.watch("campaignType"))?.label || "—"}{" "}
+                            → {FUNNEL_STAGE_OPTIONS.find(o => o.value === templateForm.watch("funnelStage"))?.label || "—"}{" "}
+                            → {CAMPAIGN_ROLE_OPTIONS.find(o => o.value === templateForm.watch("campaignRole"))?.label || "—"}
+                          </p>
+                        </div>
+                      )}
                     </div>
                     <FormField
                       control={templateForm.control}

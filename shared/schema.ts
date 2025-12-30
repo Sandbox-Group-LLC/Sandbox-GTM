@@ -1185,6 +1185,8 @@ export const emailTemplates = pgTable("email_templates", {
   subject: varchar("subject", { length: 255 }).notNull(),
   content: text("content").notNull(),
   headerImageUrl: text("header_image_url"),
+  campaignType: varchar("campaign_type", { length: 50 }),
+  funnelStage: varchar("funnel_stage", { length: 50 }),
   campaignRole: varchar("campaign_role", { length: 50 }).default("general"),
   libraryTemplateId: varchar("library_template_id").references(() => emailTemplateLibrary.id), // Track provenance from library
   styles: jsonb("styles").$type<{
