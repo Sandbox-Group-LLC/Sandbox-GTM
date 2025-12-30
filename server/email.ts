@@ -984,3 +984,119 @@ export async function sendSponsorTaskRejectionEmail(params: {
     return { success: false, error: String(err) };
   }
 }
+
+// Intent type labels for meeting invitations
+const INTENT_TYPE_LABELS: Record<string, string> = {
+  exploring_solution: "Exploring Solutions",
+  evaluating_fit: "Evaluating Fit",
+  existing_customer: "Existing Customer",
+  partner_discussion: "Partner Discussion",
+  executive_introduction: "Executive Introduction",
+  networking: "Networking",
+};
+
+// Send meeting invitation email to attendee
+export async function sendMeetingInvitationEmail(params: {
+  attendeeEmail: string;
+  attendeeFirstName: string;
+  eventName: string;
+  organizationName: string;
+  meetingTitle?: string;
+  meetingDescription?: string;
+  intentType?: string;
+  startTime?: Date;
+  location?: string;
+  hostName?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const { 
+    attendeeEmail, 
+    attendeeFirstName, 
+    eventName, 
+    organizationName,
+    meetingTitle,
+    meetingDescription,
+    intentType,
+    startTime,
+    location,
+    hostName
+  } = params;
+  
+  if (!resend) {
+    logWarn('Resend not configured - skipping meeting invitation email', 'Email');
+    return { success: false, error: 'Email service not configured' };
+  }
+
+  // Format the date/time nicely
+  const formattedDate = startTime 
+    ? new Date(startTime).toLocaleDateString('en-US', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      })
+    : null;
+  
+  const formattedTime = startTime
+    ? new Date(startTime).toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true 
+      })
+    : null;
+
+  const intentLabel = intentType ? (INTENT_TYPE_LABELS[intentType] || intentType) : null;
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: attendeeEmail,
+      subject: `Meeting Request: ${meetingTitle || eventName}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #333; margin-bottom: 20px;">You Have a Meeting Request</h2>
+          
+          <p style="color: #555; font-size: 16px; line-height: 1.6;">
+            Hello ${attendeeFirstName},
+          </p>
+          
+          <p style="color: #555; font-size: 16px; line-height: 1.6;">
+            ${hostName ? `<strong>${hostName}</strong> from ` : ''}<strong>${organizationName}</strong> has scheduled a meeting with you at <strong>${eventName}</strong>.
+          </p>
+          
+          <div style="background-color: #f8f9fa; border-radius: 8px; padding: 20px; margin: 20px 0;">
+            <h3 style="color: #333; margin: 0 0 15px 0;">${meetingTitle || 'Meeting Details'}</h3>
+            ${formattedDate ? `<p style="color: #555; margin: 5px 0;"><strong>Date:</strong> ${formattedDate}</p>` : ''}
+            ${formattedTime ? `<p style="color: #555; margin: 5px 0;"><strong>Time:</strong> ${formattedTime}</p>` : ''}
+            ${location ? `<p style="color: #555; margin: 5px 0;"><strong>Location:</strong> ${location}</p>` : ''}
+            ${intentLabel ? `<p style="color: #555; margin: 5px 0;"><strong>Purpose:</strong> ${intentLabel}</p>` : ''}
+          </div>
+          
+          ${meetingDescription ? `
+          <div style="background-color: #e8f4fd; border-radius: 8px; padding: 15px; margin: 20px 0;">
+            <p style="color: #555; margin: 0; font-style: italic;">${meetingDescription}</p>
+          </div>
+          ` : ''}
+          
+          <p style="color: #555; font-size: 16px; line-height: 1.6;">
+            We look forward to meeting with you!
+          </p>
+          
+          <p style="color: #999; font-size: 12px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+            This is an automated notification from ${organizationName}. If you have any questions, please contact the event organizer.
+          </p>
+        </div>
+      `,
+    });
+
+    if (error) {
+      logError(`Failed to send meeting invitation email: ${error.message || 'Unknown error'}`, 'Email');
+      return { success: false, error: error.message || 'Unknown error' };
+    }
+
+    logInfo(`Meeting invitation email sent to ${attendeeEmail}: ${data?.id}`, 'Email');
+    return { success: true };
+  } catch (err) {
+    logError(`Error sending meeting invitation email: ${err}`, 'Email');
+    return { success: false, error: String(err) };
+  }
+}

@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { sendNewOrganizationAlert, sendCampaignEmails, sendTestEmail, validateTrackingToken, verifyResendWebhookSignature, isValidRedirectUrl, sendReviewerNotificationEmail, sendSubmissionAcceptanceEmail, sendTeamInvitationEmail, sendNewLeadNotification, sendSponsorTaskRejectionEmail } from "./email";
+import { sendNewOrganizationAlert, sendCampaignEmails, sendTestEmail, validateTrackingToken, verifyResendWebhookSignature, isValidRedirectUrl, sendReviewerNotificationEmail, sendSubmissionAcceptanceEmail, sendTeamInvitationEmail, sendNewLeadNotification, sendSponsorTaskRejectionEmail, sendMeetingInvitationEmail } from "./email";
 import { createPaymentIntent, getPaymentIntent, calculateFinalPrice } from "./stripe";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
@@ -10665,6 +10665,33 @@ ${urls.map(u => `  <url>
       });
       
       const meeting = await storage.createAttendeeMeeting(data);
+      
+      // Send email notification to the attendee
+      if (meeting.inviteeId) {
+        const invitee = await storage.getAttendee(event.organizationId, meeting.inviteeId);
+        const organization = await storage.getOrganization(event.organizationId);
+        const currentUser = await storage.getUser(userId);
+        
+        if (invitee?.email) {
+          sendMeetingInvitationEmail({
+            attendeeEmail: invitee.email,
+            attendeeFirstName: invitee.firstName || 'Attendee',
+            eventName: event.name,
+            organizationName: organization?.name || 'Event Organizer',
+            meetingTitle: meeting.title || undefined,
+            meetingDescription: meeting.description || undefined,
+            intentType: meeting.intentType || undefined,
+            startTime: meeting.startTime || undefined,
+            location: meeting.location || undefined,
+            hostName: currentUser?.firstName && currentUser?.lastName 
+              ? `${currentUser.firstName} ${currentUser.lastName}` 
+              : undefined,
+          }).catch(err => {
+            logError('Failed to send meeting invitation email:', err);
+          });
+        }
+      }
+      
       res.status(201).json(meeting);
     } catch (error: any) {
       logError("Error creating meeting:", error);
