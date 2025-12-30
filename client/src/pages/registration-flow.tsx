@@ -419,7 +419,7 @@ export default function RegistrationFlow() {
         return (
           <div className="space-y-6">
             <div>
-              <h3 className="text-lg font-medium mb-4">Profile Fields</h3>
+              <h3 className="text-lg font-medium mb-4">Personal Information</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                 <div className="flex items-center justify-between p-3 border rounded-md">
                   <Label htmlFor="firstName" className="cursor-pointer">First Name</Label>
@@ -521,7 +521,7 @@ export default function RegistrationFlow() {
 
             {(globalCustomFields.length > 0 || nonGlobalCustomFields.length > 0) && (
               <div>
-                <h3 className="text-lg font-medium mb-4">Custom Properties</h3>
+                <h3 className="text-lg font-medium mb-4">Additional Information</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                   {globalCustomFields.map((field) => (
                     <div key={field.id} className="flex items-center justify-between p-3 border rounded-md bg-muted/30">

@@ -1263,7 +1263,7 @@ export default function PublicRegistration() {
           <CardHeader>
             <CardTitle style={{ fontFamily: theme?.headingFont ? `"${theme.headingFont}", sans-serif` : undefined, color: sectionFontColor }}>
               {currentStep === 1 && "Personal Information"}
-              {currentStep === 2 && "Select Your Access Package"}
+              {currentStep === 2 && "Additional Information"}
               {currentStep === 3 && "Complete Payment"}
             </CardTitle>
             <CardDescription>
@@ -1271,7 +1271,7 @@ export default function PublicRegistration() {
                 ? currentStep === 1 
                   ? "Tell us about yourself" 
                   : currentStep === 2 
-                    ? "Choose an access package"
+                    ? "Complete your registration details"
                     : "Enter your payment details"
                 : "Registration is currently closed"}
             </CardDescription>
