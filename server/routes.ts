@@ -2398,161 +2398,158 @@ export async function registerRoutes(
   // =====================================================
   // EXTERNAL API ENDPOINTS (for third-party integrations like Xtag badge printing)
   // These endpoints use API key authentication via Bearer token
+  // Only expose minimal data required for badge printing operations
   // =====================================================
 
-  // GET /api/external/events - List events for the organization
-  app.get('/api/external/events', isApiAuthenticated(['events.read']), async (req: any, res) => {
+  // Helper to safely log API access
+  async function logExternalApiAccess(
+    apiKeyId: string,
+    organizationId: string,
+    route: string,
+    method: string,
+    statusCode: number,
+    req: any,
+    startTime: number,
+    metadata?: Record<string, any>
+  ) {
     try {
-      const organizationId = req.apiKey.organizationId;
+      await storage.createApiKeyAuditLog({
+        apiKeyId,
+        organizationId,
+        route,
+        method,
+        statusCode,
+        ipHash: createHash('sha256').update(req.ip || 'unknown').digest('hex'),
+        userAgent: req.headers['user-agent']?.substring(0, 500),
+        latencyMs: Date.now() - startTime,
+        metadata,
+      });
+    } catch (logError) {
+      // Don't let logging failures affect the response
+      console.error("Failed to log API access:", logError);
+    }
+  }
+
+  // GET /api/external/events - List events for the organization
+  // Returns only essential event data for badge printing integrations
+  app.get('/api/external/events', isApiAuthenticated(['events.read']), async (req: any, res) => {
+    const startTime = Date.now();
+    const organizationId = req.apiKey.organizationId;
+    let statusCode = 200;
+    
+    try {
       const events = await storage.getEvents(organizationId);
       
-      // Return sanitized event data
+      // Return minimal event data suitable for badge printing
       const sanitizedEvents = events.map(event => ({
         id: event.id,
         name: event.name,
         slug: event.slug,
-        description: event.description,
         startDate: event.startDate,
         endDate: event.endDate,
         timezone: event.timezone,
         venueName: event.venueName,
-        venueAddress: event.venueAddress,
         city: event.city,
-        state: event.state,
-        country: event.country,
-        status: event.status,
-        eventType: event.eventType,
-        attendeeCount: event.attendeeCount,
       }));
-      
-      // Log API access
-      await storage.createApiKeyAuditLog({
-        apiKeyId: req.apiKey.apiKeyId,
-        organizationId,
-        route: '/api/external/events',
-        method: 'GET',
-        statusCode: 200,
-        ipHash: createHash('sha256').update(req.ip || 'unknown').digest('hex'),
-        userAgent: req.headers['user-agent']?.substring(0, 500),
-        latencyMs: Date.now() - (req._startTime || Date.now()),
-      });
       
       res.json({ events: sanitizedEvents, total: sanitizedEvents.length });
     } catch (error) {
+      statusCode = 500;
       logError("Error in external events API:", error);
       res.status(500).json({ error: 'internal_error', message: "Failed to fetch events" });
+    } finally {
+      await logExternalApiAccess(req.apiKey.apiKeyId, organizationId, '/api/external/events', 'GET', statusCode, req, startTime);
     }
   });
 
   // GET /api/external/events/:eventId/attendees - List attendees for an event
+  // Returns only badge-relevant data (no PII like email/phone unless essential)
   app.get('/api/external/events/:eventId/attendees', isApiAuthenticated(['attendees.read']), async (req: any, res) => {
+    const startTime = Date.now();
+    const organizationId = req.apiKey.organizationId;
+    const { eventId } = req.params;
+    let statusCode = 200;
+    
     try {
-      const organizationId = req.apiKey.organizationId;
-      const { eventId } = req.params;
-      
       // Verify event belongs to this organization
       const event = await storage.getEvent(organizationId, eventId);
       if (!event) {
-        return res.status(404).json({ error: 'not_found', message: "Event not found" });
+        statusCode = 404;
+        res.status(404).json({ error: 'not_found', message: "Event not found" });
+        return;
       }
       
       const attendees = await storage.getAttendees(organizationId, eventId);
       
-      // Return sanitized attendee data suitable for badge printing
+      // Return only minimal badge-printing data
       const sanitizedAttendees = attendees.map(attendee => ({
         id: attendee.id,
         firstName: attendee.firstName,
         lastName: attendee.lastName,
-        email: attendee.email,
         company: attendee.company,
         jobTitle: attendee.jobTitle,
-        phone: attendee.phone,
         registrationStatus: attendee.registrationStatus,
-        attendeeTypeId: attendee.attendeeTypeId,
-        packageId: attendee.packageId,
         checkedInAt: attendee.checkedInAt,
-        badgeCode: attendee.badgeCode,
-        customFieldData: attendee.customFieldData,
-        dietaryRestrictions: attendee.dietaryRestrictions,
-        accessibilityNeeds: attendee.accessibilityNeeds,
       }));
-      
-      // Log API access
-      await storage.createApiKeyAuditLog({
-        apiKeyId: req.apiKey.apiKeyId,
-        organizationId,
-        route: `/api/external/events/${eventId}/attendees`,
-        method: 'GET',
-        statusCode: 200,
-        ipHash: createHash('sha256').update(req.ip || 'unknown').digest('hex'),
-        userAgent: req.headers['user-agent']?.substring(0, 500),
-        latencyMs: Date.now() - (req._startTime || Date.now()),
-      });
       
       res.json({ attendees: sanitizedAttendees, total: sanitizedAttendees.length, eventId });
     } catch (error) {
+      statusCode = 500;
       logError("Error in external attendees API:", error);
       res.status(500).json({ error: 'internal_error', message: "Failed to fetch attendees" });
+    } finally {
+      await logExternalApiAccess(req.apiKey.apiKeyId, organizationId, `/api/external/events/${eventId}/attendees`, 'GET', statusCode, req, startTime);
     }
   });
 
   // PATCH /api/external/attendees/:attendeeId/checkin - Check in an attendee
+  // Requires eventId in request body for security (prevents cross-event check-in)
   app.patch('/api/external/attendees/:attendeeId/checkin', isApiAuthenticated(['checkin.write']), async (req: any, res) => {
+    const startTime = Date.now();
+    const organizationId = req.apiKey.organizationId;
+    const { attendeeId } = req.params;
+    const { eventId, checkedIn = true } = req.body;
+    let statusCode = 200;
+    
     try {
-      const organizationId = req.apiKey.organizationId;
-      const { attendeeId } = req.params;
-      const { checkedIn = true, notes } = req.body;
-      
-      // Find the attendee across all events in this organization
-      const allEvents = await storage.getEvents(organizationId);
-      let foundAttendee = null;
-      let foundEventId = null;
-      
-      for (const event of allEvents) {
-        const attendees = await storage.getAttendees(organizationId, event.id);
-        const attendee = attendees.find(a => a.id === attendeeId);
-        if (attendee) {
-          foundAttendee = attendee;
-          foundEventId = event.id;
-          break;
-        }
+      // eventId is required to prevent cross-event check-in
+      if (!eventId) {
+        statusCode = 400;
+        res.status(400).json({ error: 'bad_request', message: "eventId is required in request body" });
+        return;
       }
       
-      if (!foundAttendee) {
-        return res.status(404).json({ error: 'not_found', message: "Attendee not found" });
+      // Verify event belongs to this organization
+      const event = await storage.getEvent(organizationId, eventId);
+      if (!event) {
+        statusCode = 404;
+        res.status(404).json({ error: 'not_found', message: "Event not found" });
+        return;
       }
       
-      // Update the attendee check-in status
-      const updateData: any = {};
+      // Get attendees for this specific event only and verify attendee belongs to it
+      const attendees = await storage.getAttendees(organizationId, eventId);
+      const attendee = attendees.find(a => a.id === attendeeId);
       
-      if (checkedIn) {
-        updateData.checkedInAt = new Date();
-        updateData.registrationStatus = 'checked_in';
-        if (notes) {
-          updateData.notes = foundAttendee.notes 
-            ? `${foundAttendee.notes}\n[Check-in via API]: ${notes}`
-            : `[Check-in via API]: ${notes}`;
-        }
-      } else {
-        // Allow un-checking in (setting to null)
-        updateData.checkedInAt = null;
-        updateData.registrationStatus = 'confirmed';
+      if (!attendee) {
+        statusCode = 404;
+        res.status(404).json({ error: 'not_found', message: "Attendee not found in this event" });
+        return;
       }
+      
+      // Verify attendee eventId matches (double-check for data integrity)
+      if (attendee.eventId !== eventId) {
+        statusCode = 400;
+        res.status(400).json({ error: 'bad_request', message: "Attendee does not belong to the specified event" });
+        return;
+      }
+      
+      // Build update data - only update check-in fields
+      const updateData: { checkedInAt: Date | null; registrationStatus: string } = checkedIn
+        ? { checkedInAt: new Date(), registrationStatus: 'checked_in' }
+        : { checkedInAt: null, registrationStatus: attendee.registrationStatus === 'checked_in' ? 'confirmed' : attendee.registrationStatus };
       
       const updatedAttendee = await storage.updateAttendee(organizationId, attendeeId, updateData);
-      
-      // Log API access
-      await storage.createApiKeyAuditLog({
-        apiKeyId: req.apiKey.apiKeyId,
-        organizationId,
-        route: `/api/external/attendees/${attendeeId}/checkin`,
-        method: 'PATCH',
-        statusCode: 200,
-        ipHash: createHash('sha256').update(req.ip || 'unknown').digest('hex'),
-        userAgent: req.headers['user-agent']?.substring(0, 500),
-        latencyMs: Date.now() - (req._startTime || Date.now()),
-        metadata: { checkedIn, eventId: foundEventId },
-      });
       
       res.json({
         success: true,
@@ -2560,7 +2557,6 @@ export async function registerRoutes(
           id: updatedAttendee?.id,
           firstName: updatedAttendee?.firstName,
           lastName: updatedAttendee?.lastName,
-          email: updatedAttendee?.email,
           company: updatedAttendee?.company,
           jobTitle: updatedAttendee?.jobTitle,
           registrationStatus: updatedAttendee?.registrationStatus,
@@ -2569,8 +2565,11 @@ export async function registerRoutes(
         message: checkedIn ? 'Attendee checked in successfully' : 'Attendee check-in status removed',
       });
     } catch (error) {
+      statusCode = 500;
       logError("Error in external check-in API:", error);
       res.status(500).json({ error: 'internal_error', message: "Failed to update check-in status" });
+    } finally {
+      await logExternalApiAccess(req.apiKey.apiKeyId, organizationId, `/api/external/attendees/${attendeeId}/checkin`, 'PATCH', statusCode, req, startTime, { checkedIn, eventId });
     }
   });
 
