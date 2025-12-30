@@ -3385,26 +3385,49 @@ export class DatabaseStorage implements IStorage {
     const event = await this.getEventBySlug(slug);
     if (!event) return [];
     
-    // Get all active custom fields for the organization
-    const allActiveFields = await db.select().from(customFields)
-      .where(and(
-        eq(customFields.organizationId, event.organizationId),
-        eq(customFields.isActive, true)
-      ))
+    // Get ALL custom fields for the organization (to allow per-event activation of org-disabled fields)
+    const allFields = await db.select().from(customFields)
+      .where(eq(customFields.organizationId, event.organizationId))
       .orderBy(customFields.displayOrder);
+    
+    // Get event-specific custom field settings (per-event overrides)
+    const eventSettings = await this.getEventCustomFieldSettings(event.organizationId, event.id);
+    const settingsMap = new Map(eventSettings.map(s => [s.customFieldId, s]));
     
     // Get the registration config to check which non-global fields are enabled
     const regConfig = await this.getRegistrationConfig(event.organizationId, event.id);
     const enabledCustomFieldIds = regConfig?.step1Config?.enabledCustomFieldIds;
     
+    // Apply per-event overrides to each field
+    let resolvedFields = allFields.map(field => {
+      const override = settingsMap.get(field.id);
+      if (!override) return field;
+      
+      // Apply overrides (null values mean "use org default", so only apply if not null)
+      return {
+        ...field,
+        required: override.required ?? field.required,
+        isActive: override.isActive ?? field.isActive,
+        displayOrder: override.displayOrder ?? field.displayOrder,
+        parentFieldId: override.parentFieldId !== undefined ? override.parentFieldId : field.parentFieldId,
+        parentTriggerValues: override.parentTriggerValues ?? field.parentTriggerValues,
+      };
+    });
+    
+    // Filter to only fields with effective isActive = true (org default or per-event override)
+    resolvedFields = resolvedFields.filter(field => field.isActive === true);
+    
+    // Sort by resolved display order
+    resolvedFields.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+    
     // If no registration config exists or enabledCustomFieldIds is not explicitly set,
     // return ALL active fields to maintain backward compatibility
     if (!regConfig || enabledCustomFieldIds === undefined || enabledCustomFieldIds === null) {
-      return allActiveFields;
+      return resolvedFields;
     }
     
     // Return global fields (always included) + explicitly enabled non-global fields
-    return allActiveFields.filter(field => 
+    return resolvedFields.filter(field => 
       field.isGlobal === true || enabledCustomFieldIds.includes(field.id)
     );
   }
