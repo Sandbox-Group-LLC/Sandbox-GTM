@@ -81,6 +81,9 @@ import PublicMoment from "@/pages/public-moment";
 import PortalMoment from "@/pages/portal-moment";
 import BrandKit from "@/pages/brand-kit";
 import Meetings from "@/pages/meetings";
+import MeetingPortal from "@/pages/meeting-portal";
+import MeetingPortalAccept from "@/pages/meeting-portal-accept";
+import MeetingPortalLogin from "@/pages/meeting-portal-login";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const sidebarStyle = {
@@ -144,7 +147,7 @@ function Router() {
   const [location, navigate] = useLocation();
   
   // Determine if this is a public event page (should render outside sidebar layout)
-  const isPublicEventPage = location.startsWith('/event/') || location.startsWith('/sponsor-portal') || location.startsWith('/portal/');
+  const isPublicEventPage = location.startsWith('/event/') || location.startsWith('/sponsor-portal') || location.startsWith('/portal/') || location.startsWith('/meeting-portal');
 
   // Check for pending invite code after authentication and redirect to accept-invitation page
   useEffect(() => {
@@ -183,6 +186,9 @@ function Router() {
         <Route path="/event/:slug" component={PublicEvent} />
         <Route path="/sponsor-portal/accept-invite" component={SponsorPortalAcceptInvite} />
         <Route path="/sponsor-portal" component={SponsorPortal} />
+        <Route path="/meeting-portal/accept/:inviteCode" component={MeetingPortalAccept} />
+        <Route path="/meeting-portal/login" component={MeetingPortalLogin} />
+        <Route path="/meeting-portal" component={MeetingPortal} />
         <Route path="/documents/shared/:token" component={SharedDocument} />
         <Route path="/accept-invitation" component={AcceptInvitation} />
         <Route path="/portal/:eventId/moment/:momentId" component={PortalMoment} />
@@ -219,6 +225,9 @@ function Router() {
         <Route path="/event/:slug" component={PublicEvent} />
         <Route path="/sponsor-portal/accept-invite" component={SponsorPortalAcceptInvite} />
         <Route path="/sponsor-portal" component={SponsorPortal} />
+        <Route path="/meeting-portal/accept/:inviteCode" component={MeetingPortalAccept} />
+        <Route path="/meeting-portal/login" component={MeetingPortalLogin} />
+        <Route path="/meeting-portal" component={MeetingPortal} />
         <Route path="/portal/:eventId/moment/:momentId" component={PortalMoment} />
         <Route path="/portal/:eventId/live" component={PortalLiveMoments} />
         <Route component={NotFound} />
