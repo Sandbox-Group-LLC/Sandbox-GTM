@@ -938,21 +938,24 @@ export default function MeetingPortal() {
 
       <main className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="mb-6" data-testid="tabs-navigation">
+          <TabsList className="mb-6 w-full sm:w-auto flex-wrap sm:flex-nowrap h-auto gap-1" data-testid="tabs-navigation">
             {canViewAttendees && (
-              <TabsTrigger value="attendees" data-testid="tab-attendees">
-                <Users className="h-4 w-4 mr-2" />
-                Attendees
+              <TabsTrigger value="attendees" className="flex-1 sm:flex-none text-xs sm:text-sm" data-testid="tab-attendees">
+                <Users className="h-4 w-4 mr-1 sm:mr-2" />
+                <span className="hidden xs:inline">Attendees</span>
+                <span className="xs:hidden">List</span>
               </TabsTrigger>
             )}
-            <TabsTrigger value="meetings" data-testid="tab-meetings">
-              <Calendar className="h-4 w-4 mr-2" />
-              My Meetings
+            <TabsTrigger value="meetings" className="flex-1 sm:flex-none text-xs sm:text-sm" data-testid="tab-meetings">
+              <Calendar className="h-4 w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">My Meetings</span>
+              <span className="sm:hidden">Meetings</span>
             </TabsTrigger>
             {canRequestMeetings && (
-              <TabsTrigger value="request" data-testid="tab-request">
-                <Send className="h-4 w-4 mr-2" />
-                Request Meeting
+              <TabsTrigger value="request" className="flex-1 sm:flex-none text-xs sm:text-sm" data-testid="tab-request">
+                <Send className="h-4 w-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Request Meeting</span>
+                <span className="sm:hidden">Request</span>
               </TabsTrigger>
             )}
           </TabsList>
