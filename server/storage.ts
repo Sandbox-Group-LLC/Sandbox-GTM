@@ -952,7 +952,7 @@ export interface IStorage {
   setRoomOpenHours(roomId: string, hours: InsertRoomOpenHours[]): Promise<RoomOpenHours[]>;
 
   // Member Room Assignment operations
-  getMemberRoomAssignments(organizationId: string, eventId: string): Promise<MemberRoomAssignment[]>;
+  getMemberRoomAssignments(organizationId: string, eventId: string): Promise<any[]>;
   getRoomAssignmentsForMember(organizationId: string, eventId: string, opts: { meetingPortalMemberId?: string; adminUserId?: string }): Promise<MemberRoomAssignment[]>;
   createMemberRoomAssignment(data: InsertMemberRoomAssignment): Promise<MemberRoomAssignment>;
   deleteMemberRoomAssignment(id: string): Promise<void>;
@@ -6284,13 +6284,31 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Member Room Assignment operations
-  async getMemberRoomAssignments(organizationId: string, eventId: string): Promise<MemberRoomAssignment[]> {
-    return db.select()
+  async getMemberRoomAssignments(organizationId: string, eventId: string): Promise<any[]> {
+    const assignments = await db.select()
       .from(memberRoomAssignments)
+      .leftJoin(users, eq(memberRoomAssignments.adminUserId, users.id))
+      .leftJoin(meetingPortalMembers, eq(memberRoomAssignments.meetingPortalMemberId, meetingPortalMembers.id))
       .where(and(
         eq(memberRoomAssignments.organizationId, organizationId),
         eq(memberRoomAssignments.eventId, eventId)
       ));
+    
+    return assignments.map(row => ({
+      ...row.member_room_assignments,
+      user: row.users ? {
+        id: row.users.id,
+        firstName: row.users.firstName,
+        lastName: row.users.lastName,
+        email: row.users.email,
+      } : null,
+      meetingPortalMember: row.meeting_portal_members ? {
+        id: row.meeting_portal_members.id,
+        firstName: row.meeting_portal_members.firstName,
+        lastName: row.meeting_portal_members.lastName,
+        email: row.meeting_portal_members.email,
+      } : null,
+    }));
   }
 
   async getRoomAssignmentsForMember(
