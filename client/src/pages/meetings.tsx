@@ -52,6 +52,7 @@ import {
   UserCog,
   AlertTriangle,
   DoorOpen,
+  LayoutGrid,
 } from "lucide-react";
 import { MeetingPortalManagement } from "@/components/events/MeetingPortalManagement";
 import { format } from "date-fns";
@@ -667,6 +668,10 @@ export default function Meetings() {
               <TabsTrigger value="meetings" data-testid="tab-meetings">
                 <CalendarIcon className="h-4 w-4 mr-2" />
                 Meetings
+              </TabsTrigger>
+              <TabsTrigger value="schedule" data-testid="tab-schedule">
+                <LayoutGrid className="h-4 w-4 mr-2" />
+                Schedule
               </TabsTrigger>
               <TabsTrigger value="portal-team" data-testid="tab-portal-team">
                 <UserCog className="h-4 w-4 mr-2" />
