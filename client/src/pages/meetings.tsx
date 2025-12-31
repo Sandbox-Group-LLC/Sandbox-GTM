@@ -300,10 +300,10 @@ export default function Meetings() {
         title="Internal Meetings"
         breadcrumbs={[{ label: "Engagement" }, { label: "Internal Meetings" }]}
         actions={
-          <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex items-center gap-2 sm:gap-4">
             <Select value={selectedEventId} onValueChange={setSelectedEventId}>
-              <SelectTrigger className="w-[180px]" data-testid="select-event-filter">
-                <SelectValue placeholder="Select program" />
+              <SelectTrigger className="w-[120px] sm:w-[180px]" data-testid="select-event-filter">
+                <SelectValue placeholder="Program" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Select Program</SelectItem>
@@ -317,9 +317,9 @@ export default function Meetings() {
             {selectedEventId !== "all" && (
               <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button data-testid="button-create-meeting">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Schedule Meeting
+                  <Button data-testid="button-create-meeting" className="whitespace-nowrap">
+                    <Plus className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Schedule Meeting</span>
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
