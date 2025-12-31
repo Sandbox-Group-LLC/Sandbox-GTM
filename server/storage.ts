@@ -472,7 +472,7 @@ export interface IStorage {
   deleteSessionTrack(organizationId: string, id: string): Promise<void>;
 
   // Session Room operations
-  getSessionRooms(organizationId: string): Promise<SessionRoom[]>;
+  getSessionRooms(organizationId: string, eventId?: string): Promise<SessionRoom[]>;
   getSessionRoom(organizationId: string, id: string): Promise<SessionRoom | undefined>;
   createSessionRoom(room: InsertSessionRoom): Promise<SessionRoom>;
   updateSessionRoom(organizationId: string, id: string, room: Partial<InsertSessionRoom>): Promise<SessionRoom | undefined>;
@@ -2718,7 +2718,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Session Room operations
-  async getSessionRooms(organizationId: string): Promise<SessionRoom[]> {
+  async getSessionRooms(organizationId: string, eventId?: string): Promise<SessionRoom[]> {
+    if (eventId) {
+      return db.select().from(sessionRooms)
+        .where(and(eq(sessionRooms.organizationId, organizationId), eq(sessionRooms.eventId, eventId)))
+        .orderBy(sessionRooms.name);
+    }
     return db.select().from(sessionRooms).where(eq(sessionRooms.organizationId, organizationId)).orderBy(sessionRooms.name);
   }
 
