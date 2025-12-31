@@ -17080,7 +17080,7 @@ ${urls.map(u => `  <url>
       }
 
       const { eventId } = req.params;
-      const { inviteeId, intentType, scheduledTime, location, message } = req.body;
+      const { inviteeId, intentType, startTime, endTime, location, virtualLink, message, roomId } = req.body;
 
       if (member.eventId !== eventId) {
         return res.status(403).json({ message: "Access denied for this event" });
@@ -17109,6 +17109,55 @@ ${urls.map(u => `  <url>
       const event = await storage.getEventById(eventId);
       const organization = await storage.getOrganization(member.organizationId);
 
+      // Parse dates
+      const parsedStartTime = startTime ? new Date(startTime) : null;
+      const parsedEndTime = endTime ? new Date(endTime) : null;
+
+      // Validate room if provided
+      if (roomId) {
+        if (!parsedStartTime || !parsedEndTime || isNaN(parsedStartTime.getTime()) || isNaN(parsedEndTime.getTime())) {
+          return res.status(400).json({ message: "startTime and endTime are required when roomId is specified" });
+        }
+
+        const room = await storage.getSessionRoom(member.organizationId, roomId);
+        if (!room || room.eventId !== eventId) {
+          return res.status(400).json({ message: "Invalid roomId: Room not found for this event" });
+        }
+
+        // Check for room conflicts
+        const conflicts = await storage.findRoomConflicts(roomId, parsedStartTime, parsedEndTime);
+        if (conflicts.length > 0) {
+          return res.status(400).json({ 
+            message: "Room is not available during this time slot", 
+            conflicts: conflicts.map(c => ({ id: c.id, startTime: c.startTime, endTime: c.endTime }))
+          });
+        }
+
+        // Validate room is within open hours
+        const openHours = await storage.getRoomOpenHours(roomId);
+        if (openHours.length > 0) {
+          const meetingDate = `${parsedStartTime.getFullYear()}-${String(parsedStartTime.getMonth() + 1).padStart(2, '0')}-${String(parsedStartTime.getDate()).padStart(2, '0')}`;
+          const meetingStartHHMM = `${String(parsedStartTime.getHours()).padStart(2, '0')}:${String(parsedStartTime.getMinutes()).padStart(2, '0')}`;
+          const meetingEndHHMM = `${String(parsedEndTime.getHours()).padStart(2, '0')}:${String(parsedEndTime.getMinutes()).padStart(2, '0')}`;
+
+          const dateOpenHours = openHours.filter(h => h.openDate === meetingDate);
+          if (dateOpenHours.length === 0) {
+            return res.status(400).json({ message: "Room is not open on the selected date" });
+          }
+
+          const withinOpenHours = dateOpenHours.some(h => 
+            meetingStartHHMM >= h.startTime && meetingEndHHMM <= h.endTime
+          );
+
+          if (!withinOpenHours) {
+            return res.status(400).json({ 
+              message: "Meeting time is outside room's open hours",
+              openHours: dateOpenHours.map(h => ({ startTime: h.startTime, endTime: h.endTime }))
+            });
+          }
+        }
+      }
+
       // Create meeting using attendeeMeetings table
       const meeting = await storage.createAttendeeMeeting({
         organizationId: member.organizationId,
@@ -17117,11 +17166,14 @@ ${urls.map(u => `  <url>
         inviteeId,
         status: 'pending',
         intentType: intentType || 'demo_request',
-        scheduledTime: scheduledTime ? new Date(scheduledTime) : null,
+        startTime: parsedStartTime,
+        endTime: parsedEndTime,
         location: location || null,
-        message: message || null,
+        virtualLink: virtualLink || null,
+        description: message || null,
         isInternalMeeting: true,
         meetingPortalMemberId: member.id,
+        roomId: roomId || null,
       });
 
       // Send email notification to the attendee
@@ -17136,7 +17188,7 @@ ${urls.map(u => `  <url>
           meetingTitle: undefined,
           meetingDescription: message || undefined,
           intentType: intentType || undefined,
-          startTime: scheduledTime ? new Date(scheduledTime) : undefined,
+          startTime: parsedStartTime || undefined,
           location: location || undefined,
           hostName: member.name || undefined,
         }).catch(err => {
