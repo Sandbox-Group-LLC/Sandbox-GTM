@@ -10734,16 +10734,18 @@ ${urls.map(u => `  <url>
       
       const meetings = await storage.getAttendeeMeetings(event.organizationId, eventId, filters);
       
-      // Enrich meetings with attendee details
+      // Enrich meetings with attendee details and portal member info
       const enrichedMeetings = await Promise.all(meetings.map(async (meeting) => {
-        const [invitee, requester] = await Promise.all([
+        const [invitee, requester, portalMember] = await Promise.all([
           meeting.inviteeId ? storage.getAttendee(event.organizationId, meeting.inviteeId) : null,
           meeting.requesterId ? storage.getAttendee(event.organizationId, meeting.requesterId) : null,
+          meeting.meetingPortalMemberId ? storage.getMeetingPortalMember(meeting.meetingPortalMemberId) : null,
         ]);
         return {
           ...meeting,
           invitee: invitee ? { id: invitee.id, firstName: invitee.firstName, lastName: invitee.lastName, email: invitee.email } : null,
           requester: requester ? { id: requester.id, firstName: requester.firstName, lastName: requester.lastName, email: requester.email } : null,
+          portalMember: portalMember ? { id: portalMember.id, firstName: portalMember.firstName, lastName: portalMember.lastName, email: portalMember.email } : null,
         };
       }));
       

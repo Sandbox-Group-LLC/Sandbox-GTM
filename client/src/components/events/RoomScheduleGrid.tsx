@@ -33,9 +33,17 @@ interface RoomScheduleGridProps {
   organizationId: string;
 }
 
+interface PortalMember {
+  id: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  email: string;
+}
+
 interface MeetingWithDetails extends AttendeeMeeting {
   requester?: Attendee;
   invitee?: Attendee;
+  portalMember?: PortalMember | null;
 }
 
 interface TimeSlot {
@@ -97,8 +105,17 @@ function isMeetingInSlot(
 }
 
 function getMeetingDisplayName(meeting: MeetingWithDetails): string {
+  // First try requester (attendee who scheduled)
   if (meeting.requester) {
     const { firstName, lastName, email } = meeting.requester;
+    if (firstName || lastName) {
+      return `${firstName || ""} ${lastName || ""}`.trim();
+    }
+    return email || "Unknown";
+  }
+  // Then try portal member (team member who scheduled via portal)
+  if (meeting.portalMember) {
+    const { firstName, lastName, email } = meeting.portalMember;
     if (firstName || lastName) {
       return `${firstName || ""} ${lastName || ""}`.trim();
     }
