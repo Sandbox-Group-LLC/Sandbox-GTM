@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/useAuth";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -47,7 +49,9 @@ import {
   TrendingUp,
   ClipboardCheck,
   Mail,
+  UserCog,
 } from "lucide-react";
+import { MeetingPortalManagement } from "@/components/events/MeetingPortalManagement";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import type {
@@ -148,6 +152,7 @@ interface MeetingWithDetails extends AttendeeMeeting {
 
 export default function Meetings() {
   const { toast } = useToast();
+  const { organization } = useAuth();
   const [selectedEventId, setSelectedEventId] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [intentTypeFilter, setIntentTypeFilter] = useState<string>("all");
@@ -155,6 +160,7 @@ export default function Meetings() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [outcomeDialogOpen, setOutcomeDialogOpen] = useState(false);
   const [selectedMeeting, setSelectedMeeting] = useState<MeetingWithDetails | null>(null);
+  const [activeTab, setActiveTab] = useState<string>("meetings");
 
   const [newMeetingData, setNewMeetingData] = useState({
     inviteeId: "",
@@ -502,7 +508,19 @@ export default function Meetings() {
             </CardContent>
           </Card>
         ) : (
-          <>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="mb-4" data-testid="tabs-meetings-portal">
+              <TabsTrigger value="meetings" data-testid="tab-meetings">
+                <CalendarIcon className="h-4 w-4 mr-2" />
+                Meetings
+              </TabsTrigger>
+              <TabsTrigger value="portal-team" data-testid="tab-portal-team">
+                <UserCog className="h-4 w-4 mr-2" />
+                Portal Team
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="meetings" className="space-y-6">
             <div className="flex items-center gap-4 flex-wrap">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-[150px]" data-testid="select-status-filter">
@@ -708,7 +726,17 @@ export default function Meetings() {
                 )}
               </CardContent>
             </Card>
-          </>
+            </TabsContent>
+
+            <TabsContent value="portal-team">
+              {organization && (
+                <MeetingPortalManagement
+                  eventId={selectedEventId}
+                  organizationId={organization.id}
+                />
+              )}
+            </TabsContent>
+          </Tabs>
         )}
       </div>
 
