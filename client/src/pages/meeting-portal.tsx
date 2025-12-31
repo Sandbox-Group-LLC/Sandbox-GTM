@@ -867,14 +867,17 @@ function RequestMeetingTab({ eventId, token, memberId }: { eventId: string; toke
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Room</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select 
+                    onValueChange={(value) => field.onChange(value === "none" ? "" : value)} 
+                    value={field.value || "none"}
+                  >
                     <FormControl>
                       <SelectTrigger data-testid="select-room">
                         <SelectValue placeholder="Select a room" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">No room selected</SelectItem>
+                      <SelectItem value="none">No room selected</SelectItem>
                       {allRooms?.map((room) => (
                         <SelectItem key={room.id} value={room.id}>
                           <div className="flex items-center gap-2">
