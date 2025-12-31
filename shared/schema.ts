@@ -2301,6 +2301,9 @@ export const attendeeMeetings = pgTable("attendee_meetings", {
   isInternalMeeting: boolean("is_internal_meeting").default(false),
   internalHostUserId: varchar("internal_host_user_id").references(() => users.id),
   
+  // Meeting portal member who created this meeting (for non-admin employees)
+  meetingPortalMemberId: varchar("meeting_portal_member_id"),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -2309,7 +2312,73 @@ export const attendeeMeetings = pgTable("attendee_meetings", {
   index("attendee_meetings_invitee_idx").on(table.inviteeId),
   index("attendee_meetings_intent_idx").on(table.intentType),
   index("attendee_meetings_outcome_idx").on(table.outcomeType),
+  index("attendee_meetings_portal_member_idx").on(table.meetingPortalMemberId),
 ]);
+
+// Meeting Portal Members - non-admin employees who can request meetings via portal
+export const MEETING_PORTAL_PERMISSIONS = {
+  REQUEST_MEETINGS: 'request_meetings',
+  VIEW_ATTENDEES: 'view_attendees',
+  CAPTURE_OUTCOMES: 'capture_outcomes',
+} as const;
+
+export type MeetingPortalPermission = typeof MEETING_PORTAL_PERMISSIONS[keyof typeof MEETING_PORTAL_PERMISSIONS];
+
+export const meetingPortalMembers = pgTable("meeting_portal_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id).notNull(),
+  firstName: varchar("first_name", { length: 100 }).notNull(),
+  lastName: varchar("last_name", { length: 100 }).notNull(),
+  email: varchar("email", { length: 255 }).notNull(),
+  jobTitle: varchar("job_title", { length: 255 }),
+  phone: varchar("phone", { length: 50 }),
+  permissions: text("permissions").array(), // Array of MeetingPortalPermission keys
+  portalAccessToken: varchar("portal_access_token", { length: 255 }),
+  portalTokenExpiresAt: timestamp("portal_token_expires_at"),
+  lastLoginAt: timestamp("last_login_at"),
+  isActive: boolean("is_active").default(true),
+  invitedBy: varchar("invited_by").references(() => users.id), // Admin user who invited
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("meeting_portal_members_org_idx").on(table.organizationId),
+  index("meeting_portal_members_event_idx").on(table.eventId),
+  index("meeting_portal_members_email_idx").on(table.email),
+  index("meeting_portal_members_token_idx").on(table.portalAccessToken),
+]);
+
+// Meeting Portal Invitations - pending invitations for non-admin employees
+export const meetingPortalInvitations = pgTable("meeting_portal_invitations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id).notNull(),
+  email: varchar("email", { length: 255 }).notNull(),
+  firstName: varchar("first_name", { length: 100 }),
+  lastName: varchar("last_name", { length: 100 }),
+  permissions: text("permissions").array(), // Permissions to grant when accepted
+  inviteCode: varchar("invite_code", { length: 64 }).unique().notNull(),
+  invitedBy: varchar("invited_by").references(() => users.id).notNull(), // Admin user who invited
+  status: varchar("status", { length: 20 }).default("pending"), // 'pending', 'accepted', 'expired', 'revoked'
+  expiresAt: timestamp("expires_at"),
+  invitedAt: timestamp("invited_at").defaultNow(),
+  acceptedAt: timestamp("accepted_at"),
+  acceptedBy: varchar("accepted_by").references(() => meetingPortalMembers.id),
+});
+
+// Meeting Portal Members relations
+export const meetingPortalMembersRelations = relations(meetingPortalMembers, ({ one, many }) => ({
+  organization: one(organizations, { fields: [meetingPortalMembers.organizationId], references: [organizations.id] }),
+  event: one(events, { fields: [meetingPortalMembers.eventId], references: [events.id] }),
+  invitedByUser: one(users, { fields: [meetingPortalMembers.invitedBy], references: [users.id] }),
+}));
+
+export const meetingPortalInvitationsRelations = relations(meetingPortalInvitations, ({ one }) => ({
+  organization: one(organizations, { fields: [meetingPortalInvitations.organizationId], references: [organizations.id] }),
+  event: one(events, { fields: [meetingPortalInvitations.eventId], references: [events.id] }),
+  invitedByUser: one(users, { fields: [meetingPortalInvitations.invitedBy], references: [users.id] }),
+  acceptedByMember: one(meetingPortalMembers, { fields: [meetingPortalInvitations.acceptedBy], references: [meetingPortalMembers.id] }),
+}));
 
 // Networking relations
 export const attendeeConnectionsRelations = relations(attendeeConnections, ({ one }) => ({
@@ -2461,6 +2530,8 @@ export const insertSuperAdminAuditLogSchema = createInsertSchema(superAdminAudit
 export const insertAttendeeConnectionSchema = createInsertSchema(attendeeConnections).omit({ id: true, createdAt: true, respondedAt: true });
 export const insertAttendeeAvailabilitySlotSchema = createInsertSchema(attendeeAvailabilitySlots).omit({ id: true, createdAt: true });
 export const insertAttendeeMeetingSchema = createInsertSchema(attendeeMeetings).omit({ id: true, createdAt: true, updatedAt: true, respondedAt: true });
+export const insertMeetingPortalMemberSchema = createInsertSchema(meetingPortalMembers).omit({ id: true, createdAt: true, updatedAt: true, lastLoginAt: true });
+export const insertMeetingPortalInvitationSchema = createInsertSchema(meetingPortalInvitations).omit({ id: true, invitedAt: true, acceptedAt: true });
 
 // Types
 export type UpsertUser = typeof users.$inferInsert;
@@ -2641,3 +2712,7 @@ export type InsertAttendeeAvailabilitySlot = z.infer<typeof insertAttendeeAvaila
 export type AttendeeAvailabilitySlot = typeof attendeeAvailabilitySlots.$inferSelect;
 export type InsertAttendeeMeeting = z.infer<typeof insertAttendeeMeetingSchema>;
 export type AttendeeMeeting = typeof attendeeMeetings.$inferSelect;
+export type InsertMeetingPortalMember = z.infer<typeof insertMeetingPortalMemberSchema>;
+export type MeetingPortalMember = typeof meetingPortalMembers.$inferSelect;
+export type InsertMeetingPortalInvitation = z.infer<typeof insertMeetingPortalInvitationSchema>;
+export type MeetingPortalInvitation = typeof meetingPortalInvitations.$inferSelect;
