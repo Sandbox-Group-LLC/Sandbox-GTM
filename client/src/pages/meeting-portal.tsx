@@ -641,7 +641,15 @@ function RequestMeetingTab({ eventId, token }: { eventId: string; token: string 
     },
     onSuccess: () => {
       toast({ title: "Meeting Requested", description: "Your meeting request has been sent." });
-      form.reset();
+      form.reset({
+        inviteeId: "",
+        startTime: "",
+        endTime: "",
+        location: "",
+        virtualLink: "",
+        message: "",
+        intentType: undefined,
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/meeting-portal", eventId, "meetings"] });
     },
     onError: (error: Error) => {
