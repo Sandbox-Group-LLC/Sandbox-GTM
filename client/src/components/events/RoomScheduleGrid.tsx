@@ -111,7 +111,7 @@ export function RoomScheduleGrid({ eventId, organizationId }: RoomScheduleGridPr
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [calendarOpen, setCalendarOpen] = useState(false);
 
-  const { data: allRooms, isLoading: roomsLoading } = useQuery<SessionRoom[]>({
+  const { data: allRooms, isLoading: roomsLoading, isError: roomsError } = useQuery<SessionRoom[]>({
     queryKey: ["/api/session-rooms"],
   });
 
@@ -119,19 +119,19 @@ export function RoomScheduleGrid({ eventId, organizationId }: RoomScheduleGridPr
     return allRooms?.filter((room) => room.eventId === eventId) || [];
   }, [allRooms, eventId]);
 
-  const { data: meetings, isLoading: meetingsLoading } = useQuery<MeetingWithDetails[]>({
-    queryKey: ["/api/events", eventId, "meetings"],
+  const { data: meetings, isLoading: meetingsLoading, isError: meetingsError } = useQuery<MeetingWithDetails[]>({
+    queryKey: ["/api/events", eventId, "meetings", organizationId],
     queryFn: async () => {
-      const res = await fetch(`/api/events/${eventId}/meetings`, {
+      const res = await fetch(`/api/events/${eventId}/meetings?organizationId=${organizationId}`, {
         credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to fetch meetings");
       return res.json();
     },
-    enabled: !!eventId,
+    enabled: !!eventId && !!organizationId,
   });
 
-  const { data: allOpenHours, isLoading: openHoursLoading } = useQuery<Record<string, RoomOpenHours[]>>({
+  const { data: allOpenHours, isLoading: openHoursLoading, isError: openHoursError } = useQuery<Record<string, RoomOpenHours[]>>({
     queryKey: ["/api/events", eventId, "rooms", "open-hours", rooms.map((r) => r.id)],
     queryFn: async () => {
       const openHoursMap: Record<string, RoomOpenHours[]> = {};
@@ -223,6 +223,7 @@ export function RoomScheduleGrid({ eventId, organizationId }: RoomScheduleGridPr
   };
 
   const isLoading = roomsLoading || meetingsLoading || openHoursLoading;
+  const isError = roomsError || meetingsError || openHoursError;
 
   if (isLoading) {
     return (
@@ -238,6 +239,24 @@ export function RoomScheduleGrid({ eventId, organizationId }: RoomScheduleGridPr
             <Skeleton className="h-10 w-48" />
             <Skeleton className="h-64 w-full" />
           </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (isError) {
+    return (
+      <Card className="border-destructive/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-destructive">
+            <Clock className="h-5 w-5" />
+            Error Loading Schedule
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground text-sm">
+            There was an error loading the rooms or meetings. Please try again later.
+          </p>
         </CardContent>
       </Card>
     );

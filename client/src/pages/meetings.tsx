@@ -55,6 +55,7 @@ import {
   LayoutGrid,
 } from "lucide-react";
 import { MeetingPortalManagement } from "@/components/events/MeetingPortalManagement";
+import { RoomScheduleGrid } from "@/components/events/RoomScheduleGrid";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import type {
@@ -885,6 +886,15 @@ export default function Meetings() {
                 )}
               </CardContent>
             </Card>
+            </TabsContent>
+
+            <TabsContent value="schedule">
+              {organization && (
+                <RoomScheduleGrid
+                  eventId={selectedEventId}
+                  organizationId={organization.id}
+                />
+              )}
             </TabsContent>
 
             <TabsContent value="portal-team">

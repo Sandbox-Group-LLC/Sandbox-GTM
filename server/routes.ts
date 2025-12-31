@@ -10707,12 +10707,17 @@ ${urls.map(u => `  <url>
     try {
       const userId = req.user.claims.sub;
       const { eventId } = req.params;
-      const { status, intentType, isInternal } = req.query;
+      const { status, intentType, isInternal, organizationId } = req.query;
       
       // Get the event to find the organization
       const event = await storage.getEventById(eventId);
       if (!event) {
         return res.status(404).json({ message: "Event not found" });
+      }
+
+      // Security check: if organizationId is provided, it must match the event's organizationId
+      if (organizationId && organizationId !== event.organizationId) {
+        return res.status(403).json({ message: "Organization ID mismatch" });
       }
       
       // Check user has access to this organization
