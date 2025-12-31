@@ -40,12 +40,13 @@ import {
   Loader2,
   Star,
 } from "lucide-react";
-import type { SessionRoom } from "@shared/schema";
+import { format, parseISO, eachDayOfInterval } from "date-fns";
+import type { SessionRoom, Event } from "@shared/schema";
 
 interface RoomOpenHour {
   id?: string;
   roomId: string;
-  dayOfWeek: number;
+  openDate: string; // YYYY-MM-DD format
   startTime: string;
   endTime: string;
 }
@@ -96,16 +97,6 @@ interface RoomSettingsDialogProps {
   organizationId: string;
 }
 
-const DAYS_OF_WEEK = [
-  { value: 0, label: "Sunday" },
-  { value: 1, label: "Monday" },
-  { value: 2, label: "Tuesday" },
-  { value: 3, label: "Wednesday" },
-  { value: 4, label: "Thursday" },
-  { value: 5, label: "Friday" },
-  { value: 6, label: "Saturday" },
-];
-
 export function RoomSettingsDialog({
   open,
   onOpenChange,
@@ -121,6 +112,23 @@ export function RoomSettingsDialog({
     memberId: "",
     isPrimary: false,
   });
+
+  // Fetch event details to get date range
+  const { data: event } = useQuery<Event>({
+    queryKey: ["/api/events", eventId],
+    enabled: open && !!eventId,
+  });
+
+  // Generate array of event dates for the dropdown
+  const eventDates = event?.startDate && event?.endDate
+    ? eachDayOfInterval({
+        start: parseISO(event.startDate),
+        end: parseISO(event.endDate),
+      }).map(date => ({
+        value: format(date, "yyyy-MM-dd"),
+        label: format(date, "EEE, MMM d, yyyy"), // e.g., "Mon, Jan 15, 2025"
+      }))
+    : [];
 
   const { data: fetchedOpenHours, isLoading: hoursLoading } = useQuery<RoomOpenHour[]>({
     queryKey: ["/api/events", eventId, "rooms", room?.id, "open-hours"],
@@ -287,11 +295,12 @@ export function RoomSettingsDialog({
 
   const addHourEntry = () => {
     if (!room) return;
+    const defaultDate = eventDates.length > 0 ? eventDates[0].value : format(new Date(), "yyyy-MM-dd");
     setOpenHours([
       ...openHours,
       {
         roomId: room.id,
-        dayOfWeek: 1,
+        openDate: defaultDate,
         startTime: "09:00",
         endTime: "17:00",
       },
@@ -417,18 +426,18 @@ export function RoomSettingsDialog({
                             data-testid={`row-open-hour-${index}`}
                           >
                             <Select
-                              value={String(hour.dayOfWeek)}
+                              value={hour.openDate}
                               onValueChange={(val) =>
-                                updateHourEntry(index, "dayOfWeek", parseInt(val))
+                                updateHourEntry(index, "openDate", val)
                               }
                             >
-                              <SelectTrigger className="w-[140px]" data-testid={`select-day-${index}`}>
-                                <SelectValue placeholder="Day" />
+                              <SelectTrigger className="w-[180px]" data-testid={`select-date-${index}`}>
+                                <SelectValue placeholder="Select date" />
                               </SelectTrigger>
                               <SelectContent>
-                                {DAYS_OF_WEEK.map((day) => (
-                                  <SelectItem key={day.value} value={String(day.value)}>
-                                    {day.label}
+                                {eventDates.map((date) => (
+                                  <SelectItem key={date.value} value={date.value}>
+                                    {date.label}
                                   </SelectItem>
                                 ))}
                               </SelectContent>
