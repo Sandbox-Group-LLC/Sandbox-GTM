@@ -910,11 +910,11 @@ export const sessionRooms = pgTable("session_rooms", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Room Open Hours - defines when a room is available for booking
+// Room Open Hours - defines when a room is available for booking on specific event dates
 export const roomOpenHours = pgTable("room_open_hours", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   roomId: varchar("room_id").references(() => sessionRooms.id).notNull(),
-  dayOfWeek: integer("day_of_week").notNull(), // 0=Sunday, 1=Monday, ..., 6=Saturday
+  openDate: date("open_date").notNull(), // Specific event date (e.g., "2025-03-12")
   startTime: varchar("start_time", { length: 5 }).notNull(), // HH:MM format (e.g., "09:00")
   endTime: varchar("end_time", { length: 5 }).notNull(), // HH:MM format (e.g., "17:00")
   createdAt: timestamp("created_at").defaultNow(),

@@ -6269,7 +6269,7 @@ export class DatabaseStorage implements IStorage {
     return db.select()
       .from(roomOpenHours)
       .where(eq(roomOpenHours.roomId, roomId))
-      .orderBy(roomOpenHours.dayOfWeek, roomOpenHours.startTime);
+      .orderBy(roomOpenHours.openDate, roomOpenHours.startTime);
   }
 
   async setRoomOpenHours(roomId: string, hours: InsertRoomOpenHours[]): Promise<RoomOpenHours[]> {
