@@ -2267,11 +2267,11 @@ export const attendeeMeetings = pgTable("attendee_meetings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
   eventId: varchar("event_id").references(() => events.id).notNull(),
-  requesterId: varchar("requester_id").references(() => attendees.id).notNull(),
+  requesterId: varchar("requester_id").references(() => attendees.id), // Nullable for internal/portal meetings
   inviteeId: varchar("invitee_id").references(() => attendees.id).notNull(),
   slotId: varchar("slot_id").references(() => attendeeAvailabilitySlots.id),
-  startTime: timestamp("start_time").notNull(),
-  endTime: timestamp("end_time").notNull(),
+  startTime: timestamp("start_time"), // Nullable - may not be scheduled yet
+  endTime: timestamp("end_time"), // Nullable - may not be scheduled yet
   location: varchar("location", { length: 255 }),
   virtualLink: text("virtual_link"),
   status: varchar("status", { length: 20 }).default("pending").notNull(), // 'pending', 'accepted', 'declined', 'cancelled', 'completed'
