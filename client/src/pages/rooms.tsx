@@ -367,6 +367,7 @@ export default function Rooms() {
         onOpenChange={setIsSettingsOpen}
         room={settingsRoom}
         eventId={settingsRoom?.eventId || ""}
+        organizationId={events.find(e => e.id === settingsRoom?.eventId)?.organizationId || ""}
       />
     </div>
   );

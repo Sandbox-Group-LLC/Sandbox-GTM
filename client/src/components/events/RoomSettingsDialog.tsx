@@ -93,6 +93,7 @@ interface RoomSettingsDialogProps {
   onOpenChange: (open: boolean) => void;
   room: SessionRoom | null;
   eventId: string;
+  organizationId: string;
 }
 
 const DAYS_OF_WEEK = [
@@ -110,6 +111,7 @@ export function RoomSettingsDialog({
   onOpenChange,
   room,
   eventId,
+  organizationId,
 }: RoomSettingsDialogProps) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("hours");
@@ -147,11 +149,11 @@ export function RoomSettingsDialog({
   });
 
   const { data: portalMembers } = useQuery<MeetingPortalMember[]>({
-    queryKey: ["/api/events", eventId, "meeting-portal", "members"],
-    enabled: open && !!eventId,
+    queryKey: ["/api/events", eventId, "meeting-portal", "members", organizationId],
+    enabled: open && !!eventId && !!organizationId,
     queryFn: async () => {
       const res = await fetch(
-        `/api/events/${eventId}/meeting-portal/members`,
+        `/api/events/${eventId}/meeting-portal/members?organizationId=${organizationId}`,
         { credentials: "include" }
       );
       if (!res.ok) throw new Error("Failed to fetch portal members");
