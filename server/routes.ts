@@ -16855,10 +16855,10 @@ ${urls.map(u => `  <url>
       const magicTokenExpiresAt = new Date();
       magicTokenExpiresAt.setMinutes(magicTokenExpiresAt.getMinutes() + 15); // 15 minutes
 
-      // Store magic token temporarily (reuse portalAccessToken field with short expiry)
+      // Store magic token in separate fields (does NOT overwrite existing session token)
       await storage.updateMeetingPortalMember(member.id, {
-        portalAccessToken: magicToken,
-        portalTokenExpiresAt: magicTokenExpiresAt,
+        magicLinkToken: magicToken,
+        magicLinkExpiresAt: magicTokenExpiresAt,
       } as any);
 
       // Get event info for the email
@@ -16900,14 +16900,14 @@ ${urls.map(u => `  <url>
         return res.status(400).json({ message: "Token is required" });
       }
 
-      // Find member by magic token
-      const member = await storage.getMeetingPortalMemberByToken(token);
+      // Find member by magic link token (separate from session token)
+      const member = await storage.getMeetingPortalMemberByMagicToken(token);
       if (!member) {
         return res.status(401).json({ message: "Invalid or expired login link" });
       }
 
-      // Check if token is expired
-      if (member.portalTokenExpiresAt && new Date(member.portalTokenExpiresAt) < new Date()) {
+      // Check if magic link token is expired
+      if (member.magicLinkExpiresAt && new Date(member.magicLinkExpiresAt) < new Date()) {
         return res.status(401).json({ message: "Login link has expired. Please request a new one." });
       }
 
@@ -16920,9 +16920,12 @@ ${urls.map(u => `  <url>
       const portalTokenExpiresAt = new Date();
       portalTokenExpiresAt.setDate(portalTokenExpiresAt.getDate() + 30); // 30 days
 
+      // Clear magic link token and set session token
       await storage.updateMeetingPortalMember(member.id, {
         portalAccessToken,
         portalTokenExpiresAt,
+        magicLinkToken: null,
+        magicLinkExpiresAt: null,
         lastLoginAt: new Date(),
       } as any);
 

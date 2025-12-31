@@ -935,6 +935,7 @@ export interface IStorage {
   getMeetingPortalMember(id: string): Promise<MeetingPortalMember | undefined>;
   getMeetingPortalMemberByEmail(eventId: string, email: string): Promise<MeetingPortalMember | undefined>;
   getMeetingPortalMemberByToken(token: string): Promise<MeetingPortalMember | undefined>;
+  getMeetingPortalMemberByMagicToken(token: string): Promise<MeetingPortalMember | undefined>;
   getMeetingPortalMembersByEmail(email: string): Promise<MeetingPortalMember[]>;
   createMeetingPortalMember(data: InsertMeetingPortalMember): Promise<MeetingPortalMember>;
   updateMeetingPortalMember(id: string, data: Partial<InsertMeetingPortalMember>): Promise<MeetingPortalMember | undefined>;
@@ -6201,6 +6202,13 @@ export class DatabaseStorage implements IStorage {
     const [member] = await db.select()
       .from(meetingPortalMembers)
       .where(eq(meetingPortalMembers.portalAccessToken, token));
+    return member;
+  }
+
+  async getMeetingPortalMemberByMagicToken(token: string): Promise<MeetingPortalMember | undefined> {
+    const [member] = await db.select()
+      .from(meetingPortalMembers)
+      .where(eq(meetingPortalMembers.magicLinkToken, token));
     return member;
   }
 

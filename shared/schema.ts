@@ -2370,6 +2370,8 @@ export const meetingPortalMembers = pgTable("meeting_portal_members", {
   permissions: text("permissions").array(), // Array of MeetingPortalPermission keys
   portalAccessToken: varchar("portal_access_token", { length: 255 }),
   portalTokenExpiresAt: timestamp("portal_token_expires_at"),
+  magicLinkToken: varchar("magic_link_token", { length: 255 }),
+  magicLinkExpiresAt: timestamp("magic_link_expires_at"),
   lastLoginAt: timestamp("last_login_at"),
   isActive: boolean("is_active").default(true),
   invitedBy: varchar("invited_by").references(() => users.id), // Admin user who invited
@@ -2380,6 +2382,7 @@ export const meetingPortalMembers = pgTable("meeting_portal_members", {
   index("meeting_portal_members_event_idx").on(table.eventId),
   index("meeting_portal_members_email_idx").on(table.email),
   index("meeting_portal_members_token_idx").on(table.portalAccessToken),
+  index("meeting_portal_members_magic_link_idx").on(table.magicLinkToken),
 ]);
 
 // Meeting Portal Invitations - pending invitations for non-admin employees
