@@ -16720,6 +16720,10 @@ ${urls.map(u => `  <url>
         return res.status(400).json({ message: "Can only request meetings with confirmed attendees" });
       }
 
+      // Get event and organization for email
+      const event = await storage.getEventById(eventId);
+      const organization = await storage.getOrganization(member.organizationId);
+
       // Create meeting using attendeeMeetings table
       const meeting = await storage.createAttendeeMeeting({
         organizationId: member.organizationId,
@@ -16734,6 +16738,26 @@ ${urls.map(u => `  <url>
         isInternalMeeting: true,
         meetingPortalMemberId: member.id,
       });
+
+      // Send email notification to the attendee
+      if (invitee?.email && event) {
+        sendMeetingInvitationEmail({
+          attendeeEmail: invitee.email,
+          attendeeFirstName: invitee.firstName || 'Attendee',
+          eventName: event.name,
+          organizationName: organization?.name || 'Event Organizer',
+          meetingId: meeting.id,
+          organizationId: member.organizationId,
+          meetingTitle: undefined,
+          meetingDescription: message || undefined,
+          intentType: intentType || undefined,
+          startTime: scheduledTime ? new Date(scheduledTime) : undefined,
+          location: location || undefined,
+          hostName: member.name || undefined,
+        }).catch(err => {
+          logError('Failed to send meeting invitation email from portal:', err);
+        });
+      }
 
       res.status(201).json(meeting);
     } catch (error) {
