@@ -10926,23 +10926,24 @@ ${urls.map(u => `  <url>
           // Validate room is within open hours
           const openHours = await storage.getRoomOpenHours(roomId);
           if (openHours.length > 0) {
-            const dayOfWeek = startTime.getDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
+            // Format meeting date as YYYY-MM-DD for comparison with openDate
+            const meetingDate = `${startTime.getFullYear()}-${String(startTime.getMonth() + 1).padStart(2, '0')}-${String(startTime.getDate()).padStart(2, '0')}`;
             const meetingStartHHMM = `${String(startTime.getHours()).padStart(2, '0')}:${String(startTime.getMinutes()).padStart(2, '0')}`;
             const meetingEndHHMM = `${String(endTime.getHours()).padStart(2, '0')}:${String(endTime.getMinutes()).padStart(2, '0')}`;
             
-            const dayOpenHours = openHours.filter(h => h.dayOfWeek === dayOfWeek);
-            if (dayOpenHours.length === 0) {
-              return res.status(400).json({ message: "Room is not open on the selected day" });
+            const dateOpenHours = openHours.filter(h => h.openDate === meetingDate);
+            if (dateOpenHours.length === 0) {
+              return res.status(400).json({ message: "Room is not open on the selected date" });
             }
             
-            const withinOpenHours = dayOpenHours.some(h => 
+            const withinOpenHours = dateOpenHours.some(h => 
               meetingStartHHMM >= h.startTime && meetingEndHHMM <= h.endTime
             );
             
             if (!withinOpenHours) {
               return res.status(400).json({ 
                 message: "Meeting time is outside room's open hours",
-                openHours: dayOpenHours.map(h => ({ startTime: h.startTime, endTime: h.endTime }))
+                openHours: dateOpenHours.map(h => ({ startTime: h.startTime, endTime: h.endTime }))
               });
             }
           }
@@ -11234,14 +11235,14 @@ ${urls.map(u => `  <url>
       }
       
       const hoursData = z.array(z.object({
-        dayOfWeek: z.number().min(0).max(6),
+        openDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), // YYYY-MM-DD format
         startTime: z.string().regex(/^\d{2}:\d{2}$/),
         endTime: z.string().regex(/^\d{2}:\d{2}$/),
       })).parse(req.body);
       
       const openHoursToInsert = hoursData.map(h => ({
         roomId,
-        dayOfWeek: h.dayOfWeek,
+        openDate: h.openDate,
         startTime: h.startTime,
         endTime: h.endTime,
       }));
