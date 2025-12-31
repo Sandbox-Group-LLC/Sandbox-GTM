@@ -916,19 +916,19 @@ export default function MeetingPortal() {
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div>
-              <h1 className="text-xl font-semibold" data-testid="text-event-name">{memberInfo.eventName}</h1>
-              <p className="text-sm text-muted-foreground">{memberInfo.organizationName}</p>
+          <div className="flex items-start sm:items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-lg sm:text-xl font-semibold truncate" data-testid="text-event-name">{memberInfo.eventName}</h1>
+              <p className="text-sm text-muted-foreground truncate">{memberInfo.organizationName}</p>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="text-right">
+            <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
+              <div className="text-right hidden sm:block">
                 <p className="text-sm font-medium" data-testid="text-member-name">
                   {memberInfo.firstName} {memberInfo.lastName}
                 </p>
                 <p className="text-xs text-muted-foreground">{memberInfo.email}</p>
               </div>
-              <Button variant="outline" size="icon" onClick={handleLogout} data-testid="button-logout">
+              <Button variant="outline" size="icon" onClick={handleLogout} data-testid="button-logout" title="Log out">
                 <LogOut className="h-4 w-4" />
               </Button>
             </div>
