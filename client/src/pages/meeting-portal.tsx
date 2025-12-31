@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
@@ -41,6 +41,8 @@ import {
   User,
   Building2,
   Briefcase,
+  AlertTriangle,
+  DoorOpen,
 } from "lucide-react";
 import {
   MEETING_INTENT_TYPES,
@@ -50,7 +52,23 @@ import {
   MEETING_PORTAL_PERMISSIONS,
   type MeetingPortalMember,
   type AttendeeMeeting,
+  type SessionRoom,
 } from "@shared/schema";
+
+interface RoomAssignment {
+  id: string;
+  roomId: string;
+  userId?: string | null;
+  meetingPortalMemberId?: string | null;
+  isPrimary: boolean;
+}
+
+interface RoomConflict {
+  id: string;
+  startTime: string;
+  endTime: string;
+  title?: string;
+}
 
 const INTENT_TYPE_LABELS: Record<string, string> = {
   exploring_solution: "Exploring Solution",
@@ -167,6 +185,7 @@ const requestMeetingSchema = z.object({
   intentType: z.enum(MEETING_INTENT_TYPES as unknown as [string, ...string[]], {
     required_error: "Please select an intent type",
   }),
+  roomId: z.string().optional(),
 });
 
 type RequestMeetingFormData = z.infer<typeof requestMeetingSchema>;
@@ -589,7 +608,7 @@ function MyMeetingsTab({
   );
 }
 
-function RequestMeetingTab({ eventId, token }: { eventId: string; token: string }) {
+function RequestMeetingTab({ eventId, token, memberId }: { eventId: string; token: string; memberId: string }) {
   const { toast } = useToast();
 
   const { data: attendees, isLoading: attendeesLoading } = useQuery<Attendee[]>({
@@ -603,6 +622,40 @@ function RequestMeetingTab({ eventId, token }: { eventId: string; token: string 
     },
   });
 
+  const { data: allRooms } = useQuery<SessionRoom[]>({
+    queryKey: ["/api/meeting-portal", eventId, "rooms"],
+    queryFn: async () => {
+      const response = await fetch(`/api/meeting-portal/${eventId}/rooms`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error("Failed to load rooms");
+      return response.json();
+    },
+  });
+
+  const { data: roomAssignments } = useQuery<RoomAssignment[]>({
+    queryKey: ["/api/meeting-portal", eventId, "room-assignments", { meetingPortalMemberId: memberId }],
+    queryFn: async () => {
+      // Issue 1 fix: Pass meetingPortalMemberId to filter assignments for the current member
+      const params = new URLSearchParams();
+      params.append("meetingPortalMemberId", memberId);
+      const response = await fetch(`/api/meeting-portal/${eventId}/room-assignments?${params}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error("Failed to load room assignments");
+      return response.json();
+    },
+  });
+
+  const myAssignedRoom = useMemo(() => {
+    if (!roomAssignments || !memberId) return null;
+    const assignment = roomAssignments.find(a => a.meetingPortalMemberId === memberId && a.isPrimary);
+    if (assignment && allRooms) {
+      return allRooms.find(r => r.id === assignment.roomId);
+    }
+    return null;
+  }, [roomAssignments, allRooms, memberId]);
+
   const form = useForm<RequestMeetingFormData>({
     resolver: zodResolver(requestMeetingSchema),
     defaultValues: {
@@ -613,8 +666,51 @@ function RequestMeetingTab({ eventId, token }: { eventId: string; token: string 
       virtualLink: "",
       message: "",
       intentType: undefined,
+      roomId: "",
     },
   });
+
+  const watchedStartTime = useWatch({ control: form.control, name: "startTime" });
+  const watchedEndTime = useWatch({ control: form.control, name: "endTime" });
+  const watchedRoomId = useWatch({ control: form.control, name: "roomId" });
+
+  const { data: availableRooms } = useQuery<SessionRoom[]>({
+    queryKey: ["/api/meeting-portal", eventId, "rooms", "available", watchedStartTime, watchedEndTime],
+    enabled: !!watchedStartTime && !!watchedEndTime && !myAssignedRoom,
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        startTime: new Date(watchedStartTime).toISOString(),
+        endTime: new Date(watchedEndTime).toISOString(),
+      });
+      const response = await fetch(`/api/meeting-portal/${eventId}/rooms/available?${params}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error("Failed to fetch available rooms");
+      return response.json();
+    },
+  });
+
+  const { data: roomConflicts } = useQuery<RoomConflict[]>({
+    queryKey: ["/api/meeting-portal", eventId, "rooms", watchedRoomId, "conflicts", watchedStartTime, watchedEndTime],
+    enabled: !!watchedRoomId && !!watchedStartTime && !!watchedEndTime,
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        startTime: new Date(watchedStartTime).toISOString(),
+        endTime: new Date(watchedEndTime).toISOString(),
+      });
+      const response = await fetch(`/api/meeting-portal/${eventId}/rooms/${watchedRoomId}/conflicts?${params}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error("Failed to check room conflicts");
+      return response.json();
+    },
+  });
+
+  useEffect(() => {
+    if (myAssignedRoom && !form.getValues("roomId")) {
+      form.setValue("roomId", myAssignedRoom.id);
+    }
+  }, [myAssignedRoom, form]);
 
   const requestMutation = useMutation({
     mutationFn: async (data: RequestMeetingFormData) => {
@@ -631,6 +727,7 @@ function RequestMeetingTab({ eventId, token }: { eventId: string; token: string 
           location: data.location || undefined,
           virtualLink: data.virtualLink || undefined,
           message: data.message || undefined,
+          roomId: data.roomId || undefined,
         }),
       });
       if (!response.ok) {
@@ -649,6 +746,7 @@ function RequestMeetingTab({ eventId, token }: { eventId: string; token: string 
         virtualLink: "",
         message: "",
         intentType: undefined,
+        roomId: "",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/meeting-portal", eventId, "meetings"] });
     },
@@ -762,6 +860,74 @@ function RequestMeetingTab({ eventId, token }: { eventId: string; token: string 
                 </FormItem>
               )}
             />
+
+            <FormField
+              control={form.control}
+              name="roomId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Room</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger data-testid="select-room">
+                        <SelectValue placeholder="Select a room" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="">No room selected</SelectItem>
+                      {allRooms?.map((room) => (
+                        <SelectItem key={room.id} value={room.id}>
+                          <div className="flex items-center gap-2">
+                            <DoorOpen className="h-4 w-4" />
+                            {room.name}
+                            {room.capacity && <span className="text-muted-foreground">({room.capacity})</span>}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {myAssignedRoom && myAssignedRoom.id === field.value && (
+                    <p className="text-xs text-muted-foreground">Your assigned room</p>
+                  )}
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {roomConflicts && roomConflicts.length > 0 && (
+              <div className="p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-amber-800 dark:text-amber-200">
+                  <p className="font-medium">Room Conflict Warning</p>
+                  <p className="text-xs mt-1">
+                    This room has {roomConflicts.length} conflicting booking(s) at the selected time.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {!myAssignedRoom && watchedStartTime && watchedEndTime && availableRooms && availableRooms.length > 0 && !watchedRoomId && (
+              <div className="p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md">
+                <p className="text-sm font-medium text-blue-800 dark:text-blue-200 flex items-center gap-2">
+                  <DoorOpen className="h-4 w-4" />
+                  Available Rooms
+                </p>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {availableRooms.slice(0, 3).map((room) => (
+                    <Button
+                      key={room.id}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => form.setValue("roomId", room.id)}
+                      data-testid={`button-select-available-room-${room.id}`}
+                    >
+                      {room.name}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <FormField
               control={form.control}
@@ -980,7 +1146,7 @@ export default function MeetingPortal() {
 
           {canRequestMeetings && (
             <TabsContent value="request">
-              <RequestMeetingTab eventId={memberInfo.eventId} token={token} />
+              <RequestMeetingTab eventId={memberInfo.eventId} token={token} memberId={memberInfo.id} />
             </TabsContent>
           )}
         </Tabs>

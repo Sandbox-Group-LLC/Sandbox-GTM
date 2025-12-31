@@ -269,11 +269,17 @@ import {
   type InsertMeetingPortalMember,
   type MeetingPortalInvitation,
   type InsertMeetingPortalInvitation,
+  roomOpenHours,
+  memberRoomAssignments,
+  type InsertRoomOpenHours,
+  type RoomOpenHours,
+  type InsertMemberRoomAssignment,
+  type MemberRoomAssignment,
 } from "@shared/schema";
 import crypto from "crypto";
 import { encrypt, decrypt } from "./encryption";
 import { db } from "./db";
-import { eq, desc, and, ilike, or, isNull, isNotNull, sql, count, inArray, gt } from "drizzle-orm";
+import { eq, desc, and, ilike, or, isNull, isNotNull, sql, count, inArray, gt, lt, gte, lte, ne } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (MANDATORY for Replit Auth)
@@ -940,6 +946,21 @@ export interface IStorage {
   createMeetingPortalInvitation(data: InsertMeetingPortalInvitation): Promise<MeetingPortalInvitation>;
   updateMeetingPortalInvitation(id: string, data: Partial<InsertMeetingPortalInvitation>): Promise<MeetingPortalInvitation | undefined>;
   deleteMeetingPortalInvitation(id: string): Promise<void>;
+
+  // Room Open Hours operations
+  getRoomOpenHours(roomId: string): Promise<RoomOpenHours[]>;
+  setRoomOpenHours(roomId: string, hours: InsertRoomOpenHours[]): Promise<RoomOpenHours[]>;
+
+  // Member Room Assignment operations
+  getMemberRoomAssignments(organizationId: string, eventId: string): Promise<MemberRoomAssignment[]>;
+  getRoomAssignmentsForMember(organizationId: string, eventId: string, opts: { meetingPortalMemberId?: string; adminUserId?: string }): Promise<MemberRoomAssignment[]>;
+  createMemberRoomAssignment(data: InsertMemberRoomAssignment): Promise<MemberRoomAssignment>;
+  deleteMemberRoomAssignment(id: string): Promise<void>;
+  updateMemberRoomAssignment(id: string, data: Partial<InsertMemberRoomAssignment>): Promise<MemberRoomAssignment | undefined>;
+
+  // Room Conflict Detection & Availability operations
+  findRoomConflicts(roomId: string, startTime: Date, endTime: Date, excludeMeetingId?: string): Promise<AttendeeMeeting[]>;
+  findAvailableRooms(organizationId: string, eventId: string, startTime: Date, endTime: Date, opts?: { adminUserId?: string; meetingPortalMemberId?: string }): Promise<SessionRoom[]>;
 }
 
 // Types for Moments Analytics
@@ -6241,6 +6262,148 @@ export class DatabaseStorage implements IStorage {
   async deleteMeetingPortalInvitation(id: string): Promise<void> {
     await db.delete(meetingPortalInvitations)
       .where(eq(meetingPortalInvitations.id, id));
+  }
+
+  // Room Open Hours operations
+  async getRoomOpenHours(roomId: string): Promise<RoomOpenHours[]> {
+    return db.select()
+      .from(roomOpenHours)
+      .where(eq(roomOpenHours.roomId, roomId))
+      .orderBy(roomOpenHours.dayOfWeek, roomOpenHours.startTime);
+  }
+
+  async setRoomOpenHours(roomId: string, hours: InsertRoomOpenHours[]): Promise<RoomOpenHours[]> {
+    await db.delete(roomOpenHours).where(eq(roomOpenHours.roomId, roomId));
+    
+    if (hours.length === 0) {
+      return [];
+    }
+    
+    const hoursWithRoomId = hours.map(h => ({ ...h, roomId }));
+    return db.insert(roomOpenHours).values(hoursWithRoomId).returning();
+  }
+
+  // Member Room Assignment operations
+  async getMemberRoomAssignments(organizationId: string, eventId: string): Promise<MemberRoomAssignment[]> {
+    return db.select()
+      .from(memberRoomAssignments)
+      .where(and(
+        eq(memberRoomAssignments.organizationId, organizationId),
+        eq(memberRoomAssignments.eventId, eventId)
+      ));
+  }
+
+  async getRoomAssignmentsForMember(
+    organizationId: string,
+    eventId: string,
+    opts: { meetingPortalMemberId?: string; adminUserId?: string }
+  ): Promise<MemberRoomAssignment[]> {
+    const conditions = [
+      eq(memberRoomAssignments.organizationId, organizationId),
+      eq(memberRoomAssignments.eventId, eventId),
+    ];
+
+    if (opts.meetingPortalMemberId) {
+      conditions.push(eq(memberRoomAssignments.meetingPortalMemberId, opts.meetingPortalMemberId));
+    } else if (opts.adminUserId) {
+      conditions.push(eq(memberRoomAssignments.adminUserId, opts.adminUserId));
+    }
+
+    return db.select()
+      .from(memberRoomAssignments)
+      .where(and(...conditions));
+  }
+
+  async createMemberRoomAssignment(data: InsertMemberRoomAssignment): Promise<MemberRoomAssignment> {
+    const [result] = await db.insert(memberRoomAssignments).values(data).returning();
+    return result;
+  }
+
+  async deleteMemberRoomAssignment(id: string): Promise<void> {
+    await db.delete(memberRoomAssignments).where(eq(memberRoomAssignments.id, id));
+  }
+
+  async updateMemberRoomAssignment(id: string, data: Partial<InsertMemberRoomAssignment>): Promise<MemberRoomAssignment | undefined> {
+    const [result] = await db.update(memberRoomAssignments)
+      .set(data)
+      .where(eq(memberRoomAssignments.id, id))
+      .returning();
+    return result;
+  }
+
+  // Room Conflict Detection & Availability operations
+  async findRoomConflicts(roomId: string, startTime: Date, endTime: Date, excludeMeetingId?: string): Promise<AttendeeMeeting[]> {
+    const conditions = [
+      eq(attendeeMeetings.roomId, roomId),
+      isNotNull(attendeeMeetings.startTime),
+      isNotNull(attendeeMeetings.endTime),
+      lt(attendeeMeetings.startTime, endTime),
+      gt(attendeeMeetings.endTime, startTime),
+    ];
+
+    if (excludeMeetingId) {
+      conditions.push(ne(attendeeMeetings.id, excludeMeetingId));
+    }
+
+    return db.select()
+      .from(attendeeMeetings)
+      .where(and(...conditions));
+  }
+
+  async findAvailableRooms(
+    organizationId: string, 
+    eventId: string, 
+    startTime: Date, 
+    endTime: Date,
+    opts?: { adminUserId?: string; meetingPortalMemberId?: string }
+  ): Promise<SessionRoom[]> {
+    const allRooms = await db.select()
+      .from(sessionRooms)
+      .where(and(
+        eq(sessionRooms.organizationId, organizationId),
+        eq(sessionRooms.eventId, eventId)
+      ));
+
+    const dayOfWeek = startTime.getDay();
+    const startTimeStr = startTime.toTimeString().slice(0, 5);
+    const endTimeStr = endTime.toTimeString().slice(0, 5);
+
+    // Issue 3 fix: Get all primary room assignments to filter rooms
+    const allAssignments = await this.getMemberRoomAssignments(organizationId, eventId);
+    const primaryAssignments = allAssignments.filter(a => a.isPrimary);
+
+    const availableRooms: SessionRoom[] = [];
+
+    for (const room of allRooms) {
+      // Issue 3 fix: Check if room is assigned to someone else as primary
+      const roomPrimaryAssignment = primaryAssignments.find(a => a.roomId === room.id);
+      if (roomPrimaryAssignment) {
+        // Room is assigned as primary to someone - check if it's the requesting user
+        const isAssignedToRequester = 
+          (opts?.adminUserId && roomPrimaryAssignment.adminUserId === opts.adminUserId) ||
+          (opts?.meetingPortalMemberId && roomPrimaryAssignment.meetingPortalMemberId === opts.meetingPortalMemberId);
+        
+        // If assigned to someone else, skip this room
+        if (!isAssignedToRequester) continue;
+      }
+      
+      const openHours = await this.getRoomOpenHours(room.id);
+      
+      const dayHours = openHours.filter(h => h.dayOfWeek === dayOfWeek);
+      if (dayHours.length === 0) continue;
+      
+      const isWithinOpenHours = dayHours.some(h => 
+        h.startTime <= startTimeStr && h.endTime >= endTimeStr
+      );
+      if (!isWithinOpenHours) continue;
+
+      const conflicts = await this.findRoomConflicts(room.id, startTime, endTime);
+      if (conflicts.length > 0) continue;
+
+      availableRooms.push(room);
+    }
+
+    return availableRooms;
   }
 }
 

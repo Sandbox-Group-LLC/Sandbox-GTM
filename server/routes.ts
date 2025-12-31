@@ -109,6 +109,8 @@ import {
   insertMeetingPortalMemberSchema,
   insertMeetingPortalInvitationSchema,
   MEETING_PORTAL_PERMISSIONS,
+  insertRoomOpenHoursSchema,
+  insertMemberRoomAssignmentSchema,
 } from "@shared/schema";
 import { createMailchimpProvider } from "./integrations/mailchimp";
 import { decrypt, encrypt } from "./encryption";
@@ -10898,6 +10900,55 @@ ${urls.map(u => `  <url>
       const startTime = typeof req.body.startTime === 'string' ? new Date(req.body.startTime) : req.body.startTime;
       const endTime = typeof req.body.endTime === 'string' ? new Date(req.body.endTime) : req.body.endTime;
       
+      // Validate room if provided
+      const roomId = req.body.roomId;
+      if (roomId) {
+        // Issue 2 fix: Require startTime and endTime when roomId is set
+        if (!startTime || !endTime || isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
+          return res.status(400).json({ message: "startTime and endTime are required when roomId is specified" });
+        }
+        
+        const room = await storage.getSessionRoom(event.organizationId, roomId);
+        if (!room || room.eventId !== eventId) {
+          return res.status(400).json({ message: "Invalid roomId: Room not found for this event" });
+        }
+        
+        // Validate room availability (check for conflicts)
+        if (startTime && endTime) {
+          const conflicts = await storage.findRoomConflicts(roomId, startTime, endTime);
+          if (conflicts.length > 0) {
+            return res.status(400).json({ 
+              message: "Room is not available during this time slot", 
+              conflicts: conflicts.map(c => ({ id: c.id, startTime: c.startTime, endTime: c.endTime }))
+            });
+          }
+          
+          // Validate room is within open hours
+          const openHours = await storage.getRoomOpenHours(roomId);
+          if (openHours.length > 0) {
+            const dayOfWeek = startTime.getDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
+            const meetingStartHHMM = `${String(startTime.getHours()).padStart(2, '0')}:${String(startTime.getMinutes()).padStart(2, '0')}`;
+            const meetingEndHHMM = `${String(endTime.getHours()).padStart(2, '0')}:${String(endTime.getMinutes()).padStart(2, '0')}`;
+            
+            const dayOpenHours = openHours.filter(h => h.dayOfWeek === dayOfWeek);
+            if (dayOpenHours.length === 0) {
+              return res.status(400).json({ message: "Room is not open on the selected day" });
+            }
+            
+            const withinOpenHours = dayOpenHours.some(h => 
+              meetingStartHHMM >= h.startTime && meetingEndHHMM <= h.endTime
+            );
+            
+            if (!withinOpenHours) {
+              return res.status(400).json({ 
+                message: "Meeting time is outside room's open hours",
+                openHours: dayOpenHours.map(h => ({ startTime: h.startTime, endTime: h.endTime }))
+              });
+            }
+          }
+        }
+      }
+      
       const data = insertAttendeeMeetingSchema.parse({
         ...req.body,
         organizationId: event.organizationId,
@@ -10905,6 +10956,7 @@ ${urls.map(u => `  <url>
         requesterId,
         startTime,
         endTime,
+        roomId: roomId || null,
         isInternalMeeting: true,
         internalHostUserId: userId,
       });
@@ -11122,6 +11174,338 @@ ${urls.map(u => `  <url>
     } catch (error: any) {
       logError("Error resending meeting invitation email:", error);
       res.status(500).json({ message: error.message || "Failed to resend meeting invitation email" });
+    }
+  });
+
+  // ============================================
+  // Room Management Routes
+  // ============================================
+
+  // Get open hours for a room
+  app.get("/api/events/:eventId/rooms/:roomId/open-hours", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { eventId, roomId } = req.params;
+      
+      const event = await storage.getEventById(eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === event.organizationId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const room = await storage.getSessionRoom(event.organizationId, roomId);
+      if (!room || room.eventId !== eventId) {
+        return res.status(404).json({ message: "Room not found" });
+      }
+      
+      const openHours = await storage.getRoomOpenHours(roomId);
+      res.json(openHours);
+    } catch (error) {
+      logError("Error fetching room open hours:", error);
+      res.status(500).json({ message: "Failed to fetch room open hours" });
+    }
+  });
+
+  // Set open hours for a room (replaces existing)
+  app.post("/api/events/:eventId/rooms/:roomId/open-hours", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { eventId, roomId } = req.params;
+      
+      const event = await storage.getEventById(eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === event.organizationId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const room = await storage.getSessionRoom(event.organizationId, roomId);
+      if (!room || room.eventId !== eventId) {
+        return res.status(404).json({ message: "Room not found" });
+      }
+      
+      const hoursData = z.array(z.object({
+        dayOfWeek: z.number().min(0).max(6),
+        startTime: z.string().regex(/^\d{2}:\d{2}$/),
+        endTime: z.string().regex(/^\d{2}:\d{2}$/),
+      })).parse(req.body);
+      
+      const openHoursToInsert = hoursData.map(h => ({
+        roomId,
+        dayOfWeek: h.dayOfWeek,
+        startTime: h.startTime,
+        endTime: h.endTime,
+      }));
+      
+      const openHours = await storage.setRoomOpenHours(roomId, openHoursToInsert);
+      res.json(openHours);
+    } catch (error: any) {
+      logError("Error setting room open hours:", error);
+      res.status(400).json({ message: error.message || "Failed to set room open hours" });
+    }
+  });
+
+  // Get all room assignments for an event (or filtered by user/member)
+  app.get("/api/events/:eventId/room-assignments", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { eventId } = req.params;
+      const { adminUserId, meetingPortalMemberId } = req.query;
+      
+      const event = await storage.getEventById(eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === event.organizationId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      // Issue 1 fix: Use getRoomAssignmentsForMember when user/member ID is provided
+      if (adminUserId || meetingPortalMemberId) {
+        const assignments = await storage.getRoomAssignmentsForMember(
+          event.organizationId, 
+          eventId, 
+          { 
+            adminUserId: adminUserId as string | undefined, 
+            meetingPortalMemberId: meetingPortalMemberId as string | undefined 
+          }
+        );
+        return res.json(assignments);
+      }
+      
+      const assignments = await storage.getMemberRoomAssignments(event.organizationId, eventId);
+      res.json(assignments);
+    } catch (error) {
+      logError("Error fetching room assignments:", error);
+      res.status(500).json({ message: "Failed to fetch room assignments" });
+    }
+  });
+
+  // Get assignments for a specific room
+  app.get("/api/events/:eventId/rooms/:roomId/assignments", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { eventId, roomId } = req.params;
+      
+      const event = await storage.getEventById(eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === event.organizationId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const room = await storage.getSessionRoom(event.organizationId, roomId);
+      if (!room || room.eventId !== eventId) {
+        return res.status(404).json({ message: "Room not found" });
+      }
+      
+      const allAssignments = await storage.getMemberRoomAssignments(event.organizationId, eventId);
+      const roomAssignments = allAssignments.filter(a => a.roomId === roomId);
+      res.json(roomAssignments);
+    } catch (error) {
+      logError("Error fetching room assignments:", error);
+      res.status(500).json({ message: "Failed to fetch room assignments" });
+    }
+  });
+
+  // Create a room assignment
+  app.post("/api/events/:eventId/room-assignments", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { eventId } = req.params;
+      
+      const event = await storage.getEventById(eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === event.organizationId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const { roomId, meetingPortalMemberId, adminUserId, isPrimary } = req.body;
+      
+      if (!roomId) {
+        return res.status(400).json({ message: "roomId is required" });
+      }
+      
+      const room = await storage.getSessionRoom(event.organizationId, roomId);
+      if (!room || room.eventId !== eventId) {
+        return res.status(404).json({ message: "Room not found" });
+      }
+      
+      if (!meetingPortalMemberId && !adminUserId) {
+        return res.status(400).json({ message: "Either meetingPortalMemberId or adminUserId is required" });
+      }
+      
+      const data = insertMemberRoomAssignmentSchema.parse({
+        organizationId: event.organizationId,
+        eventId,
+        roomId,
+        meetingPortalMemberId: meetingPortalMemberId || null,
+        adminUserId: adminUserId || null,
+        isPrimary: isPrimary ?? false,
+      });
+      
+      const assignment = await storage.createMemberRoomAssignment(data);
+      res.status(201).json(assignment);
+    } catch (error: any) {
+      logError("Error creating room assignment:", error);
+      res.status(400).json({ message: error.message || "Failed to create room assignment" });
+    }
+  });
+
+  // Delete a room assignment
+  app.delete("/api/events/:eventId/room-assignments/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { eventId, id } = req.params;
+      
+      const event = await storage.getEventById(eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === event.organizationId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      await storage.deleteMemberRoomAssignment(id);
+      res.json({ success: true });
+    } catch (error: any) {
+      logError("Error deleting room assignment:", error);
+      res.status(500).json({ message: error.message || "Failed to delete room assignment" });
+    }
+  });
+
+  // Update a room assignment
+  app.patch("/api/events/:eventId/room-assignments/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { eventId, id } = req.params;
+      
+      const event = await storage.getEventById(eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === event.organizationId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const { isPrimary } = req.body;
+      const assignment = await storage.updateMemberRoomAssignment(id, { isPrimary });
+      
+      if (!assignment) {
+        return res.status(404).json({ message: "Assignment not found" });
+      }
+      
+      res.json(assignment);
+    } catch (error: any) {
+      logError("Error updating room assignment:", error);
+      res.status(400).json({ message: error.message || "Failed to update room assignment" });
+    }
+  });
+
+  // Find available rooms for a time window
+  app.get("/api/events/:eventId/rooms/available", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { eventId } = req.params;
+      const { startTime, endTime } = req.query;
+      
+      if (!startTime || !endTime) {
+        return res.status(400).json({ message: "startTime and endTime query parameters are required" });
+      }
+      
+      const event = await storage.getEventById(eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === event.organizationId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const start = new Date(startTime as string);
+      const end = new Date(endTime as string);
+      
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        return res.status(400).json({ message: "Invalid date format" });
+      }
+      
+      // Issue 3 fix: Pass user context to exclude rooms assigned to others
+      const availableRooms = await storage.findAvailableRooms(event.organizationId, eventId, start, end, { adminUserId: userId });
+      res.json(availableRooms);
+    } catch (error) {
+      logError("Error finding available rooms:", error);
+      res.status(500).json({ message: "Failed to find available rooms" });
+    }
+  });
+
+  // Check if a room has conflicts for a time window
+  app.get("/api/events/:eventId/rooms/:roomId/conflicts", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { eventId, roomId } = req.params;
+      const { startTime, endTime, excludeMeetingId } = req.query;
+      
+      if (!startTime || !endTime) {
+        return res.status(400).json({ message: "startTime and endTime query parameters are required" });
+      }
+      
+      const event = await storage.getEventById(eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === event.organizationId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const room = await storage.getSessionRoom(event.organizationId, roomId);
+      if (!room || room.eventId !== eventId) {
+        return res.status(404).json({ message: "Room not found" });
+      }
+      
+      const start = new Date(startTime as string);
+      const end = new Date(endTime as string);
+      
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        return res.status(400).json({ message: "Invalid date format" });
+      }
+      
+      const conflicts = await storage.findRoomConflicts(roomId, start, end, excludeMeetingId as string | undefined);
+      res.json({ hasConflicts: conflicts.length > 0, conflicts });
+    } catch (error) {
+      logError("Error checking room conflicts:", error);
+      res.status(500).json({ message: "Failed to check room conflicts" });
     }
   });
 
@@ -16858,6 +17242,122 @@ ${urls.map(u => `  <url>
     } catch (error) {
       logError("Error capturing outcome:", error);
       res.status(500).json({ message: "Failed to capture outcome" });
+    }
+  });
+
+  // Protected: Get rooms for event (meeting portal)
+  app.get("/api/meeting-portal/:eventId/rooms", async (req: any, res) => {
+    try {
+      const { member, error } = await authenticateMeetingPortalMember(req);
+      if (error) {
+        return res.status(error.status).json({ message: error.message });
+      }
+
+      const { eventId } = req.params;
+
+      if (member.eventId !== eventId) {
+        return res.status(403).json({ message: "Access denied for this event" });
+      }
+
+      const rooms = await storage.getSessionRooms(member.organizationId, eventId);
+      res.json(rooms);
+    } catch (error) {
+      logError("Error fetching rooms:", error);
+      res.status(500).json({ message: "Failed to fetch rooms" });
+    }
+  });
+
+  // Protected: Get room assignments for event (meeting portal)
+  app.get("/api/meeting-portal/:eventId/room-assignments", async (req: any, res) => {
+    try {
+      const { member, error } = await authenticateMeetingPortalMember(req);
+      if (error) {
+        return res.status(error.status).json({ message: error.message });
+      }
+
+      const { eventId } = req.params;
+      const { meetingPortalMemberId } = req.query;
+
+      if (member.eventId !== eventId) {
+        return res.status(403).json({ message: "Access denied for this event" });
+      }
+
+      // Issue 1 fix: Use getRoomAssignmentsForMember when member ID is provided
+      if (meetingPortalMemberId) {
+        const assignments = await storage.getRoomAssignmentsForMember(
+          member.organizationId, 
+          eventId, 
+          { meetingPortalMemberId: meetingPortalMemberId as string }
+        );
+        return res.json(assignments);
+      }
+
+      const assignments = await storage.getMemberRoomAssignments(member.organizationId, eventId);
+      res.json(assignments);
+    } catch (error) {
+      logError("Error fetching room assignments:", error);
+      res.status(500).json({ message: "Failed to fetch room assignments" });
+    }
+  });
+
+  // Protected: Get available rooms for time slot (meeting portal)
+  app.get("/api/meeting-portal/:eventId/rooms/available", async (req: any, res) => {
+    try {
+      const { member, error } = await authenticateMeetingPortalMember(req);
+      if (error) {
+        return res.status(error.status).json({ message: error.message });
+      }
+
+      const { eventId } = req.params;
+      const { startTime, endTime } = req.query;
+
+      if (member.eventId !== eventId) {
+        return res.status(403).json({ message: "Access denied for this event" });
+      }
+
+      if (!startTime || !endTime) {
+        return res.status(400).json({ message: "startTime and endTime are required" });
+      }
+
+      const start = new Date(startTime as string);
+      const end = new Date(endTime as string);
+
+      // Issue 3 fix: Pass member context to exclude rooms assigned to others
+      const availableRooms = await storage.findAvailableRooms(member.organizationId, eventId, start, end, { meetingPortalMemberId: member.id });
+      res.json(availableRooms);
+    } catch (error) {
+      logError("Error fetching available rooms:", error);
+      res.status(500).json({ message: "Failed to fetch available rooms" });
+    }
+  });
+
+  // Protected: Check room conflicts (meeting portal)
+  app.get("/api/meeting-portal/:eventId/rooms/:roomId/conflicts", async (req: any, res) => {
+    try {
+      const { member, error } = await authenticateMeetingPortalMember(req);
+      if (error) {
+        return res.status(error.status).json({ message: error.message });
+      }
+
+      const { eventId, roomId } = req.params;
+      const { startTime, endTime } = req.query;
+
+      if (member.eventId !== eventId) {
+        return res.status(403).json({ message: "Access denied for this event" });
+      }
+
+      if (!startTime || !endTime) {
+        return res.status(400).json({ message: "startTime and endTime are required" });
+      }
+
+      const start = new Date(startTime as string);
+      const end = new Date(endTime as string);
+
+      const conflicts = await storage.findRoomConflicts(roomId, start, end);
+      res.json(conflicts);
+    } catch (error) {
+      logError("Error checking room conflicts:", error);
+      res.status(500).json({ message: "Failed to check room conflicts" });
     }
   });
 

@@ -41,8 +41,9 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Plus, DoorOpen, Trash2, Pencil, Search } from "lucide-react";
+import { Plus, DoorOpen, Trash2, Pencil, Search, Settings } from "lucide-react";
 import { EventSelectField } from "@/components/event-select-field";
+import { RoomSettingsDialog } from "@/components/events/RoomSettingsDialog";
 import type { SessionRoom, Event } from "@shared/schema";
 
 const roomFormSchema = z.object({
@@ -59,6 +60,8 @@ export default function Rooms() {
   const [editingRoom, setEditingRoom] = useState<SessionRoom | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterEventId, setFilterEventId] = useState<string>("all");
+  const [settingsRoom, setSettingsRoom] = useState<SessionRoom | null>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const { data: rooms = [], isLoading } = useQuery<SessionRoom[]>({
     queryKey: ["/api/session-rooms"],
@@ -176,6 +179,11 @@ export default function Rooms() {
     setIsDialogOpen(true);
   };
 
+  const handleOpenSettings = (room: SessionRoom) => {
+    setSettingsRoom(room);
+    setIsSettingsOpen(true);
+  };
+
   const filteredRooms = rooms.filter((room) => {
     if (filterEventId && filterEventId !== "all" && room.eventId !== filterEventId) {
       return false;
@@ -271,6 +279,14 @@ export default function Rooms() {
                             <Button
                               variant="ghost"
                               size="icon"
+                              onClick={() => handleOpenSettings(room)}
+                              data-testid={`button-settings-room-${room.id}`}
+                            >
+                              <Settings className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
                               onClick={() => handleEdit(room)}
                               data-testid={`button-edit-room-${room.id}`}
                             >
@@ -345,6 +361,13 @@ export default function Rooms() {
           </Form>
         </DialogContent>
       </Dialog>
+
+      <RoomSettingsDialog
+        open={isSettingsOpen}
+        onOpenChange={setIsSettingsOpen}
+        room={settingsRoom}
+        eventId={settingsRoom?.eventId || ""}
+      />
     </div>
   );
 }

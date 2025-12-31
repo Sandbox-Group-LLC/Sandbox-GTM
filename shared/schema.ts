@@ -905,9 +905,39 @@ export const sessionRooms = pgTable("session_rooms", {
   location: varchar("location", { length: 255 }),
   capacity: integer("capacity"),
   amenities: text("amenities").array(),
+  roomType: varchar("room_type", { length: 50 }), // 'meeting', 'conference', 'booth', 'lounge', etc.
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+// Room Open Hours - defines when a room is available for booking
+export const roomOpenHours = pgTable("room_open_hours", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  roomId: varchar("room_id").references(() => sessionRooms.id).notNull(),
+  dayOfWeek: integer("day_of_week").notNull(), // 0=Sunday, 1=Monday, ..., 6=Saturday
+  startTime: varchar("start_time", { length: 5 }).notNull(), // HH:MM format (e.g., "09:00")
+  endTime: varchar("end_time", { length: 5 }).notNull(), // HH:MM format (e.g., "17:00")
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("room_open_hours_room_idx").on(table.roomId),
+]);
+
+// Member Room Assignments - assigns rooms to team members (portal members or admin users)
+export const memberRoomAssignments = pgTable("member_room_assignments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id).notNull(),
+  roomId: varchar("room_id").references(() => sessionRooms.id).notNull(),
+  // Either a portal member OR an admin user is assigned (one must be set)
+  meetingPortalMemberId: varchar("meeting_portal_member_id").references(() => meetingPortalMembers.id),
+  adminUserId: varchar("admin_user_id").references(() => users.id),
+  isPrimary: boolean("is_primary").default(false), // Primary room assignment for this member
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("member_room_assignments_room_idx").on(table.roomId),
+  index("member_room_assignments_portal_member_idx").on(table.meetingPortalMemberId),
+  index("member_room_assignments_admin_idx").on(table.adminUserId),
+]);
 
 // Session Topics table - topics that can be tagged on sessions for recommendations
 export const sessionTopics = pgTable("session_topics", {
@@ -2304,6 +2334,9 @@ export const attendeeMeetings = pgTable("attendee_meetings", {
   // Meeting portal member who created this meeting (for non-admin employees)
   meetingPortalMemberId: varchar("meeting_portal_member_id"),
   
+  // Room assignment for this meeting
+  roomId: varchar("room_id").references(() => sessionRooms.id),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -2313,6 +2346,7 @@ export const attendeeMeetings = pgTable("attendee_meetings", {
   index("attendee_meetings_intent_idx").on(table.intentType),
   index("attendee_meetings_outcome_idx").on(table.outcomeType),
   index("attendee_meetings_portal_member_idx").on(table.meetingPortalMemberId),
+  index("attendee_meetings_room_idx").on(table.roomId),
 ]);
 
 // Meeting Portal Members - non-admin employees who can request meetings via portal
@@ -2444,6 +2478,8 @@ export const insertSessionSchema = createInsertSchema(eventSessions).omit({ id: 
 export const insertSessionSpeakerSchema = createInsertSchema(sessionSpeakers).omit({ id: true });
 export const insertSessionTrackSchema = createInsertSchema(sessionTracks).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSessionRoomSchema = createInsertSchema(sessionRooms).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertRoomOpenHoursSchema = createInsertSchema(roomOpenHours).omit({ id: true, createdAt: true });
+export const insertMemberRoomAssignmentSchema = createInsertSchema(memberRoomAssignments).omit({ id: true, createdAt: true });
 export const insertSessionTopicSchema = createInsertSchema(sessionTopics).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertAttendeeSavedSessionSchema = createInsertSchema(attendeeSavedSessions).omit({ id: true, createdAt: true });
 export const insertAttendeeInterestsSchema = createInsertSchema(attendeeInterests).omit({ id: true, updatedAt: true });
@@ -2559,6 +2595,10 @@ export type InsertSessionTrack = z.infer<typeof insertSessionTrackSchema>;
 export type SessionTrack = typeof sessionTracks.$inferSelect;
 export type InsertSessionRoom = z.infer<typeof insertSessionRoomSchema>;
 export type SessionRoom = typeof sessionRooms.$inferSelect;
+export type InsertRoomOpenHours = z.infer<typeof insertRoomOpenHoursSchema>;
+export type RoomOpenHours = typeof roomOpenHours.$inferSelect;
+export type InsertMemberRoomAssignment = z.infer<typeof insertMemberRoomAssignmentSchema>;
+export type MemberRoomAssignment = typeof memberRoomAssignments.$inferSelect;
 export type InsertSessionTopic = z.infer<typeof insertSessionTopicSchema>;
 export type SessionTopic = typeof sessionTopics.$inferSelect;
 export type InsertAttendeeSavedSession = z.infer<typeof insertAttendeeSavedSessionSchema>;

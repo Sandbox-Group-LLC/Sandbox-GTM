@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
@@ -50,6 +50,8 @@ import {
   ClipboardCheck,
   Mail,
   UserCog,
+  AlertTriangle,
+  DoorOpen,
 } from "lucide-react";
 import { MeetingPortalManagement } from "@/components/events/MeetingPortalManagement";
 import { format } from "date-fns";
@@ -58,6 +60,7 @@ import type {
   Event,
   Attendee,
   AttendeeMeeting,
+  SessionRoom,
 } from "@shared/schema";
 import {
   MEETING_INTENT_TYPES,
@@ -65,6 +68,21 @@ import {
   DEAL_RANGE_TYPES,
   TIMELINE_TYPES,
 } from "@shared/schema";
+
+interface RoomAssignment {
+  id: string;
+  roomId: string;
+  userId?: string | null;
+  meetingPortalMemberId?: string | null;
+  isPrimary: boolean;
+}
+
+interface RoomConflict {
+  id: string;
+  startTime: string;
+  endTime: string;
+  title?: string;
+}
 
 const INTENT_TYPE_LABELS: Record<string, string> = {
   exploring_solution: "Exploring Solutions",
@@ -167,6 +185,7 @@ export default function Meetings() {
     intentType: "",
     startTime: "",
     message: "",
+    roomId: "",
   });
 
   const [outcomeData, setOutcomeData] = useState({
@@ -215,10 +234,86 @@ export default function Meetings() {
     },
   });
 
+  const { data: allRooms } = useQuery<SessionRoom[]>({
+    queryKey: ["/api/session-rooms"],
+    enabled: selectedEventId !== "all",
+  });
+
+  const eventRooms = useMemo(() => {
+    return allRooms?.filter(room => room.eventId === selectedEventId) || [];
+  }, [allRooms, selectedEventId]);
+
+  const { data: authUser } = useQuery<{ id: string } | null>({
+    queryKey: ["/api/auth/user"],
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: roomAssignments } = useQuery<RoomAssignment[]>({
+    queryKey: ["/api/events", selectedEventId, "room-assignments", { adminUserId: authUser?.id }],
+    enabled: selectedEventId !== "all" && !!authUser?.id,
+    queryFn: async () => {
+      // Issue 1 fix: Pass adminUserId to filter assignments for the current user
+      const params = new URLSearchParams();
+      if (authUser?.id) params.append("adminUserId", authUser.id);
+      const res = await fetch(`/api/events/${selectedEventId}/room-assignments?${params}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch room assignments");
+      return res.json();
+    },
+  });
+
+  const myAssignedRoom = useMemo(() => {
+    if (!roomAssignments || !organization) return null;
+    const assignment = roomAssignments.find(a => a.userId && a.isPrimary);
+    if (assignment) {
+      return eventRooms.find(r => r.id === assignment.roomId);
+    }
+    return null;
+  }, [roomAssignments, eventRooms, organization]);
+
+  const endTime = useMemo(() => {
+    if (!newMeetingData.startTime) return "";
+    return new Date(new Date(newMeetingData.startTime).getTime() + 30 * 60 * 1000).toISOString();
+  }, [newMeetingData.startTime]);
+
+  const { data: availableRooms } = useQuery<SessionRoom[]>({
+    queryKey: ["/api/events", selectedEventId, "rooms", "available", newMeetingData.startTime, endTime],
+    enabled: selectedEventId !== "all" && !!newMeetingData.startTime && !myAssignedRoom,
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        startTime: new Date(newMeetingData.startTime).toISOString(),
+        endTime: endTime,
+      });
+      const res = await fetch(`/api/events/${selectedEventId}/rooms/available?${params}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch available rooms");
+      return res.json();
+    },
+  });
+
+  const { data: roomConflicts } = useQuery<RoomConflict[]>({
+    queryKey: ["/api/events", selectedEventId, "rooms", newMeetingData.roomId, "conflicts", newMeetingData.startTime, endTime],
+    enabled: selectedEventId !== "all" && !!newMeetingData.roomId && !!newMeetingData.startTime,
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        startTime: new Date(newMeetingData.startTime).toISOString(),
+        endTime: endTime,
+      });
+      const res = await fetch(`/api/events/${selectedEventId}/rooms/${newMeetingData.roomId}/conflicts?${params}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to check room conflicts");
+      return res.json();
+    },
+  });
+
+  useEffect(() => {
+    if (createDialogOpen && myAssignedRoom && !newMeetingData.roomId) {
+      setNewMeetingData(prev => ({ ...prev, roomId: myAssignedRoom.id }));
+    }
+  }, [createDialogOpen, myAssignedRoom, newMeetingData.roomId]);
+
   const createMeetingMutation = useMutation({
     mutationFn: async (data: typeof newMeetingData) => {
       const res = await apiRequest("POST", `/api/events/${selectedEventId}/meetings`, {
         ...data,
+        roomId: data.roomId || undefined,
         isInternalMeeting: true,
         startTime: new Date(data.startTime).toISOString(),
         endTime: new Date(new Date(data.startTime).getTime() + 30 * 60 * 1000).toISOString(),
@@ -228,7 +323,7 @@ export default function Meetings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/events", selectedEventId, "meetings"] });
       setCreateDialogOpen(false);
-      setNewMeetingData({ inviteeId: "", intentType: "", startTime: "", message: "" });
+      setNewMeetingData({ inviteeId: "", intentType: "", startTime: "", message: "", roomId: "" });
       toast({ title: "Meeting created", description: "The internal meeting has been scheduled." });
     },
     onError: () => {
@@ -464,6 +559,65 @@ export default function Meetings() {
                         </PopoverContent>
                       </Popover>
                     </div>
+                    <div className="space-y-2">
+                      <Label>Room (optional)</Label>
+                      <Select
+                        value={newMeetingData.roomId}
+                        onValueChange={(v) => setNewMeetingData({ ...newMeetingData, roomId: v })}
+                      >
+                        <SelectTrigger data-testid="select-room">
+                          <SelectValue placeholder="Select a room" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">No room selected</SelectItem>
+                          {eventRooms.map((room) => (
+                            <SelectItem key={room.id} value={room.id}>
+                              <div className="flex items-center gap-2">
+                                <DoorOpen className="h-4 w-4" />
+                                {room.name}
+                                {room.capacity && <span className="text-muted-foreground">({room.capacity})</span>}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {myAssignedRoom && myAssignedRoom.id === newMeetingData.roomId && (
+                        <p className="text-xs text-muted-foreground">Your assigned room</p>
+                      )}
+                    </div>
+                    {roomConflicts && roomConflicts.length > 0 && (
+                      <div className="p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md flex items-start gap-2">
+                        <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                        <div className="text-sm text-amber-800 dark:text-amber-200">
+                          <p className="font-medium">Room Conflict Warning</p>
+                          <p className="text-xs mt-1">
+                            This room has {roomConflicts.length} conflicting booking(s) at the selected time.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    {!myAssignedRoom && newMeetingData.startTime && availableRooms && availableRooms.length > 0 && !newMeetingData.roomId && (
+                      <div className="p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md">
+                        <p className="text-sm font-medium text-blue-800 dark:text-blue-200 flex items-center gap-2">
+                          <DoorOpen className="h-4 w-4" />
+                          Available Rooms
+                        </p>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {availableRooms.slice(0, 3).map((room) => (
+                            <Button
+                              key={room.id}
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setNewMeetingData({ ...newMeetingData, roomId: room.id })}
+                              data-testid={`button-select-available-room-${room.id}`}
+                            >
+                              {room.name}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <div className="space-y-2">
                       <Label>Message (optional)</Label>
                       <Textarea
