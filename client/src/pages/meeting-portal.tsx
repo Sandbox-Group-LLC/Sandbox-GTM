@@ -433,7 +433,7 @@ function MyMeetingsTab({
                   </div>
                 )}
 
-                {canCaptureOutcome && (meeting.status === "confirmed" || meeting.status === "completed") && (
+                {canCaptureOutcome && (meeting.status === "pending" || meeting.status === "confirmed" || meeting.status === "completed") && (
                   <div className="pt-2">
                     <Button
                       variant="outline"
