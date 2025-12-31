@@ -1185,3 +1185,95 @@ export async function sendMeetingInvitationEmail(params: {
     return { success: false, error: String(err) };
   }
 }
+
+// Send meeting portal invitation email to non-admin employees
+export async function sendMeetingPortalInvitationEmail(params: {
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  organizationName: string;
+  eventName: string;
+  inviterName: string;
+  inviteCode: string;
+  permissions: string[];
+  customDomain?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const { email, firstName, lastName, organizationName, eventName, inviterName, inviteCode, permissions, customDomain } = params;
+  
+  if (!resend) {
+    logWarn('Resend not configured - skipping meeting portal invitation email', 'Email');
+    return { success: false, error: 'Email service not configured' };
+  }
+
+  // Use custom domain if provided, otherwise fall back to default
+  const baseUrl = customDomain ? `https://${customDomain.replace(/^https?:\/\//, '')}` : getBaseUrl();
+  const acceptUrl = `${baseUrl}/meeting-portal/accept/${encodeURIComponent(inviteCode)}`;
+
+  const permissionLabels: Record<string, string> = {
+    request_meetings: 'Request Meetings',
+    view_attendees: 'View Attendees',
+    capture_outcomes: 'Capture Outcomes',
+  };
+
+  const permissionList = permissions
+    .map(p => permissionLabels[p] || p)
+    .join(', ');
+
+  const recipientName = firstName && lastName ? `${firstName} ${lastName}` : firstName || 'there';
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: email,
+      subject: `You're invited to the Meetings Portal for ${eventName}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #333; margin-bottom: 20px;">Meetings Portal Invitation</h2>
+          
+          <p style="color: #555; font-size: 16px; line-height: 1.6;">
+            Hello ${recipientName},
+          </p>
+          
+          <p style="color: #555; font-size: 16px; line-height: 1.6;">
+            ${inviterName} has invited you to access the Meetings Portal for <strong>${eventName}</strong> by <strong>${organizationName}</strong>.
+          </p>
+          
+          <p style="color: #555; font-size: 16px; line-height: 1.6;">
+            The Meetings Portal allows you to schedule one-on-one meetings with event attendees and capture meeting outcomes.
+          </p>
+          
+          <div style="background-color: #f8f9fa; border-radius: 8px; padding: 20px; margin: 20px 0;">
+            <h3 style="color: #333; margin: 0 0 10px 0;">Your Portal Access</h3>
+            <p style="color: #555; margin: 5px 0;"><strong>Event:</strong> ${eventName}</p>
+            <p style="color: #555; margin: 5px 0;"><strong>Organization:</strong> ${organizationName}</p>
+            <p style="color: #555; margin: 5px 0;"><strong>Permissions:</strong> ${permissionList || 'None assigned'}</p>
+          </div>
+          
+          <p style="color: #555; font-size: 16px;">Click the button below to accept your invitation and access the portal:</p>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${acceptUrl}" style="display: inline-block; background-color: #0066cc; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px;">Accept Invitation</a>
+          </div>
+          
+          <p style="color: #999; font-size: 14px;">Or copy this link into your browser:</p>
+          <p style="color: #666; font-size: 12px; word-break: break-all; background: #f5f5f5; padding: 10px; border-radius: 4px;">${acceptUrl}</p>
+          
+          <p style="color: #999; font-size: 12px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+            This invitation expires in 7 days. If you did not expect this invitation, you can safely ignore this email.
+          </p>
+        </div>
+      `,
+    });
+
+    if (error) {
+      logError(`Failed to send meeting portal invitation email: ${error.message || 'Unknown error'}`, 'Email');
+      return { success: false, error: error.message || 'Unknown error' };
+    }
+
+    logInfo(`Meeting portal invitation email sent to ${email}: ${data?.id}`, 'Email');
+    return { success: true };
+  } catch (err) {
+    logError(`Error sending meeting portal invitation email: ${err}`, 'Email');
+    return { success: false, error: String(err) };
+  }
+}

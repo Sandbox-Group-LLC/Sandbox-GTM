@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { sendNewOrganizationAlert, sendCampaignEmails, sendTestEmail, validateTrackingToken, validateMeetingResponseToken, verifyResendWebhookSignature, isValidRedirectUrl, sendReviewerNotificationEmail, sendSubmissionAcceptanceEmail, sendTeamInvitationEmail, sendNewLeadNotification, sendSponsorTaskRejectionEmail, sendMeetingInvitationEmail } from "./email";
+import { sendNewOrganizationAlert, sendCampaignEmails, sendTestEmail, validateTrackingToken, validateMeetingResponseToken, verifyResendWebhookSignature, isValidRedirectUrl, sendReviewerNotificationEmail, sendSubmissionAcceptanceEmail, sendTeamInvitationEmail, sendNewLeadNotification, sendSponsorTaskRejectionEmail, sendMeetingInvitationEmail, sendMeetingPortalInvitationEmail } from "./email";
 import { createPaymentIntent, getPaymentIntent, calculateFinalPrice } from "./stripe";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
@@ -16117,12 +16117,19 @@ ${urls.map(u => `  <url>
     try {
       const { eventId } = req.params;
       const organizationId = req.query.organizationId;
+      const userId = req.user.claims.sub;
 
       if (!organizationId) {
         return res.status(400).json({ message: "Organization ID required" });
       }
 
-      const event = await storage.getEvent(organizationId, eventId);
+      // Verify user is an owner or admin of the organization
+      const orgMember = await storage.getOrganizationMember(organizationId as string, userId);
+      if (!orgMember || !['owner', 'admin'].includes(orgMember.role || '')) {
+        return res.status(403).json({ message: "Access denied - must be organization owner or admin" });
+      }
+
+      const event = await storage.getEvent(organizationId as string, eventId);
       if (!event) {
         return res.status(404).json({ message: "Event not found" });
       }
@@ -16140,9 +16147,16 @@ ${urls.map(u => `  <url>
     try {
       const { eventId } = req.params;
       const { organizationId, email, firstName, lastName, permissions } = req.body;
+      const userId = req.user.claims.sub;
 
       if (!organizationId || !email) {
         return res.status(400).json({ message: "Organization ID and email required" });
+      }
+
+      // Verify user is an owner or admin of the organization
+      const orgMember = await storage.getOrganizationMember(organizationId, userId);
+      if (!orgMember || !['owner', 'admin'].includes(orgMember.role || '')) {
+        return res.status(403).json({ message: "Access denied - must be organization owner or admin" });
       }
 
       const event = await storage.getEvent(organizationId, eventId);
@@ -16183,28 +16197,24 @@ ${urls.map(u => `  <url>
         expiresAt,
       });
 
-      // Send invitation email
-      const protocol = req.headers["x-forwarded-proto"] || "https";
-      const host = req.headers.host;
-      const baseUrl = `${protocol}://${host}`;
-      const acceptUrl = `${baseUrl}/meeting-portal/accept-invite?code=${inviteCode}`;
+      // Get organization and inviter details for the email
+      const organization = await storage.getOrganization(organizationId);
+      const inviterUser = await storage.getUser(req.user.claims.sub);
+      const inviterName = inviterUser 
+        ? `${inviterUser.firstName || ''} ${inviterUser.lastName || ''}`.trim() || inviterUser.email || 'An admin'
+        : 'An admin';
 
-      const emailContent = `
-        <p>You have been invited to join the Meeting Portal for <strong>${event.name}</strong>.</p>
-        <p>Click the link below to set up your account and start requesting meetings:</p>
-        <p><a href="${acceptUrl}" style="display: inline-block; padding: 12px 24px; background-color: #3b82f6; color: white; text-decoration: none; border-radius: 6px;">Accept Invitation</a></p>
-        <p>This invitation expires on ${expiresAt.toLocaleDateString()}.</p>
-        <p>If you did not expect this invitation, you can safely ignore this email.</p>
-      `;
-
-      await sendCampaignEmails({
-        subject: `You've been invited to the Meeting Portal for ${event.name}`,
-        content: emailContent,
-        recipients: [{ email, firstName: firstName || undefined, lastName: lastName || undefined }],
-        eventContext: { name: event.name },
-        organizationContext: { name: event.name },
-        organizationId,
-        enableTracking: false,
+      // Send invitation email using the dedicated function
+      await sendMeetingPortalInvitationEmail({
+        email,
+        firstName: firstName || undefined,
+        lastName: lastName || undefined,
+        organizationName: organization?.name || 'Your Organization',
+        eventName: event.name,
+        inviterName,
+        inviteCode,
+        permissions: permissions || [MEETING_PORTAL_PERMISSIONS.VIEW_ATTENDEES, MEETING_PORTAL_PERMISSIONS.REQUEST_MEETINGS],
+        customDomain: organization?.customDomain || undefined,
       });
 
       res.status(201).json(invitation);
@@ -16219,9 +16229,16 @@ ${urls.map(u => `  <url>
     try {
       const { eventId, memberId } = req.params;
       const { organizationId, permissions, isActive } = req.body;
+      const userId = req.user.claims.sub;
 
       if (!organizationId) {
         return res.status(400).json({ message: "Organization ID required" });
+      }
+
+      // Verify user is an owner or admin of the organization
+      const orgMember = await storage.getOrganizationMember(organizationId, userId);
+      if (!orgMember || !['owner', 'admin'].includes(orgMember.role || '')) {
+        return res.status(403).json({ message: "Access denied - must be organization owner or admin" });
       }
 
       const member = await storage.getMeetingPortalMember(memberId);
@@ -16246,9 +16263,16 @@ ${urls.map(u => `  <url>
     try {
       const { eventId, memberId } = req.params;
       const organizationId = req.query.organizationId;
+      const userId = req.user.claims.sub;
 
       if (!organizationId) {
         return res.status(400).json({ message: "Organization ID required" });
+      }
+
+      // Verify user is an owner or admin of the organization
+      const orgMember = await storage.getOrganizationMember(organizationId as string, userId);
+      if (!orgMember || !['owner', 'admin'].includes(orgMember.role || '')) {
+        return res.status(403).json({ message: "Access denied - must be organization owner or admin" });
       }
 
       const member = await storage.getMeetingPortalMember(memberId);
@@ -16269,9 +16293,16 @@ ${urls.map(u => `  <url>
     try {
       const { eventId } = req.params;
       const organizationId = req.query.organizationId;
+      const userId = req.user.claims.sub;
 
       if (!organizationId) {
         return res.status(400).json({ message: "Organization ID required" });
+      }
+
+      // Verify user is an owner or admin of the organization
+      const orgMember = await storage.getOrganizationMember(organizationId as string, userId);
+      if (!orgMember || !['owner', 'admin'].includes(orgMember.role || '')) {
+        return res.status(403).json({ message: "Access denied - must be organization owner or admin" });
       }
 
       const invitations = await storage.getMeetingPortalInvitationsByEvent(eventId);
@@ -16287,9 +16318,16 @@ ${urls.map(u => `  <url>
     try {
       const { eventId, inviteId } = req.params;
       const organizationId = req.query.organizationId;
+      const userId = req.user.claims.sub;
 
       if (!organizationId) {
         return res.status(400).json({ message: "Organization ID required" });
+      }
+
+      // Verify user is an owner or admin of the organization
+      const orgMember = await storage.getOrganizationMember(organizationId as string, userId);
+      if (!orgMember || !['owner', 'admin'].includes(orgMember.role || '')) {
+        return res.status(403).json({ message: "Access denied - must be organization owner or admin" });
       }
 
       await storage.updateMeetingPortalInvitation(inviteId, { status: 'revoked' });
