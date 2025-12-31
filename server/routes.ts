@@ -106,6 +106,9 @@ import {
   MEETING_OUTCOME_TYPES,
   DEAL_RANGE_TYPES,
   TIMELINE_TYPES,
+  insertMeetingPortalMemberSchema,
+  insertMeetingPortalInvitationSchema,
+  MEETING_PORTAL_PERMISSIONS,
 } from "@shared/schema";
 import { createMailchimpProvider } from "./integrations/mailchimp";
 import { decrypt, encrypt } from "./encryption";
@@ -16073,6 +16076,616 @@ ${urls.map(u => `  <url>
   
   // Also run once at startup after a short delay
   setTimeout(processScheduledCampaigns, 5000);
+
+  // ========================================
+  // Meeting Portal Routes
+  // ========================================
+
+  // Helper function to authenticate meeting portal members
+  async function authenticateMeetingPortalMember(req: any): Promise<{
+    member: any | null;
+    error: { status: number; message: string } | null;
+  }> {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return { member: null, error: { status: 401, message: 'Authorization token required' } };
+    }
+
+    const token = authHeader.substring(7);
+    const member = await storage.getMeetingPortalMemberByToken(token);
+
+    if (!member) {
+      return { member: null, error: { status: 401, message: 'Invalid or expired token' } };
+    }
+
+    if (member.portalTokenExpiresAt && new Date(member.portalTokenExpiresAt) < new Date()) {
+      return { member: null, error: { status: 401, message: 'Token has expired' } };
+    }
+
+    if (!member.isActive) {
+      return { member: null, error: { status: 403, message: 'Portal access has been deactivated' } };
+    }
+
+    // Update last login time
+    await storage.updateMeetingPortalMember(member.id, { lastLoginAt: new Date() } as any);
+
+    return { member, error: null };
+  }
+
+  // Admin: List all portal members for an event
+  app.get("/api/events/:eventId/meeting-portal/members", isAuthenticated, async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+      const organizationId = req.query.organizationId;
+
+      if (!organizationId) {
+        return res.status(400).json({ message: "Organization ID required" });
+      }
+
+      const event = await storage.getEvent(organizationId, eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+
+      const members = await storage.getMeetingPortalMembersByEvent(eventId);
+      res.json(members);
+    } catch (error) {
+      logError("Error fetching meeting portal members:", error);
+      res.status(500).json({ message: "Failed to fetch portal members" });
+    }
+  });
+
+  // Admin: Create invitation and send email
+  app.post("/api/events/:eventId/meeting-portal/members/invite", isAuthenticated, async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+      const { organizationId, email, firstName, lastName, permissions } = req.body;
+
+      if (!organizationId || !email) {
+        return res.status(400).json({ message: "Organization ID and email required" });
+      }
+
+      const event = await storage.getEvent(organizationId, eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+
+      // Check if member already exists
+      const existingMember = await storage.getMeetingPortalMemberByEmail(eventId, email);
+      if (existingMember) {
+        return res.status(400).json({ message: "Member with this email already exists" });
+      }
+
+      // Check if pending invitation exists
+      const existingInvitations = await storage.getMeetingPortalInvitationsByEvent(eventId);
+      const pendingInvite = existingInvitations.find(
+        inv => inv.email.toLowerCase() === email.toLowerCase() && inv.status === 'pending'
+      );
+      if (pendingInvite) {
+        return res.status(400).json({ message: "Pending invitation already exists for this email" });
+      }
+
+      // Generate invite code and create invitation
+      const inviteCode = randomBytes(32).toString('hex');
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiry
+
+      const invitation = await storage.createMeetingPortalInvitation({
+        organizationId,
+        eventId,
+        email,
+        firstName: firstName || null,
+        lastName: lastName || null,
+        permissions: permissions || [MEETING_PORTAL_PERMISSIONS.VIEW_ATTENDEES, MEETING_PORTAL_PERMISSIONS.REQUEST_MEETINGS],
+        inviteCode,
+        invitedBy: req.user.claims.sub,
+        status: 'pending',
+        expiresAt,
+      });
+
+      // Send invitation email
+      const protocol = req.headers["x-forwarded-proto"] || "https";
+      const host = req.headers.host;
+      const baseUrl = `${protocol}://${host}`;
+      const acceptUrl = `${baseUrl}/meeting-portal/accept-invite?code=${inviteCode}`;
+
+      const emailContent = `
+        <p>You have been invited to join the Meeting Portal for <strong>${event.name}</strong>.</p>
+        <p>Click the link below to set up your account and start requesting meetings:</p>
+        <p><a href="${acceptUrl}" style="display: inline-block; padding: 12px 24px; background-color: #3b82f6; color: white; text-decoration: none; border-radius: 6px;">Accept Invitation</a></p>
+        <p>This invitation expires on ${expiresAt.toLocaleDateString()}.</p>
+        <p>If you did not expect this invitation, you can safely ignore this email.</p>
+      `;
+
+      await sendCampaignEmails({
+        subject: `You've been invited to the Meeting Portal for ${event.name}`,
+        content: emailContent,
+        recipients: [{ email, firstName: firstName || undefined, lastName: lastName || undefined }],
+        eventContext: { name: event.name },
+        organizationContext: { name: event.name },
+        organizationId,
+        enableTracking: false,
+      });
+
+      res.status(201).json(invitation);
+    } catch (error) {
+      logError("Error creating meeting portal invitation:", error);
+      res.status(500).json({ message: "Failed to create invitation" });
+    }
+  });
+
+  // Admin: Update portal member
+  app.patch("/api/events/:eventId/meeting-portal/members/:memberId", isAuthenticated, async (req: any, res) => {
+    try {
+      const { eventId, memberId } = req.params;
+      const { organizationId, permissions, isActive } = req.body;
+
+      if (!organizationId) {
+        return res.status(400).json({ message: "Organization ID required" });
+      }
+
+      const member = await storage.getMeetingPortalMember(memberId);
+      if (!member || member.eventId !== eventId) {
+        return res.status(404).json({ message: "Member not found" });
+      }
+
+      const updateData: any = {};
+      if (permissions !== undefined) updateData.permissions = permissions;
+      if (isActive !== undefined) updateData.isActive = isActive;
+
+      const updated = await storage.updateMeetingPortalMember(memberId, updateData);
+      res.json(updated);
+    } catch (error) {
+      logError("Error updating meeting portal member:", error);
+      res.status(500).json({ message: "Failed to update member" });
+    }
+  });
+
+  // Admin: Delete portal member
+  app.delete("/api/events/:eventId/meeting-portal/members/:memberId", isAuthenticated, async (req: any, res) => {
+    try {
+      const { eventId, memberId } = req.params;
+      const organizationId = req.query.organizationId;
+
+      if (!organizationId) {
+        return res.status(400).json({ message: "Organization ID required" });
+      }
+
+      const member = await storage.getMeetingPortalMember(memberId);
+      if (!member || member.eventId !== eventId) {
+        return res.status(404).json({ message: "Member not found" });
+      }
+
+      await storage.deleteMeetingPortalMember(memberId);
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting meeting portal member:", error);
+      res.status(500).json({ message: "Failed to delete member" });
+    }
+  });
+
+  // Admin: List pending invitations
+  app.get("/api/events/:eventId/meeting-portal/invitations", isAuthenticated, async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+      const organizationId = req.query.organizationId;
+
+      if (!organizationId) {
+        return res.status(400).json({ message: "Organization ID required" });
+      }
+
+      const invitations = await storage.getMeetingPortalInvitationsByEvent(eventId);
+      res.json(invitations);
+    } catch (error) {
+      logError("Error fetching meeting portal invitations:", error);
+      res.status(500).json({ message: "Failed to fetch invitations" });
+    }
+  });
+
+  // Admin: Revoke invitation
+  app.delete("/api/events/:eventId/meeting-portal/invitations/:inviteId", isAuthenticated, async (req: any, res) => {
+    try {
+      const { eventId, inviteId } = req.params;
+      const organizationId = req.query.organizationId;
+
+      if (!organizationId) {
+        return res.status(400).json({ message: "Organization ID required" });
+      }
+
+      await storage.updateMeetingPortalInvitation(inviteId, { status: 'revoked' });
+      res.status(204).send();
+    } catch (error) {
+      logError("Error revoking invitation:", error);
+      res.status(500).json({ message: "Failed to revoke invitation" });
+    }
+  });
+
+  // Public: Validate invite code
+  app.post("/api/meeting-portal/auth/validate-invite", async (req: any, res) => {
+    try {
+      const { inviteCode } = req.body;
+
+      if (!inviteCode) {
+        return res.status(400).json({ message: "Invite code required" });
+      }
+
+      const invitation = await storage.getMeetingPortalInvitationByCode(inviteCode);
+      if (!invitation) {
+        return res.status(404).json({ message: "Invitation not found" });
+      }
+
+      if (invitation.status !== 'pending') {
+        return res.status(400).json({ message: `Invitation is ${invitation.status}` });
+      }
+
+      if (invitation.expiresAt && new Date(invitation.expiresAt) < new Date()) {
+        await storage.updateMeetingPortalInvitation(invitation.id, { status: 'expired' });
+        return res.status(400).json({ message: "Invitation has expired" });
+      }
+
+      // Get event info
+      const event = await storage.getEventById(invitation.eventId);
+
+      res.json({
+        email: invitation.email,
+        firstName: invitation.firstName,
+        lastName: invitation.lastName,
+        eventId: invitation.eventId,
+        eventName: event?.name || 'Unknown Event',
+        permissions: invitation.permissions,
+      });
+    } catch (error) {
+      logError("Error validating invite:", error);
+      res.status(500).json({ message: "Failed to validate invite" });
+    }
+  });
+
+  // Public: Accept invite
+  app.post("/api/meeting-portal/auth/accept-invite", async (req: any, res) => {
+    try {
+      const { inviteCode, firstName, lastName, jobTitle, phone } = req.body;
+
+      if (!inviteCode) {
+        return res.status(400).json({ message: "Invite code required" });
+      }
+
+      const invitation = await storage.getMeetingPortalInvitationByCode(inviteCode);
+      if (!invitation) {
+        return res.status(404).json({ message: "Invitation not found" });
+      }
+
+      if (invitation.status !== 'pending') {
+        return res.status(400).json({ message: `Invitation is ${invitation.status}` });
+      }
+
+      if (invitation.expiresAt && new Date(invitation.expiresAt) < new Date()) {
+        await storage.updateMeetingPortalInvitation(invitation.id, { status: 'expired' });
+        return res.status(400).json({ message: "Invitation has expired" });
+      }
+
+      // Generate access token
+      const portalAccessToken = randomBytes(32).toString('hex');
+      const portalTokenExpiresAt = new Date();
+      portalTokenExpiresAt.setDate(portalTokenExpiresAt.getDate() + 30); // 30 days
+
+      // Create portal member
+      const member = await storage.createMeetingPortalMember({
+        organizationId: invitation.organizationId,
+        eventId: invitation.eventId,
+        firstName: firstName || invitation.firstName || '',
+        lastName: lastName || invitation.lastName || '',
+        email: invitation.email,
+        jobTitle: jobTitle || null,
+        phone: phone || null,
+        permissions: invitation.permissions || [],
+        portalAccessToken,
+        portalTokenExpiresAt,
+        isActive: true,
+        invitedBy: invitation.invitedBy,
+      });
+
+      // Update invitation status
+      await storage.updateMeetingPortalInvitation(invitation.id, {
+        status: 'accepted',
+        acceptedAt: new Date(),
+        acceptedBy: member.id,
+      } as any);
+
+      res.status(201).json({
+        member: {
+          id: member.id,
+          firstName: member.firstName,
+          lastName: member.lastName,
+          email: member.email,
+          permissions: member.permissions,
+        },
+        token: portalAccessToken,
+        expiresAt: portalTokenExpiresAt,
+      });
+    } catch (error) {
+      logError("Error accepting invite:", error);
+      res.status(500).json({ message: "Failed to accept invite" });
+    }
+  });
+
+  // Public: Login with email + invite code to get new token
+  app.post("/api/meeting-portal/auth/login", async (req: any, res) => {
+    try {
+      const { email, inviteCode } = req.body;
+
+      if (!email || !inviteCode) {
+        return res.status(400).json({ message: "Email and invite code required" });
+      }
+
+      // Find the invitation by code
+      const invitation = await storage.getMeetingPortalInvitationByCode(inviteCode);
+      if (!invitation) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+
+      // Find member by email and event
+      const member = await storage.getMeetingPortalMemberByEmail(invitation.eventId, email);
+      if (!member) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+
+      if (!member.isActive) {
+        return res.status(403).json({ message: "Portal access has been deactivated" });
+      }
+
+      // Generate new access token
+      const portalAccessToken = randomBytes(32).toString('hex');
+      const portalTokenExpiresAt = new Date();
+      portalTokenExpiresAt.setDate(portalTokenExpiresAt.getDate() + 30); // 30 days
+
+      await storage.updateMeetingPortalMember(member.id, {
+        portalAccessToken,
+        portalTokenExpiresAt,
+        lastLoginAt: new Date(),
+      } as any);
+
+      res.json({
+        member: {
+          id: member.id,
+          firstName: member.firstName,
+          lastName: member.lastName,
+          email: member.email,
+          permissions: member.permissions,
+        },
+        token: portalAccessToken,
+        expiresAt: portalTokenExpiresAt,
+      });
+    } catch (error) {
+      logError("Error logging in:", error);
+      res.status(500).json({ message: "Failed to login" });
+    }
+  });
+
+  // Protected: Get current member info
+  app.get("/api/meeting-portal/me", async (req: any, res) => {
+    try {
+      const { member, error } = await authenticateMeetingPortalMember(req);
+      if (error) {
+        return res.status(error.status).json({ message: error.message });
+      }
+
+      // Get event info
+      const event = await storage.getEventById(member.eventId);
+
+      res.json({
+        id: member.id,
+        firstName: member.firstName,
+        lastName: member.lastName,
+        email: member.email,
+        jobTitle: member.jobTitle,
+        phone: member.phone,
+        permissions: member.permissions,
+        eventId: member.eventId,
+        eventName: event?.name || 'Unknown Event',
+        organizationId: member.organizationId,
+      });
+    } catch (error) {
+      logError("Error fetching member info:", error);
+      res.status(500).json({ message: "Failed to fetch member info" });
+    }
+  });
+
+  // Protected: Get confirmed attendees
+  app.get("/api/meeting-portal/:eventId/attendees", async (req: any, res) => {
+    try {
+      const { member, error } = await authenticateMeetingPortalMember(req);
+      if (error) {
+        return res.status(error.status).json({ message: error.message });
+      }
+
+      const { eventId } = req.params;
+
+      if (member.eventId !== eventId) {
+        return res.status(403).json({ message: "Access denied for this event" });
+      }
+
+      const permissions = member.permissions || [];
+      if (!permissions.includes(MEETING_PORTAL_PERMISSIONS.VIEW_ATTENDEES)) {
+        return res.status(403).json({ message: "Permission denied: view_attendees required" });
+      }
+
+      // Get confirmed attendees
+      const allAttendees = await storage.getAttendees(member.organizationId, eventId);
+      const confirmedAttendees = allAttendees.filter(
+        a => a.registrationStatus === 'confirmed' || a.registrationStatus === 'checked_in'
+      );
+
+      // Return limited info for privacy
+      const attendeeList = confirmedAttendees.map(a => ({
+        id: a.id,
+        firstName: a.firstName,
+        lastName: a.lastName,
+        email: a.email,
+        company: a.company,
+        jobTitle: a.jobTitle,
+        bio: a.bio,
+        linkedinUrl: a.linkedinUrl,
+        profilePhotoUrl: a.profilePhotoUrl,
+        registrationStatus: a.registrationStatus,
+      }));
+
+      res.json(attendeeList);
+    } catch (error) {
+      logError("Error fetching attendees:", error);
+      res.status(500).json({ message: "Failed to fetch attendees" });
+    }
+  });
+
+  // Protected: Request a meeting
+  app.post("/api/meeting-portal/:eventId/meetings", async (req: any, res) => {
+    try {
+      const { member, error } = await authenticateMeetingPortalMember(req);
+      if (error) {
+        return res.status(error.status).json({ message: error.message });
+      }
+
+      const { eventId } = req.params;
+      const { inviteeId, intentType, scheduledTime, location, message } = req.body;
+
+      if (member.eventId !== eventId) {
+        return res.status(403).json({ message: "Access denied for this event" });
+      }
+
+      const permissions = member.permissions || [];
+      if (!permissions.includes(MEETING_PORTAL_PERMISSIONS.REQUEST_MEETINGS)) {
+        return res.status(403).json({ message: "Permission denied: request_meetings required" });
+      }
+
+      if (!inviteeId) {
+        return res.status(400).json({ message: "Invitee ID required" });
+      }
+
+      // Verify invitee exists and is confirmed
+      const invitee = await storage.getAttendee(member.organizationId, inviteeId);
+      if (!invitee) {
+        return res.status(404).json({ message: "Attendee not found" });
+      }
+
+      if (invitee.registrationStatus !== 'confirmed' && invitee.registrationStatus !== 'checked_in') {
+        return res.status(400).json({ message: "Can only request meetings with confirmed attendees" });
+      }
+
+      // Create meeting using attendeeMeetings table
+      const meeting = await storage.createAttendeeMeeting({
+        organizationId: member.organizationId,
+        eventId,
+        requesterId: null, // No attendee requester for internal meetings
+        inviteeId,
+        status: 'pending',
+        intentType: intentType || 'demo_request',
+        scheduledTime: scheduledTime ? new Date(scheduledTime) : null,
+        location: location || null,
+        message: message || null,
+        isInternalMeeting: true,
+        meetingPortalMemberId: member.id,
+      });
+
+      res.status(201).json(meeting);
+    } catch (error) {
+      logError("Error creating meeting request:", error);
+      res.status(500).json({ message: "Failed to create meeting request" });
+    }
+  });
+
+  // Protected: Get portal member's meetings
+  app.get("/api/meeting-portal/:eventId/meetings", async (req: any, res) => {
+    try {
+      const { member, error } = await authenticateMeetingPortalMember(req);
+      if (error) {
+        return res.status(error.status).json({ message: error.message });
+      }
+
+      const { eventId } = req.params;
+
+      if (member.eventId !== eventId) {
+        return res.status(403).json({ message: "Access denied for this event" });
+      }
+
+      // Get all meetings for this event
+      const allMeetings = await storage.getAttendeeMeetings(member.organizationId, eventId, {});
+
+      // Filter to only this member's meetings
+      const memberMeetings = allMeetings.filter(m => m.meetingPortalMemberId === member.id);
+
+      // Enrich with invitee info
+      const enrichedMeetings = await Promise.all(
+        memberMeetings.map(async (meeting) => {
+          let invitee = null;
+          if (meeting.inviteeId) {
+            const attendee = await storage.getAttendee(member.organizationId, meeting.inviteeId);
+            if (attendee) {
+              invitee = {
+                id: attendee.id,
+                firstName: attendee.firstName,
+                lastName: attendee.lastName,
+                email: attendee.email,
+                company: attendee.company,
+                jobTitle: attendee.jobTitle,
+              };
+            }
+          }
+          return { ...meeting, invitee };
+        })
+      );
+
+      res.json(enrichedMeetings);
+    } catch (error) {
+      logError("Error fetching meetings:", error);
+      res.status(500).json({ message: "Failed to fetch meetings" });
+    }
+  });
+
+  // Protected: Capture meeting outcome
+  app.patch("/api/meeting-portal/:eventId/meetings/:meetingId/outcome", async (req: any, res) => {
+    try {
+      const { member, error } = await authenticateMeetingPortalMember(req);
+      if (error) {
+        return res.status(error.status).json({ message: error.message });
+      }
+
+      const { eventId, meetingId } = req.params;
+      const { outcomeType, dealRange, timeline, outcomeNotes } = req.body;
+
+      if (member.eventId !== eventId) {
+        return res.status(403).json({ message: "Access denied for this event" });
+      }
+
+      const permissions = member.permissions || [];
+      if (!permissions.includes(MEETING_PORTAL_PERMISSIONS.CAPTURE_OUTCOMES)) {
+        return res.status(403).json({ message: "Permission denied: capture_outcomes required" });
+      }
+
+      // Verify meeting exists and belongs to this member
+      const meeting = await storage.getAttendeeMeeting(member.organizationId, meetingId);
+      if (!meeting) {
+        return res.status(404).json({ message: "Meeting not found" });
+      }
+
+      if (meeting.meetingPortalMemberId !== member.id) {
+        return res.status(403).json({ message: "Can only capture outcomes for your own meetings" });
+      }
+
+      // Update meeting with outcome
+      const updated = await storage.updateAttendeeMeeting(member.organizationId, meetingId, {
+        outcomeType: outcomeType || null,
+        dealRange: dealRange || null,
+        timeline: timeline || null,
+        outcomeNotes: outcomeNotes || null,
+        outcomeCapturedAt: new Date(),
+        status: 'completed',
+      });
+
+      res.json(updated);
+    } catch (error) {
+      logError("Error capturing outcome:", error);
+      res.status(500).json({ message: "Failed to capture outcome" });
+    }
+  });
 
   return httpServer;
 }

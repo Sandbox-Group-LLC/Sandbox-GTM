@@ -263,6 +263,12 @@ import {
   attendeeMeetings,
   type AttendeeMeeting,
   type InsertAttendeeMeeting,
+  meetingPortalMembers,
+  meetingPortalInvitations,
+  type MeetingPortalMember,
+  type InsertMeetingPortalMember,
+  type MeetingPortalInvitation,
+  type InsertMeetingPortalInvitation,
 } from "@shared/schema";
 import crypto from "crypto";
 import { encrypt, decrypt } from "./encryption";
@@ -917,6 +923,22 @@ export interface IStorage {
   promoteAttendeeIntent(organizationId: string, attendeeId: string, source: { type: string; id: string }, outcomeType: string, dealRange?: string): Promise<Attendee | undefined>;
   getHotLeads(organizationId: string, eventId?: string): Promise<Attendee[]>;
   getHighIntentContacts(organizationId: string, eventId?: string): Promise<Attendee[]>;
+
+  // Meeting Portal Member operations
+  getMeetingPortalMembersByEvent(eventId: string): Promise<MeetingPortalMember[]>;
+  getMeetingPortalMember(id: string): Promise<MeetingPortalMember | undefined>;
+  getMeetingPortalMemberByEmail(eventId: string, email: string): Promise<MeetingPortalMember | undefined>;
+  getMeetingPortalMemberByToken(token: string): Promise<MeetingPortalMember | undefined>;
+  createMeetingPortalMember(data: InsertMeetingPortalMember): Promise<MeetingPortalMember>;
+  updateMeetingPortalMember(id: string, data: Partial<InsertMeetingPortalMember>): Promise<MeetingPortalMember | undefined>;
+  deleteMeetingPortalMember(id: string): Promise<void>;
+
+  // Meeting Portal Invitation operations
+  getMeetingPortalInvitationsByEvent(eventId: string): Promise<MeetingPortalInvitation[]>;
+  getMeetingPortalInvitationByCode(code: string): Promise<MeetingPortalInvitation | undefined>;
+  createMeetingPortalInvitation(data: InsertMeetingPortalInvitation): Promise<MeetingPortalInvitation>;
+  updateMeetingPortalInvitation(id: string, data: Partial<InsertMeetingPortalInvitation>): Promise<MeetingPortalInvitation | undefined>;
+  deleteMeetingPortalInvitation(id: string): Promise<void>;
 }
 
 // Types for Moments Analytics
@@ -6121,6 +6143,93 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(attendees.eventId, eventId));
     }
     return db.select().from(attendees).where(and(...conditions)).orderBy(desc(attendees.updatedAt));
+  }
+
+  // Meeting Portal Member operations
+  async getMeetingPortalMembersByEvent(eventId: string): Promise<MeetingPortalMember[]> {
+    return db.select()
+      .from(meetingPortalMembers)
+      .where(eq(meetingPortalMembers.eventId, eventId))
+      .orderBy(desc(meetingPortalMembers.createdAt));
+  }
+
+  async getMeetingPortalMember(id: string): Promise<MeetingPortalMember | undefined> {
+    const [member] = await db.select()
+      .from(meetingPortalMembers)
+      .where(eq(meetingPortalMembers.id, id));
+    return member;
+  }
+
+  async getMeetingPortalMemberByEmail(eventId: string, email: string): Promise<MeetingPortalMember | undefined> {
+    const [member] = await db.select()
+      .from(meetingPortalMembers)
+      .where(and(
+        eq(meetingPortalMembers.eventId, eventId),
+        ilike(meetingPortalMembers.email, email)
+      ));
+    return member;
+  }
+
+  async getMeetingPortalMemberByToken(token: string): Promise<MeetingPortalMember | undefined> {
+    const [member] = await db.select()
+      .from(meetingPortalMembers)
+      .where(eq(meetingPortalMembers.portalAccessToken, token));
+    return member;
+  }
+
+  async createMeetingPortalMember(data: InsertMeetingPortalMember): Promise<MeetingPortalMember> {
+    const [member] = await db.insert(meetingPortalMembers)
+      .values(data)
+      .returning();
+    return member;
+  }
+
+  async updateMeetingPortalMember(id: string, data: Partial<InsertMeetingPortalMember>): Promise<MeetingPortalMember | undefined> {
+    const [updated] = await db.update(meetingPortalMembers)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(meetingPortalMembers.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteMeetingPortalMember(id: string): Promise<void> {
+    await db.delete(meetingPortalMembers)
+      .where(eq(meetingPortalMembers.id, id));
+  }
+
+  // Meeting Portal Invitation operations
+  async getMeetingPortalInvitationsByEvent(eventId: string): Promise<MeetingPortalInvitation[]> {
+    return db.select()
+      .from(meetingPortalInvitations)
+      .where(eq(meetingPortalInvitations.eventId, eventId))
+      .orderBy(desc(meetingPortalInvitations.invitedAt));
+  }
+
+  async getMeetingPortalInvitationByCode(code: string): Promise<MeetingPortalInvitation | undefined> {
+    const [invitation] = await db.select()
+      .from(meetingPortalInvitations)
+      .where(eq(meetingPortalInvitations.inviteCode, code));
+    return invitation;
+  }
+
+  async createMeetingPortalInvitation(data: InsertMeetingPortalInvitation): Promise<MeetingPortalInvitation> {
+    const [invitation] = await db.insert(meetingPortalInvitations)
+      .values(data)
+      .returning();
+    return invitation;
+  }
+
+  async updateMeetingPortalInvitation(id: string, data: Partial<InsertMeetingPortalInvitation>): Promise<MeetingPortalInvitation | undefined> {
+    const [updated] = await db.update(meetingPortalInvitations)
+      .set(data)
+      .where(eq(meetingPortalInvitations.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteMeetingPortalInvitation(id: string): Promise<void> {
+    await db.delete(meetingPortalInvitations)
+      .where(eq(meetingPortalInvitations.id, id));
   }
 }
 
