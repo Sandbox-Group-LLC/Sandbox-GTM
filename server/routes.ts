@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { sendNewOrganizationAlert, sendCampaignEmails, sendTestEmail, validateTrackingToken, validateMeetingResponseToken, verifyResendWebhookSignature, isValidRedirectUrl, sendReviewerNotificationEmail, sendSubmissionAcceptanceEmail, sendTeamInvitationEmail, sendNewLeadNotification, sendSponsorTaskRejectionEmail, sendMeetingInvitationEmail, sendMeetingPortalInvitationEmail } from "./email";
+import { sendNewOrganizationAlert, sendCampaignEmails, sendTestEmail, validateTrackingToken, validateMeetingResponseToken, verifyResendWebhookSignature, isValidRedirectUrl, sendReviewerNotificationEmail, sendSubmissionAcceptanceEmail, sendTeamInvitationEmail, sendNewLeadNotification, sendSponsorTaskRejectionEmail, sendMeetingInvitationEmail, sendMeetingPortalInvitationEmail, sendMeetingPortalMagicLinkEmail } from "./email";
 import { createPaymentIntent, getPaymentIntent, calculateFinalPrice } from "./stripe";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
@@ -16486,29 +16486,16 @@ ${urls.map(u => `  <url>
         : process.env.BASE_URL || 'http://localhost:5000';
       const loginUrl = `${baseUrl}/meeting-portal/magic/${magicToken}`;
 
-      try {
-        await sendEmail({
-          to: email,
-          subject: `Login to ${event?.name || 'Meeting Portal'}`,
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2>Meeting Portal Login</h2>
-              <p>Hi ${member.firstName},</p>
-              <p>Click the link below to log in to the meeting portal for <strong>${event?.name || 'the event'}</strong>:</p>
-              <p style="margin: 24px 0;">
-                <a href="${loginUrl}" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px;">
-                  Log In to Meeting Portal
-                </a>
-              </p>
-              <p style="color: #666; font-size: 14px;">This link will expire in 15 minutes.</p>
-              <p style="color: #666; font-size: 14px;">If you didn't request this login, you can safely ignore this email.</p>
-              <hr style="margin: 24px 0; border: none; border-top: 1px solid #e5e7eb;" />
-              <p style="color: #999; font-size: 12px;">${organization?.name || 'Event Management'}</p>
-            </div>
-          `,
-        });
-      } catch (emailError) {
-        logError("Error sending magic link email:", emailError);
+      const emailResult = await sendMeetingPortalMagicLinkEmail({
+        email,
+        firstName: member.firstName || 'there',
+        eventName: event?.name || 'Meeting Portal',
+        organizationName: organization?.name || 'Event Management',
+        loginUrl,
+      });
+
+      if (!emailResult.success) {
+        logError("Error sending magic link email:", emailResult.error);
         return res.status(500).json({ message: "Failed to send login email. Please try again." });
       }
 

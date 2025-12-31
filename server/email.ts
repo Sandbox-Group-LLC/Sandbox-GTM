@@ -1186,6 +1186,66 @@ export async function sendMeetingInvitationEmail(params: {
   }
 }
 
+// Send meeting portal magic link email for returning users
+export async function sendMeetingPortalMagicLinkEmail(params: {
+  email: string;
+  firstName: string;
+  eventName: string;
+  organizationName: string;
+  loginUrl: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const { email, firstName, eventName, organizationName, loginUrl } = params;
+  
+  if (!resend) {
+    logWarn('Resend not configured - skipping meeting portal magic link email', 'Email');
+    return { success: false, error: 'Email service not configured' };
+  }
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: email,
+      subject: `Login to ${eventName} Meeting Portal`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #333; margin-bottom: 20px;">Meeting Portal Login</h2>
+          
+          <p style="color: #555; font-size: 16px; line-height: 1.6;">
+            Hi ${firstName},
+          </p>
+          
+          <p style="color: #555; font-size: 16px; line-height: 1.6;">
+            Click the link below to log in to the Meeting Portal for <strong>${eventName}</strong>:
+          </p>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${loginUrl}" style="display: inline-block; background-color: #2563eb; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px;">Log In to Meeting Portal</a>
+          </div>
+          
+          <p style="color: #666; font-size: 14px;">This link will expire in 15 minutes.</p>
+          
+          <p style="color: #666; font-size: 14px;">If you didn't request this login, you can safely ignore this email.</p>
+          
+          <p style="color: #999; font-size: 12px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+            ${organizationName}
+          </p>
+        </div>
+      `,
+    });
+
+    if (error) {
+      logError(`Failed to send meeting portal magic link email: ${error.message || 'Unknown error'}`, 'Email');
+      return { success: false, error: error.message || 'Unknown error' };
+    }
+
+    logInfo(`Meeting portal magic link email sent to ${email}: ${data?.id}`, 'Email');
+    return { success: true };
+  } catch (err) {
+    logError(`Error sending meeting portal magic link email: ${err}`, 'Email');
+    return { success: false, error: String(err) };
+  }
+}
+
 // Send meeting portal invitation email to non-admin employees
 export async function sendMeetingPortalInvitationEmail(params: {
   email: string;
