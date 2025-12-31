@@ -17223,10 +17223,11 @@ ${urls.map(u => `  <url>
       // Filter to only this member's meetings
       const memberMeetings = allMeetings.filter(m => m.meetingPortalMemberId === member.id);
 
-      // Enrich with invitee info
+      // Enrich with invitee and room info
       const enrichedMeetings = await Promise.all(
         memberMeetings.map(async (meeting) => {
           let invitee = null;
+          let room = null;
           if (meeting.inviteeId) {
             const attendee = await storage.getAttendee(member.organizationId, meeting.inviteeId);
             if (attendee) {
@@ -17240,7 +17241,18 @@ ${urls.map(u => `  <url>
               };
             }
           }
-          return { ...meeting, invitee };
+          if (meeting.roomId) {
+            const roomData = await storage.getSessionRoom(member.organizationId, meeting.roomId);
+            if (roomData) {
+              room = {
+                id: roomData.id,
+                name: roomData.name,
+                capacity: roomData.capacity,
+                location: roomData.location,
+              };
+            }
+          }
+          return { ...meeting, invitee, room };
         })
       );
 

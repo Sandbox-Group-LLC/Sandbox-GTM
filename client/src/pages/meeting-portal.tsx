@@ -122,6 +122,12 @@ interface Attendee {
 
 interface MeetingWithDetails extends AttendeeMeeting {
   invitee?: Attendee;
+  room?: {
+    id: string;
+    name: string;
+    capacity?: number | null;
+    location?: string | null;
+  };
 }
 
 function getToken(): string | null {
@@ -420,6 +426,12 @@ function MyMeetingsTab({
                     <Calendar className="h-4 w-4" />
                     {meeting.startTime ? format(new Date(meeting.startTime), "PPp") : "Not scheduled"}
                   </div>
+                  {meeting.room && (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <DoorOpen className="h-4 w-4" />
+                      {meeting.room.name}
+                    </div>
+                  )}
                   <div>
                     <Badge variant="outline">
                       {INTENT_TYPE_LABELS[meeting.intentType || ""] || meeting.intentType}
