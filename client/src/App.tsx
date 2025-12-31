@@ -84,6 +84,7 @@ import Meetings from "@/pages/meetings";
 import MeetingPortal from "@/pages/meeting-portal";
 import MeetingPortalAccept from "@/pages/meeting-portal-accept";
 import MeetingPortalLogin from "@/pages/meeting-portal-login";
+import MeetingPortalMagic from "@/pages/meeting-portal-magic";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const sidebarStyle = {
@@ -187,6 +188,7 @@ function Router() {
         <Route path="/sponsor-portal/accept-invite" component={SponsorPortalAcceptInvite} />
         <Route path="/sponsor-portal" component={SponsorPortal} />
         <Route path="/meeting-portal/accept/:inviteCode" component={MeetingPortalAccept} />
+        <Route path="/meeting-portal/magic/:token" component={MeetingPortalMagic} />
         <Route path="/meeting-portal/login" component={MeetingPortalLogin} />
         <Route path="/meeting-portal" component={MeetingPortal} />
         <Route path="/documents/shared/:token" component={SharedDocument} />
@@ -226,6 +228,7 @@ function Router() {
         <Route path="/sponsor-portal/accept-invite" component={SponsorPortalAcceptInvite} />
         <Route path="/sponsor-portal" component={SponsorPortal} />
         <Route path="/meeting-portal/accept/:inviteCode" component={MeetingPortalAccept} />
+        <Route path="/meeting-portal/magic/:token" component={MeetingPortalMagic} />
         <Route path="/meeting-portal/login" component={MeetingPortalLogin} />
         <Route path="/meeting-portal" component={MeetingPortal} />
         <Route path="/portal/:eventId/moment/:momentId" component={PortalMoment} />

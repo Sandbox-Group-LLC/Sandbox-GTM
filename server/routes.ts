@@ -16446,13 +16446,138 @@ ${urls.map(u => `  <url>
     }
   });
 
-  // Public: Login with email + invite code to get new token
+  // Public: Request magic link for email login (secure alternative to invite code)
+  app.post("/api/meeting-portal/auth/request-login", async (req: any, res) => {
+    try {
+      const { email } = req.body;
+
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+
+      // Find any active member with this email
+      const members = await storage.getMeetingPortalMembersByEmail(email);
+      
+      // Always return success to prevent email enumeration
+      if (members.length === 0) {
+        return res.json({ message: "If an account exists with this email, a login link will be sent." });
+      }
+
+      const member = members[0];
+      
+      // Generate a one-time magic link token (short-lived)
+      const magicToken = randomBytes(32).toString('hex');
+      const magicTokenExpiresAt = new Date();
+      magicTokenExpiresAt.setMinutes(magicTokenExpiresAt.getMinutes() + 15); // 15 minutes
+
+      // Store magic token temporarily (reuse portalAccessToken field with short expiry)
+      await storage.updateMeetingPortalMember(member.id, {
+        portalAccessToken: magicToken,
+        portalTokenExpiresAt: magicTokenExpiresAt,
+      } as any);
+
+      // Get event info for the email
+      const event = await storage.getEventById(member.eventId);
+      const organization = member.organizationId ? await storage.getOrganization(member.organizationId) : null;
+
+      // Send magic link email
+      const baseUrl = process.env.REPLIT_DEV_DOMAIN
+        ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+        : process.env.BASE_URL || 'http://localhost:5000';
+      const loginUrl = `${baseUrl}/meeting-portal/magic/${magicToken}`;
+
+      try {
+        await sendEmail({
+          to: email,
+          subject: `Login to ${event?.name || 'Meeting Portal'}`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2>Meeting Portal Login</h2>
+              <p>Hi ${member.firstName},</p>
+              <p>Click the link below to log in to the meeting portal for <strong>${event?.name || 'the event'}</strong>:</p>
+              <p style="margin: 24px 0;">
+                <a href="${loginUrl}" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px;">
+                  Log In to Meeting Portal
+                </a>
+              </p>
+              <p style="color: #666; font-size: 14px;">This link will expire in 15 minutes.</p>
+              <p style="color: #666; font-size: 14px;">If you didn't request this login, you can safely ignore this email.</p>
+              <hr style="margin: 24px 0; border: none; border-top: 1px solid #e5e7eb;" />
+              <p style="color: #999; font-size: 12px;">${organization?.name || 'Event Management'}</p>
+            </div>
+          `,
+        });
+      } catch (emailError) {
+        logError("Error sending magic link email:", emailError);
+        return res.status(500).json({ message: "Failed to send login email. Please try again." });
+      }
+
+      res.json({ message: "If an account exists with this email, a login link will be sent." });
+    } catch (error) {
+      logError("Error requesting login:", error);
+      res.status(500).json({ message: "Failed to process request" });
+    }
+  });
+
+  // Public: Validate magic link token and issue session token
+  app.post("/api/meeting-portal/auth/magic-login", async (req: any, res) => {
+    try {
+      const { token } = req.body;
+
+      if (!token) {
+        return res.status(400).json({ message: "Token is required" });
+      }
+
+      // Find member by magic token
+      const member = await storage.getMeetingPortalMemberByToken(token);
+      if (!member) {
+        return res.status(401).json({ message: "Invalid or expired login link" });
+      }
+
+      // Check if token is expired
+      if (member.portalTokenExpiresAt && new Date(member.portalTokenExpiresAt) < new Date()) {
+        return res.status(401).json({ message: "Login link has expired. Please request a new one." });
+      }
+
+      if (!member.isActive) {
+        return res.status(403).json({ message: "Portal access has been deactivated" });
+      }
+
+      // Generate new long-lived session token
+      const portalAccessToken = randomBytes(32).toString('hex');
+      const portalTokenExpiresAt = new Date();
+      portalTokenExpiresAt.setDate(portalTokenExpiresAt.getDate() + 30); // 30 days
+
+      await storage.updateMeetingPortalMember(member.id, {
+        portalAccessToken,
+        portalTokenExpiresAt,
+        lastLoginAt: new Date(),
+      } as any);
+
+      res.json({
+        member: {
+          id: member.id,
+          firstName: member.firstName,
+          lastName: member.lastName,
+          email: member.email,
+          permissions: member.permissions,
+        },
+        token: portalAccessToken,
+        expiresAt: portalTokenExpiresAt,
+      });
+    } catch (error) {
+      logError("Error processing magic login:", error);
+      res.status(500).json({ message: "Failed to login" });
+    }
+  });
+
+  // Public: Login with invite code (for users who have the code)
   app.post("/api/meeting-portal/auth/login", async (req: any, res) => {
     try {
       const { email, inviteCode } = req.body;
 
       if (!email || !inviteCode) {
-        return res.status(400).json({ message: "Email and invite code required" });
+        return res.status(400).json({ message: "Email and invite code are required" });
       }
 
       // Find the invitation by code
