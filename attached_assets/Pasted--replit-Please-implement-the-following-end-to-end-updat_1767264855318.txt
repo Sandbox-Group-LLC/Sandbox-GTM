@@ -1,0 +1,351 @@
+@replit — Please implement the following end-to-end update to Sandbox’s “Engagement Capture” area.
+
+GOAL
+Refactor the middle tab (currently “Lead Capture”) into a high-signal, intent-first workflow for internal demo/product reps to capture meaningful conversations at demo stations — and feed those signals into the Engagement Signals dashboard (High-Intent Audience + Hot Leads) using clean, deduped, cumulative promotion logic.
+
+NON-NEGOTIABLES
+- Do NOT break Program check-in or Session check-in tabs (high-volume attendance levers).
+- Keep changes additive + safe. If a field/table is missing, migrate safely with defaults.
+- The middle tab should feel GTM-native: intent + outcome > “lead scanning”.
+- Preserve existing theme: dark charcoal UI, orange accents, minimalist layout.
+- Assume Replit Auth is required; users are logged in to submit interactions.
+
+-------------------------------------------------------------------------------
+1) NAV / IA COPY UPDATES (NO BREAKING CHANGES)
+
+A) Sidebar
+- Keep sidebar label as “Engagement Capture” (already updated).
+
+B) Tabs
+- Rename the middle tab label from: “Lead Capture” → “Product Interaction”
+  - Reason: neutral, GTM-native, works for demos/booths/conversations and future sponsors.
+
+C) Headings + helper copy
+On Product Interaction tab:
+- Title: “Product Interaction”
+- Subtitle helper text (small):
+  “Capture intent from live product conversations. This is high-signal input that powers Engagement Signals.”
+
+D) Metrics cards (top of Product Interaction tab)
+Rename and align to intent:
+- “Leads Today” → “Interactions Today”
+- “Total Leads” → “Total Interactions”
+- “QR Scanned” → “Badge Scans”
+- “Manual Entry” → “Manual Interactions”
+
+Tooltip for the metric row:
+- “Interactions are logged conversations at product/demo touchpoints. Use these to capture buyer intent + outcomes.”
+
+-------------------------------------------------------------------------------
+2) PRODUCT INTERACTION FLOW (POST-SCAN / POST-ENTRY UI)
+
+We need a two-step flow:
+Step 1 = Identify attendee (scan or lookup)
+Step 2 = Capture intent + outcome (the real signal)
+
+A) Step 1: Identify
+Replace the current “Scan Badge” area with:
+
+1. Primary action: “Scan Badge”
+   - Keep using existing scanning approach if already built (camera / QR / code).
+   - If scan returns an identifier:
+     - Resolve to an Attendee for the active Program if possible.
+     - If not resolvable, create a lightweight “Unmatched Attendee” record (see schema notes below) and flag it for later merge.
+
+2. Secondary action: “Find Attendee”
+   - Search box: name / email / company.
+   - Results list with quick select.
+
+3. Tertiary action: “Quick Add (Manual)”
+   - Minimal fields (only if we truly can’t resolve):
+     - Email (required)
+     - First name (optional)
+     - Last name (optional)
+     - Company (optional)
+     - Title (optional)
+
+IMPORTANT:
+- Do NOT block the workflow if a scan cannot resolve perfectly — let user proceed, but flag as “Unmatched” and capture whatever minimal data exists.
+- Show a small badge on the interaction record:
+  - “Matched attendee” (green)
+  - “Unmatched — needs merge” (yellow)
+
+B) Step 2: Capture intent + outcome (the “signal” form)
+Once an Attendee is selected/resolved, immediately open an “Interaction Capture” panel (modal or full-width card).
+
+Form fields (opinionated but quick):
+
+1) Interaction Type (required)
+- Dropdown:
+  - “Product demo”
+  - “Technical deep dive”
+  - “Pricing / packaging”
+  - “Integration / security”
+  - “Executive conversation”
+  - “Other”
+Tooltip:
+- “Helps classify what kind of buying motion the conversation represents.”
+
+2) Intent Level (required)
+- Buttons (3 options):
+  - Low
+  - Medium
+  - High
+Tooltip:
+- “Intent is explicit — it’s your judgement from the conversation.”
+
+3) Outcome (required)
+- Dropdown:
+  - “Requested follow-up”
+  - “Asked for pricing”
+  - “Wants a trial / pilot”
+  - “Intro to stakeholder”
+  - “Not a fit”
+  - “Too early”
+  - “Other”
+Tooltip:
+- “Outcome turns engagement into next steps. This powers follow-up readiness.”
+
+4) Opportunity Potential (optional but recommended)
+- Dropdown:
+  - “< $10k”
+  - “$10k–$50k”
+  - “$50k–$100k”
+  - “$100k+”
+Tooltip:
+- “Used for prioritization when CRM isn’t connected.”
+
+5) Next Step (required if Intent=High OR Outcome indicates follow-up)
+- Dropdown:
+  - “Schedule meeting”
+  - “Send deck / recap”
+  - “Connect to AE”
+  - “Invite to private session”
+  - “Follow up after event”
+  - “No action”
+Tooltip:
+- “If it’s worth capturing, it’s worth deciding the next move.”
+
+6) Notes (optional)
+- Short textarea with guidance placeholder:
+  “What did they care about? What problem are they solving? Any objections?”
+
+7) Tags (optional)
+- Multi-select, lightweight:
+  - “ICP-fit”
+  - “Competitor mentioned”
+  - “Security review”
+  - “Budget confirmed”
+  - “Buying committee”
+  - “Urgent timeline”
+  - “Partner motion”
+  - “Other”
+
+8) Station / Location (optional)
+- Dropdown or free text (admin configurable later):
+  - “Main demo station”
+  - “Booth”
+  - “VIP lounge”
+  - “Breakout room”
+  - “Other”
+
+9) Owner (auto)
+- Auto-set to current logged-in user; allow override if admin.
+
+Primary CTA:
+- “Log Interaction”
+
+Secondary CTA:
+- “Log & Start Follow-up” (optional; can just deep link to Meetings tool if exists)
+
+After submit:
+- Show confirmation + a short “Signal summary” card:
+  “High intent • Requested follow-up • $100k+ potential”
+- Provide quick action buttons:
+  - “Log another interaction”
+  - “View attendee”
+  - “View Engagement Signals”
+
+-------------------------------------------------------------------------------
+3) DATA MODEL + STORAGE (SAFE MIGRATIONS)
+
+Create or extend a dedicated table for these events so they’re not confused with attendance:
+
+TABLE: ProductInteraction (or EngagementInteraction)
+Fields:
+- id (uuid)
+- programId (fk)
+- attendeeId (nullable fk)  // allow unmatched
+- unmatchedEmail (nullable)
+- unmatchedName (nullable)
+- createdByUserId (fk)
+- createdAt (timestamp)
+- interactionType (enum/string)
+- intentLevel (enum: LOW | MEDIUM | HIGH)
+- outcome (string/enum)
+- opportunityPotential (enum bucket)
+- nextStep (string/enum)
+- notes (text)
+- tags (json array or join table)
+- station (string nullable)
+- source (enum: BADGE_SCAN | MANUAL | LOOKUP)
+
+INDEXES:
+- programId, attendeeId
+- programId, createdAt
+- programId, intentLevel
+- programId, createdByUserId
+
+UNMATCHED MERGE SUPPORT:
+If attendeeId is null but email exists:
+- Store unmatchedEmail and allow later merge tool to link to an Attendee.
+- In dashboards, treat unmatched as “unknown attendee” and exclude from Hot Lead promotions unless email can be matched to an Attendee.
+
+-------------------------------------------------------------------------------
+4) FEED INTO ENGAGEMENT SIGNALS (THIS IS CRITICAL)
+
+We need clean promotion logic similar to your meeting logic:
+- Promote contacts once based on cumulative buying signals.
+- Avoid inflation (no duplicate “hot leads” for repeated interactions).
+
+A) Definitions
+- A “Contact” = the canonical person record in the program context (Attendee).
+- “High-Intent Audience” widget should include contacts ready for follow-up based on explicit signals (intent/outcome).
+
+B) Scoring (simple, explainable)
+Create a per-attendee cumulative score from Product Interactions:
+
+Base points per interaction:
+- Intent:
+  - LOW = +1
+  - MEDIUM = +3
+  - HIGH = +6
+- Outcome boosts:
+  - Requested follow-up = +3
+  - Asked for pricing = +4
+  - Wants a trial/pilot = +6
+  - Intro to stakeholder = +4
+  - Not a fit = -10 (and optionally set a “disqualified” flag)
+  - Too early = -2
+- Opportunity boost:
+  - $100k+ = +4
+  - $50k–$100k = +3
+  - $10k–$50k = +2
+  - < $10k = +1
+
+C) Promotion thresholds (opinionated defaults)
+- Promote to High-Intent Audience if ANY is true:
+  1) At least one interaction with intent=HIGH
+  2) Cumulative score >= 10
+  3) Outcome in (“Wants a trial/pilot”, “Asked for pricing”, “Requested follow-up”)
+
+- Promote to Hot Lead if BOTH are true:
+  1) High-Intent Audience criteria met
+  2) AND (opportunityPotential is $50k–$100k or $100k+) OR (two+ interactions with intent >= MEDIUM)
+
+D) Deduping
+- A contact can appear only once in:
+  - High-Intent Audience
+  - Hot Leads
+even if multiple interactions exist.
+- If already promoted, do not create duplicates. Instead update “Why” explanation with cumulative signals.
+
+E) “Why is this a Hot Lead?” drill-in
+Create a computed explanation object for each promoted contact:
+- Top reasons (ordered):
+  - “Captured HIGH intent during Product demo”
+  - “Outcome: Asked for pricing”
+  - “Outcome: Wants a trial/pilot”
+  - “$100k+ opportunity potential selected”
+  - “Multiple high-signal interactions recorded”
+- Include:
+  - Total interactions count
+  - Last interaction date
+  - Cumulative score
+  - Highest intent level seen
+  - Most recent outcome
+  - Opportunity bucket max
+
+UI:
+- In Engagement Signals dashboard:
+  - Add a tooltip or “Why?” icon next to each promoted contact that opens a small popover showing the reasons.
+  - Keep it minimalist — 3–5 bullets max.
+
+Tooltip copy updates:
+High-Intent Audience widget tooltip (update):
+- “Contacts showing buying signals ready for follow-up. Contacts are promoted once based on cumulative buying signals.”
+
+Meeting Quality tooltip (update, since we’re expanding signals overall):
+- “Outcome-based intent signals captured from meetings and product interactions — built for follow-up prioritization.”
+
+F) Data pipeline / queries
+- Add aggregations for:
+  - Interactions Today (program scoped)
+  - Total Interactions
+  - % High Intent interactions
+  - Top outcomes
+  - Interactions by station
+- Ensure these don’t pollute attendance metrics.
+
+-------------------------------------------------------------------------------
+5) UI REFACTOR NOTES (MAKE IT FEEL LIKE SANDBOX)
+
+- The Product Interaction tab should be “fast to log”:
+  - Minimal clicks
+  - Buttons for intent
+  - Defaults where possible
+- After logging, show a clean summary and let them immediately log another.
+- Keep scan + lookup at the top; form below or in a modal that appears after selection.
+- Use the orange accent sparingly:
+  - For HIGH intent
+  - For the signal pulse line iconography
+  - For primary CTA
+
+-------------------------------------------------------------------------------
+6) MICROCOPY / TOOLTIP COPY (INCLUDE THESE EXACT STRINGS)
+
+A) Product Interaction subtitle:
+“Capture intent from live product conversations. This is high-signal input that powers Engagement Signals.”
+
+B) Scan section helper:
+“Scan a badge to log a meaningful product interaction — not just attendance.”
+
+C) Find Attendee helper:
+“Search by name, email, or company. Choose the right person, then capture the signal.”
+
+D) Intent tooltip:
+“Intent is explicit — your judgement from the conversation.”
+
+E) Outcome tooltip:
+“Outcome turns engagement into next steps. This powers follow-up readiness.”
+
+F) High-Intent Audience tooltip:
+“Contacts showing buying signals ready for follow-up. Contacts are promoted once based on cumulative buying signals.”
+
+G) Not a fit warning (if user selects Not a fit):
+“This will remove the contact from high-intent follow-up queues for this program.”
+
+-------------------------------------------------------------------------------
+7) ACCEPTANCE CRITERIA (TEST THIS)
+
+- User can scan badge OR search attendee OR quick-add and successfully log an interaction.
+- Interaction is stored in ProductInteraction table with correct programId + owner.
+- Interactions Today / Total Interactions counters reflect ProductInteraction records.
+- Engagement Signals dashboard:
+  - Promotes eligible contacts to High-Intent Audience based on rules.
+  - Promotes eligible contacts to Hot Leads based on stricter rules.
+  - Dedupes: repeated interactions do NOT create duplicate promoted entries.
+  - “Why?” drill-in explains promotion using interaction-derived reasons.
+- Program/Session check-in tabs remain unchanged and performant.
+
+-------------------------------------------------------------------------------
+8) IMPLEMENTATION ORDER (RECOMMENDED)
+1) Rename tab + update top metrics labels/tooltips
+2) Build Step 1 identify flow (scan / lookup / quick add)
+3) Build Step 2 capture form + logging
+4) Create table + migrations + indexes
+5) Build scoring + promotion logic services
+6) Wire Engagement Signals widgets + drill-in “Why?” popover
+7) QA + edge cases (unmatched attendee)
+
+Please implement cohesively in one pass, keeping changes scoped to this middle tab and the Engagement Signals data feeds.
