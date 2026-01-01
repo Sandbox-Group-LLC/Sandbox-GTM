@@ -24,6 +24,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Form,
   FormControl,
   FormField,
@@ -45,6 +55,8 @@ interface OrganizationWithStats extends Organization {
   memberCount: number;
   eventCount: number;
   attendeeCount: number;
+  ownerEmail?: string;
+  inviteCodeUsed?: string;
 }
 
 const formSchema = insertSignupInviteCodeSchema.extend({
@@ -82,6 +94,8 @@ export default function AdminOrganizations() {
   const { user, isLoading: userLoading } = useAuth();
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteOrgId, setDeleteOrgId] = useState<string | null>(null);
+  const [deleteOrgName, setDeleteOrgName] = useState<string>("");
   
   // Check both the email domain AND the isAdmin flag from the API
   const isSuperAdmin = (user?.email?.toLowerCase().endsWith("@makemysandbox.com") || user?.isAdmin) ?? false;
@@ -179,6 +193,21 @@ export default function AdminOrganizations() {
     },
   });
 
+  const deleteOrganizationMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/organizations/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/organizations"] });
+      toast({ title: "Organization deleted successfully" });
+      setDeleteOrgId(null);
+      setDeleteOrgName("");
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to delete organization", description: error.message, variant: "destructive" });
+    },
+  });
+
   const copyToClipboard = async (text: string) => {
     await navigator.clipboard.writeText(text);
     toast({ title: "Copied to clipboard" });
@@ -233,9 +262,24 @@ export default function AdminOrganizations() {
       cell: (org: OrganizationWithStats) => org.name,
     },
     { 
-      key: "slug", 
-      header: "Slug",
-      cell: (org: OrganizationWithStats) => org.slug,
+      key: "ownerEmail", 
+      header: "Owner Email",
+      cell: (org: OrganizationWithStats) => (
+        <span className="text-muted-foreground text-sm" data-testid={`text-owner-email-${org.id}`}>
+          {org.ownerEmail || "-"}
+        </span>
+      ),
+    },
+    { 
+      key: "inviteCodeUsed", 
+      header: "Invite Code",
+      cell: (org: OrganizationWithStats) => org.inviteCodeUsed ? (
+        <Badge variant="outline" className="font-mono text-xs" data-testid={`badge-invite-code-${org.id}`}>
+          {org.inviteCodeUsed}
+        </Badge>
+      ) : (
+        <span className="text-muted-foreground">-</span>
+      ),
     },
     { 
       key: "memberCount", 
@@ -282,6 +326,25 @@ export default function AdminOrganizations() {
       key: "createdAt", 
       header: "Created",
       cell: (org: OrganizationWithStats) => org.createdAt ? format(new Date(org.createdAt), "MMM d, yyyy") : "-",
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      cell: (org: OrganizationWithStats) => (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={(e) => {
+            e.stopPropagation();
+            setDeleteOrgId(org.id);
+            setDeleteOrgName(org.name);
+          }}
+          disabled={deleteOrganizationMutation.isPending}
+          data-testid={`button-delete-org-${org.id}`}
+        >
+          <Trash2 className="h-4 w-4 text-destructive" />
+        </Button>
+      ),
     },
   ];
 
@@ -686,6 +749,27 @@ export default function AdminOrganizations() {
           )}
         </div>
       </div>
+
+      <AlertDialog open={!!deleteOrgId} onOpenChange={(open) => !open && setDeleteOrgId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Organization</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{deleteOrgName}"? This will permanently remove all data associated with this organization including events, attendees, and settings. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-org">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteOrgId && deleteOrganizationMutation.mutate(deleteOrgId)}
+              className="bg-destructive text-destructive-foreground"
+              data-testid="button-confirm-delete-org"
+            >
+              {deleteOrganizationMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

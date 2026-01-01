@@ -296,7 +296,7 @@ export interface IStorage {
   updateOrganization(id: string, org: Partial<InsertOrganization>): Promise<Organization | undefined>;
   getUserOrganizations(userId: string): Promise<OrganizationMember[]>;
   addOrganizationMember(member: InsertOrganizationMember): Promise<OrganizationMember>;
-  getAllOrganizationsWithStats(): Promise<Array<Organization & { memberCount: number; eventCount: number; attendeeCount: number }>>;
+  getAllOrganizationsWithStats(): Promise<Array<Organization & { memberCount: number; eventCount: number; attendeeCount: number; ownerEmail?: string; inviteCodeUsed?: string }>>;
   deleteOrganization(id: string): Promise<void>;
   seedDefaultCustomFields(organizationId: string): Promise<{ seeded: number; skipped: number }>;
 
@@ -1112,7 +1112,7 @@ export class DatabaseStorage implements IStorage {
     return newMember;
   }
 
-  async getAllOrganizationsWithStats(): Promise<Array<Organization & { memberCount: number; eventCount: number; attendeeCount: number }>> {
+  async getAllOrganizationsWithStats(): Promise<Array<Organization & { memberCount: number; eventCount: number; attendeeCount: number; ownerEmail?: string; inviteCodeUsed?: string }>> {
     const allOrgs = await db
       .select()
       .from(organizations)
@@ -1124,11 +1124,32 @@ export class DatabaseStorage implements IStorage {
       const orgEvents = await db.select().from(events).where(eq(events.organizationId, org.id));
       const orgAttendees = await db.select().from(attendees).where(eq(attendees.organizationId, org.id));
       
+      // Get owner email
+      const ownerMember = members.find(m => m.role === 'owner');
+      let ownerEmail: string | undefined;
+      if (ownerMember) {
+        const [owner] = await db.select().from(users).where(eq(users.id, ownerMember.userId));
+        ownerEmail = owner?.email;
+      }
+      
+      // Get invite code used to create this organization (most recent if multiple exist)
+      const [redemption] = await db
+        .select({
+          code: signupInviteCodes.code,
+        })
+        .from(signupInviteCodeRedemptions)
+        .innerJoin(signupInviteCodes, eq(signupInviteCodeRedemptions.inviteCodeId, signupInviteCodes.id))
+        .where(eq(signupInviteCodeRedemptions.organizationId, org.id))
+        .orderBy(desc(signupInviteCodeRedemptions.createdAt))
+        .limit(1);
+      
       return {
         ...org,
         memberCount: members.length,
         eventCount: orgEvents.length,
         attendeeCount: orgAttendees.length,
+        ownerEmail,
+        inviteCodeUsed: redemption?.code,
       };
     }));
     
