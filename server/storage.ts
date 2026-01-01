@@ -1157,44 +1157,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteOrganization(id: string): Promise<void> {
-    await db.delete(budgetPayments).where(eq(budgetPayments.organizationId, id));
-    await db.delete(budgetOffsets).where(eq(budgetOffsets.organizationId, id));
-    await db.delete(budgetItems).where(eq(budgetItems.organizationId, id));
-    await db.delete(budgetCategories).where(eq(budgetCategories.organizationId, id));
-    const orgEvents = await db.select({ id: events.id }).from(events).where(eq(events.organizationId, id));
-    for (const event of orgEvents) {
-      await db.delete(eventBudgetSettings).where(eq(eventBudgetSettings.eventId, event.id));
-    }
-    await db.delete(eventPackages).where(eq(eventPackages.organizationId, id));
-    await db.delete(packages).where(eq(packages.organizationId, id));
-    await db.delete(inviteCodes).where(eq(inviteCodes.organizationId, id));
-    await db.delete(eventPages).where(eq(eventPages.organizationId, id));
-    await db.delete(registrationConfigs).where(eq(registrationConfigs.organizationId, id));
-    await db.delete(customFields).where(eq(customFields.organizationId, id));
-    await db.delete(contentAssets).where(eq(contentAssets.organizationId, id));
-    await db.delete(emailTemplates).where(eq(emailTemplates.organizationId, id));
-    await db.delete(emailCampaigns).where(eq(emailCampaigns.organizationId, id));
-    await db.delete(socialPosts).where(eq(socialPosts.organizationId, id));
-    const orgMembers = await db.select({ userId: organizationMembers.userId }).from(organizationMembers).where(eq(organizationMembers.organizationId, id));
-    for (const member of orgMembers) {
-      await db.delete(socialConnections).where(eq(socialConnections.userId, member.userId));
-    }
-    await db.delete(deliverables).where(eq(deliverables.organizationId, id));
-    await db.delete(milestones).where(eq(milestones.organizationId, id));
-    await db.delete(contentItems).where(eq(contentItems.organizationId, id));
-    // Delete sessionSpeakers junction table entries before sessions/speakers
-    const orgSessions = await db.select({ id: eventSessions.id }).from(eventSessions).where(eq(eventSessions.organizationId, id));
-    for (const session of orgSessions) {
-      await db.delete(sessionSpeakers).where(eq(sessionSpeakers.sessionId, session.id));
-    }
-    await db.delete(eventSessions).where(eq(eventSessions.organizationId, id));
-    await db.delete(eventSponsors).where(eq(eventSponsors.organizationId, id));
-    await db.delete(speakers).where(eq(speakers.organizationId, id));
-    await db.delete(attendeeTypes).where(eq(attendeeTypes.organizationId, id));
-    await db.delete(attendees).where(eq(attendees.organizationId, id));
-    await db.delete(events).where(eq(events.organizationId, id));
-    await db.delete(organizationMembers).where(eq(organizationMembers.organizationId, id));
-    await db.delete(organizations).where(eq(organizations.id, id));
+    // Soft delete: archive the organization instead of hard delete
+    // This avoids FK constraint violations from the many tables referencing organizationId
+    await db.update(organizations)
+      .set({ isArchived: true })
+      .where(eq(organizations.id, id));
   }
 
   async seedDefaultCustomFields(organizationId: string): Promise<{ seeded: number; skipped: number }> {

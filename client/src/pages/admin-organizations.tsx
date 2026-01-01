@@ -199,12 +199,12 @@ export default function AdminOrganizations() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/organizations"] });
-      toast({ title: "Organization deleted successfully" });
+      toast({ title: "Organization archived successfully" });
       setDeleteOrgId(null);
       setDeleteOrgName("");
     },
     onError: (error: Error) => {
-      toast({ title: "Failed to delete organization", description: error.message, variant: "destructive" });
+      toast({ title: "Failed to archive organization", description: error.message, variant: "destructive" });
     },
   });
 
@@ -753,9 +753,9 @@ export default function AdminOrganizations() {
       <AlertDialog open={!!deleteOrgId} onOpenChange={(open) => !open && setDeleteOrgId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Organization</AlertDialogTitle>
+            <AlertDialogTitle>Archive Organization</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{deleteOrgName}"? This will permanently remove all data associated with this organization including events, attendees, and settings. This action cannot be undone.
+              Are you sure you want to archive "{deleteOrgName}"? This will hide the organization from the admin list but data will be preserved. Members of this organization will no longer be able to access it.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -765,7 +765,7 @@ export default function AdminOrganizations() {
               className="bg-destructive text-destructive-foreground"
               data-testid="button-confirm-delete-org"
             >
-              {deleteOrganizationMutation.isPending ? "Deleting..." : "Delete"}
+              {deleteOrganizationMutation.isPending ? "Archiving..." : "Archive"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
