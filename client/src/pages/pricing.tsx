@@ -16,6 +16,7 @@ import {
   Rocket
 } from "lucide-react";
 import logoImage from "@assets/Orange_bug_-_no_background_1765765097769.png";
+import logoWhite from "@assets/Sandbox-White_1767253178023.png";
 import { LeadFormDialog } from "@/components/lead-form-dialog";
 
 const includedFeatures = [
@@ -73,7 +74,7 @@ export default function Pricing() {
         <div className="container mx-auto px-6 py-4 flex items-center justify-between gap-4">
           <a href="/" className="flex items-center gap-2" data-testid="link-home">
             <img src={logoImage} alt="Sandbox" className="h-6 w-6" />
-            <span className="font-semibold text-lg text-[#ffffff]">Sandbox</span>
+            <img src={logoWhite} alt="Sandbox" className="h-5" />
           </a>
           <div className="flex items-center gap-4">
             <Button variant="ghost" asChild data-testid="link-pricing-nav">
@@ -322,7 +323,8 @@ export default function Pricing() {
         <div className="container mx-auto max-w-4xl flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <img src={logoImage} alt="Sandbox" className="h-5 w-5" />
-            <span className="text-sm text-[#b8b8b8]">Sandbox - Event GTM Platform</span>
+            <img src={logoWhite} alt="Sandbox" className="h-4 opacity-60" />
+            <span className="text-sm text-[#b8b8b8]">- Event GTM Platform</span>
           </div>
           <div className="flex items-center gap-6 text-sm text-[#b8b8b8]">
             <a href="/privacy-policy" className="hover:text-[#ffffff] transition-colors" data-testid="link-privacy">
