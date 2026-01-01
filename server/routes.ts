@@ -12109,6 +12109,237 @@ ${urls.map(u => `  <url>
     }
   });
 
+  // Product Interactions (Intent Capture) routes
+  app.get("/api/organizations/:orgId/events/:eventId/product-interactions", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orgId, eventId } = req.params;
+      const organizationId = await getOrganizationId(userId, orgId);
+      const interactions = await storage.getProductInteractions(organizationId, eventId);
+      res.json(interactions);
+    } catch (error) {
+      logError("Error fetching product interactions:", error);
+      res.status(500).json({ message: "Failed to fetch product interactions" });
+    }
+  });
+
+  app.get("/api/organizations/:orgId/events/:eventId/product-interactions/stats", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orgId, eventId } = req.params;
+      const organizationId = await getOrganizationId(userId, orgId);
+      const stats = await storage.getProductInteractionStats(organizationId, eventId);
+      res.json(stats);
+    } catch (error) {
+      logError("Error fetching product interaction stats:", error);
+      res.status(500).json({ message: "Failed to fetch product interaction stats" });
+    }
+  });
+
+  app.get("/api/organizations/:orgId/events/:eventId/attendees/:attendeeId/product-interactions", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orgId, eventId, attendeeId } = req.params;
+      const organizationId = await getOrganizationId(userId, orgId);
+      const interactions = await storage.getProductInteractionsByAttendee(organizationId, eventId, attendeeId);
+      res.json(interactions);
+    } catch (error) {
+      logError("Error fetching attendee product interactions:", error);
+      res.status(500).json({ message: "Failed to fetch attendee product interactions" });
+    }
+  });
+
+  app.get("/api/organizations/:orgId/events/:eventId/attendees/:attendeeId/interaction-score", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orgId, eventId, attendeeId } = req.params;
+      const organizationId = await getOrganizationId(userId, orgId);
+      const score = await storage.getAttendeeInteractionScore(organizationId, eventId, attendeeId);
+      res.json(score);
+    } catch (error) {
+      logError("Error fetching attendee interaction score:", error);
+      res.status(500).json({ message: "Failed to fetch attendee interaction score" });
+    }
+  });
+
+  app.get("/api/organizations/:orgId/product-interactions/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orgId, id } = req.params;
+      const organizationId = await getOrganizationId(userId, orgId);
+      const interaction = await storage.getProductInteraction(organizationId, id);
+      if (!interaction) {
+        return res.status(404).json({ message: "Product interaction not found" });
+      }
+      res.json(interaction);
+    } catch (error) {
+      logError("Error fetching product interaction:", error);
+      res.status(500).json({ message: "Failed to fetch product interaction" });
+    }
+  });
+
+  app.post("/api/organizations/:orgId/events/:eventId/product-interactions", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orgId, eventId } = req.params;
+      const organizationId = await getOrganizationId(userId, orgId);
+      
+      // Validate enum values with zod using proper default handling
+      const validCaptureMethodEnum = z.enum(['qr_scan', 'manual', 'lookup']).default('manual');
+      const validIntentLevelEnum = z.enum(['low', 'medium', 'high']).default('medium');
+      const validOutcomeEnum = z.enum(['requested_follow_up', 'asked_for_pricing', 'wants_trial_pilot', 'intro_to_stakeholder', 'not_a_fit', 'too_early', 'other']).default('other');
+      const validOpportunityPotentialEnum = z.enum(['over_100k', '50k_to_100k', '10k_to_50k', 'under_10k']).nullable().optional();
+      const validNextStepEnum = z.enum(['send_info', 'schedule_meeting', 'send_proposal', 'demo_scheduled', 'trial_setup', 'internal_review', 'none']).nullable().optional();
+      const validInteractionTypeEnum = z.enum(['demo', 'product_discussion', 'use_case_exploration', 'pricing_discussion', 'technical_deep_dive', 'partnership_discussion', 'networking', 'other']).default('other');
+      
+      const {
+        attendeeId,
+        unmatchedFirstName,
+        unmatchedLastName,
+        unmatchedEmail,
+        unmatchedCompany,
+        interactionType: rawInteractionType,
+        intentLevel: rawIntentLevel,
+        outcome: rawOutcome,
+        opportunityPotential: rawOpportunityPotential,
+        nextStep: rawNextStep,
+        notes,
+        tags,
+        station,
+        captureMethod: rawCaptureMethod,
+      } = req.body;
+
+      // Parse and validate enum values - zod's .default() handles undefined/null properly
+      // and preserves provided values when they are valid
+      const captureMethod = validCaptureMethodEnum.parse(rawCaptureMethod ?? undefined);
+      const interactionType = validInteractionTypeEnum.parse(rawInteractionType ?? undefined);
+      const intentLevel = validIntentLevelEnum.parse(rawIntentLevel ?? undefined);
+      const outcome = validOutcomeEnum.parse(rawOutcome ?? undefined);
+      const opportunityPotential = validOpportunityPotentialEnum.parse(rawOpportunityPotential) ?? null;
+      const nextStep = validNextStepEnum.parse(rawNextStep) ?? null;
+
+      const interaction = await storage.createProductInteraction({
+        organizationId,
+        eventId,
+        attendeeId: attendeeId && typeof attendeeId === 'string' && attendeeId.trim().length > 0 ? attendeeId : null,
+        unmatchedFirstName: unmatchedFirstName || null,
+        unmatchedLastName: unmatchedLastName || null,
+        unmatchedEmail: unmatchedEmail || null,
+        unmatchedCompany: unmatchedCompany || null,
+        capturedByUserId: userId,
+        captureMethod,
+        interactionType,
+        intentLevel,
+        outcome,
+        opportunityPotential,
+        nextStep,
+        notes: notes || null,
+        tags: tags || [],
+        station: station || null,
+      });
+
+      // If this is a matched attendee, update their intent status based on interaction
+      // Use robust check for non-empty attendeeId (handles null, undefined, and empty string)
+      const sanitizedAttendeeId = attendeeId && typeof attendeeId === 'string' && attendeeId.trim().length > 0 ? attendeeId.trim() : null;
+      
+      if (sanitizedAttendeeId) {
+        // Map product interaction outcomes to promotion logic
+        // Hot Lead triggers: wants_trial_pilot, asked_for_pricing + high intent, over_100k opportunity
+        // High-Intent triggers: high intentLevel, intro_to_stakeholder
+        // Negative signals: not_a_fit, too_early - do NOT promote
+
+        // Check for negative signals first - skip promotion entirely
+        const negativeOutcomes = ['not_a_fit', 'too_early'];
+        if (negativeOutcomes.includes(outcome)) {
+          // Don't promote for negative outcomes - just record the interaction
+        } else {
+          // Map to existing promotion outcome types with clear priority order
+          // ONLY promote for clear high-intent signals to avoid false escalations:
+          // - Hot Lead triggers: wants_trial_pilot, asked_for_pricing + high intent, intro_to_stakeholder, over_100k
+          // - High-Intent triggers: asked_for_pricing (any intent), high intentLevel
+          // - Baseline signals (requested_follow_up, other with medium/low intent) do NOT trigger promotion
+          let promotionOutcome = '';
+          
+          // Hot Lead triggers - strongest conversion signals
+          if (outcome === 'wants_trial_pilot') {
+            // Wants a trial/pilot = active_opportunity → hot_lead
+            promotionOutcome = 'active_opportunity';
+          } else if (outcome === 'asked_for_pricing' && intentLevel === 'high') {
+            // Asked for pricing with high intent = deal_in_progress → hot_lead
+            promotionOutcome = 'deal_in_progress';
+          } else if (outcome === 'intro_to_stakeholder') {
+            // Intro to stakeholder = follow_up_scheduled → hot_lead
+            promotionOutcome = 'follow_up_scheduled';
+          } else if (outcome === 'asked_for_pricing') {
+            // Asked for pricing without high intent = early_interest → high_intent
+            promotionOutcome = 'early_interest';
+          } else if (intentLevel === 'high') {
+            // High intent level = early_interest → high_intent
+            promotionOutcome = 'early_interest';
+          }
+          // Note: Medium/low intent with neutral outcomes (requested_follow_up, other) 
+          // do NOT trigger promotion - they just record the interaction without escalating status
+
+          // Opportunity potential can trigger hot lead promotion independently
+          // Only over_100k triggers hot lead via dealRange
+          const dealRange = opportunityPotential || undefined;
+
+          // Promote only if we have a meaningful high-signal outcome or high deal potential
+          if (promotionOutcome || (dealRange && dealRange === 'over_100k')) {
+            try {
+              await storage.promoteAttendeeIntent(
+                organizationId,
+                sanitizedAttendeeId,
+                { type: 'product_interaction', id: interaction.id },
+                promotionOutcome,
+                dealRange
+              );
+            } catch (promoError) {
+              logError("Error promoting attendee intent:", promoError);
+              // Don't fail the request, just log the error
+            }
+          }
+        }
+      }
+      
+      res.status(201).json(interaction);
+    } catch (error) {
+      logError("Error creating product interaction:", error);
+      res.status(500).json({ message: "Failed to create product interaction" });
+    }
+  });
+
+  app.patch("/api/organizations/:orgId/product-interactions/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orgId, id } = req.params;
+      const organizationId = await getOrganizationId(userId, orgId);
+      
+      const interaction = await storage.updateProductInteraction(organizationId, id, req.body);
+      if (!interaction) {
+        return res.status(404).json({ message: "Product interaction not found" });
+      }
+      res.json(interaction);
+    } catch (error) {
+      logError("Error updating product interaction:", error);
+      res.status(500).json({ message: "Failed to update product interaction" });
+    }
+  });
+
+  app.delete("/api/organizations/:orgId/product-interactions/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { orgId, id } = req.params;
+      const organizationId = await getOrganizationId(userId, orgId);
+      
+      await storage.deleteProductInteraction(organizationId, id);
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting product interaction:", error);
+      res.status(500).json({ message: "Failed to delete product interaction" });
+    }
+  });
+
   // Create a session check-in (admin - from QR scan or manual)
   app.post("/api/organizations/:orgId/events/:eventId/sessions/:sessionId/check-in", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {

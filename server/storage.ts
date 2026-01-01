@@ -68,6 +68,7 @@ import {
   engagementSignals,
   eventLeads,
   sessionCheckIns,
+  productInteractions,
   apiKeys,
   apiKeyAuditLogs,
   type User,
@@ -253,6 +254,8 @@ import {
   type InsertEventLead,
   type SessionCheckIn,
   type InsertSessionCheckIn,
+  type ProductInteraction,
+  type InsertProductInteraction,
   type ApiKey,
   type InsertApiKey,
   type ApiKeyAuditLog,
@@ -892,6 +895,28 @@ export interface IStorage {
   createSessionCheckIn(data: InsertSessionCheckIn): Promise<SessionCheckIn>;
   getSessionCheckInStats(organizationId: string, eventId: string): Promise<{ totalCheckIns: number; uniqueAttendees: number; sessionsWithCheckIns: number }>;
   getSessionCheckInsByEvent(organizationId: string, eventId: string): Promise<SessionCheckIn[]>;
+
+  // Product Interactions (Intent Capture)
+  getProductInteractions(organizationId: string, eventId: string): Promise<ProductInteraction[]>;
+  getProductInteraction(organizationId: string, id: string): Promise<ProductInteraction | undefined>;
+  getProductInteractionsByAttendee(organizationId: string, eventId: string, attendeeId: string): Promise<ProductInteraction[]>;
+  createProductInteraction(data: InsertProductInteraction): Promise<ProductInteraction>;
+  updateProductInteraction(organizationId: string, id: string, updates: Partial<InsertProductInteraction>): Promise<ProductInteraction | undefined>;
+  deleteProductInteraction(organizationId: string, id: string): Promise<void>;
+  getProductInteractionStats(organizationId: string, eventId: string): Promise<{ 
+    total: number; 
+    today: number; 
+    byMethod: { qr_scan: number; manual: number; lookup: number };
+    byIntentLevel: { low: number; medium: number; high: number };
+  }>;
+  getAttendeeInteractionScore(organizationId: string, eventId: string, attendeeId: string): Promise<{
+    score: number;
+    interactionCount: number;
+    highestIntentLevel: string | null;
+    latestOutcome: string | null;
+    maxOpportunityPotential: string | null;
+    reasons: string[];
+  }>;
 
   // Moments Analytics
   getMomentsAnalytics(organizationId: string, eventId?: string): Promise<MomentsAnalytics>;
@@ -5826,6 +5851,209 @@ export class DatabaseStorage implements IStorage {
         eq(sessionCheckIns.eventId, eventId)
       ))
       .orderBy(desc(sessionCheckIns.checkedInAt));
+  }
+
+  // Product Interactions (Intent Capture)
+  async getProductInteractions(organizationId: string, eventId: string): Promise<ProductInteraction[]> {
+    return await db.select().from(productInteractions)
+      .where(and(
+        eq(productInteractions.organizationId, organizationId),
+        eq(productInteractions.eventId, eventId)
+      ))
+      .orderBy(desc(productInteractions.createdAt));
+  }
+
+  async getProductInteraction(organizationId: string, id: string): Promise<ProductInteraction | undefined> {
+    const [result] = await db.select().from(productInteractions)
+      .where(and(
+        eq(productInteractions.organizationId, organizationId),
+        eq(productInteractions.id, id)
+      ));
+    return result;
+  }
+
+  async getProductInteractionsByAttendee(organizationId: string, eventId: string, attendeeId: string): Promise<ProductInteraction[]> {
+    return await db.select().from(productInteractions)
+      .where(and(
+        eq(productInteractions.organizationId, organizationId),
+        eq(productInteractions.eventId, eventId),
+        eq(productInteractions.attendeeId, attendeeId)
+      ))
+      .orderBy(desc(productInteractions.createdAt));
+  }
+
+  async createProductInteraction(data: InsertProductInteraction): Promise<ProductInteraction> {
+    const [result] = await db.insert(productInteractions).values(data).returning();
+    return result;
+  }
+
+  async updateProductInteraction(organizationId: string, id: string, updates: Partial<InsertProductInteraction>): Promise<ProductInteraction | undefined> {
+    const [result] = await db.update(productInteractions)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(
+        eq(productInteractions.organizationId, organizationId),
+        eq(productInteractions.id, id)
+      ))
+      .returning();
+    return result;
+  }
+
+  async deleteProductInteraction(organizationId: string, id: string): Promise<void> {
+    await db.delete(productInteractions)
+      .where(and(
+        eq(productInteractions.organizationId, organizationId),
+        eq(productInteractions.id, id)
+      ));
+  }
+
+  async getProductInteractionStats(organizationId: string, eventId: string): Promise<{ 
+    total: number; 
+    today: number; 
+    byMethod: { qr_scan: number; manual: number; lookup: number };
+    byIntentLevel: { low: number; medium: number; high: number };
+  }> {
+    const allInteractions = await db.select().from(productInteractions)
+      .where(and(
+        eq(productInteractions.organizationId, organizationId),
+        eq(productInteractions.eventId, eventId)
+      ));
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const todayInteractions = allInteractions.filter(i => 
+      i.createdAt && new Date(i.createdAt) >= today
+    );
+
+    const byMethod = {
+      qr_scan: allInteractions.filter(i => i.captureMethod === 'qr_scan').length,
+      manual: allInteractions.filter(i => i.captureMethod === 'manual').length,
+      lookup: allInteractions.filter(i => i.captureMethod === 'lookup').length,
+    };
+
+    const byIntentLevel = {
+      low: allInteractions.filter(i => i.intentLevel === 'low').length,
+      medium: allInteractions.filter(i => i.intentLevel === 'medium').length,
+      high: allInteractions.filter(i => i.intentLevel === 'high').length,
+    };
+
+    return {
+      total: allInteractions.length,
+      today: todayInteractions.length,
+      byMethod,
+      byIntentLevel,
+    };
+  }
+
+  async getAttendeeInteractionScore(organizationId: string, eventId: string, attendeeId: string): Promise<{
+    score: number;
+    interactionCount: number;
+    highestIntentLevel: string | null;
+    latestOutcome: string | null;
+    maxOpportunityPotential: string | null;
+    reasons: string[];
+  }> {
+    const interactions = await this.getProductInteractionsByAttendee(organizationId, eventId, attendeeId);
+    
+    if (interactions.length === 0) {
+      return {
+        score: 0,
+        interactionCount: 0,
+        highestIntentLevel: null,
+        latestOutcome: null,
+        maxOpportunityPotential: null,
+        reasons: [],
+      };
+    }
+
+    // Scoring logic from spec:
+    // Intent: LOW = +1, MEDIUM = +3, HIGH = +6
+    // Outcome boosts: requested_follow_up = +3, asked_for_pricing = +4, wants_trial_pilot = +6, 
+    //                 intro_to_stakeholder = +4, not_a_fit = -10, too_early = -2
+    // Opportunity boost: over_100k = +4, 50k_to_100k = +3, 10k_to_50k = +2, under_10k = +1
+
+    const intentScores: Record<string, number> = { low: 1, medium: 3, high: 6 };
+    const outcomeScores: Record<string, number> = {
+      requested_follow_up: 3,
+      asked_for_pricing: 4,
+      wants_trial_pilot: 6,
+      intro_to_stakeholder: 4,
+      not_a_fit: -10,
+      too_early: -2,
+      other: 0,
+    };
+    const opportunityScores: Record<string, number> = {
+      over_100k: 4,
+      '50k_to_100k': 3,
+      '10k_to_50k': 2,
+      under_10k: 1,
+    };
+
+    let score = 0;
+    const reasons: string[] = [];
+    let highestIntentLevel = 'low';
+    const intentLevelPriority: Record<string, number> = { low: 1, medium: 2, high: 3 };
+    let maxOpportunityPotential: string | null = null;
+    const opportunityPriority: Record<string, number> = { under_10k: 1, '10k_to_50k': 2, '50k_to_100k': 3, over_100k: 4 };
+
+    for (const interaction of interactions) {
+      // Intent score
+      const intentScore = intentScores[interaction.intentLevel] || 0;
+      score += intentScore;
+      if (intentLevelPriority[interaction.intentLevel] > intentLevelPriority[highestIntentLevel]) {
+        highestIntentLevel = interaction.intentLevel;
+      }
+
+      // Outcome score
+      const outcomeScore = outcomeScores[interaction.outcome] || 0;
+      score += outcomeScore;
+
+      // Opportunity score
+      if (interaction.opportunityPotential) {
+        const oppScore = opportunityScores[interaction.opportunityPotential] || 0;
+        score += oppScore;
+        if (!maxOpportunityPotential || 
+            opportunityPriority[interaction.opportunityPotential] > opportunityPriority[maxOpportunityPotential]) {
+          maxOpportunityPotential = interaction.opportunityPotential;
+        }
+      }
+    }
+
+    // Build reasons
+    if (highestIntentLevel === 'high') {
+      reasons.push('Captured HIGH intent during product interaction');
+    }
+    
+    const latestInteraction = interactions[0];
+    const latestOutcome = latestInteraction?.outcome || null;
+
+    if (interactions.some(i => i.outcome === 'asked_for_pricing')) {
+      reasons.push('Outcome: Asked for pricing');
+    }
+    if (interactions.some(i => i.outcome === 'wants_trial_pilot')) {
+      reasons.push('Outcome: Wants a trial/pilot');
+    }
+    if (interactions.some(i => i.outcome === 'requested_follow_up')) {
+      reasons.push('Outcome: Requested follow-up');
+    }
+    if (maxOpportunityPotential === 'over_100k') {
+      reasons.push('$100k+ opportunity potential selected');
+    }
+    if (interactions.length >= 2) {
+      const highMediumCount = interactions.filter(i => i.intentLevel === 'high' || i.intentLevel === 'medium').length;
+      if (highMediumCount >= 2) {
+        reasons.push('Multiple high-signal interactions recorded');
+      }
+    }
+
+    return {
+      score,
+      interactionCount: interactions.length,
+      highestIntentLevel,
+      latestOutcome,
+      maxOpportunityPotential,
+      reasons,
+    };
   }
 
   // API Keys

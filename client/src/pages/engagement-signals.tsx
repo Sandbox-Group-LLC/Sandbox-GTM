@@ -2,7 +2,9 @@ import { useState } from "react";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Activity, Zap, Flame, Users, RefreshCw, BarChart3, MessageSquare, Star, TrendingUp, CheckCircle, Radio, Clock, Handshake, Target } from "lucide-react";
+import { Activity, Zap, Flame, Users, RefreshCw, BarChart3, MessageSquare, Star, TrendingUp, CheckCircle, Radio, Clock, Handshake, Target, HelpCircle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -71,6 +73,17 @@ const typeLabels: Record<string, string> = {
   qa: "Q&A",
   pulse: "Pulse Check",
   cta: "Call to Action",
+};
+
+const formatIntentSourceType = (type: string): string => {
+  const typeMap: Record<string, string> = {
+    'product_interaction': 'Product Interaction',
+    'meeting': 'Meeting Outcome',
+    'engagement': 'Engagement Signal',
+    'session_attendance': 'Session Attendance',
+    'event_lead': 'Lead Capture',
+  };
+  return typeMap[type] || type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 };
 
 export default function EngagementSignals() {
@@ -338,14 +351,43 @@ export default function EngagementSignals() {
                               </p>
                             </div>
                           </div>
-                          <Badge 
-                            variant={contact.intentStatus === 'hot_lead' ? 'destructive' : 'secondary'}
-                            data-testid={`badge-intent-status-${index}`}
-                          >
-                            {contact.intentStatus === 'hot_lead' ? 'Hot Lead' :
-                             contact.intentStatus === 'high_intent' ? 'High Intent' :
-                             contact.intentStatus || 'Engaged'}
-                          </Badge>
+                          <div className="flex items-center gap-1">
+                            <Badge 
+                              variant={contact.intentStatus === 'hot_lead' ? 'destructive' : 'secondary'}
+                              data-testid={`badge-intent-status-${index}`}
+                            >
+                              {contact.intentStatus === 'hot_lead' ? 'Hot Lead' :
+                               contact.intentStatus === 'high_intent' ? 'High Intent' :
+                               contact.intentStatus || 'Engaged'}
+                            </Badge>
+                            {contact.intentSources && contact.intentSources.length > 0 && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-6 w-6"
+                                    data-testid={`button-why-${index}`}
+                                  >
+                                    <HelpCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="left" className="max-w-xs">
+                                  <div className="space-y-1.5">
+                                    <p className="font-medium text-xs">Why this contact was promoted:</p>
+                                    {contact.intentSources.map((source, i) => (
+                                      <div key={i} className="flex items-center justify-between gap-3 text-xs">
+                                        <span>{formatIntentSourceType(source.type)}</span>
+                                        <span className="text-muted-foreground">
+                                          {new Date(source.createdAt).toLocaleDateString()}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                          </div>
                         </div>
                       ))}
                       {highIntentContacts.length > 10 && (

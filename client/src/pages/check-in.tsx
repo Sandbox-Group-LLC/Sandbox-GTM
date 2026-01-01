@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/useAuth";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -33,6 +34,10 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
@@ -50,7 +55,7 @@ import {
   AlertCircle,
   Loader2
 } from "lucide-react";
-import type { Attendee, Event, EventSession, EventLead } from "@shared/schema";
+import type { Attendee, Event, EventSession, EventLead, ProductInteraction } from "@shared/schema";
 
 type CheckInMode = 'program' | 'lead' | 'session';
 
@@ -61,11 +66,11 @@ interface ProgramCheckInStats {
   checkInRate: number;
 }
 
-interface LeadCaptureStats {
-  leadsToday: number;
-  totalLeads: number;
-  qrScanned: number;
-  manualEntry: number;
+interface ProductInteractionStats {
+  interactionsToday: number;
+  totalInteractions: number;
+  badgeScans: number;
+  manualInteractions: number;
 }
 
 interface SessionCheckInStats {
@@ -94,6 +99,60 @@ interface CheckInResponse {
   };
 }
 
+type CaptureMethod = 'qr_scan' | 'manual' | 'lookup';
+
+// Interaction type options
+const INTERACTION_TYPE_OPTIONS = [
+  { value: 'demo', label: 'Demo' },
+  { value: 'product_discussion', label: 'Product Discussion' },
+  { value: 'pricing_request', label: 'Pricing Request' },
+  { value: 'technical_deep_dive', label: 'Technical Deep Dive' },
+  { value: 'use_case_exploration', label: 'Use Case Exploration' },
+  { value: 'integration_question', label: 'Integration Question' },
+  { value: 'support_inquiry', label: 'Support Inquiry' },
+  { value: 'partnership', label: 'Partnership Inquiry' },
+  { value: 'other', label: 'Other' },
+] as const;
+
+// Outcome options
+const OUTCOME_OPTIONS = [
+  { value: 'requested_follow_up', label: 'Requested Follow-up' },
+  { value: 'asked_for_pricing', label: 'Asked for Pricing' },
+  { value: 'wants_trial_pilot', label: 'Wants Trial/Pilot' },
+  { value: 'intro_to_stakeholder', label: 'Intro to Stakeholder' },
+  { value: 'not_a_fit', label: 'Not a Fit' },
+  { value: 'too_early', label: 'Too Early' },
+  { value: 'other', label: 'Other' },
+] as const;
+
+// Opportunity potential options
+const OPPORTUNITY_POTENTIAL_OPTIONS = [
+  { value: 'under_10k', label: 'Under $10k' },
+  { value: '10k_to_50k', label: '$10k - $50k' },
+  { value: '50k_to_100k', label: '$50k - $100k' },
+  { value: 'over_100k', label: 'Over $100k' },
+] as const;
+
+// Next step options
+const NEXT_STEP_OPTIONS = [
+  { value: 'schedule_call', label: 'Schedule Call' },
+  { value: 'send_materials', label: 'Send Materials' },
+  { value: 'internal_review', label: 'Internal Review' },
+  { value: 'procurement', label: 'Procurement' },
+  { value: 'none', label: 'None/Complete' },
+] as const;
+
+// Tag options
+const TAG_OPTIONS = [
+  { value: 'competitor_mention', label: 'Competitor Mentioned' },
+  { value: 'budget_approved', label: 'Budget Approved' },
+  { value: 'decision_maker', label: 'Decision Maker' },
+  { value: 'influencer', label: 'Influencer' },
+  { value: 'champion', label: 'Champion' },
+  { value: 'technical_buyer', label: 'Technical Buyer' },
+  { value: 'executive', label: 'Executive' },
+] as const;
+
 interface LeadFormData {
   firstName: string;
   lastName: string;
@@ -101,6 +160,13 @@ interface LeadFormData {
   company?: string;
   phone?: string;
   jobTitle?: string;
+  interactionType: string;
+  intentLevel: string;
+  outcome: string;
+  opportunityPotential?: string;
+  nextStep?: string;
+  station?: string;
+  tags?: string[];
   notes?: string;
 }
 
@@ -111,11 +177,19 @@ const leadFormSchema = z.object({
   company: z.string().optional(),
   phone: z.string().optional(),
   jobTitle: z.string().optional(),
+  interactionType: z.string().min(1, "Interaction type is required"),
+  intentLevel: z.string().min(1, "Intent level is required"),
+  outcome: z.string().min(1, "Outcome is required"),
+  opportunityPotential: z.string().optional(),
+  nextStep: z.string().optional(),
+  station: z.string().optional(),
+  tags: z.array(z.string()).optional(),
   notes: z.string().optional(),
 });
 
 export default function CheckIn() {
   const { toast } = useToast();
+  const { organization } = useAuth();
   const [mode, setMode] = useState<CheckInMode>('program');
   const [selectedEventId, setSelectedEventId] = useState<string>("");
   const [selectedSessionId, setSelectedSessionId] = useState<string>("");
@@ -125,6 +199,10 @@ export default function CheckIn() {
   const [lastSessionCheckIn, setLastSessionCheckIn] = useState<{ attendee: Attendee; session: EventSession } | null>(null);
   const [leadFormOpen, setLeadFormOpen] = useState(false);
   const [leadFormData, setLeadFormData] = useState<Partial<LeadFormData> | null>(null);
+  const [isMatchedAttendee, setIsMatchedAttendee] = useState(false);
+  const [matchedAttendeeId, setMatchedAttendeeId] = useState<string | null>(null);
+  const [captureMethod, setCaptureMethod] = useState<CaptureMethod>('manual');
+  const [leadSearchQuery, setLeadSearchQuery] = useState("");
 
   const leadForm = useForm<LeadFormData>({
     resolver: zodResolver(leadFormSchema),
@@ -135,6 +213,13 @@ export default function CheckIn() {
       company: "",
       phone: "",
       jobTitle: "",
+      interactionType: "",
+      intentLevel: "",
+      outcome: "",
+      opportunityPotential: "",
+      nextStep: "",
+      station: "",
+      tags: [],
       notes: "",
     },
   });
@@ -148,6 +233,13 @@ export default function CheckIn() {
         company: leadFormData.company || "",
         phone: leadFormData.phone || "",
         jobTitle: leadFormData.jobTitle || "",
+        interactionType: leadFormData.interactionType || "",
+        intentLevel: leadFormData.intentLevel || "",
+        outcome: leadFormData.outcome || "",
+        opportunityPotential: leadFormData.opportunityPotential || "",
+        nextStep: leadFormData.nextStep || "",
+        station: leadFormData.station || "",
+        tags: leadFormData.tags || [],
         notes: "",
       });
     }
@@ -176,7 +268,7 @@ export default function CheckIn() {
     enabled: mode === 'program',
   });
 
-  const { data: leadStats, isLoading: leadStatsLoading } = useQuery<LeadCaptureStats>({
+  const { data: leadStats, isLoading: leadStatsLoading } = useQuery<ProductInteractionStats>({
     queryKey: ["/api/check-in/stats", selectedEventId, "lead"],
     queryFn: async () => {
       const url = selectedEventId 
@@ -253,11 +345,23 @@ export default function CheckIn() {
         queryClient.invalidateQueries({ queryKey: ["/api/check-in/stats", selectedEventId, "session"] });
         toast({ title: "Session check-in recorded", description: `${data.attendee.firstName} ${data.attendee.lastName} checked into ${session?.title || 'session'}` });
       } else if (mode === 'lead') {
+        setCaptureMethod('qr_scan');
         if (data.attendeeData) {
-          setLeadFormData(data.attendeeData);
+          setLeadFormData({
+            firstName: data.attendeeData.firstName,
+            lastName: data.attendeeData.lastName,
+            email: data.attendeeData.email,
+            company: data.attendeeData.company,
+            phone: data.attendeeData.phone,
+            jobTitle: data.attendeeData.jobTitle,
+          });
+          setIsMatchedAttendee(true);
+          setMatchedAttendeeId(data.attendee?.id || null);
           setLeadFormOpen(true);
         } else {
           setLeadFormData(null);
+          setIsMatchedAttendee(false);
+          setMatchedAttendeeId(null);
           setLeadFormOpen(true);
         }
       }
@@ -310,22 +414,51 @@ export default function CheckIn() {
 
   const createLeadMutation = useMutation({
     mutationFn: async (data: LeadFormData) => {
-      const res = await apiRequest("POST", "/api/leads", {
-        ...data,
-        eventId: selectedEventId,
-        captureMethod: leadFormData ? 'qr_scan' : 'manual',
-      });
-      return res.json() as Promise<EventLead>;
+      if (!organization?.id || !selectedEventId) {
+        throw new Error("Organization or event not selected");
+      }
+      
+      const payload: Record<string, unknown> = {
+        interactionType: data.interactionType,
+        intentLevel: data.intentLevel,
+        outcome: data.outcome,
+        opportunityPotential: data.opportunityPotential || undefined,
+        nextStep: data.nextStep || undefined,
+        notes: data.notes || undefined,
+        tags: data.tags && data.tags.length > 0 ? data.tags : undefined,
+        station: data.station || undefined,
+        captureMethod,
+      };
+      
+      if (matchedAttendeeId) {
+        payload.attendeeId = matchedAttendeeId;
+      } else {
+        payload.unmatchedFirstName = data.firstName;
+        payload.unmatchedLastName = data.lastName;
+        payload.unmatchedEmail = data.email;
+        payload.unmatchedCompany = data.company || undefined;
+        payload.unmatchedJobTitle = data.jobTitle || undefined;
+      }
+      
+      const res = await apiRequest(
+        "POST", 
+        `/api/organizations/${organization.id}/events/${selectedEventId}/product-interactions`, 
+        payload
+      );
+      return res.json() as Promise<ProductInteraction>;
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/check-in/stats", selectedEventId, "lead"] });
-      toast({ title: "Lead captured", description: `${data.firstName} ${data.lastName} has been added` });
+      queryClient.invalidateQueries({ queryKey: [`/api/organizations/${organization?.id}/events/${selectedEventId}/product-interactions`] });
+      toast({ title: "Interaction captured", description: "Product interaction has been recorded" });
       setLeadFormOpen(false);
       setLeadFormData(null);
+      setMatchedAttendeeId(null);
+      setCaptureMethod('manual');
       leadForm.reset();
     },
     onError: (error: Error) => {
-      toast({ title: "Failed to capture lead", description: error.message, variant: "destructive" });
+      toast({ title: "Failed to capture interaction", description: error.message, variant: "destructive" });
     },
   });
 
@@ -346,6 +479,9 @@ export default function CheckIn() {
 
   const handleOpenLeadForm = () => {
     setLeadFormData(null);
+    setIsMatchedAttendee(false);
+    setMatchedAttendeeId(null);
+    setCaptureMethod('manual');
     leadForm.reset({
       firstName: "",
       lastName: "",
@@ -353,10 +489,43 @@ export default function CheckIn() {
       company: "",
       phone: "",
       jobTitle: "",
+      interactionType: "",
+      intentLevel: "",
+      outcome: "",
+      opportunityPotential: "",
+      nextStep: "",
+      station: "",
+      tags: [],
       notes: "",
     });
     setLeadFormOpen(true);
   };
+
+  const handleSelectAttendeeForLead = (attendee: Attendee) => {
+    setCaptureMethod('lookup');
+    setMatchedAttendeeId(attendee.id);
+    setLeadFormData({
+      firstName: attendee.firstName,
+      lastName: attendee.lastName,
+      email: attendee.email,
+      company: attendee.company || "",
+      phone: attendee.phone || "",
+      jobTitle: attendee.jobTitle || "",
+    });
+    setIsMatchedAttendee(true);
+    setLeadFormOpen(true);
+  };
+
+  const filteredLeadAttendees = attendees?.filter(a => {
+    if (!leadSearchQuery) return true;
+    const query = leadSearchQuery.toLowerCase();
+    return (
+      a.firstName.toLowerCase().includes(query) ||
+      a.lastName.toLowerCase().includes(query) ||
+      a.email.toLowerCase().includes(query) ||
+      a.checkInCode?.toLowerCase().includes(query)
+    );
+  }) || [];
 
   const filteredAttendees = attendees?.filter(a => {
     if (!searchQuery) return true;
@@ -461,8 +630,8 @@ export default function CheckIn() {
                   <Target className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Leads Today</p>
-                  <p className="text-2xl font-semibold" data-testid="text-leads-today">{leadStats?.leadsToday || 0}</p>
+                  <p className="text-sm text-muted-foreground">Interactions Today</p>
+                  <p className="text-2xl font-semibold" data-testid="text-interactions-today">{leadStats?.interactionsToday || 0}</p>
                 </div>
               </div>
             </CardContent>
@@ -474,8 +643,8 @@ export default function CheckIn() {
                   <Users className="w-5 h-5 text-muted-foreground" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Leads</p>
-                  <p className="text-2xl font-semibold" data-testid="text-total-leads">{leadStats?.totalLeads || 0}</p>
+                  <p className="text-sm text-muted-foreground">Total Interactions</p>
+                  <p className="text-2xl font-semibold" data-testid="text-total-interactions">{leadStats?.totalInteractions || 0}</p>
                 </div>
               </div>
             </CardContent>
@@ -487,8 +656,8 @@ export default function CheckIn() {
                   <ScanLine className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">QR Scanned</p>
-                  <p className="text-2xl font-semibold" data-testid="text-qr-scanned">{leadStats?.qrScanned || 0}</p>
+                  <p className="text-sm text-muted-foreground">Badge Scans</p>
+                  <p className="text-2xl font-semibold" data-testid="text-badge-scans">{leadStats?.badgeScans || 0}</p>
                 </div>
               </div>
             </CardContent>
@@ -500,8 +669,8 @@ export default function CheckIn() {
                   <Edit3 className="w-5 h-5 text-green-600 dark:text-green-400" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Manual Entry</p>
-                  <p className="text-2xl font-semibold" data-testid="text-manual-entry">{leadStats?.manualEntry || 0}</p>
+                  <p className="text-sm text-muted-foreground">Manual Entries</p>
+                  <p className="text-2xl font-semibold" data-testid="text-manual-entries">{leadStats?.manualInteractions || 0}</p>
                 </div>
               </div>
             </CardContent>
@@ -585,7 +754,7 @@ export default function CheckIn() {
   const getModeTitle = () => {
     switch (mode) {
       case 'program': return 'Program Check-In';
-      case 'lead': return 'Lead Capture';
+      case 'lead': return 'Product Interaction';
       case 'session': return 'Session Check-In';
     }
   };
@@ -593,7 +762,7 @@ export default function CheckIn() {
   const getScanPlaceholder = () => {
     switch (mode) {
       case 'program': return 'Enter or scan check-in code';
-      case 'lead': return 'Scan attendee badge to capture lead';
+      case 'lead': return 'Scan attendee badge to capture interaction';
       case 'session': return 'Scan attendee badge for session';
     }
   };
@@ -668,7 +837,7 @@ export default function CheckIn() {
               </TabsTrigger>
               <TabsTrigger value="lead" data-testid="tab-lead">
                 <Target className="w-4 h-4 mr-2" />
-                Lead Capture
+                Product Interaction
               </TabsTrigger>
               <TabsTrigger value="session" data-testid="tab-session">
                 <CalendarCheck className="w-4 h-4 mr-2" />
@@ -748,7 +917,7 @@ export default function CheckIn() {
                   }
                   data-testid="button-scan-checkin"
                 >
-                  {scanMutation.isPending ? "Processing..." : mode === 'lead' ? "Capture Lead" : "Check In"}
+                  {scanMutation.isPending ? "Processing..." : mode === 'lead' ? "Capture Interaction" : "Check In"}
                 </Button>
               </form>
 
@@ -822,35 +991,102 @@ export default function CheckIn() {
           )}
 
           {mode === 'lead' && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <UserPlus className="w-5 h-5" />
-                  Quick Add Lead
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Scan attendee badges to quickly capture leads, or click "Add Lead" to manually enter information.
-                </p>
-                <Button onClick={handleOpenLeadForm} variant="outline" className="w-full" data-testid="button-manual-lead">
-                  <Edit3 className="w-4 h-4 mr-2" />
-                  Enter Lead Manually
-                </Button>
-              </CardContent>
-            </Card>
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Search className="w-5 h-5" />
+                    Find Attendee
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Input
+                    data-testid="input-search-lead-attendee"
+                    placeholder="Search attendee by name, email, or code..."
+                    value={leadSearchQuery}
+                    onChange={(e) => setLeadSearchQuery(e.target.value)}
+                    className="mb-4"
+                  />
+
+                  <div className="space-y-2 max-h-[300px] overflow-auto">
+                    {attendeesLoading ? (
+                      <>
+                        <Skeleton className="h-16" />
+                        <Skeleton className="h-16" />
+                        <Skeleton className="h-16" />
+                      </>
+                    ) : filteredLeadAttendees.length === 0 ? (
+                      <p className="text-center py-4 text-muted-foreground">No attendees found</p>
+                    ) : (
+                      filteredLeadAttendees.slice(0, 15).map((attendee) => (
+                        <div
+                          key={attendee.id}
+                          className="flex items-center justify-between p-3 rounded-md border bg-card"
+                          data-testid={`row-lead-attendee-${attendee.id}`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">{attendee.firstName} {attendee.lastName}</p>
+                            <p className="text-sm text-muted-foreground truncate">{attendee.email}</p>
+                            {attendee.company && (
+                              <p className="text-xs text-muted-foreground">{attendee.company}</p>
+                            )}
+                          </div>
+                          <Button
+                            size="sm"
+                            onClick={() => handleSelectAttendeeForLead(attendee)}
+                            data-testid={`button-select-lead-${attendee.id}`}
+                          >
+                            <Target className="w-3 h-3 mr-1" />
+                            Select
+                          </Button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <UserPlus className="w-5 h-5" />
+                    Quick Add Interaction
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Can't find the attendee? Manually enter their information for contacts not in the system.
+                  </p>
+                  <Button onClick={handleOpenLeadForm} variant="outline" className="w-full" data-testid="button-manual-lead">
+                    <Edit3 className="w-4 h-4 mr-2" />
+                    Enter Interaction Manually
+                  </Button>
+                </CardContent>
+              </Card>
+            </>
           )}
         </div>
       </div>
 
       <Dialog open={leadFormOpen} onOpenChange={setLeadFormOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Capture Lead</DialogTitle>
+            <div className="flex items-center gap-3 flex-wrap">
+              <DialogTitle>Capture Interaction</DialogTitle>
+              <Badge 
+                variant="outline" 
+                className={isMatchedAttendee 
+                  ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700"
+                  : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700"}
+                data-testid="badge-match-status"
+              >
+                {isMatchedAttendee ? "Matched" : "Unmatched"}
+              </Badge>
+            </div>
             <DialogDescription>
-              {leadFormData 
-                ? "Review and confirm the lead information captured from the badge scan."
-                : "Enter the lead's contact information."}
+              {isMatchedAttendee 
+                ? "Review and confirm the interaction information captured from the badge scan or attendee search."
+                : "Enter the contact information for this interaction."}
             </DialogDescription>
           </DialogHeader>
           <Form {...leadForm}>
@@ -937,6 +1173,216 @@ export default function CheckIn() {
                   </FormItem>
                 )}
               />
+
+              <Separator className="my-4" />
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={leadForm.control}
+                  name="interactionType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Interaction Type *</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-interaction-type">
+                            <SelectValue placeholder="Select type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {INTERACTION_TYPE_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={leadForm.control}
+                  name="intentLevel"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Intent Level *</FormLabel>
+                      <FormControl>
+                        <RadioGroup
+                          onValueChange={field.onChange}
+                          value={field.value}
+                          className="flex gap-4 pt-2"
+                          data-testid="radio-intent-level"
+                        >
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="low" id="intent-low" />
+                            <Label 
+                              htmlFor="intent-low" 
+                              className="text-sm cursor-pointer px-2 py-1 rounded bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                            >
+                              Low
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="medium" id="intent-medium" />
+                            <Label 
+                              htmlFor="intent-medium" 
+                              className="text-sm cursor-pointer px-2 py-1 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
+                            >
+                              Medium
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="high" id="intent-high" />
+                            <Label 
+                              htmlFor="intent-high" 
+                              className="text-sm cursor-pointer px-2 py-1 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                            >
+                              High
+                            </Label>
+                          </div>
+                        </RadioGroup>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={leadForm.control}
+                  name="outcome"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Outcome *</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-outcome">
+                            <SelectValue placeholder="Select outcome" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {OUTCOME_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={leadForm.control}
+                  name="opportunityPotential"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Opportunity Potential</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value || ""}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-opportunity-potential">
+                            <SelectValue placeholder="Select potential" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {OPPORTUNITY_POTENTIAL_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={leadForm.control}
+                  name="nextStep"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Next Step</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value || ""}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-next-step">
+                            <SelectValue placeholder="Select next step" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {NEXT_STEP_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={leadForm.control}
+                  name="station"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Station</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          placeholder="e.g., Booth A, Demo Station 3"
+                          data-testid="input-station" 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={leadForm.control}
+                name="tags"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tags</FormLabel>
+                    <div className="flex flex-wrap gap-2 pt-2">
+                      {TAG_OPTIONS.map((tag) => {
+                        const isSelected = field.value?.includes(tag.value);
+                        return (
+                          <div key={tag.value} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`tag-${tag.value}`}
+                              checked={isSelected}
+                              onCheckedChange={(checked) => {
+                                const current = field.value || [];
+                                if (checked) {
+                                  field.onChange([...current, tag.value]);
+                                } else {
+                                  field.onChange(current.filter((v: string) => v !== tag.value));
+                                }
+                              }}
+                              data-testid={`checkbox-tag-${tag.value}`}
+                            />
+                            <Label 
+                              htmlFor={`tag-${tag.value}`} 
+                              className="text-sm cursor-pointer"
+                            >
+                              {tag.label}
+                            </Label>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <FormField
                 control={leadForm.control}
                 name="notes"
@@ -945,7 +1391,7 @@ export default function CheckIn() {
                     <FormLabel>Notes</FormLabel>
                     <FormControl>
                       <Textarea 
-                        placeholder="Add any notes about this lead..." 
+                        placeholder="Add any notes about this interaction..." 
                         className="resize-none" 
                         rows={3}
                         {...field} 
@@ -956,6 +1402,7 @@ export default function CheckIn() {
                   </FormItem>
                 )}
               />
+
               <div className="flex justify-end gap-2 pt-4">
                 <Button type="button" variant="outline" onClick={() => setLeadFormOpen(false)} data-testid="button-cancel-lead">
                   Cancel
@@ -967,7 +1414,7 @@ export default function CheckIn() {
                       Saving...
                     </>
                   ) : (
-                    "Save Lead"
+                    "Save Interaction"
                   )}
                 </Button>
               </div>

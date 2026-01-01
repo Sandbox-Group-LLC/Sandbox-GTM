@@ -2113,6 +2113,140 @@ export const sessionCheckIns = pgTable("session_check_ins", {
   uniqueIndex("session_check_ins_session_attendee_idx").on(table.sessionId, table.attendeeId),
 ]);
 
+// Product Interaction Types - for demo/booth conversation classification
+export const INTERACTION_TYPES = [
+  'product_demo',
+  'technical_deep_dive',
+  'pricing_packaging',
+  'integration_security',
+  'executive_conversation',
+  'other',
+] as const;
+export type InteractionType = typeof INTERACTION_TYPES[number];
+
+// Product Interaction Outcomes
+export const INTERACTION_OUTCOMES = [
+  'requested_follow_up',
+  'asked_for_pricing',
+  'wants_trial_pilot',
+  'intro_to_stakeholder',
+  'not_a_fit',
+  'too_early',
+  'other',
+] as const;
+export type InteractionOutcome = typeof INTERACTION_OUTCOMES[number];
+
+// Product Interaction Opportunity Potential buckets
+export const OPPORTUNITY_POTENTIALS = [
+  'under_10k',
+  '10k_to_50k',
+  '50k_to_100k',
+  'over_100k',
+] as const;
+export type OpportunityPotential = typeof OPPORTUNITY_POTENTIALS[number];
+
+// Product Interaction Next Steps
+export const INTERACTION_NEXT_STEPS = [
+  'schedule_meeting',
+  'send_deck_recap',
+  'connect_to_ae',
+  'invite_to_private_session',
+  'follow_up_after_event',
+  'no_action',
+] as const;
+export type InteractionNextStep = typeof INTERACTION_NEXT_STEPS[number];
+
+// Product Interaction Intent Levels (per-interaction metric)
+export const INTENT_LEVELS = [
+  'low',
+  'medium',
+  'high',
+] as const;
+export type IntentLevel = typeof INTENT_LEVELS[number];
+
+// Product Interaction Tags
+export const INTERACTION_TAGS = [
+  'icp_fit',
+  'competitor_mentioned',
+  'security_review',
+  'budget_confirmed',
+  'buying_committee',
+  'urgent_timeline',
+  'partner_motion',
+  'other',
+] as const;
+export type InteractionTag = typeof INTERACTION_TAGS[number];
+
+// Product Interaction Capture Methods
+export const INTERACTION_CAPTURE_METHODS = [
+  'qr_scan',
+  'manual',
+  'lookup',
+] as const;
+export type InteractionCaptureMethod = typeof INTERACTION_CAPTURE_METHODS[number];
+
+// Product Interaction Stations
+export const INTERACTION_STATIONS = [
+  'main_demo_station',
+  'booth',
+  'vip_lounge',
+  'breakout_room',
+  'other',
+] as const;
+export type InteractionStation = typeof INTERACTION_STATIONS[number];
+
+// Product Interactions - Capturing intent from demo/product conversations
+export const productInteractions = pgTable("product_interactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id).notNull(),
+  attendeeId: varchar("attendee_id").references(() => attendees.id), // Nullable - allow unmatched
+  // Unmatched attendee info (when attendeeId is null)
+  unmatchedEmail: varchar("unmatched_email", { length: 255 }),
+  unmatchedFirstName: varchar("unmatched_first_name", { length: 100 }),
+  unmatchedLastName: varchar("unmatched_last_name", { length: 100 }),
+  unmatchedCompany: varchar("unmatched_company", { length: 255 }),
+  unmatchedJobTitle: varchar("unmatched_job_title", { length: 255 }),
+  // Capture metadata
+  capturedByUserId: varchar("captured_by_user_id").references(() => users.id),
+  captureMethod: varchar("capture_method", { length: 50 }), // 'qr_scan', 'manual', 'lookup'
+  sourceCode: varchar("source_code", { length: 50 }), // QR/badge code if scanned
+  // Interaction signal fields
+  interactionType: varchar("interaction_type", { length: 50 }).notNull(), // InteractionType
+  intentLevel: varchar("intent_level", { length: 20 }).notNull(), // 'low', 'medium', 'high'
+  outcome: varchar("outcome", { length: 50 }).notNull(), // InteractionOutcome
+  opportunityPotential: varchar("opportunity_potential", { length: 20 }), // OpportunityPotential
+  nextStep: varchar("next_step", { length: 50 }), // InteractionNextStep
+  notes: text("notes"),
+  tags: text("tags").array(), // InteractionTag[]
+  station: varchar("station", { length: 50 }), // InteractionStation
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("product_interactions_event_idx").on(table.eventId),
+  index("product_interactions_attendee_idx").on(table.attendeeId),
+  index("product_interactions_event_created_idx").on(table.eventId, table.createdAt),
+  index("product_interactions_event_intent_idx").on(table.eventId, table.intentLevel),
+  index("product_interactions_captured_by_idx").on(table.capturedByUserId),
+]);
+
+export const insertProductInteractionSchema = createInsertSchema(productInteractions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertProductInteraction = z.infer<typeof insertProductInteractionSchema>;
+export type ProductInteraction = typeof productInteractions.$inferSelect;
+
+// Product Interactions relations
+export const productInteractionsRelations = relations(productInteractions, ({ one }) => ({
+  organization: one(organizations, { fields: [productInteractions.organizationId], references: [organizations.id] }),
+  event: one(events, { fields: [productInteractions.eventId], references: [events.id] }),
+  attendee: one(attendees, { fields: [productInteractions.attendeeId], references: [attendees.id] }),
+  capturedByUser: one(users, { fields: [productInteractions.capturedByUserId], references: [users.id] }),
+}));
+
 // API Key scopes for external integrations
 export const API_KEY_SCOPES = [
   'events.read',       // Read event information
