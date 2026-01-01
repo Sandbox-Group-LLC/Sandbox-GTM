@@ -760,6 +760,20 @@ export async function registerRoutes(
       }
     }
     
+    // CRITICAL: Check if user needs to redeem an invite code first
+    // Super admins bypass this check - they can have orgs created for them
+    const userIsSuperAdmin = isSuperAdmin(email, isAdmin);
+    if (!userIsSuperAdmin) {
+      // Check if user has redeemed a signup invite code
+      const redemption = await storage.getSignupRedemptionForUser(userId);
+      if (!redemption) {
+        // User hasn't redeemed invite code yet - don't auto-create organization
+        // They need to go through the invite code redemption flow first
+        logInfo(`User ${userId} has not redeemed invite code - skipping auto org creation`, 'OrgRouting');
+        throw new Error("INVITE_REQUIRED");
+      }
+    }
+    
     // Create default org for user if none exists AND no pending invitations
     logInfo(`Creating default 'My Organization' for user ${userId} (email: ${user?.email || 'unknown'}) - no existing memberships and no pending invitations found`, 'OrgRouting');
     const org = await storage.createOrganization({
@@ -1155,7 +1169,11 @@ export async function registerRoutes(
       const org = await storage.getOrganization(organizationId);
       logInfo(`GET /api/auth/organization: returning org ${organizationId} for user ${userId}`, 'OrgRouting');
       res.json(sanitizeOrganization(org));
-    } catch (error) {
+    } catch (error: any) {
+      // Handle case where user hasn't redeemed invite code yet
+      if (error?.message === "INVITE_REQUIRED") {
+        return res.status(403).json({ message: "Invite code required", code: "INVITE_REQUIRED" });
+      }
       logError("Error fetching organization:", error);
       res.status(500).json({ message: "Failed to fetch organization" });
     }
@@ -1289,7 +1307,11 @@ export async function registerRoutes(
         permissions: Array.isArray(member.permissions) ? member.permissions : [],
         organizationId,
       });
-    } catch (error) {
+    } catch (error: any) {
+      // Handle case where user hasn't redeemed invite code yet
+      if (error?.message === "INVITE_REQUIRED") {
+        return res.status(403).json({ message: "Invite code required", code: "INVITE_REQUIRED" });
+      }
       logError("Error fetching membership:", error);
       res.status(500).json({ message: "Failed to fetch membership" });
     }

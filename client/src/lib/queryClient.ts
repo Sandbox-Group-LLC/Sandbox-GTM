@@ -36,6 +36,15 @@ export const getQueryFn: <T>(options: {
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
       return null;
     }
+    
+    // Handle 403 INVITE_REQUIRED gracefully for auth endpoints
+    // This allows the UI to handle the invite code flow without throwing
+    if (res.status === 403) {
+      const url = queryKey.join("/");
+      if (url.includes("/api/auth/organization") || url.includes("/api/auth/membership")) {
+        return null;
+      }
+    }
 
     await throwIfResNotOk(res);
     return await res.json();
