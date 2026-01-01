@@ -1129,7 +1129,7 @@ export class DatabaseStorage implements IStorage {
       let ownerEmail: string | undefined;
       if (ownerMember) {
         const [owner] = await db.select().from(users).where(eq(users.id, ownerMember.userId));
-        ownerEmail = owner?.email;
+        ownerEmail = owner?.email ?? undefined;
       }
       
       // Get invite code used to create this organization (most recent if multiple exist)
@@ -1140,7 +1140,7 @@ export class DatabaseStorage implements IStorage {
         .from(signupInviteCodeRedemptions)
         .innerJoin(signupInviteCodes, eq(signupInviteCodeRedemptions.inviteCodeId, signupInviteCodes.id))
         .where(eq(signupInviteCodeRedemptions.organizationId, org.id))
-        .orderBy(desc(signupInviteCodeRedemptions.createdAt))
+        .orderBy(desc(signupInviteCodeRedemptions.redeemedAt))
         .limit(1);
       
       return {
