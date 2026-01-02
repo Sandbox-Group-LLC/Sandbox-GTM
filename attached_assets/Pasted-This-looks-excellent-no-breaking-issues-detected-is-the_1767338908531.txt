@@ -1,0 +1,74 @@
+This looks excellent — no breaking issues detected is the right read.
+
+Answers to clarifications below:
+
+1) Momentum Score Point Values (Tier 2)
+
+Use the following Tier 2 (momentum modifier) points:
+
+- intent_level:
+  - LOW = +1
+  - MEDIUM = +2
+  - HIGH = +3
+
+- outcome = intro_to_stakeholder: +2
+- tag = decision_maker: +1
+- tag = executive: +1
+- each additional product interaction after the first: +1
+
+- opportunityPotential (MAX bucket only per contact; do not sum):
+  - <10k = +1
+  - 10k–50k = +2
+  - 50k–100k = +3
+  - 100k+ = +3 (cap here to avoid inflation)
+
+Rationale: opportunity size should contribute to momentum, but never overpower explicit intent.
+
+---
+
+2) “two+ interactions with intent_level >= MEDIUM”
+
+This means:
+- **two or more PRODUCT_INTERACTIONS only**
+- intentLevel ∈ {medium, high}
+
+Meetings are excluded from this rule because they already have Tier 1 triggers (e.g., active_opportunity, timeline=now) and shouldn’t double-count.
+
+---
+
+3) contra_signals `weight` field
+
+Default to:
+- `weight = "local_only"` for all `not_a_fit` outcomes.
+
+Include a note like:
+“Does not disqualify contact overall; indicates mismatch with this specific demo.”
+
+Do not introduce any global disqualification logic here.
+
+---
+
+Additional confirmations / green lights:
+
+- UI graceful fallback: YES
+  - Prefer intentExplanation.primary_reasons
+  - Fallback to intentSources for pre-migration contacts
+
+- CRM export:
+  - Generate a single consolidated justification note (string)
+  - Place primary CTA at contact-level UI (secondary placement in Hot Leads table is fine)
+
+- Admin tool:
+  - Add explicit “Recompute Intent (All Contacts)” action
+  - Batch-safe, no schema replacement, no retroactive demotion
+  - Used primarily to backfill intentExplanation
+
+---
+
+One small guardrail to add:
+
+If a contact is promoted to High-Intent via MOMENTUM ONLY (no Tier 1 triggers):
+- CRM justification note should explicitly say that no pricing/trial/explicit opportunity has been captured yet.
+This prevents overconfidence downstream.
+
+Everything else is aligned. Proceed with implementation.

@@ -1,0 +1,213 @@
+You are an engineering agent working on Sandbox’s attendee intent scoring, promotion logic, and CRM export layer.
+
+IMPORTANT CONTEXT:
+Sandbox treats events as GTM signal, not activity. Promotions must be conservative, explainable, and narrative-driven.
+Explicit intent beats inferred behavior. Promotions happen once; additional signals update “why,” not status.
+
+Your goal is to FIX the scoring + promotion system without breaking existing data or behavior.
+
+This is an ADDITIVE, SAFE rollout. Do not replace existing fields unless explicitly instructed.
+
+========================
+NON-NEGOTIABLE SAFETY RULES
+========================
+
+- DO NOT remove or replace existing fields (e.g., intentSources).
+- DO NOT retroactively demote existing Hot Leads.
+- DO NOT use “not_a_fit” as a global disqualification or auto-demotion.
+- DO NOT assume product_interactions and attendee_meetings share the same enums.
+- Promotions must still dedupe: a contact appears once in High-Intent or Hot Lead.
+
+========================
+1) Add a NEW intentExplanation object (do not replace intentSources)
+========================
+
+Current:
+- intentSources: [{ id, type, createdAt }]
+
+You MUST:
+- Add a new field: `intentExplanation` (json / jsonb).
+- Keep intentSources unchanged as raw provenance.
+- Compute intentExplanation from ALL interactions + meetings for a contact.
+- UI and exports should read intentExplanation if present, otherwise fall back gracefully.
+
+IntentExplanation is the narrative layer. intentSources are the evidence trail.
+
+========================
+2) Reclassify signals into two tiers
+========================
+
+A) Tier 1: Primary Promotion Triggers (NON-ADDITIVE)
+These represent explicit buying intent or opportunity state.
+They qualify a contact for High-Intent eligibility regardless of score.
+
+Primary triggers include (normalize across sources):
+- Product interactions outcomes:
+  - wants_trial_pilot
+  - asked_for_pricing
+  - requested_follow_up
+- Meeting outcomes:
+  - active_opportunity
+- Meeting fields:
+  - timeline == "now"
+
+Implementation:
+- Create `getPrimaryTriggers(interactions, meetings)`
+- Return normalized trigger objects (human-readable reason + metadata)
+- These triggers should NOT stack large additive points
+
+B) Tier 2: Momentum Modifiers (ADDITIVE)
+These represent cumulative momentum over time.
+Examples:
+- intent_level (user-entered)
+- repeated interactions
+- intro_to_stakeholder
+- role tags (decision_maker, executive, etc.)
+- opportunityPotential bucket (max bucket only, not summed)
+
+Implementation:
+- Create `computeMomentumScore(interactions, meetings)`
+- This score represents “slow burn” progression
+
+========================
+3) Redefine intent_level (momentum only)
+========================
+
+Change scoring to:
+- LOW = +1
+- MEDIUM = +2
+- HIGH = +3
+
+Intent level:
+- Is human judgment of momentum in THIS interaction
+- Is NOT a summary score
+- Is NOT sufficient on its own to promote someone
+
+Add code comments explaining this explicitly.
+
+========================
+4) Promotion rules (updated)
+========================
+
+A) High-Intent Audience
+Promote if EITHER:
+- At least one Tier 1 primary trigger exists
+OR
+- momentum_score >= 8
+
+B) Hot Lead
+Promote if ALL are true:
+- High-Intent Audience criteria met
+- At least one Tier 1 primary trigger exists
+- AND (opportunityPotential >= $50k OR two+ interactions with intent_level >= MEDIUM)
+
+Rules:
+- Promotion happens once.
+- If already promoted, update intentExplanation only.
+
+========================
+5) Disqualification & “not a fit” (CRITICAL CHANGE)
+========================
+
+“not_a_fit” is CONTEXTUAL, not global.
+
+- It must NEVER auto-demote or block promotion.
+- It represents “not a fit for THIS product/demo/station,” not the person.
+- Especially do NOT let it override meetings or other strong buying signals.
+
+Instead:
+- Capture not_a_fit as a LOCAL contra-signal.
+- Include it in intentExplanation as context only.
+
+True global disqualification (if ever added) must be a separate, explicit outcome (e.g., disqualified_global) and is out of scope here.
+
+========================
+6) intentExplanation JSON shape (REQUIRED)
+========================
+
+Build intentExplanation with this structure:
+
+{
+  "primary_reasons": [
+    "Meeting: Active opportunity identified ($100k+, timeline now)"
+  ],
+  "supporting_signals": [
+    "Product demo: Intro to stakeholder",
+    "Next step: Schedule follow-up call",
+    "Role tags: Executive, Decision Maker"
+  ],
+  "contra_signals": [
+    {
+      "type": "not_a_fit",
+      "scope": "product_interaction",
+      "context": "Not a fit for Product Demo at Station A",
+      "createdAt": "ISO_DATE",
+      "weight": "local_only",
+      "note": "Does not disqualify contact overall; indicates mismatch with this specific demo."
+    }
+  ],
+  "totals": {
+    "total_interactions_count": 3,
+    "last_interaction_date": "ISO_DATE",
+    "momentum_score": 9,
+    "highest_intent_level_seen": "high",
+    "most_recent_outcome": "intro_to_stakeholder",
+    "max_opportunity_bucket_seen": "over_100k"
+  }
+}
+
+Rules:
+- primary_reasons come first and are non-redundant
+- supporting_signals corroborate, not restate
+- contra_signals are explanatory only
+
+========================
+7) CRM Export: Justification Note (REQUIRED)
+========================
+
+Create a function that generates a single CRM-ready note string from intentExplanation.
+
+Example output:
+
+"Sandbox Intent Summary — Hot Lead
+
+Why this matters:
+Active $100k+ opportunity identified in meeting (timeline: now).
+
+Supporting signals:
+- Product demo led to intro to stakeholder
+- Next step agreed: schedule follow-up call
+- Contact is an executive and decision maker
+
+Context / caveats:
+- 'Not a fit' was recorded for one demo (product-specific) and does not negate overall buying intent."
+
+Requirements:
+- One consolidated note (no JSON)
+- Human-readable
+- Copy/paste safe for Salesforce, HubSpot, etc.
+- Designed to live in CRM Notes / Activity / Description fields
+
+========================
+8) Aggregation & Refactor Safety
+========================
+
+Current promotion fires on create/update of single records.
+You MUST:
+- Refactor to recompute intent by aggregating ALL interactions + meetings for a contact.
+- Implement `recomputeAttendeeIntent(attendeeId)`:
+  - loads evidence
+  - computes triggers, momentum, explanation
+  - updates intent status + intentExplanation
+
+========================
+9) Deliverables
+========================
+
+Return:
+1) Summary of changes
+2) Files modified
+3) How to run tests
+4) Example before/after intentExplanation
+5) Example CRM justification note for a Hot Lead
+6) Confirmation that no existing schema fields were removed or overwritten

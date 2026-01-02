@@ -1,0 +1,139 @@
+You are an engineering agent working on Sandbox’s attendee intent scoring + promotion logic.
+
+Goal: Fix the scoring system to avoid double-counting meaning and to align with Sandbox doctrine:
+
+Explicit intent/outcomes should act as primary (non-additive) triggers.
+Cumulative scoring should represent “momentum modifiers” over time.
+Promotions happen once; subsequent signals update the “Why” explanation object (no duplicates).
+DO NOT:
+
+Remove scoring entirely.
+Change the “dedupe: promoted once” behavior.
+Make intent_level fully derived from other fields.
+You MUST implement the changes below.
+
+========================
+
+Reclassify signals into two tiers
+A) Tier 1: Primary Promotion Triggers (NON-ADDITIVE)
+These are categorical gates. They should qualify a contact for High-Intent eligibility regardless of score.
+Examples (from Product Interactions + Meetings):
+
+outcome in: ["wants_trial_pilot", "asked_for_pricing", "requested_follow_up", "active_opportunity"]
+timeline == "now" (if present in Meeting intent capture)
+optionally: explicit disqualification outcomes ("not_a_fit") should override and disqualify
+Implementation:
+
+Create a function getPrimaryTriggers(interactions, meetings) that returns a list of trigger reasons (strings) + metadata.
+These triggers should NOT contribute large additive points (ideally 0 points, or a very small fixed bonus if needed, but do NOT stack meaningfully).
+B) Tier 2: Momentum Modifiers (ADDITIVE)
+These are cumulative and represent “how momentum is building”.
+Examples:
+
+intent_level (user-entered)
+repeated interactions
+stakeholder intro
+role tags like decision_maker/executive
+opportunity bucket selections (can remain additive, but reduce weight if it causes inflation)
+Implementation:
+
+Create a function computeMomentumScore(interactions, meetings) that sums ONLY Tier 2 items + minimal/base points.
+======================
+2) Change intent_level scoring (momentum modifier only)
+======================
+
+Currently intent points are: LOW=+1, MEDIUM=+3, HIGH=+6.
+Change to:
+
+LOW = +1
+MEDIUM = +2
+HIGH = +3
+Clarify in code comments:
+Intent level is human judgment of near-term momentum in THIS interaction, not a summary score.
+
+Intent_level should NOT independently auto-promote someone to High-Intent Audience.
+
+======================
+3) Adjust promotion rules
+======================
+
+A) High-Intent Audience
+Promote if EITHER:
+
+Any Tier 1 primary trigger exists
+OR
+Momentum score >= threshold (choose a sane default; keep existing thresholds if close, but expect scores to be lower now)
+B) Hot Lead
+Promote if:
+
+Contact meets High-Intent Audience criteria
+AND
+At least one Tier 1 primary trigger exists
+AND
+(opportunityPotential is >= $50k) OR (two+ interactions have intent_level >= MEDIUM)
+Notes:
+
+Keep “promote once” rule. If already promoted, update the explanation object only.
+Keep “not_a_fit” as a strong negative/disqualifier: it should override promotion.
+======================
+4) Prevent double-counting of meaning
+======================
+
+A) Outcomes that are Tier 1 triggers should not also add big points.
+For example:
+
+asked_for_pricing, wants_trial_pilot, requested_follow_up, active_opportunity:
+treat as primary triggers
+do not add +3/+4/+6 boosts in the additive score (or reduce to a tiny +1 “confirmation” at most)
+B) If you keep opportunityPotential boosts, reduce inflation:
+
+ensure the opportunity bucket adds points only once per contact (use max bucket seen, not sum across interactions)
+======================
+5) Update the “Why is this a Hot Lead?” explanation object
+======================
+
+We need a computed explanation object for each promoted contact with:
+
+primary_reasons: ordered list of strongest Tier 1 trigger statements (human readable)
+supporting_signals: ordered list of Tier 2/momentum statements
+totals:
+total_interactions_count
+last_interaction_date
+momentum_score
+highest_intent_level_seen
+most_recent_outcome
+max_opportunity_bucket_seen
+Rules:
+
+Primary reasons must be first and non-redundant.
+Supporting signals should corroborate, not repeat.
+If already promoted earlier, append/update “why” with new evidence, but never duplicate the contact in promoted lists.
+======================
+6) Deliverables
+======================
+
+Code changes implementing:
+getPrimaryTriggers()
+computeMomentumScore()
+promotion evaluation functions for High-Intent + Hot Lead
+updated explanation object builder
+Unit tests (or test cases) covering:
+Tier 1 trigger alone promotes to High-Intent but requires additional conditions for Hot Lead
+Pure momentum without Tier 1 can promote to High-Intent (if threshold reached) but cannot promote Hot Lead
+“not_a_fit” disqualifies and blocks promotion even if other signals exist
+opportunity bucket uses max not sum
+dedupe: contact appears once; “why” updates on subsequent interactions
+Print/log examples for 3 scenarios:
+a clear Hot Lead (trial/pricing + $100k)
+a slow-burn High-Intent (no Tier 1, momentum threshold reached)
+a false positive avoided (high intent_level but no Tier 1 + weak momentum)
+======================
+7) Output format
+======================
+
+Return:
+
+a short summary of what you changed
+links/paths to modified files
+how to run tests
+a before/after example of the explanation object for one contact
