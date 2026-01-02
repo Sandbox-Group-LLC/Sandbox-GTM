@@ -392,11 +392,18 @@ export function buildIntentExplanation(
     max_opportunity_bucket_seen: maxOpportunityBucket,
   };
 
+  // Add momentum-only warning if promoted based solely on momentum (no Tier 1 triggers)
+  let context: string | undefined;
+  if (primary_reasons.length === 0 && score >= 8) {
+    context = 'Promoted based on engagement momentum - no explicit product interest captured yet. Consider direct qualification.';
+  }
+
   return {
     primary_reasons,
     supporting_signals,
     contra_signals,
     totals,
+    context,
   };
 }
 

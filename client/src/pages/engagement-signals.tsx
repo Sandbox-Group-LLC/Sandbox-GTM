@@ -135,6 +135,12 @@ function generateCRMNote(
     lines.push('');
   }
 
+  if (explanation.context) {
+    lines.push('Note:');
+    lines.push(`• ${explanation.context}`);
+    lines.push('');
+  }
+
   lines.push(`Momentum Score: ${explanation.totals.momentum_score}/10`);
   if (explanation.totals.highest_intent_level_seen) {
     lines.push(`Highest Intent Level: ${explanation.totals.highest_intent_level_seen}`);

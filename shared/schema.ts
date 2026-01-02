@@ -2190,6 +2190,7 @@ export interface IntentExplanation {
   supporting_signals: string[];
   contra_signals: IntentExplanationContraSignal[];
   totals: IntentExplanationTotals;
+  context?: string;
 }
 
 // Product Interaction Tags
