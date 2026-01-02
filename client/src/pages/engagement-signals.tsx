@@ -2,7 +2,7 @@ import { useState } from "react";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Activity, Flame, Users, RefreshCw, BarChart3, MessageSquare, Star, TrendingUp, CheckCircle, Radio, Clock, Handshake, Target, HelpCircle, Copy, Loader2, History, ArrowUp, ArrowDown } from "lucide-react";
+import { Activity, Flame, Users, RefreshCw, BarChart3, MessageSquare, Star, TrendingUp, CheckCircle, Radio, Clock, Handshake, Target, HelpCircle, Copy, Loader2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -66,20 +66,6 @@ interface IntentContact {
   intentSources: { type: string; id: string; createdAt: string }[] | null;
   intentExplanation: IntentExplanation | null;
   updatedAt: Date | null;
-}
-
-interface IntentRecomputeHistoryEntry {
-  id: string;
-  eventId: string;
-  recomputedAt: string;
-  triggeredBy: string | null;
-  hotLeadCount: number;
-  highIntentCount: number;
-  momentumOnlyCount: number;
-  previousHotLeadCount: number | null;
-  previousHighIntentCount: number | null;
-  previousMomentumOnlyCount: number | null;
-  triggeredByUser: { id: string; firstName: string | null; lastName: string | null; email: string } | null;
 }
 
 interface RecomputeResponse {
@@ -294,16 +280,6 @@ export default function EngagementSignals() {
     },
   });
 
-  const { data: recomputeHistory, isLoading: historyLoading } = useQuery<IntentRecomputeHistoryEntry[]>({
-    queryKey: ["/api/events", selectedEventId, "intent-recompute-history"],
-    enabled: selectedEventId !== "all" && !!selectedEventId,
-    queryFn: async () => {
-      const res = await fetch(`/api/events/${selectedEventId}/intent-recompute-history`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to fetch recompute history");
-      return res.json();
-    },
-  });
-
   const totalActiveVisitors = activeVisitors?.reduce((sum, v) => sum + v.activeVisitors, 0) || 0;
   const followUpReadyCount = (hotLeads?.length ?? 0) + (highIntentContacts?.length ?? 0);
 
@@ -348,7 +324,7 @@ export default function EngagementSignals() {
       />
       <div className="flex-1 overflow-auto p-6 space-y-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full max-w-lg grid-cols-3">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
             <TabsTrigger value="signals" data-testid="tab-signals">
               <Activity className="w-4 h-4 mr-2" />
               Real-Time Signals
@@ -356,10 +332,6 @@ export default function EngagementSignals() {
             <TabsTrigger value="moments" data-testid="tab-moments">
               <BarChart3 className="w-4 h-4 mr-2" />
               Moments Analytics
-            </TabsTrigger>
-            <TabsTrigger value="changelog" data-testid="tab-changelog">
-              <History className="w-4 h-4 mr-2" />
-              Changelog
             </TabsTrigger>
           </TabsList>
 
@@ -432,69 +404,7 @@ export default function EngagementSignals() {
               </Card>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between gap-2">
-                    <span className="flex items-center gap-2">
-                      Real-Time Activity
-                      {totalActiveVisitors > 0 && (
-                        <Badge variant="secondary" className="ml-2">
-                          {totalActiveVisitors} active
-                        </Badge>
-                      )}
-                    </span>
-                    <RefreshCw className="w-4 h-4 text-muted-foreground animate-spin" style={{ animationDuration: '3s' }} />
-                  </CardTitle>
-                  <CardDescription>Visitors on Program Hub pages in the last 5 minutes</CardDescription>
-                </CardHeader>
-                <CardContent className="h-64 overflow-auto">
-                  {isLoading ? (
-                    <div className="space-y-3">
-                      <Skeleton className="h-12 w-full" />
-                      <Skeleton className="h-12 w-full" />
-                      <Skeleton className="h-12 w-full" />
-                    </div>
-                  ) : activeVisitors && activeVisitors.length > 0 ? (
-                    <div className="space-y-2">
-                      {activeVisitors.map((visitor, index) => (
-                        <div 
-                          key={`${visitor.eventId}-${visitor.pageType}`}
-                          className="flex items-center justify-between gap-2 p-3 rounded-lg bg-muted/50"
-                          data-testid={`row-active-visitor-${index}`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                            <div>
-                              <p className="font-medium text-sm" data-testid={`text-event-name-${index}`}>
-                                {visitor.eventName}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {titleCase(visitor.pageType)} page
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Users className="w-4 h-4 text-muted-foreground" />
-                            <span className="font-semibold" data-testid={`text-visitor-count-${index}`}>
-                              {visitor.activeVisitors}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="h-full flex items-center justify-center text-muted-foreground">
-                      <div className="text-center">
-                        <Activity className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                        <p>No active visitors right now</p>
-                        <p className="text-sm mt-2">Visitors will appear when they view your Program Hub pages</p>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
+            <div className="grid gap-6">
               <Card>
                 <CardHeader>
                   <CardTitle>High-Intent Audience</CardTitle>
@@ -1053,138 +963,6 @@ export default function EngagementSignals() {
                   <p className="text-sm mt-2">Please try again later</p>
                 </div>
               </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="changelog" className="mt-6 space-y-6">
-            <p className="text-muted-foreground text-sm">Track intent recompute history and see how your audience has evolved.</p>
-            
-            {selectedEventId === "all" ? (
-              <Card>
-                <CardContent className="h-64 flex items-center justify-center">
-                  <div className="text-center text-muted-foreground">
-                    <History className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                    <p>Select a specific event to view recompute history</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : historyLoading ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Intent Recompute History</CardTitle>
-                  <CardDescription>Timeline of intent scoring runs</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <Skeleton className="h-24 w-full" />
-                    <Skeleton className="h-24 w-full" />
-                    <Skeleton className="h-24 w-full" />
-                  </div>
-                </CardContent>
-              </Card>
-            ) : recomputeHistory && recomputeHistory.length > 0 ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Intent Recompute History</CardTitle>
-                  <CardDescription>Timeline of intent scoring runs for this event</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="relative">
-                    <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
-                    <div className="space-y-6">
-                      {recomputeHistory.map((entry, index) => {
-                        const hotLeadDelta = entry.previousHotLeadCount !== null 
-                          ? entry.hotLeadCount - entry.previousHotLeadCount 
-                          : null;
-                        const highIntentDelta = entry.previousHighIntentCount !== null 
-                          ? entry.highIntentCount - entry.previousHighIntentCount 
-                          : null;
-                        const engagedDelta = entry.previousMomentumOnlyCount !== null 
-                          ? entry.momentumOnlyCount - entry.previousMomentumOnlyCount 
-                          : null;
-                        
-                        return (
-                          <div 
-                            key={entry.id} 
-                            className="relative pl-10"
-                            data-testid={`row-history-${index}`}
-                          >
-                            <div className="absolute left-2 top-1 w-4 h-4 rounded-full bg-background border-2 border-primary" />
-                            <div className="p-4 rounded-lg bg-muted/50">
-                              <div className="flex items-start justify-between gap-2 mb-3">
-                                <div>
-                                  <p className="font-medium text-sm" data-testid={`text-history-date-${index}`}>
-                                    {new Date(entry.recomputedAt).toLocaleDateString()} at {new Date(entry.recomputedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground" data-testid={`text-history-user-${index}`}>
-                                    Triggered by {entry.triggeredByUser 
-                                      ? `${entry.triggeredByUser.firstName ?? ''} ${entry.triggeredByUser.lastName ?? ''}`.trim() || entry.triggeredByUser.email
-                                      : 'System'}
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="grid grid-cols-3 gap-4">
-                                <div className="text-center p-2 rounded bg-background">
-                                  <p className="text-xs text-muted-foreground mb-1">Hot Leads</p>
-                                  <div className="flex items-center justify-center gap-1">
-                                    <span className="font-semibold" data-testid={`text-history-hot-${index}`}>
-                                      {entry.hotLeadCount}
-                                    </span>
-                                    {hotLeadDelta !== null && hotLeadDelta !== 0 && (
-                                      <span className={`flex items-center text-xs ${hotLeadDelta > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                        {hotLeadDelta > 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
-                                        {Math.abs(hotLeadDelta)}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="text-center p-2 rounded bg-background">
-                                  <p className="text-xs text-muted-foreground mb-1">High-Intent</p>
-                                  <div className="flex items-center justify-center gap-1">
-                                    <span className="font-semibold" data-testid={`text-history-high-${index}`}>
-                                      {entry.highIntentCount}
-                                    </span>
-                                    {highIntentDelta !== null && highIntentDelta !== 0 && (
-                                      <span className={`flex items-center text-xs ${highIntentDelta > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                        {highIntentDelta > 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
-                                        {Math.abs(highIntentDelta)}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="text-center p-2 rounded bg-background">
-                                  <p className="text-xs text-muted-foreground mb-1">Engaged</p>
-                                  <div className="flex items-center justify-center gap-1">
-                                    <span className="font-semibold" data-testid={`text-history-engaged-${index}`}>
-                                      {entry.momentumOnlyCount}
-                                    </span>
-                                    {engagedDelta !== null && engagedDelta !== 0 && (
-                                      <span className={`flex items-center text-xs ${engagedDelta > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                        {engagedDelta > 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
-                                        {Math.abs(engagedDelta)}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <Card>
-                <CardContent className="h-64 flex items-center justify-center">
-                  <div className="text-center text-muted-foreground">
-                    <History className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                    <p>No recompute history yet</p>
-                    <p className="text-sm mt-2">Use the "Recompute Intent" button to analyze your contacts</p>
-                  </div>
-                </CardContent>
-              </Card>
             )}
           </TabsContent>
         </Tabs>
