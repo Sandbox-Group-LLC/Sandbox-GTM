@@ -11283,12 +11283,14 @@ ${urls.map(u => `  <url>
         eventId,
         organizationId,
         triggeredBy: userId,
-        hotLeadCount: afterCounts.hotLeadCount,
-        highIntentCount: afterCounts.highIntentCount,
-        momentumOnlyCount: afterCounts.momentumOnlyCount,
-        previousHotLeadCount: beforeCounts.hotLeadCount,
-        previousHighIntentCount: beforeCounts.highIntentCount,
-        previousMomentumOnlyCount: beforeCounts.momentumOnlyCount,
+        snapshot: {
+          hotLeadCount: afterCounts.hotLeadCount,
+          highIntentCount: afterCounts.highIntentCount,
+          momentumOnlyCount: afterCounts.momentumOnlyCount,
+          previousHotLeadCount: beforeCounts.hotLeadCount,
+          previousHighIntentCount: beforeCounts.highIntentCount,
+          previousMomentumOnlyCount: beforeCounts.momentumOnlyCount,
+        },
       });
 
       // Update event's lastIntentRecomputedAt timestamp
