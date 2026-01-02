@@ -344,7 +344,9 @@ export function computeMomentumScore(
     opportunityBucketPoints = OPPORTUNITY_BUCKET_POINTS[maxOpportunityBucket];
   }
 
-  const total = intentLevelPoints + outcomePoints + tagPoints + additionalInteractionPoints + opportunityBucketPoints;
+  const rawTotal = intentLevelPoints + outcomePoints + tagPoints + additionalInteractionPoints + opportunityBucketPoints;
+  // Cap momentum score at maximum 10 to prevent outlier inflation
+  const total = Math.min(rawTotal, 10);
 
   return {
     score: total,
@@ -423,8 +425,13 @@ export function buildIntentExplanation(
     supporting_signals.push(`${interactions.length} product interactions recorded`);
   }
 
-  // Build contra signals (contextual, NOT disqualifying)
-  const contra_signals: IntentExplanationContraSignal[] = [];
+  // Build contra signals (contextual, NOT disqualifying), consolidate duplicates with (Nx) pattern
+  const contraSignalCounts = new Map<string, { 
+    type: 'not_a_fit' | 'too_early'; 
+    count: number; 
+    latestDate: string;
+  }>();
+  
   for (const interaction of interactions) {
     if (CONTRA_OUTCOMES.has(interaction.outcome)) {
       // Build specific context: use interaction type, add station if present
@@ -433,16 +440,39 @@ export function buildIntentExplanation(
         ? ` at ${formatStation(interaction.station)}`
         : '';
       
-      contra_signals.push({
-        type: interaction.outcome as 'not_a_fit' | 'too_early',
-        scope: 'product_interaction',
-        context: `Not a fit for ${interactionTypeLabel}${stationSuffix}`,
-        createdAt: interaction.createdAt?.toISOString() || new Date().toISOString(),
-        weight: 'local_only',
-        note: 'Does not disqualify contact overall; indicates mismatch with this specific interaction.',
-      });
+      const contextKey = `Not a fit for ${interactionTypeLabel}${stationSuffix}`;
+      const existing = contraSignalCounts.get(contextKey);
+      const createdAt = interaction.createdAt?.toISOString() || new Date().toISOString();
+      
+      if (existing) {
+        existing.count += 1;
+        // Keep the most recent date
+        if (createdAt > existing.latestDate) {
+          existing.latestDate = createdAt;
+        }
+      } else {
+        contraSignalCounts.set(contextKey, {
+          type: interaction.outcome as 'not_a_fit' | 'too_early',
+          count: 1,
+          latestDate: createdAt,
+        });
+      }
     }
   }
+  
+  // Convert to contra_signals array with (Nx) suffix for duplicates
+  const contra_signals: IntentExplanationContraSignal[] = [];
+  Array.from(contraSignalCounts.entries()).forEach(([contextKey, data]) => {
+    const contextWithCount = data.count > 1 ? `${contextKey} (${data.count}x)` : contextKey;
+    contra_signals.push({
+      type: data.type,
+      scope: 'product_interaction',
+      context: contextWithCount,
+      createdAt: data.latestDate,
+      weight: 'local_only',
+      note: 'Does not disqualify contact overall; indicates mismatch with this specific interaction.',
+    });
+  });
 
   // Build totals
   const allDates = [
