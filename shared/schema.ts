@@ -724,6 +724,8 @@ export const attendees = pgTable("attendees", {
   intentStatus: varchar("intent_status", { length: 50 }).default("none"), // none, engaged, high_intent, hot_lead
   salesReady: boolean("sales_ready").default(false),
   intentSources: jsonb("intent_sources").$type<{ type: string; id: string; createdAt: string }[]>().default([]),
+  // Narrative explanation layer for intent scoring (computed from all interactions + meetings)
+  intentExplanation: jsonb("intent_explanation").$type<IntentExplanation>(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -2163,6 +2165,32 @@ export const INTENT_LEVELS = [
   'high',
 ] as const;
 export type IntentLevel = typeof INTENT_LEVELS[number];
+
+// Intent Explanation - narrative layer for intent scoring (computed from all interactions + meetings)
+export interface IntentExplanationContraSignal {
+  type: 'not_a_fit' | 'too_early' | 'other';
+  scope: 'product_interaction' | 'meeting';
+  context: string;
+  createdAt: string;
+  weight: 'local_only';
+  note: string;
+}
+
+export interface IntentExplanationTotals {
+  total_interactions_count: number;
+  last_interaction_date: string;
+  momentum_score: number;
+  highest_intent_level_seen: IntentLevel | null;
+  most_recent_outcome: string | null;
+  max_opportunity_bucket_seen: OpportunityPotential | null;
+}
+
+export interface IntentExplanation {
+  primary_reasons: string[];
+  supporting_signals: string[];
+  contra_signals: IntentExplanationContraSignal[];
+  totals: IntentExplanationTotals;
+}
 
 // Product Interaction Tags
 export const INTERACTION_TAGS = [
