@@ -38,6 +38,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { cn } from "@/lib/utils";
 import {
   Users,
@@ -67,6 +68,7 @@ import type {
 import {
   MEETING_INTENT_TYPES,
   MEETING_OUTCOME_TYPES,
+  OUTCOME_CONFIDENCE_LEVELS,
   DEAL_RANGE_TYPES,
   TIMELINE_TYPES,
 } from "@shared/schema";
@@ -113,6 +115,12 @@ const TIMELINE_LABELS: Record<string, string> = {
   now: "Now",
   this_quarter: "This Quarter",
   later: "Later",
+};
+
+const OUTCOME_CONFIDENCE_LABELS: Record<string, string> = {
+  low: "Low",
+  medium: "Medium",
+  high: "High",
 };
 
 function getStatusBadgeVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
@@ -192,6 +200,7 @@ export default function Meetings() {
 
   const [outcomeData, setOutcomeData] = useState({
     outcomeType: "",
+    outcomeConfidence: "",
     dealRange: "",
     timeline: "",
     outcomeNotes: "",
@@ -343,7 +352,7 @@ export default function Meetings() {
       queryClient.invalidateQueries({ queryKey: ["/api/events", selectedEventId, "meetings", "stats"] });
       setOutcomeDialogOpen(false);
       setSelectedMeeting(null);
-      setOutcomeData({ outcomeType: "", dealRange: "", timeline: "", outcomeNotes: "" });
+      setOutcomeData({ outcomeType: "", outcomeConfidence: "", dealRange: "", timeline: "", outcomeNotes: "" });
       toast({ title: "Outcome captured", description: "Meeting outcome has been recorded." });
     },
     onError: () => {
@@ -384,6 +393,7 @@ export default function Meetings() {
     setSelectedMeeting(meeting);
     setOutcomeData({
       outcomeType: meeting.outcomeType || "",
+      outcomeConfidence: meeting.outcomeConfidence || "",
       dealRange: meeting.dealRange || "",
       timeline: meeting.timeline || "",
       outcomeNotes: meeting.outcomeNotes || "",
@@ -936,6 +946,25 @@ export default function Meetings() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Outcome Confidence</Label>
+              <p className="text-sm text-muted-foreground">How strong was the buying signal in this meeting?</p>
+              <RadioGroup
+                value={outcomeData.outcomeConfidence}
+                onValueChange={(v) => setOutcomeData({ ...outcomeData, outcomeConfidence: v })}
+                className="flex gap-4"
+                data-testid="radio-outcome-confidence"
+              >
+                {OUTCOME_CONFIDENCE_LEVELS.map((level) => (
+                  <div key={level} className="flex items-center space-x-2">
+                    <RadioGroupItem value={level} id={`confidence-${level}`} data-testid={`radio-confidence-${level}`} />
+                    <Label htmlFor={`confidence-${level}`} className="cursor-pointer">
+                      {OUTCOME_CONFIDENCE_LABELS[level] || level}
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
             </div>
             <div className="space-y-2">
               <Label>Deal Range (optional)</Label>

@@ -2441,6 +2441,15 @@ export const MEETING_OUTCOME_TYPES = [
 
 export type MeetingOutcomeType = typeof MEETING_OUTCOME_TYPES[number];
 
+// Outcome Confidence Levels - how strong was the buying signal in the meeting
+export const OUTCOME_CONFIDENCE_LEVELS = [
+  'low',
+  'medium',
+  'high',
+] as const;
+
+export type OutcomeConfidenceLevel = typeof OUTCOME_CONFIDENCE_LEVELS[number];
+
 // Contact Intent Status - for promotion from meetings/engagements
 export const CONTACT_INTENT_STATUS = [
   'none',
@@ -2502,6 +2511,7 @@ export const attendeeMeetings = pgTable("attendee_meetings", {
   dealRange: varchar("deal_range", { length: 20 }), // DealRangeType
   timeline: varchar("timeline", { length: 20 }), // TimelineType
   outcomeNotes: text("outcome_notes"),
+  outcomeConfidence: varchar("outcome_confidence", { length: 10 }), // OutcomeConfidenceLevel - how strong was the buying signal
   outcomeCapturedAt: timestamp("outcome_captured_at"),
   outcomeCapturedBy: varchar("outcome_captured_by").references(() => users.id),
   

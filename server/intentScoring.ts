@@ -23,6 +23,7 @@ interface AttendeeeMeeting {
   id: string;
   inviteeId: string;
   outcomeType: string | null;
+  outcomeConfidence: string | null;
   dealRange: string | null;
   timeline: string | null;
   intentStrength: string | null;
@@ -484,7 +485,16 @@ export function buildIntentExplanation(
     ? new Date(Math.max(...allDates.map(d => d.getTime()))).toISOString()
     : new Date().toISOString();
 
-  const highestIntentLevel = getHighestIntentLevel(interactions);
+  // Check if any meeting has High confidence + strong outcome (active_opportunity/deal_in_progress)
+  // This overrides the calculated intent level to 'high'
+  const highConfidenceStrongMeeting = meetings.find(m => 
+    m.outcomeConfidence === 'high' && 
+    (m.outcomeType === 'active_opportunity' || m.outcomeType === 'deal_in_progress')
+  );
+  
+  const highestIntentLevel: IntentLevel | null = highConfidenceStrongMeeting 
+    ? 'high' 
+    : getHighestIntentLevel(interactions);
   const mostRecentInteraction = interactions.length > 0 
     ? interactions.sort((a, b) => {
         const aTime = a.createdAt?.getTime() || 0;
