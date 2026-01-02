@@ -282,6 +282,13 @@ import {
 import crypto from "crypto";
 import { encrypt, decrypt } from "./encryption";
 import { db } from "./db";
+import {
+  buildIntentExplanation,
+  qualifiesForHighIntent,
+  qualifiesForHotLead,
+  getPrimaryTriggers,
+  computeMomentumScore,
+} from "./intentScoring";
 import { eq, desc, and, ilike, or, isNull, isNotNull, sql, count, inArray, gt, lt, gte, lte, ne } from "drizzle-orm";
 
 export interface IStorage {
@@ -987,6 +994,10 @@ export interface IStorage {
   // Room Conflict Detection & Availability operations
   findRoomConflicts(roomId: string, startTime: Date, endTime: Date, excludeMeetingId?: string): Promise<AttendeeMeeting[]>;
   findAvailableRooms(organizationId: string, eventId: string, startTime: Date, endTime: Date, opts?: { adminUserId?: string; meetingPortalMemberId?: string }): Promise<SessionRoom[]>;
+
+  // Intent Recompute operations
+  getAttendeeMeetingsByInvitee(organizationId: string, eventId: string, attendeeId: string): Promise<AttendeeMeeting[]>;
+  recomputeAttendeeIntent(organizationId: string, eventId: string, attendeeId: string): Promise<Attendee | undefined>;
 }
 
 // Types for Moments Analytics
@@ -6651,6 +6662,109 @@ export class DatabaseStorage implements IStorage {
     }
 
     return availableRooms;
+  }
+
+  // Intent Recompute operations
+  async getAttendeeMeetingsByInvitee(organizationId: string, eventId: string, attendeeId: string): Promise<AttendeeMeeting[]> {
+    return await db.select().from(attendeeMeetings)
+      .where(and(
+        eq(attendeeMeetings.organizationId, organizationId),
+        eq(attendeeMeetings.eventId, eventId),
+        eq(attendeeMeetings.inviteeId, attendeeId)
+      ))
+      .orderBy(desc(attendeeMeetings.createdAt));
+  }
+
+  async recomputeAttendeeIntent(organizationId: string, eventId: string, attendeeId: string): Promise<Attendee | undefined> {
+    const attendee = await this.getAttendee(organizationId, attendeeId);
+    if (!attendee) return undefined;
+
+    const interactions = await this.getProductInteractionsByAttendee(organizationId, eventId, attendeeId);
+    const meetings = await this.getAttendeeMeetingsByInvitee(organizationId, eventId, attendeeId);
+
+    const meetingsForScoring = meetings.map(m => ({
+      id: m.id,
+      inviteeId: m.inviteeId,
+      outcomeType: m.outcomeType,
+      dealRange: m.dealRange,
+      timeline: m.timeline,
+      intentStrength: m.intentStrength,
+      status: m.status,
+      createdAt: m.createdAt,
+      outcomeNotes: m.outcomeNotes,
+    }));
+
+    const intentExplanation = buildIntentExplanation(interactions, meetingsForScoring);
+    const primaryTriggers = getPrimaryTriggers(interactions, meetingsForScoring);
+    const { score: momentumScore } = computeMomentumScore(interactions, meetingsForScoring);
+
+    const { qualifies: qualifiesHigh } = qualifiesForHighIntent(primaryTriggers, momentumScore);
+    const qualifiesHot = qualifiesForHotLead(primaryTriggers, momentumScore, interactions, meetingsForScoring);
+
+    let newIntentStatus: 'none' | 'engaged' | 'high_intent' | 'hot_lead';
+    if (qualifiesHot) {
+      newIntentStatus = 'hot_lead';
+    } else if (qualifiesHigh) {
+      newIntentStatus = 'high_intent';
+    } else if (interactions.length > 0 || meetings.length > 0) {
+      newIntentStatus = 'engaged';
+    } else {
+      newIntentStatus = 'none';
+    }
+
+    if (attendee.intentStatus === 'hot_lead') {
+      newIntentStatus = 'hot_lead';
+    }
+
+    const existingSourcesRaw = attendee.intentSources || [];
+    const existingSources: { type: string; id: string; createdAt: string }[] = Array.isArray(existingSourcesRaw) ? existingSourcesRaw : [];
+    const existingSourceKeys = new Set(existingSources.map(s => `${s.type}:${s.id}`));
+
+    const newSources: { type: string; id: string; createdAt: string }[] = [];
+
+    for (const interaction of interactions) {
+      const key = `product_interaction:${interaction.id}`;
+      if (!existingSourceKeys.has(key)) {
+        newSources.push({
+          type: 'product_interaction',
+          id: interaction.id,
+          createdAt: interaction.createdAt?.toISOString() || new Date().toISOString(),
+        });
+        existingSourceKeys.add(key);
+      }
+    }
+
+    for (const meeting of meetings) {
+      const key = `meeting:${meeting.id}`;
+      if (!existingSourceKeys.has(key)) {
+        newSources.push({
+          type: 'meeting',
+          id: meeting.id,
+          createdAt: meeting.createdAt?.toISOString() || new Date().toISOString(),
+        });
+        existingSourceKeys.add(key);
+      }
+    }
+
+    const allSources = [...existingSources, ...newSources];
+
+    const salesReady = newIntentStatus === 'hot_lead' ? true : attendee.salesReady;
+
+    const [updated] = await db.update(attendees)
+      .set({
+        intentStatus: newIntentStatus,
+        salesReady,
+        intentSources: allSources,
+        intentExplanation,
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(attendees.organizationId, organizationId),
+        eq(attendees.id, attendeeId)
+      ))
+      .returning();
+
+    return updated;
   }
 }
 
