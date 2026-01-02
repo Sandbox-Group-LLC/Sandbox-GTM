@@ -2,7 +2,7 @@ import { useState } from "react";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Activity, Zap, Flame, Users, RefreshCw, BarChart3, MessageSquare, Star, TrendingUp, CheckCircle, Radio, Clock, Handshake, Target, HelpCircle, Copy, Loader2, History, ArrowUp, ArrowDown } from "lucide-react";
+import { Activity, Flame, Users, RefreshCw, BarChart3, MessageSquare, Star, TrendingUp, CheckCircle, Radio, Clock, Handshake, Target, HelpCircle, Copy, Loader2, History, ArrowUp, ArrowDown } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -366,7 +366,7 @@ export default function EngagementSignals() {
           <TabsContent value="signals" className="mt-6 space-y-6">
             <p className="text-muted-foreground text-sm">Who is showing buying intent, and how?</p>
             
-            <div className="grid gap-6 md:grid-cols-4">
+            <div className="grid gap-6 md:grid-cols-3">
               <Card className="border-2">
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2 text-lg">
@@ -381,23 +381,6 @@ export default function EngagementSignals() {
                         {momentsAnalytics?.responseRate ?? "--"}%
                       </p>
                       <p className="text-sm text-muted-foreground mt-1">Active participation level</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-2">
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <Zap className="w-5 h-5 text-amber-500" />
-                    Intent Score
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <p className="text-4xl font-bold">--</p>
-                      <p className="text-sm text-muted-foreground mt-1">Behavioral signals</p>
                     </div>
                   </div>
                 </CardContent>
