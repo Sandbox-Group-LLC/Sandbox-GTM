@@ -6693,6 +6693,7 @@ export class DatabaseStorage implements IStorage {
       id: m.id,
       inviteeId: m.inviteeId,
       outcomeType: m.outcomeType,
+      outcomeConfidence: m.outcomeConfidence,
       dealRange: m.dealRange,
       timeline: m.timeline,
       intentStrength: m.intentStrength,
