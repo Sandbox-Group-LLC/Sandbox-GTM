@@ -11,7 +11,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 const PERMISSION_LABELS: Record<string, string> = {
-  lead_capture: "Lead Capture",
+  lead_capture: "Product Interaction",
   view_leads: "View Leads",
   export_leads: "Export Leads",
   invite_team: "Invite Team Members",

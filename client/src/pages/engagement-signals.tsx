@@ -2,10 +2,10 @@ import { useState } from "react";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Activity, Zap, Flame, Users, RefreshCw, BarChart3, MessageSquare, Star, TrendingUp, CheckCircle, Radio, Clock, Handshake, Target, HelpCircle } from "lucide-react";
+import { Activity, Zap, Flame, Users, RefreshCw, BarChart3, MessageSquare, Star, TrendingUp, CheckCircle, Radio, Clock, Handshake, Target, HelpCircle, Copy, Loader2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -18,6 +18,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Event, IntentExplanation } from "@shared/schema";
 
 interface ActiveVisitor {
@@ -82,19 +84,124 @@ const formatIntentSourceType = (type: string): string => {
     'meeting': 'Meeting Outcome',
     'engagement': 'Engagement Signal',
     'session_attendance': 'Session Attendance',
-    'event_lead': 'Lead Capture',
+    'event_lead': 'Product Interaction',
   };
   return typeMap[type] || type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 };
+
+function formatOpportunityBucket(bucket: string): string {
+  const labels: Record<string, string> = {
+    under_10k: '<$10k',
+    '10k_to_50k': '$10k-$50k',
+    '50k_to_100k': '$50k-$100k',
+    over_100k: '$100k+',
+  };
+  return labels[bucket] || bucket;
+}
+
+function generateCRMNote(
+  explanation: IntentExplanation,
+  intentStatus: string,
+  contactName: string,
+  company: string | null
+): string {
+  const lines: string[] = [];
+  
+  const statusLabel = intentStatus === 'hot_lead' ? 'Hot Lead' : 'High-Intent';
+  lines.push(`[${statusLabel}] ${contactName}${company ? ` - ${company}` : ''}`);
+  lines.push('');
+
+  if (explanation.primary_reasons.length > 0) {
+    lines.push('Primary Reasons:');
+    for (const reason of explanation.primary_reasons) {
+      lines.push(`• ${reason}`);
+    }
+    lines.push('');
+  }
+
+  if (explanation.supporting_signals.length > 0) {
+    lines.push('Supporting Signals:');
+    for (const signal of explanation.supporting_signals) {
+      lines.push(`• ${signal}`);
+    }
+    lines.push('');
+  }
+
+  if (explanation.contra_signals && explanation.contra_signals.length > 0) {
+    lines.push('Context / Caveats:');
+    for (const contra of explanation.contra_signals) {
+      lines.push(`• ${contra.context}`);
+    }
+    lines.push('');
+  }
+
+  lines.push(`Momentum Score: ${explanation.totals.momentum_score}/10`);
+  if (explanation.totals.highest_intent_level_seen) {
+    lines.push(`Highest Intent Level: ${explanation.totals.highest_intent_level_seen}`);
+  }
+  if (explanation.totals.max_opportunity_bucket_seen) {
+    lines.push(`Max Opportunity: ${formatOpportunityBucket(explanation.totals.max_opportunity_bucket_seen)}`);
+  }
+
+  return lines.join('\n');
+}
 
 export default function EngagementSignals() {
   const [selectedEventId, setSelectedEventId] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("signals");
   const { organization } = useAuth();
+  const { toast } = useToast();
 
   const { data: events } = useQuery<Event[]>({
     queryKey: ["/api/events"],
   });
+
+  const recomputeIntentMutation = useMutation({
+    mutationFn: async (eventId: string) => {
+      const res = await apiRequest("POST", `/api/events/${eventId}/recompute-intent`);
+      return res.json();
+    },
+    onSuccess: (data: { message: string; processedCount: number; promotedCount: number }) => {
+      toast({
+        title: "Intent Recomputed",
+        description: `Recomputed intent for ${data.processedCount} contacts. ${data.promotedCount} promoted.`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/organizations", organization?.id, "hot-leads"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/organizations", organization?.id, "high-intent-contacts"] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to recompute intent. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleCopyCRMNote = async (contact: IntentContact) => {
+    if (!contact.intentExplanation) return;
+    
+    const note = generateCRMNote(
+      contact.intentExplanation,
+      contact.intentStatus || 'high_intent',
+      `${contact.firstName} ${contact.lastName}`,
+      contact.company
+    );
+    
+    try {
+      await navigator.clipboard.writeText(note);
+      toast({
+        title: "Copied to clipboard",
+        description: "CRM note has been copied to your clipboard.",
+      });
+    } catch {
+      toast({
+        title: "Copy failed",
+        description: "Unable to copy to clipboard. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const { data: activeVisitors, isLoading } = useQuery<ActiveVisitor[]>({
     queryKey: ["/api/analytics/active-visitors", selectedEventId],
@@ -166,19 +273,37 @@ export default function EngagementSignals() {
         title="Engagement Signals" 
         breadcrumbs={[{ label: "Performance" }, { label: "Engagement Signals" }]}
         actions={
-          <Select value={selectedEventId} onValueChange={setSelectedEventId}>
-            <SelectTrigger className="w-[120px] sm:w-[180px]" data-testid="select-event-filter">
-              <SelectValue placeholder="Filter by program" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Programs</SelectItem>
-              {events?.map((event) => (
-                <SelectItem key={event.id} value={event.id}>
-                  {event.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2 flex-wrap">
+            {selectedEventId && selectedEventId !== "all" && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => recomputeIntentMutation.mutate(selectedEventId)}
+                disabled={recomputeIntentMutation.isPending}
+                data-testid="button-recompute-intent"
+              >
+                {recomputeIntentMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                )}
+                Recompute Intent
+              </Button>
+            )}
+            <Select value={selectedEventId} onValueChange={setSelectedEventId}>
+              <SelectTrigger className="w-[120px] sm:w-[180px]" data-testid="select-event-filter">
+                <SelectValue placeholder="Filter by program" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Programs</SelectItem>
+                {events?.map((event) => (
+                  <SelectItem key={event.id} value={event.id}>
+                    {event.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         }
       />
       <div className="flex-1 overflow-auto p-6 space-y-6">
@@ -361,6 +486,24 @@ export default function EngagementSignals() {
                                contact.intentStatus === 'high_intent' ? 'High Intent' :
                                contact.intentStatus || 'Engaged'}
                             </Badge>
+                            {contact.intentExplanation && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-6 w-6"
+                                    onClick={() => handleCopyCRMNote(contact)}
+                                    data-testid={`button-copy-crm-note-${index}`}
+                                  >
+                                    <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">
+                                  <p className="text-xs">Copy CRM Note</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
                             {(contact.intentExplanation || (contact.intentSources && contact.intentSources.length > 0)) && (
                               <Tooltip>
                                 <TooltipTrigger asChild>

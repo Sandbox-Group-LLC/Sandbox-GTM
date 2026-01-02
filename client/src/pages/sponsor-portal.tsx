@@ -1113,7 +1113,7 @@ function InviteTeamMemberDialog({
   };
 
   const permissionOptions = [
-    { value: SPONSOR_CONTACT_PERMISSIONS.LEAD_CAPTURE, label: "Lead Capture" },
+    { value: SPONSOR_CONTACT_PERMISSIONS.LEAD_CAPTURE, label: "Product Interaction" },
     { value: SPONSOR_CONTACT_PERMISSIONS.VIEW_LEADS, label: "View Leads" },
     { value: SPONSOR_CONTACT_PERMISSIONS.EXPORT_LEADS, label: "Export Leads" },
   ];
@@ -1296,7 +1296,7 @@ function InvitationStatusBadge({ status }: { status: string }) {
 function getPermissionLabel(permission: string): string {
   switch (permission) {
     case SPONSOR_CONTACT_PERMISSIONS.LEAD_CAPTURE:
-      return "Lead Capture";
+      return "Product Interaction";
     case SPONSOR_CONTACT_PERMISSIONS.VIEW_LEADS:
       return "View Leads";
     case SPONSOR_CONTACT_PERMISSIONS.EXPORT_LEADS:
