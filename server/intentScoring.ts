@@ -427,17 +427,19 @@ export function buildIntentExplanation(
   const contra_signals: IntentExplanationContraSignal[] = [];
   for (const interaction of interactions) {
     if (CONTRA_OUTCOMES.has(interaction.outcome)) {
-      const stationLabel = interaction.station 
-        ? formatStation(interaction.station) 
-        : 'a demo';
+      // Build specific context: use interaction type, add station if present
+      const interactionTypeLabel = formatInteractionType(interaction.interactionType);
+      const stationSuffix = interaction.station 
+        ? ` at ${formatStation(interaction.station)}`
+        : '';
       
       contra_signals.push({
         type: interaction.outcome as 'not_a_fit' | 'too_early',
         scope: 'product_interaction',
-        context: `Not a fit for ${stationLabel}`,
+        context: `Not a fit for ${interactionTypeLabel}${stationSuffix}`,
         createdAt: interaction.createdAt?.toISOString() || new Date().toISOString(),
         weight: 'local_only',
-        note: 'Does not disqualify contact overall; indicates mismatch with this specific demo.',
+        note: 'Does not disqualify contact overall; indicates mismatch with this specific interaction.',
       });
     }
   }
@@ -671,6 +673,18 @@ function formatStation(station: string): string {
     other: 'a demo station',
   };
   return labels[station] || station;
+}
+
+function formatInteractionType(interactionType: string): string {
+  const labels: Record<string, string> = {
+    product_demo: 'Product Demo',
+    technical_deep_dive: 'Technical Deep Dive',
+    pricing_packaging: 'Pricing/Packaging',
+    integration_security: 'Integration/Security',
+    executive_conversation: 'Executive Conversation',
+    other: 'this interaction',
+  };
+  return labels[interactionType] || interactionType;
 }
 
 function formatContraType(type: string): string {
