@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
-import type { Event } from "@shared/schema";
+import type { Event, IntentExplanation } from "@shared/schema";
 
 interface ActiveVisitor {
   eventId: string;
@@ -62,6 +62,7 @@ interface IntentContact {
   intentStatus: string | null;
   salesReady: boolean | null;
   intentSources: { type: string; id: string; createdAt: string }[] | null;
+  intentExplanation: IntentExplanation | null;
   updatedAt: Date | null;
 }
 
@@ -360,7 +361,7 @@ export default function EngagementSignals() {
                                contact.intentStatus === 'high_intent' ? 'High Intent' :
                                contact.intentStatus || 'Engaged'}
                             </Badge>
-                            {contact.intentSources && contact.intentSources.length > 0 && (
+                            {(contact.intentExplanation || (contact.intentSources && contact.intentSources.length > 0)) && (
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <Button 
@@ -373,16 +374,48 @@ export default function EngagementSignals() {
                                   </Button>
                                 </TooltipTrigger>
                                 <TooltipContent side="left" className="max-w-xs">
-                                  <div className="space-y-1.5">
+                                  <div className="space-y-2">
                                     <p className="font-medium text-xs">Why this contact was promoted:</p>
-                                    {contact.intentSources.map((source, i) => (
-                                      <div key={i} className="flex items-center justify-between gap-3 text-xs">
-                                        <span>{formatIntentSourceType(source.type)}</span>
-                                        <span className="text-muted-foreground">
-                                          {new Date(source.createdAt).toLocaleDateString()}
-                                        </span>
-                                      </div>
-                                    ))}
+                                    {contact.intentExplanation ? (
+                                      <>
+                                        {contact.intentExplanation.primary_reasons.length > 0 && (
+                                          <div className="space-y-1">
+                                            {contact.intentExplanation.primary_reasons.map((reason, i) => (
+                                              <div key={i} className="flex items-start gap-2 text-xs">
+                                                <Target className="h-3 w-3 mt-0.5 text-green-500 shrink-0" />
+                                                <span className="font-medium">{reason}</span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+                                        {contact.intentExplanation.supporting_signals.length > 0 && (
+                                          <div className="space-y-1 pt-1 border-t border-border/50">
+                                            {contact.intentExplanation.supporting_signals.map((signal, i) => (
+                                              <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                                                <span className="shrink-0">+</span>
+                                                <span>{signal}</span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+                                        {(contact.intentExplanation as IntentExplanation & { guardrail_message?: string }).guardrail_message && (
+                                          <div className="pt-1 border-t border-border/50">
+                                            <p className="text-xs text-amber-600 dark:text-amber-400">
+                                              {(contact.intentExplanation as IntentExplanation & { guardrail_message?: string }).guardrail_message}
+                                            </p>
+                                          </div>
+                                        )}
+                                      </>
+                                    ) : contact.intentSources ? (
+                                      contact.intentSources.map((source, i) => (
+                                        <div key={i} className="flex items-center justify-between gap-3 text-xs">
+                                          <span>{formatIntentSourceType(source.type)}</span>
+                                          <span className="text-muted-foreground">
+                                            {new Date(source.createdAt).toLocaleDateString()}
+                                          </span>
+                                        </div>
+                                      ))
+                                    ) : null}
                                   </div>
                                 </TooltipContent>
                               </Tooltip>

@@ -5039,6 +5039,25 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/attendees/:attendeeId/recompute-intent", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { attendeeId } = req.params;
+
+      const attendee = await storage.getAttendee(organizationId, attendeeId);
+      if (!attendee) {
+        return res.status(404).json({ message: "Attendee not found" });
+      }
+
+      const updatedAttendee = await storage.recomputeAttendeeIntent(organizationId, attendee.eventId, attendeeId);
+      res.json(updatedAttendee);
+    } catch (error) {
+      logError("Error recomputing attendee intent:", error);
+      res.status(500).json({ message: "Failed to recompute attendee intent" });
+    }
+  });
+
   // Bulk import attendees
   app.post("/api/attendees/bulk-import", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
     try {
@@ -11204,6 +11223,50 @@ ${urls.map(u => `  <url>
     } catch (error: any) {
       logError("Error resending meeting invitation email:", error);
       res.status(500).json({ message: error.message || "Failed to resend meeting invitation email" });
+    }
+  });
+
+  // Bulk recompute intent for all contacts in an event
+  app.post("/api/events/:eventId/recompute-intent", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { eventId } = req.params;
+
+      const event = await storage.getEvent(organizationId, eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+
+      const attendees = await storage.getAttendees(organizationId, eventId);
+      
+      const intentTiers: Record<string, number> = {
+        'none': 0,
+        'engaged': 1,
+        'high_intent': 2,
+        'hot_lead': 3
+      };
+
+      let processed = 0;
+      let promoted = 0;
+
+      for (const attendee of attendees) {
+        const oldStatus = attendee.intentStatus || 'none';
+        const updated = await storage.recomputeAttendeeIntent(organizationId, eventId, attendee.id);
+        
+        if (updated) {
+          const newStatus = updated.intentStatus || 'none';
+          if (intentTiers[newStatus] > intentTiers[oldStatus]) {
+            promoted++;
+          }
+        }
+        processed++;
+      }
+
+      res.json({ processed, promoted });
+    } catch (error) {
+      logError("Error bulk recomputing intent:", error);
+      res.status(500).json({ message: "Failed to recompute intent for all attendees" });
     }
   });
 
