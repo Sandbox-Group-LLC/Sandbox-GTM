@@ -274,10 +274,13 @@ import {
   type InsertMeetingPortalInvitation,
   roomOpenHours,
   memberRoomAssignments,
+  intentRecomputeHistory,
   type InsertRoomOpenHours,
   type RoomOpenHours,
   type InsertMemberRoomAssignment,
   type MemberRoomAssignment,
+  type IntentRecomputeHistory,
+  type InsertIntentRecomputeHistory,
 } from "@shared/schema";
 import crypto from "crypto";
 import { encrypt, decrypt } from "./encryption";
@@ -998,6 +1001,10 @@ export interface IStorage {
   // Intent Recompute operations
   getAttendeeMeetingsByInvitee(organizationId: string, eventId: string, attendeeId: string): Promise<AttendeeMeeting[]>;
   recomputeAttendeeIntent(organizationId: string, eventId: string, attendeeId: string): Promise<Attendee | undefined>;
+  
+  // Intent Recompute History operations
+  getIntentRecomputeHistory(organizationId: string, eventId: string): Promise<IntentRecomputeHistory[]>;
+  createIntentRecomputeHistory(entry: InsertIntentRecomputeHistory): Promise<IntentRecomputeHistory>;
 }
 
 // Types for Moments Analytics
@@ -6765,6 +6772,23 @@ export class DatabaseStorage implements IStorage {
       .returning();
 
     return updated;
+  }
+
+  // Intent Recompute History operations
+  async getIntentRecomputeHistory(organizationId: string, eventId: string): Promise<IntentRecomputeHistory[]> {
+    return await db.select().from(intentRecomputeHistory)
+      .where(and(
+        eq(intentRecomputeHistory.organizationId, organizationId),
+        eq(intentRecomputeHistory.eventId, eventId)
+      ))
+      .orderBy(desc(intentRecomputeHistory.recomputedAt));
+  }
+
+  async createIntentRecomputeHistory(entry: InsertIntentRecomputeHistory): Promise<IntentRecomputeHistory> {
+    const [created] = await db.insert(intentRecomputeHistory)
+      .values(entry)
+      .returning();
+    return created;
   }
 }
 

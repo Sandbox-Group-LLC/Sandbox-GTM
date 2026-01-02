@@ -11240,6 +11240,13 @@ ${urls.map(u => `  <url>
 
       const attendees = await storage.getAttendees(organizationId, eventId);
       
+      // Calculate before counts
+      const beforeCounts = {
+        hotLeadCount: attendees.filter(a => a.intentStatus === 'hot_lead').length,
+        highIntentCount: attendees.filter(a => a.intentStatus === 'high_intent').length,
+        momentumOnlyCount: attendees.filter(a => a.intentStatus === 'engaged').length,
+      };
+      
       const intentTiers: Record<string, number> = {
         'none': 0,
         'engaged': 1,
@@ -11263,10 +11270,84 @@ ${urls.map(u => `  <url>
         processed++;
       }
 
-      res.json({ processed, promoted });
+      // Re-fetch attendees to get updated counts
+      const updatedAttendees = await storage.getAttendees(organizationId, eventId);
+      const afterCounts = {
+        hotLeadCount: updatedAttendees.filter(a => a.intentStatus === 'hot_lead').length,
+        highIntentCount: updatedAttendees.filter(a => a.intentStatus === 'high_intent').length,
+        momentumOnlyCount: updatedAttendees.filter(a => a.intentStatus === 'engaged').length,
+      };
+
+      // Create history entry with snapshot
+      await storage.createIntentRecomputeHistory({
+        eventId,
+        organizationId,
+        triggeredBy: userId,
+        hotLeadCount: afterCounts.hotLeadCount,
+        highIntentCount: afterCounts.highIntentCount,
+        momentumOnlyCount: afterCounts.momentumOnlyCount,
+        previousHotLeadCount: beforeCounts.hotLeadCount,
+        previousHighIntentCount: beforeCounts.highIntentCount,
+        previousMomentumOnlyCount: beforeCounts.momentumOnlyCount,
+      });
+
+      // Update event's lastIntentRecomputedAt timestamp
+      await storage.updateEvent(organizationId, eventId, {
+        lastIntentRecomputedAt: new Date(),
+      });
+
+      // Calculate follow-up ready delta (hot_lead + high_intent)
+      const beforeFollowUpReady = beforeCounts.hotLeadCount + beforeCounts.highIntentCount;
+      const afterFollowUpReady = afterCounts.hotLeadCount + afterCounts.highIntentCount;
+      const followUpReadyDelta = afterFollowUpReady - beforeFollowUpReady;
+
+      res.json({ 
+        processed, 
+        promoted,
+        beforeCounts,
+        afterCounts,
+        followUpReadyDelta,
+      });
     } catch (error) {
       logError("Error bulk recomputing intent:", error);
       res.status(500).json({ message: "Failed to recompute intent for all attendees" });
+    }
+  });
+
+  // Get intent recompute history for an event (changelog)
+  app.get("/api/events/:eventId/intent-recompute-history", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { eventId } = req.params;
+
+      const event = await storage.getEvent(organizationId, eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+
+      const history = await storage.getIntentRecomputeHistory(organizationId, eventId);
+      
+      // Enrich with user info
+      const enrichedHistory = await Promise.all(
+        history.map(async (entry) => {
+          const user = entry.triggeredBy ? await storage.getUser(entry.triggeredBy) : null;
+          return {
+            ...entry,
+            triggeredByUser: user ? {
+              id: user.id,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              email: user.email,
+            } : null,
+          };
+        })
+      );
+
+      res.json(enrichedHistory);
+    } catch (error) {
+      logError("Error fetching intent recompute history:", error);
+      res.status(500).json({ message: "Failed to fetch intent recompute history" });
     }
   });
 

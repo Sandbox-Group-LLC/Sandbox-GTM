@@ -304,9 +304,31 @@ export const events = pgTable("events", {
   // Acquisition Milestones for registration goals
   acquisitionGoal: integer("acquisition_goal"), // Total target attendees
   acquisitionMilestones: jsonb("acquisition_milestones").$type<AcquisitionMilestone[]>(),
+  // Intent recompute tracking for delta calculations
+  lastIntentRecomputedAt: timestamp("last_intent_recomputed_at"),
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Intent Recompute Snapshot type for tracking before/after counts
+export interface IntentRecomputeSnapshot {
+  hotLeadCount: number;
+  highIntentCount: number;
+  momentumOnlyCount: number;
+  previousHotLeadCount: number;
+  previousHighIntentCount: number;
+  previousMomentumOnlyCount: number;
+}
+
+// Intent Recompute History table - tracks changelog for intent scoring
+export const intentRecomputeHistory = pgTable("intent_recompute_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id).notNull(),
+  recomputedAt: timestamp("recomputed_at").notNull().defaultNow(),
+  snapshot: jsonb("snapshot").$type<IntentRecomputeSnapshot>().notNull(),
+  triggeredBy: varchar("triggered_by").references(() => users.id),
 });
 
 // Event Translations table - stores translated event content
@@ -2636,6 +2658,7 @@ export const insertOrganizationSchema = createInsertSchema(organizations).omit({
 export const insertOrganizationMemberSchema = createInsertSchema(organizationMembers).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertTeamInvitationSchema = createInsertSchema(teamInvitations).omit({ id: true, invitedAt: true, acceptedAt: true, acceptedBy: true });
 export const insertEventSchema = createInsertSchema(events).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertIntentRecomputeHistorySchema = createInsertSchema(intentRecomputeHistory).omit({ id: true, recomputedAt: true });
 export const insertAttendeeSchema = createInsertSchema(attendees).omit({ id: true, createdAt: true, updatedAt: true }).extend({
   passwordHash: z.string().optional().nullable(),
 });
@@ -2746,6 +2769,8 @@ export type InsertTeamInvitation = z.infer<typeof insertTeamInvitationSchema>;
 export type TeamInvitation = typeof teamInvitations.$inferSelect;
 export type InsertEvent = z.infer<typeof insertEventSchema>;
 export type Event = typeof events.$inferSelect;
+export type InsertIntentRecomputeHistory = z.infer<typeof insertIntentRecomputeHistorySchema>;
+export type IntentRecomputeHistory = typeof intentRecomputeHistory.$inferSelect;
 export const insertEventTranslationSchema = createInsertSchema(eventTranslations).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertEventTranslation = z.infer<typeof insertEventTranslationSchema>;
 export type EventTranslation = typeof eventTranslations.$inferSelect;
