@@ -1416,6 +1416,139 @@ export default function Attendees() {
 
           {viewingAttendee && (
             <div className="mt-6 space-y-6">
+              {/* Intent & Follow-Up Ready Section - only shows for qualified contacts */}
+              {(viewingAttendee.intentStatus === 'hot_lead' || viewingAttendee.intentStatus === 'high_intent') && viewingAttendee.intentExplanation && (
+                <>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-medium text-muted-foreground">Intent & Follow-Up Ready</h3>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="max-w-xs">
+                            <p className="text-xs">This contact has qualified signals indicating follow-up readiness. Copy the CRM note to paste directly into Salesforce, HubSpot, or other CRM systems.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5"
+                        data-testid="button-copy-crm-note"
+                        onClick={async () => {
+                          const explanation = viewingAttendee.intentExplanation as IntentExplanation;
+                          const note = generateCRMNote(
+                            explanation,
+                            viewingAttendee.intentStatus || 'high_intent',
+                            `${viewingAttendee.firstName} ${viewingAttendee.lastName}`,
+                            viewingAttendee.company
+                          );
+                          try {
+                            await navigator.clipboard.writeText(note);
+                            toast({
+                              title: "Copied to clipboard",
+                              description: "CRM note has been copied to your clipboard.",
+                            });
+                          } catch {
+                            toast({
+                              title: "Copy failed",
+                              description: "Unable to copy to clipboard. Please try again.",
+                              variant: "destructive",
+                            });
+                          }
+                        }}
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                        Copy CRM Note
+                      </Button>
+                    </div>
+
+                    {/* Status Badge */}
+                    <div className="flex items-center gap-2">
+                      {viewingAttendee.intentStatus === 'hot_lead' ? (
+                        <Badge variant="destructive" className="gap-1">
+                          <Flame className="h-3 w-3" />
+                          Hot Lead
+                        </Badge>
+                      ) : (
+                        <Badge variant="default" className="gap-1">
+                          <TrendingUp className="h-3 w-3" />
+                          High-Intent
+                        </Badge>
+                      )}
+                      {(viewingAttendee.intentExplanation as IntentExplanation).totals.momentum_score != null && (
+                        <span className="text-xs text-muted-foreground">
+                          Momentum: {(viewingAttendee.intentExplanation as IntentExplanation).totals.momentum_score}/10
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Primary Reasons */}
+                    {(viewingAttendee.intentExplanation as IntentExplanation).primary_reasons.length > 0 && (
+                      <div className="space-y-1.5">
+                        <div className="text-xs font-medium text-muted-foreground">Primary Reasons</div>
+                        <ul className="space-y-1">
+                          {(viewingAttendee.intentExplanation as IntentExplanation).primary_reasons.map((reason, idx) => (
+                            <li key={idx} className="flex items-start gap-2 text-sm">
+                              <span className="text-muted-foreground mt-0.5">•</span>
+                              <span>{reason}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Supporting Signals */}
+                    {(viewingAttendee.intentExplanation as IntentExplanation).supporting_signals.length > 0 && (
+                      <div className="space-y-1.5">
+                        <div className="text-xs font-medium text-muted-foreground">Supporting Signals</div>
+                        <ul className="space-y-1">
+                          {(viewingAttendee.intentExplanation as IntentExplanation).supporting_signals.map((signal, idx) => (
+                            <li key={idx} className="flex items-start gap-2 text-sm text-muted-foreground">
+                              <span className="mt-0.5">•</span>
+                              <span>{signal}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Context / Caveats */}
+                    {(viewingAttendee.intentExplanation as IntentExplanation).contra_signals && 
+                     (viewingAttendee.intentExplanation as IntentExplanation).contra_signals.length > 0 && (
+                      <div className="space-y-1.5">
+                        <div className="text-xs font-medium text-amber-600 dark:text-amber-400">Context / Caveats</div>
+                        <ul className="space-y-1">
+                          {(viewingAttendee.intentExplanation as IntentExplanation).contra_signals.map((contra, idx) => (
+                            <li key={idx} className="flex items-start gap-2 text-sm text-amber-600 dark:text-amber-400">
+                              <span className="mt-0.5">•</span>
+                              <span>{contra.context}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Footer Stats */}
+                    <div className="flex flex-wrap items-center gap-3 pt-1 text-xs text-muted-foreground">
+                      {(viewingAttendee.intentExplanation as IntentExplanation).totals.highest_intent_level_seen && (
+                        <span>Highest Intent: {(viewingAttendee.intentExplanation as IntentExplanation).totals.highest_intent_level_seen}</span>
+                      )}
+                      {(viewingAttendee.intentExplanation as IntentExplanation).totals.max_opportunity_bucket_seen && (
+                        <span>Max Opportunity: {formatOpportunityBucket((viewingAttendee.intentExplanation as IntentExplanation).totals.max_opportunity_bucket_seen!)}</span>
+                      )}
+                      {(viewingAttendee.intentExplanation as IntentExplanation).totals.total_interactions_count > 0 && (
+                        <span>{(viewingAttendee.intentExplanation as IntentExplanation).totals.total_interactions_count} interactions</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <Separator />
+                </>
+              )}
+
               <div className="space-y-4">
                 <h3 className="text-sm font-medium text-muted-foreground">Contact Information</h3>
                 <div className="grid grid-cols-2 gap-4">
