@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Activity, Flame, Users, RefreshCw, BarChart3, MessageSquare, Star, TrendingUp, CheckCircle, Radio, Clock, Handshake, Target, HelpCircle, Copy, Loader2 } from "lucide-react";
+import { Activity, Flame, Users, RefreshCw, BarChart3, MessageSquare, Star, TrendingUp, CheckCircle, Radio, Clock, Handshake, Target, HelpCircle, Copy, Loader2, ArrowRight, X } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -260,7 +260,41 @@ export default function EngagementSignals() {
     },
   });
 
-  const followUpReadyCount = (hotLeads?.length ?? 0) + (highIntentContacts?.length ?? 0);
+  // State for showing follow-up ready filtered view
+  const [showFollowUpReady, setShowFollowUpReady] = useState(false);
+
+  // Compute deduplicated follow-up ready contacts (combine hot leads + high-intent, remove duplicates)
+  const followUpReadyContacts = useMemo(() => {
+    const contactMap = new Map<string, IntentContact & { category: 'hot_lead' | 'high_intent' }>();
+    
+    // Add hot leads first (they take priority)
+    if (hotLeads) {
+      for (const contact of hotLeads) {
+        contactMap.set(contact.id, { ...contact, category: 'hot_lead' });
+      }
+    }
+    
+    // Add high-intent contacts (only if not already added as hot lead)
+    if (highIntentContacts) {
+      for (const contact of highIntentContacts) {
+        if (!contactMap.has(contact.id)) {
+          contactMap.set(contact.id, { ...contact, category: 'high_intent' });
+        }
+      }
+    }
+    
+    // Convert to array and sort by most recent signal
+    const contacts = Array.from(contactMap.values());
+    contacts.sort((a, b) => {
+      const aDate = a.intentSources?.[0]?.createdAt ? new Date(a.intentSources[0].createdAt).getTime() : 0;
+      const bDate = b.intentSources?.[0]?.createdAt ? new Date(b.intentSources[0].createdAt).getTime() : 0;
+      return bDate - aDate; // Most recent first
+    });
+    
+    return contacts;
+  }, [hotLeads, highIntentContacts]);
+
+  const followUpReadyCount = followUpReadyContacts.length;
 
   return (
     <div className="flex flex-col h-full">
@@ -356,11 +390,16 @@ export default function EngagementSignals() {
                 </CardContent>
               </Card>
 
-              <Card className="border-2">
+              <Card 
+                className="border-2 cursor-pointer hover-elevate transition-colors"
+                onClick={() => setShowFollowUpReady(true)}
+                data-testid="card-follow-up-readiness"
+              >
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2 text-lg">
                     <Target className="w-5 h-5 text-green-500" />
                     Follow-Up Readiness
+                    <ArrowRight className="w-4 h-4 ml-auto text-muted-foreground" />
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -373,22 +412,162 @@ export default function EngagementSignals() {
                           </p>
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p className="text-xs">Hot Leads: {hotLeads?.length ?? 0}, High-Intent: {highIntentContacts?.length ?? 0}</p>
+                          <p className="text-xs">Unique contacts: Hot Leads ({hotLeads?.length ?? 0}) + High-Intent ({highIntentContacts?.length ?? 0})</p>
                         </TooltipContent>
                       </Tooltip>
-                      <p className="text-sm text-muted-foreground mt-1">Contacts ready for follow-up</p>
+                      <p className="text-sm text-muted-foreground mt-1">Click to view contacts</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             </div>
 
-            <div className="grid gap-6">
+            {/* Follow-Up Ready List View */}
+            {showFollowUpReady ? (
               <Card>
                 <CardHeader>
-                  <CardTitle>High-Intent Audience</CardTitle>
-                  <CardDescription>Contacts ready for follow-up, identified through cumulative buying signals across meetings and engagement.</CardDescription>
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <Target className="w-5 h-5 text-green-500" />
+                        Follow-Up Ready Contacts
+                      </CardTitle>
+                      <CardDescription>
+                        {followUpReadyCount} unique contacts combining Hot Leads and High-Intent, sorted by most recent signal
+                      </CardDescription>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      onClick={() => setShowFollowUpReady(false)}
+                      data-testid="button-close-follow-up-ready"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </CardHeader>
+                <CardContent>
+                  {(hotLeadsLoading || highIntentLoading) ? (
+                    <div className="space-y-3">
+                      <Skeleton className="h-16 w-full" />
+                      <Skeleton className="h-16 w-full" />
+                      <Skeleton className="h-16 w-full" />
+                    </div>
+                  ) : followUpReadyContacts.length > 0 ? (
+                    <div className="space-y-2">
+                      {followUpReadyContacts.map((contact, index) => (
+                        <div 
+                          key={contact.id}
+                          className="flex items-center justify-between gap-2 p-4 rounded-lg bg-muted/50"
+                          data-testid={`row-follow-up-ready-${index}`}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className={`w-3 h-3 rounded-full shrink-0 ${
+                              contact.category === 'hot_lead' ? 'bg-red-500' : 'bg-orange-500'
+                            }`} />
+                            <div className="min-w-0">
+                              <p className="font-medium" data-testid={`text-follow-up-name-${index}`}>
+                                {contact.firstName} {contact.lastName}
+                              </p>
+                              <p className="text-sm text-muted-foreground truncate">
+                                {contact.company ? `${contact.company} • ` : ''}{contact.email}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <div className="text-right hidden sm:block">
+                              {contact.intentSources?.[0] && (
+                                <p className="text-xs text-muted-foreground">
+                                  {formatIntentSourceType(contact.intentSources[0].type)}
+                                  <span className="ml-1">
+                                    {new Date(contact.intentSources[0].createdAt).toLocaleDateString()}
+                                  </span>
+                                </p>
+                              )}
+                            </div>
+                            <Badge 
+                              variant={contact.category === 'hot_lead' ? 'destructive' : 'secondary'}
+                              data-testid={`badge-follow-up-status-${index}`}
+                            >
+                              {contact.category === 'hot_lead' ? 'Hot Lead' : 'High Intent'}
+                            </Badge>
+                            {contact.intentExplanation && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon"
+                                    onClick={() => handleCopyCRMNote(contact)}
+                                    data-testid={`button-copy-crm-${index}`}
+                                  >
+                                    <Copy className="h-4 w-4 text-muted-foreground" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p className="text-xs">Copy CRM Note</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                            {contact.intentExplanation && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon"
+                                    data-testid={`button-why-follow-up-${index}`}
+                                  >
+                                    <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="left" className="max-w-xs">
+                                  <div className="space-y-2">
+                                    <p className="font-medium text-xs">Why this contact is follow-up ready:</p>
+                                    {contact.intentExplanation.primary_reasons.length > 0 && (
+                                      <div className="space-y-1">
+                                        {contact.intentExplanation.primary_reasons.map((reason, i) => (
+                                          <div key={i} className="flex items-start gap-2 text-xs">
+                                            <Target className="h-3 w-3 mt-0.5 text-green-500 shrink-0" />
+                                            <span className="font-medium">{reason}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                    {contact.intentExplanation.supporting_signals.length > 0 && (
+                                      <div className="space-y-1 pt-1 border-t border-border/50">
+                                        {contact.intentExplanation.supporting_signals.slice(0, 3).map((signal, i) => (
+                                          <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                                            <span className="shrink-0">+</span>
+                                            <span>{signal}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                      <Target className="h-12 w-12 mb-4 opacity-20" />
+                      <p className="text-muted-foreground">No contacts are follow-up ready yet</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Contacts will appear here when they show buying intent signals
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>High-Intent Audience</CardTitle>
+                    <CardDescription>Contacts ready for follow-up, identified through cumulative buying signals across meetings and engagement.</CardDescription>
+                  </CardHeader>
                 <CardContent className="h-64 overflow-auto">
                   {highIntentLoading ? (
                     <div className="space-y-3">
@@ -526,6 +705,7 @@ export default function EngagementSignals() {
                 </CardContent>
               </Card>
             </div>
+            )}
 
             {/* Meeting Quality Section */}
             <Card>
