@@ -50,12 +50,17 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { titleCase } from "@/lib/utils";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Plus, Users, Search, Download, Settings2, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Trash2, Eye, Mail, ExternalLink } from "lucide-react";
+import { Plus, Users, Search, Download, Settings2, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Trash2, Eye, Mail, ExternalLink, Copy, Info, Flame, TrendingUp } from "lucide-react";
 import { format } from "date-fns";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EventSelectField } from "@/components/event-select-field";
-import type { Attendee, Event, CustomField, InviteCode, Package, Organization, EmailTemplate, ActivationLink } from "@shared/schema";
+import type { Attendee, Event, CustomField, InviteCode, Package, Organization, EmailTemplate, ActivationLink, IntentExplanation } from "@shared/schema";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Send, Loader2, Link2 } from "lucide-react";
 
 interface AttendeeEmailMessage {
@@ -144,6 +149,69 @@ const statusColors: Record<string, "default" | "secondary" | "destructive" | "ou
   cancelled: "destructive",
   waitlist: "outline",
 };
+
+function formatOpportunityBucket(bucket: string): string {
+  const labels: Record<string, string> = {
+    under_10k: '<$10k',
+    '10k_to_50k': '$10k-$50k',
+    '50k_to_100k': '$50k-$100k',
+    over_100k: '$100k+',
+  };
+  return labels[bucket] || bucket;
+}
+
+function generateCRMNote(
+  explanation: IntentExplanation,
+  intentStatus: string,
+  contactName: string,
+  company: string | null
+): string {
+  const lines: string[] = [];
+  
+  const statusLabel = intentStatus === 'hot_lead' ? 'Hot Lead' : 'High-Intent';
+  lines.push(`[${statusLabel}] ${contactName}${company ? ` - ${company}` : ''}`);
+  lines.push('');
+
+  if (explanation.primary_reasons.length > 0) {
+    lines.push('Primary Reasons:');
+    for (const reason of explanation.primary_reasons) {
+      lines.push(`• ${reason}`);
+    }
+    lines.push('');
+  }
+
+  if (explanation.supporting_signals.length > 0) {
+    lines.push('Supporting Signals:');
+    for (const signal of explanation.supporting_signals) {
+      lines.push(`• ${signal}`);
+    }
+    lines.push('');
+  }
+
+  if (explanation.contra_signals && explanation.contra_signals.length > 0) {
+    lines.push('Context / Caveats:');
+    for (const contra of explanation.contra_signals) {
+      lines.push(`• ${contra.context}`);
+    }
+    lines.push('');
+  }
+
+  if (explanation.context) {
+    lines.push('Note:');
+    lines.push(`• ${explanation.context}`);
+    lines.push('');
+  }
+
+  lines.push(`Momentum Score: ${explanation.totals.momentum_score}/10`);
+  if (explanation.totals.highest_intent_level_seen) {
+    lines.push(`Highest Intent Level: ${explanation.totals.highest_intent_level_seen}`);
+  }
+  if (explanation.totals.max_opportunity_bucket_seen) {
+    lines.push(`Max Opportunity: ${formatOpportunityBucket(explanation.totals.max_opportunity_bucket_seen)}`);
+  }
+
+  return lines.join('\n');
+}
 
 export default function Attendees() {
   const { toast } = useToast();
