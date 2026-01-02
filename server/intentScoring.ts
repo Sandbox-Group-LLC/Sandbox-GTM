@@ -195,6 +195,86 @@ export function getPrimaryTriggers(
 }
 
 /**
+ * Consolidate and deduplicate primary reasons for CRM display.
+ * Meeting-related reasons are grouped into a single summary line.
+ * Duplicate reasons are removed.
+ */
+function consolidatePrimaryReasons(
+  triggers: PrimaryTrigger[],
+  meetings: AttendeeeMeeting[]
+): string[] {
+  // Separate meeting triggers from product interaction triggers
+  const meetingTriggers = triggers.filter(t => t.sourceType === 'meeting');
+  const productTriggers = triggers.filter(t => t.sourceType === 'product_interaction');
+  
+  // Deduplicate product reasons using Set
+  const productReasons = Array.from(new Set(productTriggers.map(t => t.reason)));
+  
+  // Consolidate meeting reasons into a single summary
+  const consolidatedReasons: string[] = [...productReasons];
+  
+  // Only consolidate if we have meeting triggers (Tier 1 qualifying)
+  if (meetingTriggers.length > 0) {
+    // Get the unique meeting IDs that generated triggers (only qualifying meetings)
+    const qualifyingMeetingIds = new Set(meetingTriggers.map(t => t.sourceId));
+    const qualifyingMeetings = meetings.filter(m => qualifyingMeetingIds.has(m.id));
+    
+    // Build a consolidated meeting summary from qualifying meetings
+    const hasActiveOpportunity = qualifyingMeetings.some(m => m.outcomeType === 'active_opportunity');
+    const hasImmediateTimeline = qualifyingMeetings.some(m => m.timeline === 'now');
+    
+    // Get max deal range from qualifying meetings only
+    // Note: Meeting deal ranges use under_25k, 25k_to_100k, over_100k (different from product opportunities)
+    const dealRanges = qualifyingMeetings
+      .map(m => m.dealRange)
+      .filter(Boolean) as string[];
+    
+    const rangeRanking = ['under_25k', '25k_to_100k', 'over_100k'];
+    let maxDealRange: string | null = null;
+    for (const range of dealRanges) {
+      const currentRank = rangeRanking.indexOf(range);
+      const maxRank = maxDealRange ? rangeRanking.indexOf(maxDealRange) : -1;
+      if (currentRank > maxRank) {
+        maxDealRange = range;
+      }
+    }
+    
+    // Build concise meeting summary from Tier 1 triggers
+    const parts: string[] = [];
+    
+    if (hasActiveOpportunity) {
+      parts.push('active opportunity');
+    }
+    
+    if (maxDealRange) {
+      const rangeLabels: Record<string, string> = {
+        under_25k: '<$25k',
+        '25k_to_100k': '$25k-$100k',
+        over_100k: '$100k+',
+      };
+      parts.push(rangeLabels[maxDealRange] || maxDealRange);
+    }
+    
+    if (hasImmediateTimeline) {
+      parts.push('immediate timeline');
+    }
+    
+    // If we have parts to show, create a consolidated summary
+    if (parts.length > 0) {
+      const qualifyingCount = qualifyingMeetings.length;
+      const meetingLabel = qualifyingCount > 1 ? `${qualifyingCount} meetings` : 'Meeting';
+      consolidatedReasons.push(`${meetingLabel}: ${parts.join(', ')}`);
+    } else {
+      // Fallback: if triggers exist but no consolidatable parts, use deduplicated trigger reasons
+      const deduplicatedMeetingReasons = Array.from(new Set(meetingTriggers.map(t => t.reason)));
+      consolidatedReasons.push(...deduplicatedMeetingReasons);
+    }
+  }
+  
+  return consolidatedReasons;
+}
+
+/**
  * Compute Tier 2 Momentum Score from cumulative signals.
  * This represents "slow burn" progression over time.
  * 
@@ -290,8 +370,8 @@ export function buildIntentExplanation(
   const primaryTriggers = getPrimaryTriggers(interactions, meetings);
   const { score, breakdown } = computeMomentumScore(interactions, meetings);
 
-  // Extract primary reasons (from Tier 1 triggers)
-  const primary_reasons = primaryTriggers.map(t => t.reason);
+  // Extract primary reasons (from Tier 1 triggers), with consolidation and deduplication
+  const primary_reasons = consolidatePrimaryReasons(primaryTriggers, meetings);
 
   // Build supporting signals (Tier 2 momentum contributors)
   const supporting_signals: string[] = [];
