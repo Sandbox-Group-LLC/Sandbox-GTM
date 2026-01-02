@@ -71,6 +71,7 @@ import {
   productInteractions,
   apiKeys,
   apiKeyAuditLogs,
+  demoStations,
   type User,
   type UpsertUser,
   type Event,
@@ -281,6 +282,8 @@ import {
   type MemberRoomAssignment,
   type IntentRecomputeHistory,
   type InsertIntentRecomputeHistory,
+  type DemoStation,
+  type InsertDemoStation,
 } from "@shared/schema";
 import crypto from "crypto";
 import { encrypt, decrypt } from "./encryption";
@@ -1005,6 +1008,13 @@ export interface IStorage {
   // Intent Recompute History operations
   getIntentRecomputeHistory(organizationId: string, eventId: string): Promise<IntentRecomputeHistory[]>;
   createIntentRecomputeHistory(entry: InsertIntentRecomputeHistory): Promise<IntentRecomputeHistory>;
+
+  // Demo Station operations
+  getDemoStationsByEvent(eventId: string): Promise<DemoStation[]>;
+  getDemoStation(id: string): Promise<DemoStation | undefined>;
+  createDemoStation(station: InsertDemoStation): Promise<DemoStation>;
+  updateDemoStation(id: string, updates: Partial<InsertDemoStation>): Promise<DemoStation>;
+  deleteDemoStation(id: string): Promise<void>;
 }
 
 // Types for Moments Analytics
@@ -6791,6 +6801,41 @@ export class DatabaseStorage implements IStorage {
       .values(entry)
       .returning();
     return created;
+  }
+
+  // Demo Station operations
+  async getDemoStationsByEvent(eventId: string): Promise<DemoStation[]> {
+    return db.select()
+      .from(demoStations)
+      .where(eq(demoStations.eventId, eventId))
+      .orderBy(demoStations.stationName);
+  }
+
+  async getDemoStation(id: string): Promise<DemoStation | undefined> {
+    const [station] = await db.select()
+      .from(demoStations)
+      .where(eq(demoStations.id, id));
+    return station;
+  }
+
+  async createDemoStation(station: InsertDemoStation): Promise<DemoStation> {
+    const [newStation] = await db.insert(demoStations)
+      .values(station)
+      .returning();
+    return newStation;
+  }
+
+  async updateDemoStation(id: string, updates: Partial<InsertDemoStation>): Promise<DemoStation> {
+    const [updated] = await db.update(demoStations)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(demoStations.id, id))
+      .returning();
+    if (!updated) throw new Error("Demo station not found");
+    return updated;
+  }
+
+  async deleteDemoStation(id: string): Promise<void> {
+    await db.delete(demoStations).where(eq(demoStations.id, id));
   }
 }
 
