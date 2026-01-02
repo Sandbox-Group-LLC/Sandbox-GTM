@@ -957,7 +957,7 @@ export interface IStorage {
   getAttendeeMeeting(organizationId: string, id: string): Promise<AttendeeMeeting | undefined>;
   createAttendeeMeeting(data: InsertAttendeeMeeting): Promise<AttendeeMeeting>;
   updateAttendeeMeeting(organizationId: string, id: string, data: Partial<InsertAttendeeMeeting>): Promise<AttendeeMeeting | undefined>;
-  captureAttendeeOutcome(organizationId: string, meetingId: string, data: { outcomeType: string; dealRange?: string; timeline?: string; outcomeNotes?: string; outcomeCapturedBy: string }): Promise<AttendeeMeeting | undefined>;
+  captureAttendeeOutcome(organizationId: string, meetingId: string, data: { outcomeType: string; outcomeConfidence?: string; dealRange?: string; timeline?: string; outcomeNotes?: string; outcomeCapturedBy: string }): Promise<AttendeeMeeting | undefined>;
   getMeetingQualityStats(organizationId: string, eventId: string): Promise<{ totalMeetings: number; pendingMeetings: number; completedMeetings: number; outcomesRecorded: number; highIntentMeetings: number; mediumIntentMeetings: number; lowIntentMeetings: number; outcomeBreakdown: { type: string; count: number }[]; intentBreakdown: { type: string; count: number }[] }>;
   
   // Contact Intent Promotion
@@ -6236,7 +6236,7 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  async captureAttendeeOutcome(organizationId: string, meetingId: string, data: { outcomeType: string; dealRange?: string; timeline?: string; outcomeNotes?: string; outcomeCapturedBy: string }): Promise<AttendeeMeeting | undefined> {
+  async captureAttendeeOutcome(organizationId: string, meetingId: string, data: { outcomeType: string; outcomeConfidence?: string; dealRange?: string; timeline?: string; outcomeNotes?: string; outcomeCapturedBy: string }): Promise<AttendeeMeeting | undefined> {
     // Calculate intent strength based on outcome type
     let intentStrength: 'low' | 'medium' | 'high' = 'low';
     if (data.outcomeType === 'deal_in_progress' || data.outcomeType === 'active_opportunity') {
@@ -6248,6 +6248,7 @@ export class DatabaseStorage implements IStorage {
     const [result] = await db.update(attendeeMeetings)
       .set({
         outcomeType: data.outcomeType,
+        outcomeConfidence: data.outcomeConfidence,
         dealRange: data.dealRange,
         timeline: data.timeline,
         outcomeNotes: data.outcomeNotes,

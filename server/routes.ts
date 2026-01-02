@@ -11132,6 +11132,7 @@ ${urls.map(u => `  <url>
       
       const meeting = await storage.captureAttendeeOutcome(event.organizationId, id, {
         outcomeType: req.body.outcomeType,
+        outcomeConfidence: req.body.outcomeConfidence,
         dealRange: req.body.dealRange,
         timeline: req.body.timeline,
         outcomeNotes: req.body.outcomeNotes,
@@ -17681,7 +17682,7 @@ ${urls.map(u => `  <url>
       }
 
       const { eventId, meetingId } = req.params;
-      const { outcomeType, dealRange, timeline, outcomeNotes } = req.body;
+      const { outcomeType, outcomeConfidence, dealRange, timeline, outcomeNotes } = req.body;
 
       if (member.eventId !== eventId) {
         return res.status(403).json({ message: "Access denied for this event" });
@@ -17705,6 +17706,7 @@ ${urls.map(u => `  <url>
       // Update meeting with outcome
       const updated = await storage.updateAttendeeMeeting(member.organizationId, meetingId, {
         outcomeType: outcomeType || null,
+        outcomeConfidence: outcomeConfidence || null,
         dealRange: dealRange || null,
         timeline: timeline || null,
         outcomeNotes: outcomeNotes || null,
