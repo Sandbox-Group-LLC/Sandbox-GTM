@@ -12189,7 +12189,7 @@ ${urls.map(u => `  <url>
       const validIntentLevelEnum = z.enum(['low', 'medium', 'high']).default('medium');
       const validOutcomeEnum = z.enum(['requested_follow_up', 'asked_for_pricing', 'wants_trial_pilot', 'intro_to_stakeholder', 'not_a_fit', 'too_early', 'other']).default('other');
       const validOpportunityPotentialEnum = z.enum(['over_100k', '50k_to_100k', '10k_to_50k', 'under_10k']).nullable().optional();
-      const validNextStepEnum = z.enum(['send_info', 'schedule_meeting', 'send_proposal', 'demo_scheduled', 'trial_setup', 'internal_review', 'none']).nullable().optional();
+      const validNextStepEnum = z.enum(['send_info', 'schedule_meeting', 'schedule_call', 'send_proposal', 'demo_scheduled', 'trial_setup', 'internal_review', 'none']).nullable().optional();
       const validInteractionTypeEnum = z.enum(['demo', 'product_discussion', 'use_case_exploration', 'pricing_discussion', 'technical_deep_dive', 'partnership_discussion', 'networking', 'other']).default('other');
       
       const {
