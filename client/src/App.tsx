@@ -75,6 +75,7 @@ import AcceptInvitation from "@/pages/accept-invitation";
 import Pricing from "@/pages/pricing";
 import AudienceTargeting from "@/pages/audience-targeting";
 import EngagementMoments from "@/pages/engagement-moments";
+import ProductEngagement from "@/pages/product-engagement";
 import MomentLauncher from "@/pages/moment-launcher";
 import PortalLiveMoments from "@/pages/portal-live-moments";
 import PublicMoment from "@/pages/public-moment";
@@ -284,6 +285,7 @@ function Router() {
         <Route path="/acquisition" component={Acquisition} />
         <Route path="/audience-targeting" component={AudienceTargeting} />
         <Route path="/engagement-moments" component={EngagementMoments} />
+        <Route path="/product-engagement" component={ProductEngagement} />
         <Route path="/moment-launcher" component={MomentLauncher} />
         <Route path="/engagement-signals" component={EngagementSignals} />
         <Route path="/revenue-snapshot" component={RevenueSnapshot} />

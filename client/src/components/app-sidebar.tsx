@@ -42,6 +42,7 @@ import {
   Check,
   X,
   DoorOpen,
+  Monitor,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -518,6 +519,19 @@ export function AppSidebar() {
                   <Link href="/engagement-moments">
                     <Zap className="h-4 w-4" />
                     <span>Engagement Moments</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location === "/product-engagement"}
+                  data-testid="nav-product-engagement"
+                >
+                  <Link href="/product-engagement">
+                    <Monitor className="h-4 w-4" />
+                    <span>Product Engagement</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

@@ -111,6 +111,7 @@ import {
   MEETING_PORTAL_PERMISSIONS,
   insertRoomOpenHoursSchema,
   insertMemberRoomAssignmentSchema,
+  insertDemoStationSchema,
 } from "@shared/schema";
 import { createMailchimpProvider } from "./integrations/mailchimp";
 import { decrypt, encrypt } from "./encryption";
@@ -11821,6 +11822,116 @@ ${urls.map(u => `  <url>
     } catch (error) {
       logError("Error deleting moment:", error);
       res.status(500).json({ message: "Failed to delete moment" });
+    }
+  });
+
+  // ============================================
+  // Demo Stations - Product Engagement Routes
+  // ============================================
+
+  // Get all demo stations for an event
+  app.get("/api/events/:eventId/demo-stations", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { eventId } = req.params;
+      
+      const event = await storage.getEventById(eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === event.organizationId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const stations = await storage.getDemoStationsByEvent(eventId);
+      res.json(stations);
+    } catch (error) {
+      logError("Error fetching demo stations:", error);
+      res.status(500).json({ message: "Failed to fetch demo stations" });
+    }
+  });
+
+  // Create a new demo station
+  app.post("/api/events/:eventId/demo-stations", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { eventId } = req.params;
+      
+      const event = await storage.getEventById(eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === event.organizationId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const data = insertDemoStationSchema.parse({
+        ...req.body,
+        organizationId: event.organizationId,
+        eventId,
+      });
+      
+      const station = await storage.createDemoStation(data);
+      res.status(201).json(station);
+    } catch (error: any) {
+      logError("Error creating demo station:", error);
+      res.status(400).json({ message: error.message || "Failed to create demo station" });
+    }
+  });
+
+  // Update demo station
+  app.patch("/api/demo-stations/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      
+      const station = await storage.getDemoStation(id);
+      if (!station) {
+        return res.status(404).json({ message: "Demo station not found" });
+      }
+      
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === station.organizationId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const updated = await storage.updateDemoStation(id, req.body);
+      res.json(updated);
+    } catch (error: any) {
+      logError("Error updating demo station:", error);
+      res.status(400).json({ message: error.message || "Failed to update demo station" });
+    }
+  });
+
+  // Delete demo station
+  app.delete("/api/demo-stations/:id", isAuthenticated, requireInviteRedemption, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      
+      const station = await storage.getDemoStation(id);
+      if (!station) {
+        return res.status(404).json({ message: "Demo station not found" });
+      }
+      
+      const members = await storage.getUserOrganizations(userId);
+      const membership = members.find(m => m.organizationId === station.organizationId);
+      if (!membership) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      await storage.deleteDemoStation(id);
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting demo station:", error);
+      res.status(500).json({ message: "Failed to delete demo station" });
     }
   });
 
