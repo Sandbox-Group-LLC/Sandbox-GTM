@@ -1534,7 +1534,7 @@ export default function Attendees() {
                     {/* Footer Stats */}
                     <div className="flex flex-wrap items-center gap-3 pt-1 text-xs text-muted-foreground">
                       {(viewingAttendee.intentExplanation as IntentExplanation).totals.highest_intent_level_seen && (
-                        <span>Highest Intent: {(viewingAttendee.intentExplanation as IntentExplanation).totals.highest_intent_level_seen}</span>
+                        <span>Highest Intent: {(viewingAttendee.intentExplanation as IntentExplanation).totals.highest_intent_level_seen.charAt(0).toUpperCase() + (viewingAttendee.intentExplanation as IntentExplanation).totals.highest_intent_level_seen.slice(1)}</span>
                       )}
                       {(viewingAttendee.intentExplanation as IntentExplanation).totals.max_opportunity_bucket_seen && (
                         <span>Max Opportunity: {formatOpportunityBucket((viewingAttendee.intentExplanation as IntentExplanation).totals.max_opportunity_bucket_seen!)}</span>
