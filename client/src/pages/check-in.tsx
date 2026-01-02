@@ -830,18 +830,19 @@ export default function CheckIn() {
       <div className="flex-1 overflow-auto p-6">
         <div className="mb-6">
           <Tabs value={mode} onValueChange={(v) => setMode(v as CheckInMode)} className="w-full">
-            <TabsList className="grid w-full max-w-md grid-cols-3">
-              <TabsTrigger value="program" data-testid="tab-program">
-                <UserCheck className="w-4 h-4 mr-2" />
-                Program
+            <TabsList className="flex flex-wrap h-auto gap-1 w-full max-w-lg">
+              <TabsTrigger value="program" className="flex-1 min-w-fit" data-testid="tab-program">
+                <UserCheck className="w-4 h-4 mr-1 sm:mr-2 shrink-0" />
+                <span className="truncate">Program</span>
               </TabsTrigger>
-              <TabsTrigger value="lead" data-testid="tab-lead">
-                <Target className="w-4 h-4 mr-2" />
-                Product Interaction
+              <TabsTrigger value="lead" className="flex-1 min-w-fit" data-testid="tab-lead">
+                <Target className="w-4 h-4 mr-1 sm:mr-2 shrink-0" />
+                <span className="hidden sm:inline">Product Interaction</span>
+                <span className="sm:hidden">Interaction</span>
               </TabsTrigger>
-              <TabsTrigger value="session" data-testid="tab-session">
-                <CalendarCheck className="w-4 h-4 mr-2" />
-                Session
+              <TabsTrigger value="session" className="flex-1 min-w-fit" data-testid="tab-session">
+                <CalendarCheck className="w-4 h-4 mr-1 sm:mr-2 shrink-0" />
+                <span className="truncate">Session</span>
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -1211,32 +1212,32 @@ export default function CheckIn() {
                         <RadioGroup
                           onValueChange={field.onChange}
                           value={field.value}
-                          className="flex gap-4 pt-2"
+                          className="flex flex-wrap gap-2 pt-2"
                           data-testid="radio-intent-level"
                         >
-                          <div className="flex items-center space-x-2">
+                          <div className="flex items-center space-x-1">
                             <RadioGroupItem value="low" id="intent-low" />
                             <Label 
                               htmlFor="intent-low" 
-                              className="text-sm cursor-pointer px-2 py-1 rounded bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                              className="text-xs sm:text-sm cursor-pointer px-2 py-1 rounded bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
                             >
                               Low
                             </Label>
                           </div>
-                          <div className="flex items-center space-x-2">
+                          <div className="flex items-center space-x-1">
                             <RadioGroupItem value="medium" id="intent-medium" />
                             <Label 
                               htmlFor="intent-medium" 
-                              className="text-sm cursor-pointer px-2 py-1 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
+                              className="text-xs sm:text-sm cursor-pointer px-2 py-1 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
                             >
                               Medium
                             </Label>
                           </div>
-                          <div className="flex items-center space-x-2">
+                          <div className="flex items-center space-x-1">
                             <RadioGroupItem value="high" id="intent-high" />
                             <Label 
                               htmlFor="intent-high" 
-                              className="text-sm cursor-pointer px-2 py-1 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                              className="text-xs sm:text-sm cursor-pointer px-2 py-1 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
                             >
                               High
                             </Label>
