@@ -2298,6 +2298,38 @@ export const productInteractionsRelations = relations(productInteractions, ({ on
   capturedByUser: one(users, { fields: [productInteractions.capturedByUserId], references: [users.id] }),
 }));
 
+// Demo Stations - Managing demo stations at events
+export const demoStations = pgTable("demo_stations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id).notNull(),
+  stationName: varchar("station_name", { length: 100 }).notNull(),
+  productFocus: text("product_focus").array(),
+  stationPresenter: varchar("station_presenter", { length: 255 }),
+  stationLocation: varchar("station_location", { length: 100 }).notNull(),
+  activeProgramId: varchar("active_program_id"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("demo_stations_org_idx").on(table.organizationId),
+  index("demo_stations_event_idx").on(table.eventId),
+]);
+
+export const insertDemoStationSchema = createInsertSchema(demoStations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertDemoStation = z.infer<typeof insertDemoStationSchema>;
+export type DemoStation = typeof demoStations.$inferSelect;
+
+// Demo Stations relations
+export const demoStationsRelations = relations(demoStations, ({ one }) => ({
+  organization: one(organizations, { fields: [demoStations.organizationId], references: [organizations.id] }),
+  event: one(events, { fields: [demoStations.eventId], references: [events.id] }),
+}));
+
 // API Key scopes for external integrations
 export const API_KEY_SCOPES = [
   'events.read',       // Read event information
