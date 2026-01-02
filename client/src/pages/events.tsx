@@ -760,43 +760,43 @@ export default function Events() {
                                         </p>
                                       </div>
                                     </div>
-                                    <div className="grid grid-cols-3 gap-4">
-                                      <div className="text-center p-2 rounded bg-background">
+                                    <div className="flex flex-wrap gap-2">
+                                      <div className="flex-1 min-w-[80px] text-center p-2 rounded bg-background">
                                         <p className="text-xs text-muted-foreground mb-1">Hot Leads</p>
                                         <div className="flex items-center justify-center gap-1">
                                           <span className="font-semibold" data-testid={`text-history-hot-${index}`}>
                                             {entry.hotLeadCount}
                                           </span>
                                           {hotLeadDelta !== null && hotLeadDelta !== 0 && (
-                                            <span className={`flex items-center text-xs ${hotLeadDelta > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                            <span className={`flex items-center text-xs ${hotLeadDelta > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                                               {hotLeadDelta > 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
                                               {Math.abs(hotLeadDelta)}
                                             </span>
                                           )}
                                         </div>
                                       </div>
-                                      <div className="text-center p-2 rounded bg-background">
+                                      <div className="flex-1 min-w-[80px] text-center p-2 rounded bg-background">
                                         <p className="text-xs text-muted-foreground mb-1">High-Intent</p>
                                         <div className="flex items-center justify-center gap-1">
                                           <span className="font-semibold" data-testid={`text-history-high-${index}`}>
                                             {entry.highIntentCount}
                                           </span>
                                           {highIntentDelta !== null && highIntentDelta !== 0 && (
-                                            <span className={`flex items-center text-xs ${highIntentDelta > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                            <span className={`flex items-center text-xs ${highIntentDelta > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                                               {highIntentDelta > 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
                                               {Math.abs(highIntentDelta)}
                                             </span>
                                           )}
                                         </div>
                                       </div>
-                                      <div className="text-center p-2 rounded bg-background">
+                                      <div className="flex-1 min-w-[80px] text-center p-2 rounded bg-background">
                                         <p className="text-xs text-muted-foreground mb-1">Engaged</p>
                                         <div className="flex items-center justify-center gap-1">
                                           <span className="font-semibold" data-testid={`text-history-engaged-${index}`}>
                                             {entry.momentumOnlyCount}
                                           </span>
                                           {engagedDelta !== null && engagedDelta !== 0 && (
-                                            <span className={`flex items-center text-xs ${engagedDelta > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                            <span className={`flex items-center text-xs ${engagedDelta > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                                               {engagedDelta > 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
                                               {Math.abs(engagedDelta)}
                                             </span>
