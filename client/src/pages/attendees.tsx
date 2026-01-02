@@ -1540,7 +1540,7 @@ export default function Attendees() {
                         <span>Max Opportunity: {formatOpportunityBucket((viewingAttendee.intentExplanation as IntentExplanation).totals.max_opportunity_bucket_seen!)}</span>
                       )}
                       {(viewingAttendee.intentExplanation as IntentExplanation).totals.total_interactions_count > 0 && (
-                        <span>{(viewingAttendee.intentExplanation as IntentExplanation).totals.total_interactions_count} interactions</span>
+                        <span>{(viewingAttendee.intentExplanation as IntentExplanation).totals.total_interactions_count} Product Interaction{(viewingAttendee.intentExplanation as IntentExplanation).totals.total_interactions_count === 1 ? '' : 's'}</span>
                       )}
                     </div>
                   </div>
