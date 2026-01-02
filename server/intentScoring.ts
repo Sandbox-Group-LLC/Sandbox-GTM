@@ -708,13 +708,22 @@ function formatStation(station: string): string {
 function formatInteractionType(interactionType: string): string {
   const labels: Record<string, string> = {
     product_demo: 'Product Demo',
+    product_discussion: 'Product Discussion',
     technical_deep_dive: 'Technical Deep Dive',
     pricing_packaging: 'Pricing/Packaging',
     integration_security: 'Integration/Security',
     executive_conversation: 'Executive Conversation',
     other: 'this interaction',
   };
-  return labels[interactionType] || interactionType;
+  // Return mapped label, or format snake_case to Title Case as fallback
+  if (labels[interactionType]) {
+    return labels[interactionType];
+  }
+  // Convert snake_case to Title Case (e.g., "product_discussion" -> "Product Discussion")
+  return interactionType
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
 }
 
 function formatContraType(type: string): string {
