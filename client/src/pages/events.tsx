@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
-import { Plus, X, Globe, Calendar, Pencil, Trash2, ArrowLeft, Users, Presentation, Package, Hotel, Loader2, CheckCircle, XCircle, ExternalLink, Languages } from "lucide-react";
+import { Plus, X, Globe, Calendar, Pencil, Trash2, ArrowLeft, Users, Presentation, Package, Hotel, Loader2, CheckCircle, XCircle, ExternalLink, Languages, History, ArrowUp, ArrowDown } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { titleCase } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,7 @@ import { SUPPORTED_LANGUAGES, type Event, type Attendee, type EventSession, type
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 
 function normalizeDate(dateValue: string | Date | null | undefined): string {
   if (!dateValue) return "";
@@ -65,6 +66,20 @@ function formatDisplayDate(dateValue: string | Date | null | undefined, formatSt
   const localDate = parseLocalDate(dateStr);
   if (!localDate) return "";
   return format(localDate, formatStr);
+}
+
+interface IntentRecomputeHistoryEntry {
+  id: string;
+  eventId: string;
+  recomputedAt: string;
+  triggeredBy: string | null;
+  hotLeadCount: number;
+  highIntentCount: number;
+  momentumOnlyCount: number;
+  previousHotLeadCount: number | null;
+  previousHighIntentCount: number | null;
+  previousMomentumOnlyCount: number | null;
+  triggeredByUser: { id: string; firstName: string | null; lastName: string | null; email: string } | null;
 }
 
 export default function Events() {
@@ -128,6 +143,17 @@ export default function Events() {
   const { data: eventTranslations, isLoading: translationsLoading } = useQuery<EventTranslation[]>({
     queryKey: ["/api/events", selectedEvent?.id, "translations"],
     enabled: !!selectedEvent,
+  });
+
+  // Fetch intent recompute history for selected event
+  const { data: recomputeHistory, isLoading: historyLoading } = useQuery<IntentRecomputeHistoryEntry[]>({
+    queryKey: ["/api/events", selectedEvent?.id, "intent-recompute-history"],
+    enabled: !!selectedEvent,
+    queryFn: async () => {
+      const res = await fetch(`/api/events/${selectedEvent?.id}/intent-recompute-history`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch recompute history");
+      return res.json();
+    },
   });
 
   const form = useForm<EventFormValues>({
@@ -515,6 +541,13 @@ export default function Events() {
                       Details
                     </TabsTrigger>
                     <TabsTrigger 
+                      value="changelog" 
+                      className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
+                      data-testid="tab-changelog"
+                    >
+                      Changelog
+                    </TabsTrigger>
+                    <TabsTrigger 
                       value="attendees" 
                       className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
                       data-testid="tab-attendees"
@@ -681,6 +714,112 @@ export default function Events() {
                         )}
                       </div>
                     </div>
+                  </TabsContent>
+
+                  <TabsContent value="changelog" className="flex-1 overflow-auto p-4 mt-0" data-testid="content-changelog">
+                    {historyLoading ? (
+                      <div className="space-y-4">
+                        <Skeleton className="h-24 w-full" />
+                        <Skeleton className="h-24 w-full" />
+                        <Skeleton className="h-24 w-full" />
+                      </div>
+                    ) : recomputeHistory && recomputeHistory.length > 0 ? (
+                      <div className="space-y-4">
+                        <p className="text-sm text-muted-foreground">Timeline of intent scoring runs for this event</p>
+                        <div className="relative">
+                          <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
+                          <div className="space-y-6">
+                            {recomputeHistory.map((entry, index) => {
+                              const hotLeadDelta = entry.previousHotLeadCount !== null 
+                                ? entry.hotLeadCount - entry.previousHotLeadCount 
+                                : null;
+                              const highIntentDelta = entry.previousHighIntentCount !== null 
+                                ? entry.highIntentCount - entry.previousHighIntentCount 
+                                : null;
+                              const engagedDelta = entry.previousMomentumOnlyCount !== null 
+                                ? entry.momentumOnlyCount - entry.previousMomentumOnlyCount 
+                                : null;
+                              
+                              return (
+                                <div 
+                                  key={entry.id} 
+                                  className="relative pl-10"
+                                  data-testid={`row-history-${index}`}
+                                >
+                                  <div className="absolute left-2 top-1 w-4 h-4 rounded-full bg-background border-2 border-primary" />
+                                  <div className="p-4 rounded-lg bg-muted/50">
+                                    <div className="flex items-start justify-between gap-2 mb-3">
+                                      <div>
+                                        <p className="font-medium text-sm" data-testid={`text-history-date-${index}`}>
+                                          {new Date(entry.recomputedAt).toLocaleDateString()} at {new Date(entry.recomputedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground" data-testid={`text-history-user-${index}`}>
+                                          Triggered by {entry.triggeredByUser 
+                                            ? `${entry.triggeredByUser.firstName ?? ''} ${entry.triggeredByUser.lastName ?? ''}`.trim() || entry.triggeredByUser.email
+                                            : 'System'}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-4">
+                                      <div className="text-center p-2 rounded bg-background">
+                                        <p className="text-xs text-muted-foreground mb-1">Hot Leads</p>
+                                        <div className="flex items-center justify-center gap-1">
+                                          <span className="font-semibold" data-testid={`text-history-hot-${index}`}>
+                                            {entry.hotLeadCount}
+                                          </span>
+                                          {hotLeadDelta !== null && hotLeadDelta !== 0 && (
+                                            <span className={`flex items-center text-xs ${hotLeadDelta > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                              {hotLeadDelta > 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+                                              {Math.abs(hotLeadDelta)}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <div className="text-center p-2 rounded bg-background">
+                                        <p className="text-xs text-muted-foreground mb-1">High-Intent</p>
+                                        <div className="flex items-center justify-center gap-1">
+                                          <span className="font-semibold" data-testid={`text-history-high-${index}`}>
+                                            {entry.highIntentCount}
+                                          </span>
+                                          {highIntentDelta !== null && highIntentDelta !== 0 && (
+                                            <span className={`flex items-center text-xs ${highIntentDelta > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                              {highIntentDelta > 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+                                              {Math.abs(highIntentDelta)}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <div className="text-center p-2 rounded bg-background">
+                                        <p className="text-xs text-muted-foreground mb-1">Engaged</p>
+                                        <div className="flex items-center justify-center gap-1">
+                                          <span className="font-semibold" data-testid={`text-history-engaged-${index}`}>
+                                            {entry.momentumOnlyCount}
+                                          </span>
+                                          {engagedDelta !== null && engagedDelta !== 0 && (
+                                            <span className={`flex items-center text-xs ${engagedDelta > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                              {engagedDelta > 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+                                              {Math.abs(engagedDelta)}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-12 text-center">
+                        <History className="h-12 w-12 text-muted-foreground mb-4" />
+                        <h3 className="text-lg font-medium mb-2">No recompute history yet</h3>
+                        <p className="text-sm text-muted-foreground max-w-xs">
+                          Use the "Recompute Intent" button on the Engagement Signals page to analyze your contacts.
+                        </p>
+                      </div>
+                    )}
                   </TabsContent>
 
                   <TabsContent value="attendees" className="flex-1 overflow-auto p-4 mt-0" data-testid="content-attendees">

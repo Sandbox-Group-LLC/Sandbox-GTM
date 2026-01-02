@@ -22,13 +22,6 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Event, IntentExplanation } from "@shared/schema";
 
-interface ActiveVisitor {
-  eventId: string;
-  eventName: string;
-  pageType: string;
-  activeVisitors: number;
-}
-
 interface MomentsAnalytics {
   totalMoments: number;
   momentsByStatus: { status: string; count: number }[];
@@ -218,19 +211,6 @@ export default function EngagementSignals() {
     }
   };
 
-  const { data: activeVisitors, isLoading } = useQuery<ActiveVisitor[]>({
-    queryKey: ["/api/analytics/active-visitors", selectedEventId],
-    refetchInterval: 30000,
-    queryFn: async () => {
-      const url = selectedEventId && selectedEventId !== "all"
-        ? `/api/analytics/active-visitors?eventId=${selectedEventId}`
-        : "/api/analytics/active-visitors";
-      const res = await fetch(url, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to fetch active visitors");
-      return res.json();
-    },
-  });
-
   const { data: momentsAnalytics, isLoading: analyticsLoading } = useQuery<MomentsAnalytics>({
     queryKey: ["/api/organizations", organization?.id, "moments/analytics", selectedEventId],
     enabled: !!organization?.id,
@@ -280,7 +260,6 @@ export default function EngagementSignals() {
     },
   });
 
-  const totalActiveVisitors = activeVisitors?.reduce((sum, v) => sum + v.activeVisitors, 0) || 0;
   const followUpReadyCount = (hotLeads?.length ?? 0) + (highIntentContacts?.length ?? 0);
 
   return (
