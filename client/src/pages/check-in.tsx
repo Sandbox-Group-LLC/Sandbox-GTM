@@ -55,7 +55,7 @@ import {
   AlertCircle,
   Loader2
 } from "lucide-react";
-import type { Attendee, Event, EventSession, EventLead, ProductInteraction } from "@shared/schema";
+import type { Attendee, Event, EventSession, EventLead, ProductInteraction, DemoStation } from "@shared/schema";
 
 type CheckInMode = 'program' | 'lead' | 'session';
 
@@ -315,6 +315,17 @@ export default function CheckIn() {
       if (!res.ok) throw new Error("Failed to fetch attendees");
       return res.json();
     },
+  });
+
+  const { data: demoStations = [] } = useQuery<DemoStation[]>({
+    queryKey: ["/api/events", selectedEventId, "demo-stations"],
+    queryFn: async () => {
+      if (!selectedEventId) return [];
+      const res = await fetch(`/api/events/${selectedEventId}/demo-stations`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch demo stations");
+      return res.json();
+    },
+    enabled: mode === 'lead' && !!selectedEventId,
   });
 
   const scanMutation = useMutation({
@@ -1329,19 +1340,35 @@ export default function CheckIn() {
                 <FormField
                   control={leadForm.control}
                   name="station"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Station</FormLabel>
-                      <FormControl>
-                        <Input 
-                          {...field} 
-                          placeholder="e.g., Booth A, Demo Station 3"
-                          data-testid="input-station" 
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  render={({ field }) => {
+                    const activeStations = demoStations.filter(s => s.isActive);
+                    return (
+                      <FormItem>
+                        <FormLabel>Product Station</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || ""}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-product-station">
+                              <SelectValue placeholder={activeStations.length > 0 ? "Select product station" : "No stations configured"} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {activeStations.length === 0 ? (
+                              <SelectItem value="_none" disabled>
+                                No demo stations available
+                              </SelectItem>
+                            ) : (
+                              activeStations.map((station) => (
+                                <SelectItem key={station.id} value={station.stationLocation}>
+                                  {station.stationName} - {station.stationLocation}
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
               </div>
 
