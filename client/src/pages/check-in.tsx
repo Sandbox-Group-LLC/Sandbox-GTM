@@ -133,12 +133,15 @@ const OPPORTUNITY_POTENTIAL_OPTIONS = [
   { value: 'over_100k', label: 'Over $100k' },
 ] as const;
 
-// Next step options
+// Next step options (must match schema: send_info, schedule_meeting, schedule_call, send_proposal, demo_scheduled, trial_setup, internal_review, none)
 const NEXT_STEP_OPTIONS = [
   { value: 'schedule_call', label: 'Schedule Call' },
-  { value: 'send_materials', label: 'Send Materials' },
+  { value: 'schedule_meeting', label: 'Schedule Meeting' },
+  { value: 'send_info', label: 'Send Info/Materials' },
+  { value: 'send_proposal', label: 'Send Proposal' },
+  { value: 'demo_scheduled', label: 'Demo Scheduled' },
+  { value: 'trial_setup', label: 'Trial Setup' },
   { value: 'internal_review', label: 'Internal Review' },
-  { value: 'procurement', label: 'Procurement' },
   { value: 'none', label: 'None/Complete' },
 ] as const;
 
