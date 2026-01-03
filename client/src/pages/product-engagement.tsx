@@ -367,7 +367,7 @@ export default function ProductEngagement() {
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingStation ? "Edit Demo Station" : "Create Demo Station"}</DialogTitle>
             <DialogDescription>
