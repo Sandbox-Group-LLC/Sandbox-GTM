@@ -6,7 +6,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Code2 } from "lucide-react";
 import { MERGE_TAGS } from "@shared/mergeTags";
 
@@ -62,7 +61,7 @@ export function MergeTagPicker({ onInsert, categories, inputRef, value, onChange
         align="end" 
         side="bottom"
         collisionPadding={16}
-        avoidCollisions={true}
+        sideOffset={8}
       >
         <div className="p-3 border-b">
           <h4 className="font-medium text-sm">Insert Property</h4>
@@ -70,33 +69,34 @@ export function MergeTagPicker({ onInsert, categories, inputRef, value, onChange
             Click to insert at cursor
           </p>
         </div>
-        <ScrollArea className="h-[50vh] max-h-80">
-          <div className="p-2">
-            {filteredCategories.map((category) => (
-              <div key={category.category} className="mb-2">
-                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2 px-2">
-                  {category.label}
-                </div>
-                <div className="space-y-1">
-                  {category.tags.map((tag) => (
-                    <button
-                      key={tag.tag}
-                      type="button"
-                      className="w-full flex items-center gap-2 p-2 rounded-md text-left hover-elevate"
-                      onClick={() => handleInsert(tag.tag)}
-                      data-testid={`button-insert-tag-${tag.tag.replace(/[{}\.]/g, "-")}`}
-                    >
-                      <Badge variant="secondary" className="font-mono text-xs shrink-0 no-default-hover-elevate no-default-active-elevate">
-                        {tag.tag.replace(/\{\{|\}\}/g, "")}
-                      </Badge>
-                      <span className="text-sm text-muted-foreground">{tag.label}</span>
-                    </button>
-                  ))}
-                </div>
+        <div 
+          className="max-h-[45vh] overflow-y-scroll p-2"
+          style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
+        >
+          {filteredCategories.map((category) => (
+            <div key={category.category} className="mb-2">
+              <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2 px-2">
+                {category.label}
               </div>
-            ))}
-          </div>
-        </ScrollArea>
+              <div className="space-y-1">
+                {category.tags.map((tag) => (
+                  <button
+                    key={tag.tag}
+                    type="button"
+                    className="w-full flex items-center gap-2 p-2 rounded-md text-left hover-elevate"
+                    onClick={() => handleInsert(tag.tag)}
+                    data-testid={`button-insert-tag-${tag.tag.replace(/[{}\.]/g, "-")}`}
+                  >
+                    <Badge variant="secondary" className="font-mono text-xs shrink-0 no-default-hover-elevate no-default-active-elevate">
+                      {tag.tag.replace(/\{\{|\}\}/g, "")}
+                    </Badge>
+                    <span className="text-sm text-muted-foreground">{tag.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       </PopoverContent>
     </Popover>
   );
