@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,36 +16,49 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const isMountedRef = useRef(true);
   const isStoppingRef = useRef(false);
+  const onScanRef = useRef(onScan);
+  
+  onScanRef.current = onScan;
 
-  const stopScanner = async () => {
+  const stopScanner = useCallback(async () => {
     if (isStoppingRef.current) return;
     isStoppingRef.current = true;
     
+    const scanner = scannerRef.current;
+    scannerRef.current = null;
+    
+    if (!scanner) {
+      isStoppingRef.current = false;
+      return;
+    }
+    
     try {
-      if (scannerRef.current) {
-        const scanner = scannerRef.current;
-        scannerRef.current = null;
-        
-        if (scanner.isScanning) {
-          await scanner.stop();
-        }
-        scanner.clear();
+      if (scanner.isScanning) {
+        await scanner.stop();
       }
     } catch (err) {
-      console.log("Scanner cleanup:", err);
-    } finally {
-      isStoppingRef.current = false;
+      // Ignore stop errors - scanner may already be stopped
     }
-  };
+    
+    try {
+      scanner.clear();
+    } catch (err) {
+      // Ignore clear errors - element may already be cleared
+    }
+    
+    isStoppingRef.current = false;
+  }, []);
 
-  const handleClose = async () => {
+  const handleClose = useCallback(async () => {
     await stopScanner();
     onClose();
-  };
+  }, [stopScanner, onClose]);
 
   useEffect(() => {
     isMountedRef.current = true;
+    isStoppingRef.current = false;
     const containerId = "qr-reader-container";
+    let localScanner: Html5Qrcode | null = null;
     
     const startScanner = async () => {
       try {
@@ -59,8 +72,10 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
           verbose: false,
         });
         
+        localScanner = html5QrCode;
+        
         if (!isMountedRef.current) {
-          html5QrCode.clear();
+          try { html5QrCode.clear(); } catch {}
           return;
         }
         
@@ -69,7 +84,7 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
         const devices = await Html5Qrcode.getCameras();
         
         if (!isMountedRef.current) {
-          html5QrCode.clear();
+          try { html5QrCode.clear(); } catch {}
           return;
         }
         
@@ -89,9 +104,26 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
               aspectRatio: 1.0,
             },
             async (decodedText) => {
-              await stopScanner();
+              if (!isMountedRef.current || isStoppingRef.current) return;
+              
+              // Stop scanner first, then call callback
+              isStoppingRef.current = true;
+              const currentScanner = scannerRef.current;
+              scannerRef.current = null;
+              
+              if (currentScanner) {
+                try {
+                  if (currentScanner.isScanning) {
+                    await currentScanner.stop();
+                  }
+                  currentScanner.clear();
+                } catch {}
+              }
+              
+              isStoppingRef.current = false;
+              
               if (isMountedRef.current) {
-                onScan(decodedText);
+                onScanRef.current(decodedText);
               }
             },
             () => {}
@@ -130,9 +162,27 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
 
     return () => {
       isMountedRef.current = false;
-      stopScanner();
+      
+      // Cleanup the local scanner reference
+      const scanner = localScanner || scannerRef.current;
+      scannerRef.current = null;
+      
+      if (scanner && !isStoppingRef.current) {
+        isStoppingRef.current = true;
+        (async () => {
+          try {
+            if (scanner.isScanning) {
+              await scanner.stop();
+            }
+          } catch {}
+          try {
+            scanner.clear();
+          } catch {}
+          isStoppingRef.current = false;
+        })();
+      }
     };
-  }, [onScan]);
+  }, []);
 
   return (
     <Card className="relative">
