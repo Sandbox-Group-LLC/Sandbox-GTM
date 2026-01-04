@@ -2,11 +2,6 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
   Drawer,
   DrawerContent,
   DrawerHeader,
@@ -15,7 +10,6 @@ import {
 } from "@/components/ui/drawer";
 import { Code2 } from "lucide-react";
 import { MERGE_TAGS } from "@shared/mergeTags";
-import { useMediaQuery } from "@/hooks/use-media-query";
 
 interface MergeTagPickerProps {
   onInsert: (tag: string) => void;
@@ -27,7 +21,6 @@ interface MergeTagPickerProps {
 
 export function MergeTagPicker({ onInsert, categories, inputRef, value, onChange }: MergeTagPickerProps) {
   const [open, setOpen] = useState(false);
-  const isDesktop = useMediaQuery("(min-width: 768px)");
   
   const filteredCategories = categories
     ? MERGE_TAGS.filter((c) => categories.includes(c.category))
@@ -80,37 +73,9 @@ export function MergeTagPicker({ onInsert, categories, inputRef, value, onChange
     </>
   );
 
-  // Use Drawer on mobile for better touch scrolling
-  if (!isDesktop) {
-    return (
-      <Drawer open={open} onOpenChange={setOpen}>
-        <DrawerTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            title="Insert Property"
-            data-testid="button-merge-tag-picker"
-          >
-            <Code2 className="h-4 w-4" />
-          </Button>
-        </DrawerTrigger>
-        <DrawerContent>
-          <DrawerHeader>
-            <DrawerTitle>Insert Property</DrawerTitle>
-          </DrawerHeader>
-          <div className="px-4 pb-6 max-h-[60vh] overflow-y-auto">
-            <TagList />
-          </div>
-        </DrawerContent>
-      </Drawer>
-    );
-  }
-
-  // Use Popover on desktop
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
+    <Drawer open={open} onOpenChange={setOpen}>
+      <DrawerTrigger asChild>
         <Button
           type="button"
           variant="ghost"
@@ -120,24 +85,15 @@ export function MergeTagPicker({ onInsert, categories, inputRef, value, onChange
         >
           <Code2 className="h-4 w-4" />
         </Button>
-      </PopoverTrigger>
-      <PopoverContent 
-        className="w-72 p-0" 
-        align="end" 
-        side="bottom"
-        collisionPadding={16}
-        sideOffset={8}
-      >
-        <div className="p-3 border-b">
-          <h4 className="font-medium text-sm">Insert Property</h4>
-          <p className="text-xs text-muted-foreground mt-1">
-            Click to insert at cursor
-          </p>
-        </div>
-        <div className="max-h-80 overflow-y-auto p-2">
+      </DrawerTrigger>
+      <DrawerContent>
+        <DrawerHeader>
+          <DrawerTitle>Insert Property</DrawerTitle>
+        </DrawerHeader>
+        <div className="px-4 pb-6 max-h-[60vh] overflow-y-auto">
           <TagList />
         </div>
-      </PopoverContent>
-    </Popover>
+      </DrawerContent>
+    </Drawer>
   );
 }
