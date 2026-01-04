@@ -35,7 +35,6 @@ import {
 } from "@/components/ui/form";
 import { Calendar, MapPin, CheckCircle, AlertCircle, ArrowLeft, ArrowRight, Tag, Check, Loader2, CreditCard, Hotel, ExternalLink, Eye } from "lucide-react";
 import type { Event, Attendee, EventPage, EventPageTheme, CustomField, Package } from "@shared/schema";
-import { HelpChatWidget } from "@/components/help-chat-widget";
 import { 
   DEFAULT_BUTTON_COLOR, 
   DEFAULT_BUTTON_TEXT_COLOR, 
@@ -1642,7 +1641,6 @@ export default function PublicRegistration() {
         </Card>
         </div>
       </div>
-      <HelpChatWidget />
     </>
   );
 }
