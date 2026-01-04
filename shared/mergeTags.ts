@@ -38,6 +38,7 @@ export const MERGE_TAGS: MergeTagCategory[] = [
       { tag: "{{attendee.company}}", label: "Company", description: "Company name" },
       { tag: "{{attendee.jobTitle}}", label: "Job Title", description: "Job title" },
       { tag: "{{attendee.checkInCode}}", label: "Check-in Code", description: "Unique code" },
+      { tag: "{{attendee.qrCodeUrl}}", label: "QR Code Image", description: "QR code image URL for check-in" },
       { tag: "{{attendee.ticketType}}", label: "Ticket Type", description: "Registration type" },
     ],
   },
@@ -81,6 +82,7 @@ export interface MergeTagContext {
     company?: string;
     jobTitle?: string;
     checkInCode?: string;
+    qrCodeUrl?: string;
     ticketType?: string;
   };
   package?: {
@@ -115,6 +117,7 @@ export function replaceMergeTags(text: string | null | undefined, context: Merge
     "attendee.company": context.attendee?.company || "",
     "attendee.jobtitle": context.attendee?.jobTitle || "",
     "attendee.checkincode": context.attendee?.checkInCode || "",
+    "attendee.qrcodeurl": context.attendee?.qrCodeUrl || "",
     "attendee.tickettype": context.attendee?.ticketType || "",
     "package.name": context.package?.name || "",
     "package.price": context.package?.price || "",

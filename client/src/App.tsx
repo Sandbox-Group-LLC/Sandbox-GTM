@@ -86,6 +86,7 @@ import MeetingPortal from "@/pages/meeting-portal";
 import MeetingPortalAccept from "@/pages/meeting-portal-accept";
 import MeetingPortalLogin from "@/pages/meeting-portal-login";
 import MeetingPortalMagic from "@/pages/meeting-portal-magic";
+import BadgeGenerator from "@/pages/badge-generator";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const sidebarStyle = {
@@ -248,6 +249,7 @@ function Router() {
         <Route path="/registration" component={RegistrationFlow} />
         <Route path="/attendees" component={Attendees} />
         <Route path="/import-attendees" component={ImportAttendees} />
+        <Route path="/badge-generator" component={BadgeGenerator} />
         <Route path="/packages" component={Packages} />
         <Route path="/custom-fields" component={CustomFields} />
         <Route path="/invite-codes" component={InviteCodes} />

@@ -50,7 +50,8 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { titleCase } from "@/lib/utils";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Plus, Users, Search, Download, Settings2, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Trash2, Eye, Mail, ExternalLink, Copy, Info, Flame, TrendingUp } from "lucide-react";
+import { Plus, Users, Search, Download, Settings2, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Trash2, Eye, Mail, ExternalLink, Copy, Info, Flame, TrendingUp, QrCode } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { format } from "date-fns";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -1885,6 +1886,48 @@ export default function Attendees() {
                     </Table>
                   </div>
                 )}
+              </div>
+
+              <Separator />
+
+              {/* QR Code Section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <QrCode className="h-4 w-4 text-muted-foreground" />
+                  <h3 className="text-sm font-medium text-muted-foreground">Check-in QR Code</h3>
+                </div>
+                
+                <div className="flex flex-col items-center gap-3 py-4">
+                  <div className="bg-white p-4 rounded-lg border">
+                    <QRCodeSVG 
+                      value={viewingAttendee.checkInCode} 
+                      size={160}
+                      level="M"
+                      data-testid="img-attendee-qr-code"
+                    />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xs text-muted-foreground">Check-in Code</p>
+                    <p className="text-lg font-mono font-bold tracking-wider" data-testid="text-attendee-checkin-code">
+                      {viewingAttendee.checkInCode}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(viewingAttendee.checkInCode);
+                      toast({
+                        title: "Copied",
+                        description: "Check-in code copied to clipboard",
+                      });
+                    }}
+                    data-testid="button-copy-checkin-code"
+                  >
+                    <Copy className="h-3.5 w-3.5 mr-1.5" />
+                    Copy Code
+                  </Button>
+                </div>
               </div>
             </div>
           )}

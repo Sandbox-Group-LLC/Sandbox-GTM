@@ -90,6 +90,7 @@ const performanceSubItems = [
 const audienceSubItems = [
   { title: "All Audience", path: "/attendees" },
   { title: "Import Audience", path: "/import-attendees" },
+  { title: "Badge Generator", path: "/badge-generator" },
   { title: "Audience Types", path: "/attendee-types" },
   { title: "Activation Keys", path: "/invite-codes" },
   { title: "Activation Links", path: "/activation-links" },
@@ -170,7 +171,7 @@ export function AppSidebar() {
   });
 
   const isPerformanceActive = location === "/" || location === "/acquisition" || location === "/engagement-signals" || location === "/revenue-snapshot";
-  const isGtmActive = location === "/attendees" || location === "/import-attendees" || location === "/attendee-types" || location === "/invite-codes" || location === "/activation-links" || location === "/packages" || location === "/emails" || location === "/email-analytics" || location === "/social";
+  const isGtmActive = location === "/attendees" || location === "/import-attendees" || location === "/badge-generator" || location === "/attendee-types" || location === "/invite-codes" || location === "/activation-links" || location === "/packages" || location === "/emails" || location === "/email-analytics" || location === "/social";
   const isEngagementActive = location === "/sessions" || location === "/speakers" || location === "/tracks" || location === "/topics" || location === "/engagement-moments" || location === "/check-in" || location === "/meetings";
   const isRevenueActive = location === "/pipeline" || location === "/sales-handoff" || location === "/follow-up" || location === "/roi";
   const isExecutionActive = location === "/run-of-show" || location === "/deliverables" || location === "/vendors" || location === "/budget" || location === "/sponsors" || location === "/sponsor-tasks" || location === "/rooms";
@@ -399,11 +400,11 @@ export function AppSidebar() {
           <SidebarGroupLabel>Go-To-Market</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              <Collapsible defaultOpen={location === "/attendees" || location === "/import-attendees" || location === "/attendee-types" || location === "/invite-codes" || location === "/packages"} className="group/collapsible">
+              <Collapsible defaultOpen={location === "/attendees" || location === "/import-attendees" || location === "/badge-generator" || location === "/attendee-types" || location === "/invite-codes" || location === "/activation-links" || location === "/packages"} className="group/collapsible">
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton
-                      isActive={location === "/attendees" || location === "/import-attendees" || location === "/attendee-types" || location === "/invite-codes" || location === "/packages"}
+                      isActive={location === "/attendees" || location === "/import-attendees" || location === "/badge-generator" || location === "/attendee-types" || location === "/invite-codes" || location === "/activation-links" || location === "/packages"}
                       data-testid="nav-audience"
                     >
                       <Target className="h-4 w-4" />

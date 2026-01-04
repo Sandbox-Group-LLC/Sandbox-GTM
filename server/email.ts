@@ -493,6 +493,11 @@ export async function sendCampaignEmails(params: CampaignEmailParams): Promise<S
       continue;
     }
 
+    // Generate QR code URL for the attendee's check-in code
+    const qrCodeUrl = recipient.checkInCode 
+      ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(recipient.checkInCode)}`
+      : '';
+    
     const context: MergeTagContext = {
       event: eventContext,
       attendee: {
@@ -501,6 +506,7 @@ export async function sendCampaignEmails(params: CampaignEmailParams): Promise<S
         email: recipient.email,
         company: recipient.company,
         checkInCode: recipient.checkInCode,
+        qrCodeUrl: qrCodeUrl,
       },
       organization: organizationContext,
     };
