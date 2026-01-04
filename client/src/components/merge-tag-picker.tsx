@@ -6,8 +6,16 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
 import { Code2 } from "lucide-react";
 import { MERGE_TAGS } from "@shared/mergeTags";
+import { useMediaQuery } from "@/hooks/use-media-query";
 
 interface MergeTagPickerProps {
   onInsert: (tag: string) => void;
@@ -19,6 +27,7 @@ interface MergeTagPickerProps {
 
 export function MergeTagPicker({ onInsert, categories, inputRef, value, onChange }: MergeTagPickerProps) {
   const [open, setOpen] = useState(false);
+  const isDesktop = useMediaQuery("(min-width: 768px)");
   
   const filteredCategories = categories
     ? MERGE_TAGS.filter((c) => categories.includes(c.category))
@@ -43,8 +52,64 @@ export function MergeTagPicker({ onInsert, categories, inputRef, value, onChange
     setOpen(false);
   };
 
+  const TagList = () => (
+    <>
+      {filteredCategories.map((category) => (
+        <div key={category.category} className="mb-2">
+          <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2 px-2">
+            {category.label}
+          </div>
+          <div className="space-y-1">
+            {category.tags.map((tag) => (
+              <button
+                key={tag.tag}
+                type="button"
+                className="w-full flex items-center gap-2 p-2 rounded-md text-left hover-elevate"
+                onClick={() => handleInsert(tag.tag)}
+                data-testid={`button-insert-tag-${tag.tag.replace(/[{}\.]/g, "-")}`}
+              >
+                <Badge variant="secondary" className="font-mono text-xs shrink-0 no-default-hover-elevate no-default-active-elevate">
+                  {tag.tag.replace(/\{\{|\}\}/g, "")}
+                </Badge>
+                <span className="text-sm text-muted-foreground">{tag.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </>
+  );
+
+  // Use Drawer on mobile for better touch scrolling
+  if (!isDesktop) {
+    return (
+      <Drawer open={open} onOpenChange={setOpen}>
+        <DrawerTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            title="Insert Property"
+            data-testid="button-merge-tag-picker"
+          >
+            <Code2 className="h-4 w-4" />
+          </Button>
+        </DrawerTrigger>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>Insert Property</DrawerTitle>
+          </DrawerHeader>
+          <div className="px-4 pb-6 max-h-[60vh] overflow-y-auto">
+            <TagList />
+          </div>
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+
+  // Use Popover on desktop
   return (
-    <Popover open={open} onOpenChange={setOpen} modal={false}>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           type="button"
@@ -69,33 +134,8 @@ export function MergeTagPicker({ onInsert, categories, inputRef, value, onChange
             Click to insert at cursor
           </p>
         </div>
-        <div 
-          className="max-h-[45vh] overflow-y-scroll p-2"
-          style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
-        >
-          {filteredCategories.map((category) => (
-            <div key={category.category} className="mb-2">
-              <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2 px-2">
-                {category.label}
-              </div>
-              <div className="space-y-1">
-                {category.tags.map((tag) => (
-                  <button
-                    key={tag.tag}
-                    type="button"
-                    className="w-full flex items-center gap-2 p-2 rounded-md text-left hover-elevate"
-                    onClick={() => handleInsert(tag.tag)}
-                    data-testid={`button-insert-tag-${tag.tag.replace(/[{}\.]/g, "-")}`}
-                  >
-                    <Badge variant="secondary" className="font-mono text-xs shrink-0 no-default-hover-elevate no-default-active-elevate">
-                      {tag.tag.replace(/\{\{|\}\}/g, "")}
-                    </Badge>
-                    <span className="text-sm text-muted-foreground">{tag.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
+        <div className="max-h-80 overflow-y-auto p-2">
+          <TagList />
         </div>
       </PopoverContent>
     </Popover>
