@@ -171,9 +171,18 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
         
         <div 
           id="qr-reader-container" 
-          className={`${isStarting || error ? 'hidden' : ''} rounded-lg overflow-hidden`}
-          style={{ minHeight: isScanning ? '300px' : '0' }}
+          className={`${isStarting || error ? 'hidden' : ''} rounded-lg overflow-hidden bg-black`}
+          style={{ 
+            minHeight: isScanning ? '320px' : '0',
+            width: '100%',
+          }}
         />
+        
+        {isScanning && (
+          <p className="text-xs text-muted-foreground text-center mt-3">
+            Align the QR code within the scanning box
+          </p>
+        )}
       </CardContent>
     </Card>
   );
