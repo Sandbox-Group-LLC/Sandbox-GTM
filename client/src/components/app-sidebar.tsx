@@ -890,19 +890,17 @@ export function AppSidebar() {
                       </Link>
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>
-                  {isOwner && (
-                    <SidebarMenuSubItem>
-                      <SidebarMenuSubButton
-                        asChild
-                        isActive={location === "/help-center"}
-                        data-testid="nav-help-center"
-                      >
-                        <Link href="/help-center">
-                          <span>Help Center</span>
-                        </Link>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-                  )}
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton
+                      asChild
+                      isActive={location === "/help-center"}
+                      data-testid="nav-help-center"
+                    >
+                      <Link href="/help-center">
+                        <span>Help Center</span>
+                      </Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
                 </SidebarMenuSub>
               </CollapsibleContent>
             </SidebarMenuItem>
