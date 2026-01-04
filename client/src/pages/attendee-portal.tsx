@@ -40,6 +40,7 @@ import {
 import type { Attendee, Event, EventPage, EventPageTheme, EventSession, Speaker } from "@shared/schema";
 import { SectionRenderer, GoogleFontsLoader, CustomFontsLoader, GoogleAnalyticsLoader, getThemeStyles } from "@/pages/public-event";
 import { EventLocaleProvider } from "@/hooks/use-event-locale";
+import { HelpChatWidget } from "@/components/help-chat-widget";
 
 interface AttendeePortalData {
   attendee: Omit<Attendee, 'passwordHash'>;
@@ -838,6 +839,7 @@ export default function AttendeePortal() {
             />
           )}
         </main>
+        <HelpChatWidget />
       </div>
     </EventLocaleProvider>
   );

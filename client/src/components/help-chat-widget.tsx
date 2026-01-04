@@ -22,7 +22,8 @@ export function HelpChatWidget() {
   const chatMutation = useMutation({
     mutationFn: async (message: string) => {
       const res = await apiRequest("POST", "/api/help-chat", { message });
-      return res.json() as Promise<{ response: string }>;
+      const data = await res.json();
+      return data as { response: string };
     },
     onSuccess: (data) => {
       setMessages((prev) => [
