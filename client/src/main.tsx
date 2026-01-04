@@ -1,6 +1,10 @@
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
+import { initLinkedInInsightTag } from "./lib/linkedin-insight";
+
+// Initialize LinkedIn Insight Tag
+initLinkedInInsightTag();
 
 // Suppress unknown runtime errors from the Vite error overlay in development
 if (import.meta.env.DEV) {
