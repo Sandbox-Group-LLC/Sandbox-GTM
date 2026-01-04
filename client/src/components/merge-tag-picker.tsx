@@ -56,14 +56,14 @@ export function MergeTagPicker({ onInsert, categories, inputRef, value, onChange
           <Code2 className="h-4 w-4" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-72 p-0" align="end" side="bottom">
-        <div className="p-3 border-b">
+      <PopoverContent className="w-72 p-0 max-h-[70vh] overflow-hidden flex flex-col" align="end" side="bottom">
+        <div className="p-3 border-b shrink-0">
           <h4 className="font-medium text-sm">Insert Property</h4>
           <p className="text-xs text-muted-foreground mt-1">
             Click to insert at cursor
           </p>
         </div>
-        <div className="max-h-80 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto overscroll-contain">
           {filteredCategories.map((category) => (
             <div key={category.category} className="p-2">
               <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2 px-2">
