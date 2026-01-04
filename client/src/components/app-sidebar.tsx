@@ -43,6 +43,7 @@ import {
   X,
   DoorOpen,
   Monitor,
+  HelpCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -853,11 +854,11 @@ export function AppSidebar() {
               </CollapsibleContent>
             </SidebarMenuItem>
           </Collapsible>
-          <Collapsible defaultOpen={location === "/settings" || location === "/integrations"} className="group/collapsible">
+          <Collapsible defaultOpen={location === "/settings" || location === "/integrations" || location === "/help-center"} className="group/collapsible">
             <SidebarMenuItem>
               <CollapsibleTrigger asChild>
                 <SidebarMenuButton
-                  isActive={location === "/settings" || location === "/integrations"}
+                  isActive={location === "/settings" || location === "/integrations" || location === "/help-center"}
                   data-testid="nav-settings"
                 >
                   <Settings className="h-4 w-4" />
@@ -889,6 +890,19 @@ export function AppSidebar() {
                       </Link>
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>
+                  {isOwner && (
+                    <SidebarMenuSubItem>
+                      <SidebarMenuSubButton
+                        asChild
+                        isActive={location === "/help-center"}
+                        data-testid="nav-help-center"
+                      >
+                        <Link href="/help-center">
+                          <span>Help Center</span>
+                        </Link>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                  )}
                 </SidebarMenuSub>
               </CollapsibleContent>
             </SidebarMenuItem>
