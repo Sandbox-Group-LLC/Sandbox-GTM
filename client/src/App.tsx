@@ -115,35 +115,37 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const showHeader = user?.isSuperAdmin || defaultBrandKit?.logoUrl;
 
   return (
-    <SidebarProvider style={sidebarStyle as React.CSSProperties}>
-      <div className="flex h-screen w-full">
-        <AppSidebar />
-        <div className="flex-1 flex flex-col overflow-auto">
-          {user?.isSuperAdmin && <SuperAdminBanner />}
-          {showHeader && (
-            <header className="flex items-center justify-between gap-4 px-4 py-2 border-b shrink-0">
-              <div className="flex items-center gap-4">
-                {defaultBrandKit?.logoUrl && (
-                  <img
-                    src={defaultBrandKit.logoUrl}
-                    alt="Organization Logo"
-                    className="h-8 max-w-32 object-contain"
-                    data-testid="img-header-logo"
-                  />
-                )}
-              </div>
-              <div className="flex items-center gap-4">
-                {user?.isSuperAdmin && <OrgSwitcher />}
-              </div>
-            </header>
-          )}
-          <main className="flex-1 flex flex-col overflow-auto">
-            {children}
-          </main>
+    <>
+      <SidebarProvider style={sidebarStyle as React.CSSProperties}>
+        <div className="flex h-screen w-full">
+          <AppSidebar />
+          <div className="flex-1 flex flex-col overflow-auto">
+            {user?.isSuperAdmin && <SuperAdminBanner />}
+            {showHeader && (
+              <header className="flex items-center justify-between gap-4 px-4 py-2 border-b shrink-0">
+                <div className="flex items-center gap-4">
+                  {defaultBrandKit?.logoUrl && (
+                    <img
+                      src={defaultBrandKit.logoUrl}
+                      alt="Organization Logo"
+                      className="h-8 max-w-32 object-contain"
+                      data-testid="img-header-logo"
+                    />
+                  )}
+                </div>
+                <div className="flex items-center gap-4">
+                  {user?.isSuperAdmin && <OrgSwitcher />}
+                </div>
+              </header>
+            )}
+            <main className="flex-1 flex flex-col overflow-auto">
+              {children}
+            </main>
+          </div>
         </div>
-      </div>
+      </SidebarProvider>
       <HelpChatWidget />
-    </SidebarProvider>
+    </>
   );
 }
 
