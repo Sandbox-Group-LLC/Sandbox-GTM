@@ -40,6 +40,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import { QRScanner } from "@/components/qr-scanner";
 import { 
   QrCode, 
   UserCheck, 
@@ -53,7 +54,8 @@ import {
   ScanLine,
   Edit3,
   AlertCircle,
-  Loader2
+  Loader2,
+  Camera
 } from "lucide-react";
 import type { Attendee, Event, EventSession, EventLead, ProductInteraction, DemoStation } from "@shared/schema";
 
@@ -206,6 +208,7 @@ export default function CheckIn() {
   const [matchedAttendeeId, setMatchedAttendeeId] = useState<string | null>(null);
   const [captureMethod, setCaptureMethod] = useState<CaptureMethod>('manual');
   const [leadSearchQuery, setLeadSearchQuery] = useState("");
+  const [showScanner, setShowScanner] = useState(false);
 
   const leadForm = useForm<LeadFormData>({
     resolver: zodResolver(leadFormSchema),
@@ -913,28 +916,68 @@ export default function CheckIn() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleScanSubmit} className="space-y-4">
-                <Input
-                  data-testid="input-checkin-code"
-                  placeholder={getScanPlaceholder()}
-                  value={checkInCode}
-                  onChange={(e) => setCheckInCode(e.target.value.toUpperCase())}
-                  className="text-lg font-mono text-center tracking-wider"
-                  disabled={mode === 'session' && !selectedSessionId}
+              {showScanner ? (
+                <QRScanner 
+                  onScan={(code) => {
+                    setShowScanner(false);
+                    setCheckInCode(code.toUpperCase());
+                    // Auto-submit after scan
+                    if (mode === 'session' && !selectedSessionId) {
+                      toast({ title: "Select a session", description: "Please select a session before scanning", variant: "destructive" });
+                      return;
+                    }
+                    scanMutation.mutate(code.toUpperCase());
+                  }}
+                  onClose={() => setShowScanner(false)}
                 />
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={
-                    !checkInCode.trim() || 
-                    scanMutation.isPending || 
-                    (mode === 'session' && !selectedSessionId)
-                  }
-                  data-testid="button-scan-checkin"
-                >
-                  {scanMutation.isPending ? "Processing..." : mode === 'lead' ? "Capture Interaction" : "Check In"}
-                </Button>
-              </form>
+              ) : (
+                <div className="space-y-4">
+                  <Button
+                    type="button"
+                    className="w-full"
+                    size="lg"
+                    onClick={() => setShowScanner(true)}
+                    disabled={mode === 'session' && !selectedSessionId}
+                    data-testid="button-open-scanner"
+                  >
+                    <Camera className="w-5 h-5 mr-2" />
+                    Open Camera to Scan
+                  </Button>
+                  
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-card px-2 text-muted-foreground">Or enter code manually</span>
+                    </div>
+                  </div>
+                  
+                  <form onSubmit={handleScanSubmit} className="space-y-4">
+                    <Input
+                      data-testid="input-checkin-code"
+                      placeholder={getScanPlaceholder()}
+                      value={checkInCode}
+                      onChange={(e) => setCheckInCode(e.target.value.toUpperCase())}
+                      className="text-lg font-mono text-center tracking-wider"
+                      disabled={mode === 'session' && !selectedSessionId}
+                    />
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      variant="outline"
+                      disabled={
+                        !checkInCode.trim() || 
+                        scanMutation.isPending || 
+                        (mode === 'session' && !selectedSessionId)
+                      }
+                      data-testid="button-scan-checkin"
+                    >
+                      {scanMutation.isPending ? "Processing..." : mode === 'lead' ? "Capture Interaction" : "Check In"}
+                    </Button>
+                  </form>
+                </div>
+              )}
 
               {renderLastCheckInResult()}
             </CardContent>
