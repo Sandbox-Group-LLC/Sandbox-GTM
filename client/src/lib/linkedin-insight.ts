@@ -1,30 +1,33 @@
-// LinkedIn Insight Tag - Partner ID: 8484364
-// Injects the exact LinkedIn-provided script at runtime
+// Google Tag Manager - Container ID: GTM-5G3WNT4G
+// LinkedIn Insight Tag is configured within GTM
 
 export function initLinkedInInsightTag() {
   // Check if already initialized
-  if ((window as any)._linkedin_partner_id) {
+  if ((window as any).dataLayer) {
     return;
   }
 
-  // First script - Partner ID setup
-  (window as any)._linkedin_partner_id = "8484364";
-  (window as any)._linkedin_data_partner_ids = (window as any)._linkedin_data_partner_ids || [];
-  (window as any)._linkedin_data_partner_ids.push((window as any)._linkedin_partner_id);
+  // Initialize GTM dataLayer
+  (window as any).dataLayer = (window as any).dataLayer || [];
+  (window as any).dataLayer.push({
+    'gtm.start': new Date().getTime(),
+    event: 'gtm.js'
+  });
 
-  // Second script - Load the LinkedIn analytics library
-  (function(l: any) {
-    if (!l) {
-      (window as any).lintrk = function(a: any, b: any) {
-        (window as any).lintrk.q.push([a, b]);
-      };
-      (window as any).lintrk.q = [];
-    }
-    var s = document.getElementsByTagName("script")[0];
-    var b = document.createElement("script");
-    b.type = "text/javascript";
-    b.async = true;
-    b.src = "https://snap.licdn.com/li.lms-analytics/insight.min.js";
-    s.parentNode?.insertBefore(b, s);
-  })((window as any).lintrk);
+  // Load GTM script
+  const script = document.createElement('script');
+  script.async = true;
+  script.src = 'https://www.googletagmanager.com/gtm.js?id=GTM-5G3WNT4G';
+  document.head.insertBefore(script, document.head.firstChild);
+
+  // Add noscript iframe to body for non-JS fallback
+  const noscript = document.createElement('noscript');
+  const iframe = document.createElement('iframe');
+  iframe.src = 'https://www.googletagmanager.com/ns.html?id=GTM-5G3WNT4G';
+  iframe.height = '0';
+  iframe.width = '0';
+  iframe.style.display = 'none';
+  iframe.style.visibility = 'hidden';
+  noscript.appendChild(iframe);
+  document.body.insertBefore(noscript, document.body.firstChild);
 }
