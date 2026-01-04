@@ -88,6 +88,7 @@ import MeetingPortalLogin from "@/pages/meeting-portal-login";
 import MeetingPortalMagic from "@/pages/meeting-portal-magic";
 import BadgeGenerator from "@/pages/badge-generator";
 import HelpCenter from "@/pages/help-center";
+import { HelpChatWidget } from "@/components/help-chat-widget";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const sidebarStyle = {
@@ -141,6 +142,7 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
           </main>
         </div>
       </div>
+      <HelpChatWidget />
     </SidebarProvider>
   );
 }
