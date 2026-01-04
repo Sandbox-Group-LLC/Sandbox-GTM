@@ -2330,6 +2330,35 @@ export const demoStationsRelations = relations(demoStations, ({ one }) => ({
   event: one(events, { fields: [demoStations.eventId], references: [events.id] }),
 }));
 
+// Help Articles table - for Help Center documentation
+export const helpArticles = pgTable("help_articles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  title: varchar("title", { length: 500 }).notNull(),
+  content: text("content").notNull(),
+  category: varchar("category", { length: 100 }),
+  keywords: text("keywords").array(),
+  displayOrder: integer("display_order").default(0),
+  isPublished: boolean("is_published").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("help_articles_org_idx").on(table.organizationId),
+]);
+
+export const insertHelpArticleSchema = createInsertSchema(helpArticles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertHelpArticle = z.infer<typeof insertHelpArticleSchema>;
+export type HelpArticle = typeof helpArticles.$inferSelect;
+
+// Help Articles relations
+export const helpArticlesRelations = relations(helpArticles, ({ one }) => ({
+  organization: one(organizations, { fields: [helpArticles.organizationId], references: [organizations.id] }),
+}));
+
 // API Key scopes for external integrations
 export const API_KEY_SCOPES = [
   'events.read',       // Read event information

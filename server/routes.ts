@@ -17948,5 +17948,242 @@ ${urls.map(u => `  <url>
     }
   });
 
+  // ====================================
+  // Help Articles API Routes
+  // ====================================
+
+  // GET /api/help-articles - List all help articles for the organization
+  app.get("/api/help-articles", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = await getOrganizationId(userId, req.session);
+      const articles = await storage.getHelpArticles(organizationId);
+      res.json(articles);
+    } catch (error) {
+      logError("Error fetching help articles:", error);
+      res.status(500).json({ message: "Failed to fetch help articles" });
+    }
+  });
+
+  // GET /api/help-articles/:id - Get a single help article
+  app.get("/api/help-articles/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { id } = req.params;
+      
+      const article = await storage.getHelpArticle(id, organizationId);
+      if (!article) {
+        return res.status(404).json({ message: "Help article not found" });
+      }
+      
+      res.json(article);
+    } catch (error) {
+      logError("Error fetching help article:", error);
+      res.status(500).json({ message: "Failed to fetch help article" });
+    }
+  });
+
+  // POST /api/help-articles - Create a new help article (admin only)
+  app.post("/api/help-articles", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = await getOrganizationId(userId, req.session);
+      
+      // Check if user is admin/owner
+      const member = await storage.getOrganizationMember(organizationId, userId);
+      if (!member || (member.role !== 'owner' && member.role !== 'admin')) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const createSchema = z.object({
+        title: z.string().min(1, "Title is required"),
+        content: z.string().min(1, "Content is required"),
+        category: z.string().optional(),
+        keywords: z.array(z.string()).optional(),
+        displayOrder: z.number().optional(),
+        isPublished: z.boolean().optional(),
+      });
+
+      const parsed = createSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request body", errors: parsed.error.errors });
+      }
+
+      const article = await storage.createHelpArticle({
+        ...parsed.data,
+        organizationId,
+      });
+
+      res.status(201).json(article);
+    } catch (error) {
+      logError("Error creating help article:", error);
+      res.status(500).json({ message: "Failed to create help article" });
+    }
+  });
+
+  // PATCH /api/help-articles/:id - Update a help article (admin only)
+  app.patch("/api/help-articles/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { id } = req.params;
+      
+      // Check if user is admin/owner
+      const member = await storage.getOrganizationMember(organizationId, userId);
+      if (!member || (member.role !== 'owner' && member.role !== 'admin')) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const updateSchema = z.object({
+        title: z.string().min(1).optional(),
+        content: z.string().min(1).optional(),
+        category: z.string().nullable().optional(),
+        keywords: z.array(z.string()).nullable().optional(),
+        displayOrder: z.number().optional(),
+        isPublished: z.boolean().optional(),
+      });
+
+      const parsed = updateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request body", errors: parsed.error.errors });
+      }
+
+      const updated = await storage.updateHelpArticle(id, organizationId, parsed.data);
+      if (!updated) {
+        return res.status(404).json({ message: "Help article not found" });
+      }
+
+      res.json(updated);
+    } catch (error) {
+      logError("Error updating help article:", error);
+      res.status(500).json({ message: "Failed to update help article" });
+    }
+  });
+
+  // DELETE /api/help-articles/:id - Delete a help article (admin only)
+  app.delete("/api/help-articles/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { id } = req.params;
+      
+      // Check if user is admin/owner
+      const member = await storage.getOrganizationMember(organizationId, userId);
+      if (!member || (member.role !== 'owner' && member.role !== 'admin')) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const deleted = await storage.deleteHelpArticle(id, organizationId);
+      if (!deleted) {
+        return res.status(404).json({ message: "Help article not found" });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      logError("Error deleting help article:", error);
+      res.status(500).json({ message: "Failed to delete help article" });
+    }
+  });
+
+  // POST /api/help-chat - AI chat endpoint for help
+  app.post("/api/help-chat", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = await getOrganizationId(userId, req.session);
+
+      const chatSchema = z.object({
+        message: z.string().min(1, "Message is required"),
+        eventId: z.string().optional(),
+      });
+
+      const parsed = chatSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request body", errors: parsed.error.errors });
+      }
+
+      const { message, eventId } = parsed.data;
+
+      // Fetch all published help articles
+      const allArticles = await storage.getHelpArticles(organizationId);
+      const publishedArticles = allArticles.filter(a => a.isPublished);
+
+      if (publishedArticles.length === 0) {
+        return res.json({ 
+          response: "I don't have any help documentation available yet. Please contact your administrator for assistance." 
+        });
+      }
+
+      // Build context from help articles
+      const articlesContext = publishedArticles.map(article => {
+        let context = `## ${article.title}\n`;
+        if (article.category) {
+          context += `Category: ${article.category}\n`;
+        }
+        if (article.keywords && article.keywords.length > 0) {
+          context += `Keywords: ${article.keywords.join(', ')}\n`;
+        }
+        context += `\n${article.content}\n`;
+        return context;
+      }).join('\n---\n');
+
+      // Use OpenAI to generate a response
+      const OpenAI = (await import('openai')).default;
+      const openai = new OpenAI({
+        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+      });
+
+      const systemPrompt = `You are a helpful assistant for the Sandbox event management platform. 
+Your role is to answer user questions based on the help documentation provided below.
+Be friendly, concise, and helpful. If the documentation doesn't contain information to answer the question, 
+politely say so and suggest contacting support.
+
+Help Documentation:
+${articlesContext}`;
+
+      // the newest OpenAI model is "gpt-5" which was released August 7, 2025
+      const response = await openai.chat.completions.create({
+        model: "gpt-5",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: message },
+        ],
+        max_completion_tokens: 1024,
+      });
+
+      const aiResponse = response.choices[0]?.message?.content || "I'm sorry, I couldn't generate a response. Please try again.";
+      
+      res.json({ response: aiResponse });
+    } catch (error) {
+      logError("Error in help chat:", error);
+      res.status(500).json({ message: "Failed to process chat message" });
+    }
+  });
+
   return httpServer;
 }

@@ -72,6 +72,7 @@ import {
   apiKeys,
   apiKeyAuditLogs,
   demoStations,
+  helpArticles,
   type User,
   type UpsertUser,
   type Event,
@@ -284,6 +285,8 @@ import {
   type InsertIntentRecomputeHistory,
   type DemoStation,
   type InsertDemoStation,
+  type HelpArticle,
+  type InsertHelpArticle,
 } from "@shared/schema";
 import crypto from "crypto";
 import { encrypt, decrypt } from "./encryption";
@@ -1015,6 +1018,13 @@ export interface IStorage {
   createDemoStation(station: InsertDemoStation): Promise<DemoStation>;
   updateDemoStation(id: string, updates: Partial<InsertDemoStation>): Promise<DemoStation>;
   deleteDemoStation(id: string): Promise<void>;
+
+  // Help Article operations
+  getHelpArticles(organizationId: string): Promise<HelpArticle[]>;
+  getHelpArticle(id: string, organizationId: string): Promise<HelpArticle | undefined>;
+  createHelpArticle(data: InsertHelpArticle): Promise<HelpArticle>;
+  updateHelpArticle(id: string, organizationId: string, data: Partial<InsertHelpArticle>): Promise<HelpArticle | undefined>;
+  deleteHelpArticle(id: string, organizationId: string): Promise<boolean>;
 }
 
 // Types for Moments Analytics
@@ -6836,6 +6846,49 @@ export class DatabaseStorage implements IStorage {
 
   async deleteDemoStation(id: string): Promise<void> {
     await db.delete(demoStations).where(eq(demoStations.id, id));
+  }
+
+  // Help Article operations
+  async getHelpArticles(organizationId: string): Promise<HelpArticle[]> {
+    return await db.select().from(helpArticles)
+      .where(eq(helpArticles.organizationId, organizationId))
+      .orderBy(helpArticles.displayOrder, helpArticles.createdAt);
+  }
+
+  async getHelpArticle(id: string, organizationId: string): Promise<HelpArticle | undefined> {
+    const [article] = await db.select().from(helpArticles)
+      .where(and(
+        eq(helpArticles.id, id),
+        eq(helpArticles.organizationId, organizationId)
+      ));
+    return article;
+  }
+
+  async createHelpArticle(data: InsertHelpArticle): Promise<HelpArticle> {
+    const [article] = await db.insert(helpArticles)
+      .values(data)
+      .returning();
+    return article;
+  }
+
+  async updateHelpArticle(id: string, organizationId: string, data: Partial<InsertHelpArticle>): Promise<HelpArticle | undefined> {
+    const [updated] = await db.update(helpArticles)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(
+        eq(helpArticles.id, id),
+        eq(helpArticles.organizationId, organizationId)
+      ))
+      .returning();
+    return updated;
+  }
+
+  async deleteHelpArticle(id: string, organizationId: string): Promise<boolean> {
+    const result = await db.delete(helpArticles)
+      .where(and(
+        eq(helpArticles.id, id),
+        eq(helpArticles.organizationId, organizationId)
+      ));
+    return true;
   }
 }
 
