@@ -697,6 +697,24 @@ export const customFields = pgTable("custom_fields", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Custom Field Templates - system-wide templates that seed into new organizations
+export const customFieldTemplates = pgTable("custom_field_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 100 }).notNull(),
+  label: varchar("label", { length: 255 }).notNull(),
+  fieldType: varchar("field_type", { length: 50 }).notNull(),
+  required: boolean("required").default(false),
+  options: text("options").array(),
+  displayOrder: integer("display_order").default(0),
+  isActive: boolean("is_active").default(true),
+  attendeeOnly: boolean("attendee_only").default(false),
+  isGlobal: boolean("is_global").default(true), // Templates default to global
+  parentFieldName: varchar("parent_field_name", { length: 100 }), // Reference by name since IDs won't exist yet
+  parentTriggerValues: text("parent_trigger_values").array(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Event Custom Field Settings - per-event overrides for custom field behavior
 export const eventCustomFieldSettings = pgTable("event_custom_field_settings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -2783,6 +2801,7 @@ export const insertEventPageSchema = createInsertSchema(eventPages).omit({ id: t
 export const insertPageVersionSchema = createInsertSchema(pageVersions).omit({ id: true, createdAt: true });
 export const insertRegistrationConfigSchema = createInsertSchema(registrationConfigs).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertCustomFieldSchema = createInsertSchema(customFields).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertCustomFieldTemplateSchema = createInsertSchema(customFieldTemplates).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertEventCustomFieldSettingSchema = createInsertSchema(eventCustomFieldSettings).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertContentAssetSchema = createInsertSchema(contentAssets).omit({ id: true, createdAt: true });
 export const insertEventSponsorSchema = createInsertSchema(eventSponsors).omit({ id: true, createdAt: true, updatedAt: true });
@@ -2922,6 +2941,8 @@ export type InsertRegistrationConfig = z.infer<typeof insertRegistrationConfigSc
 export type RegistrationConfig = typeof registrationConfigs.$inferSelect;
 export type InsertCustomField = z.infer<typeof insertCustomFieldSchema>;
 export type CustomField = typeof customFields.$inferSelect;
+export type InsertCustomFieldTemplate = z.infer<typeof insertCustomFieldTemplateSchema>;
+export type CustomFieldTemplate = typeof customFieldTemplates.$inferSelect;
 export type InsertEventCustomFieldSetting = z.infer<typeof insertEventCustomFieldSettingSchema>;
 export type EventCustomFieldSetting = typeof eventCustomFieldSettings.$inferSelect;
 export type InsertContentAsset = z.infer<typeof insertContentAssetSchema>;
