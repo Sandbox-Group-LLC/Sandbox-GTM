@@ -20,7 +20,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import { LogOut, User, Shield, Bell, Palette, FileText, Plug, Building2, Globe, Loader2, CheckCircle2, Copy, RefreshCw, AlertCircle, Key, Plus, Edit2, RotateCcw, Trash2, Eye, AlertTriangle, Clock, Calendar, Activity } from "lucide-react";
+import { LogOut, User, Shield, Bell, FileText, Plug, Building2, Globe, Loader2, CheckCircle2, Copy, RefreshCw, AlertCircle, Key, Plus, Edit2, RotateCcw, Trash2, Eye, AlertTriangle, Clock, Calendar, Activity } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -979,21 +979,6 @@ export default function Settings() {
             <CardContent>
               <p className="text-sm text-muted-foreground">
                 Notification settings will be available in a future update.
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Palette className="h-5 w-5" />
-                Appearance
-              </CardTitle>
-              <CardDescription>Customize the look and feel</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Use the theme toggle in the header to switch between light and dark modes.
               </p>
             </CardContent>
           </Card>
