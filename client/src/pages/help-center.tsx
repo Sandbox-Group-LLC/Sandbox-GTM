@@ -45,7 +45,8 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Plus, BookOpen, Trash2, Pencil } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { Plus, BookOpen, Trash2, Pencil, ShieldAlert } from "lucide-react";
 import type { HelpArticle } from "@shared/schema";
 
 const CATEGORIES = [
@@ -72,12 +73,17 @@ const articleFormSchema = z.object({
 type ArticleFormData = z.infer<typeof articleFormSchema>;
 
 export default function HelpCenter() {
+  const { user, isLoading: userLoading } = useAuth();
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingArticle, setEditingArticle] = useState<HelpArticle | null>(null);
 
+  // Check both the email domain AND the isAdmin flag from the API
+  const isSuperAdmin = (user?.email?.toLowerCase().endsWith("@makemysandbox.com") || user?.isAdmin) ?? false;
+
   const { data: articles = [], isLoading } = useQuery<HelpArticle[]>({
     queryKey: ["/api/help-articles"],
+    enabled: isSuperAdmin,
   });
 
   const form = useForm<ArticleFormData>({
@@ -158,6 +164,39 @@ export default function HelpCenter() {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
+
+  // Show loading while user is being fetched to avoid premature "Access Denied"
+  if (userLoading) {
+    return (
+      <div className="flex flex-col h-full">
+        <PageHeader 
+          title="Help Center" 
+          breadcrumbs={[{ label: "Admin" }, { label: "Help Center" }]}
+        />
+        <div className="flex-1 overflow-auto p-6 flex items-center justify-center">
+          <div className="text-muted-foreground">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isSuperAdmin) {
+    return (
+      <div className="flex flex-col h-full">
+        <PageHeader 
+          title="Help Center" 
+          breadcrumbs={[{ label: "Admin" }, { label: "Help Center" }]}
+        />
+        <div className="flex-1 overflow-auto p-6">
+          <EmptyState
+            icon={ShieldAlert}
+            title="Access Denied"
+            description="You don't have permission to view this page. Super admin privileges are required."
+          />
+        </div>
+      </div>
+    );
+  }
 
   const onSubmit = (data: ArticleFormData) => {
     if (editingArticle) {
