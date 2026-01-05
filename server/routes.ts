@@ -1061,6 +1061,104 @@ export async function registerRoutes(
     }
   });
 
+  // ===== CUSTOM FIELD TEMPLATES (SUPER ADMIN ONLY) =====
+
+  // GET /api/super-admin/field-templates - Get all field templates
+  app.get('/api/super-admin/field-templates', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!isSuperAdmin(user?.email, user?.isAdmin)) {
+        return res.status(403).json({ message: "Forbidden: Super admin access required" });
+      }
+      
+      const templates = await storage.getCustomFieldTemplates();
+      res.json(templates);
+    } catch (error) {
+      logError("Error fetching field templates:", error);
+      res.status(500).json({ message: "Failed to fetch field templates" });
+    }
+  });
+
+  // GET /api/super-admin/field-templates/:id - Get a single field template
+  app.get('/api/super-admin/field-templates/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!isSuperAdmin(user?.email, user?.isAdmin)) {
+        return res.status(403).json({ message: "Forbidden: Super admin access required" });
+      }
+      
+      const template = await storage.getCustomFieldTemplate(req.params.id);
+      if (!template) {
+        return res.status(404).json({ message: "Field template not found" });
+      }
+      res.json(template);
+    } catch (error) {
+      logError("Error fetching field template:", error);
+      res.status(500).json({ message: "Failed to fetch field template" });
+    }
+  });
+
+  // POST /api/super-admin/field-templates - Create a new field template
+  app.post('/api/super-admin/field-templates', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!isSuperAdmin(user?.email, user?.isAdmin)) {
+        return res.status(403).json({ message: "Forbidden: Super admin access required" });
+      }
+      
+      const template = await storage.createCustomFieldTemplate(req.body);
+      res.status(201).json(template);
+    } catch (error) {
+      logError("Error creating field template:", error);
+      res.status(500).json({ message: "Failed to create field template" });
+    }
+  });
+
+  // PATCH /api/super-admin/field-templates/:id - Update a field template
+  app.patch('/api/super-admin/field-templates/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!isSuperAdmin(user?.email, user?.isAdmin)) {
+        return res.status(403).json({ message: "Forbidden: Super admin access required" });
+      }
+      
+      const template = await storage.updateCustomFieldTemplate(req.params.id, req.body);
+      if (!template) {
+        return res.status(404).json({ message: "Field template not found" });
+      }
+      res.json(template);
+    } catch (error) {
+      logError("Error updating field template:", error);
+      res.status(500).json({ message: "Failed to update field template" });
+    }
+  });
+
+  // DELETE /api/super-admin/field-templates/:id - Delete a field template
+  app.delete('/api/super-admin/field-templates/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!isSuperAdmin(user?.email, user?.isAdmin)) {
+        return res.status(403).json({ message: "Forbidden: Super admin access required" });
+      }
+      
+      await storage.deleteCustomFieldTemplate(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting field template:", error);
+      res.status(500).json({ message: "Failed to delete field template" });
+    }
+  });
+
   // Helper to sanitize organization before returning to client (masks secret key)
   function sanitizeOrganization(org: any) {
     if (!org) return org;
