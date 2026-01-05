@@ -1159,6 +1159,24 @@ export async function registerRoutes(
     }
   });
 
+  // POST /api/super-admin/field-templates/push - Push templates to all organizations
+  app.post('/api/super-admin/field-templates/push', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!isSuperAdmin(user?.email, user?.isAdmin)) {
+        return res.status(403).json({ message: "Forbidden: Super admin access required" });
+      }
+      
+      const result = await storage.pushTemplatesToAllOrganizations();
+      res.json(result);
+    } catch (error) {
+      logError("Error pushing templates to organizations:", error);
+      res.status(500).json({ message: "Failed to push templates to organizations" });
+    }
+  });
+
   // Helper to sanitize organization before returning to client (masks secret key)
   function sanitizeOrganization(org: any) {
     if (!org) return org;

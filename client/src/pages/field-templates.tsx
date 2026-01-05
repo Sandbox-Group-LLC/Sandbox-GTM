@@ -45,7 +45,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { useAuth } from "@/hooks/useAuth";
-import { Plus, FileText, Trash2, Pencil, ShieldAlert } from "lucide-react";
+import { Plus, FileText, Trash2, Pencil, ShieldAlert, Send } from "lucide-react";
 import type { CustomFieldTemplate } from "@shared/schema";
 
 const FIELD_TYPES = [
@@ -236,6 +236,32 @@ export default function FieldTemplates() {
     },
   });
 
+  const pushMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", "/api/super-admin/field-templates/push", {});
+    },
+    onSuccess: (result: { organizationsUpdated: number; fieldsCreated: number }) => {
+      toast({ 
+        title: "Templates pushed to all organizations",
+        description: `Updated ${result.organizationsUpdated} organizations with ${result.fieldsCreated} new fields.`,
+      });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
   function parseJsonArray(value: string): string[] {
     if (!value.trim()) return [];
     try {
@@ -378,10 +404,22 @@ export default function FieldTemplates() {
         title="Field Templates"
         breadcrumbs={[{ label: "Super Admin" }, { label: "Field Templates" }]}
         actions={
-          <Button size="sm" onClick={openAddDialog} data-testid="button-new-template">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Template
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              size="sm" 
+              variant="outline"
+              onClick={() => pushMutation.mutate()}
+              disabled={pushMutation.isPending || templates.length === 0}
+              data-testid="button-push-templates"
+            >
+              <Send className="h-4 w-4 mr-2" />
+              {pushMutation.isPending ? "Pushing..." : "Push to All Orgs"}
+            </Button>
+            <Button size="sm" onClick={openAddDialog} data-testid="button-new-template">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Template
+            </Button>
+          </div>
         }
       />
 

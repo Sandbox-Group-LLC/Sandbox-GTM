@@ -657,6 +657,7 @@ export interface IStorage {
   createCustomFieldTemplate(template: InsertCustomFieldTemplate): Promise<CustomFieldTemplate>;
   updateCustomFieldTemplate(id: string, template: Partial<InsertCustomFieldTemplate>): Promise<CustomFieldTemplate | undefined>;
   deleteCustomFieldTemplate(id: string): Promise<void>;
+  pushTemplatesToAllOrganizations(): Promise<{ organizationsUpdated: number; fieldsCreated: number }>;
 
   // Event Custom Field Settings operations (per-event overrides)
   getEventCustomFieldSettings(organizationId: string, eventId: string): Promise<EventCustomFieldSetting[]>;
@@ -3561,6 +3562,72 @@ export class DatabaseStorage implements IStorage {
 
   async deleteCustomFieldTemplate(id: string): Promise<void> {
     await db.delete(customFieldTemplates).where(eq(customFieldTemplates.id, id));
+  }
+
+  async pushTemplatesToAllOrganizations(): Promise<{ organizationsUpdated: number; fieldsCreated: number }> {
+    const templates = await this.getCustomFieldTemplates();
+    if (templates.length === 0) {
+      return { organizationsUpdated: 0, fieldsCreated: 0 };
+    }
+    
+    // Get all active organizations
+    const allOrgs = await db.select().from(organizations)
+      .where(or(eq(organizations.isArchived, false), isNull(organizations.isArchived)));
+    
+    let organizationsUpdated = 0;
+    let fieldsCreated = 0;
+    
+    for (const org of allOrgs) {
+      // Get existing custom field names for this organization
+      const existingFields = await db.select().from(customFields)
+        .where(eq(customFields.organizationId, org.id));
+      const existingFieldNames = new Set(existingFields.map(f => f.name));
+      
+      // Find templates that don't already exist in this organization
+      const newTemplates = templates.filter(t => !existingFieldNames.has(t.name));
+      
+      if (newTemplates.length > 0) {
+        organizationsUpdated++;
+        
+        // Create new fields from templates
+        for (const template of newTemplates) {
+          await db.insert(customFields).values({
+            organizationId: org.id,
+            name: template.name,
+            label: template.label,
+            fieldType: template.fieldType,
+            options: template.options || null,
+            displayOrder: template.displayOrder,
+            isActive: template.isActive,
+            isGlobal: template.isGlobal,
+            required: template.required,
+            attendeeOnly: template.attendeeOnly,
+            parentFieldId: null,
+            parentTriggerValues: template.parentTriggerValues || null,
+          });
+          fieldsCreated++;
+        }
+        
+        // Resolve parent field references
+        const allFields = await db.select().from(customFields)
+          .where(eq(customFields.organizationId, org.id));
+        const fieldNameToId = new Map(allFields.map(f => [f.name, f.id]));
+        
+        for (const template of newTemplates) {
+          if (template.parentFieldName) {
+            const parentId = fieldNameToId.get(template.parentFieldName);
+            const childId = fieldNameToId.get(template.name);
+            if (parentId && childId) {
+              await db.update(customFields)
+                .set({ parentFieldId: parentId })
+                .where(eq(customFields.id, childId));
+            }
+          }
+        }
+      }
+    }
+    
+    return { organizationsUpdated, fieldsCreated };
   }
 
   async getActiveCustomFieldsByEventSlug(slug: string): Promise<CustomField[]> {
