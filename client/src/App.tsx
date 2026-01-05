@@ -88,6 +88,7 @@ import MeetingPortalLogin from "@/pages/meeting-portal-login";
 import MeetingPortalMagic from "@/pages/meeting-portal-magic";
 import BadgeGenerator from "@/pages/badge-generator";
 import HelpCenter from "@/pages/help-center";
+import FieldTemplates from "@/pages/field-templates";
 import { HelpChatWidget } from "@/components/help-chat-widget";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
@@ -304,6 +305,7 @@ function Router() {
         <Route path="/vendors" component={Vendors} />
         <Route path="/meetings" component={Meetings} />
         <Route path="/help-center" component={HelpCenter} />
+        <Route path="/field-templates" component={FieldTemplates} />
         <Route component={NotFound} />
       </Switch>
     </AuthenticatedLayout>
