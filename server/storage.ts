@@ -145,6 +145,9 @@ import {
   type InsertRegistrationConfig,
   type CustomField,
   type InsertCustomField,
+  customFieldTemplates,
+  type CustomFieldTemplate,
+  type InsertCustomFieldTemplate,
   eventCustomFieldSettings,
   type EventCustomFieldSetting,
   type InsertEventCustomFieldSetting,
@@ -647,6 +650,13 @@ export interface IStorage {
   updateCustomField(organizationId: string, id: string, field: Partial<InsertCustomField>): Promise<CustomField | undefined>;
   deleteCustomField(organizationId: string, id: string): Promise<void>;
   getActiveCustomFieldsByEventSlug(slug: string): Promise<CustomField[]>;
+
+  // Custom Field Template operations (super admin only - system-wide templates)
+  getCustomFieldTemplates(): Promise<CustomFieldTemplate[]>;
+  getCustomFieldTemplate(id: string): Promise<CustomFieldTemplate | undefined>;
+  createCustomFieldTemplate(template: InsertCustomFieldTemplate): Promise<CustomFieldTemplate>;
+  updateCustomFieldTemplate(id: string, template: Partial<InsertCustomFieldTemplate>): Promise<CustomFieldTemplate | undefined>;
+  deleteCustomFieldTemplate(id: string): Promise<void>;
 
   // Event Custom Field Settings operations (per-event overrides)
   getEventCustomFieldSettings(organizationId: string, eventId: string): Promise<EventCustomFieldSetting[]>;
@@ -3480,6 +3490,36 @@ export class DatabaseStorage implements IStorage {
 
   async deleteCustomField(organizationId: string, id: string): Promise<void> {
     await db.delete(customFields).where(and(eq(customFields.organizationId, organizationId), eq(customFields.id, id)));
+  }
+
+  // Custom Field Template operations (super admin only - system-wide templates)
+  async getCustomFieldTemplates(): Promise<CustomFieldTemplate[]> {
+    return db.select().from(customFieldTemplates)
+      .orderBy(customFieldTemplates.displayOrder);
+  }
+
+  async getCustomFieldTemplate(id: string): Promise<CustomFieldTemplate | undefined> {
+    const [template] = await db.select().from(customFieldTemplates)
+      .where(eq(customFieldTemplates.id, id));
+    return template;
+  }
+
+  async createCustomFieldTemplate(template: InsertCustomFieldTemplate): Promise<CustomFieldTemplate> {
+    const [newTemplate] = await db.insert(customFieldTemplates).values(template).returning();
+    return newTemplate;
+  }
+
+  async updateCustomFieldTemplate(id: string, template: Partial<InsertCustomFieldTemplate>): Promise<CustomFieldTemplate | undefined> {
+    const [updated] = await db
+      .update(customFieldTemplates)
+      .set({ ...template, updatedAt: new Date() })
+      .where(eq(customFieldTemplates.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteCustomFieldTemplate(id: string): Promise<void> {
+    await db.delete(customFieldTemplates).where(eq(customFieldTemplates.id, id));
   }
 
   async getActiveCustomFieldsByEventSlug(slug: string): Promise<CustomField[]> {
