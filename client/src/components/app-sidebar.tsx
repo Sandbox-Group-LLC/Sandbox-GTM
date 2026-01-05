@@ -44,6 +44,7 @@ import {
   DoorOpen,
   Monitor,
   HelpCircle,
+  FormInput,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -784,6 +785,18 @@ export function AppSidebar() {
                     <Link href="/help-center">
                       <HelpCircle className="h-4 w-4" />
                       <span>Help Center</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === "/field-templates"}
+                    data-testid="nav-field-templates"
+                  >
+                    <Link href="/field-templates">
+                      <FormInput className="h-4 w-4" />
+                      <span>Field Templates</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
