@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from "react";
-import { createPortal } from "react-dom";
 import { useMutation } from "@tanstack/react-query";
 import { MessageCircle, X, Send, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,12 +17,7 @@ export function HelpChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
-  const [mounted, setMounted] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const chatMutation = useMutation({
     mutationFn: async (message: string) => {
@@ -82,11 +76,11 @@ export function HelpChatWidget() {
     }
   }, [messages, chatMutation.isPending]);
 
-  const widgetContent = (
-    <>
+  return (
+    <div className="fixed bottom-4 right-4 z-[9999]" style={{ position: 'fixed', bottom: '16px', right: '16px' }}>
       {isOpen && (
         <Card
-          className="fixed bottom-20 right-4 z-[9999] w-80 sm:w-96 flex flex-col shadow-lg"
+          className="absolute bottom-14 right-0 w-80 sm:w-96 flex flex-col shadow-lg"
           data-testid="help-chat-panel"
         >
           <CardHeader className="flex flex-row items-center justify-between gap-2 p-4 border-b">
@@ -159,16 +153,12 @@ export function HelpChatWidget() {
 
       <Button
         size="icon"
-        className="fixed bottom-4 right-4 z-[9999] shadow-md"
+        className="shadow-md"
         onClick={() => setIsOpen(!isOpen)}
         data-testid="button-open-help-chat"
       >
         {isOpen ? <X className="h-5 w-5" /> : <MessageCircle className="h-5 w-5" />}
       </Button>
-    </>
+    </div>
   );
-
-  if (!mounted) return null;
-  
-  return createPortal(widgetContent, document.body);
 }
