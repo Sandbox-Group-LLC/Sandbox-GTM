@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useMutation } from "@tanstack/react-query";
 import { MessageCircle, X, Send, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -76,11 +77,11 @@ export function HelpChatWidget() {
     }
   }, [messages, chatMutation.isPending]);
 
-  return (
+  const widgetContent = (
     <>
       {isOpen && (
         <Card
-          className="fixed bottom-20 right-4 z-50 w-80 sm:w-96 flex flex-col shadow-lg"
+          className="fixed bottom-20 right-4 z-[9999] w-80 sm:w-96 flex flex-col shadow-lg"
           data-testid="help-chat-panel"
         >
           <CardHeader className="flex flex-row items-center justify-between gap-2 p-4 border-b">
@@ -153,7 +154,7 @@ export function HelpChatWidget() {
 
       <Button
         size="icon"
-        className="fixed bottom-4 right-4 z-50 shadow-md"
+        className="fixed bottom-4 right-4 z-[9999] shadow-md"
         onClick={() => setIsOpen(!isOpen)}
         data-testid="button-open-help-chat"
       >
@@ -161,4 +162,6 @@ export function HelpChatWidget() {
       </Button>
     </>
   );
+
+  return createPortal(widgetContent, document.body);
 }
