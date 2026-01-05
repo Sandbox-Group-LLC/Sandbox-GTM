@@ -18,7 +18,12 @@ export function HelpChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
+  const [mounted, setMounted] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const chatMutation = useMutation({
     mutationFn: async (message: string) => {
@@ -163,5 +168,7 @@ export function HelpChatWidget() {
     </>
   );
 
+  if (!mounted) return null;
+  
   return createPortal(widgetContent, document.body);
 }
