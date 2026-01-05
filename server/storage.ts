@@ -1120,32 +1120,73 @@ export class DatabaseStorage implements IStorage {
   async createOrganization(org: InsertOrganization): Promise<Organization> {
     const [newOrg] = await db.insert(organizations).values(org).returning();
     
-    // Seed default global custom fields for the new organization
-    const defaultCustomFields = [
-      { name: 'role', label: 'What best describes your role in the company?', fieldType: 'select', options: ['Executive', 'Manager', 'Individual Contributor', 'Consultant', 'Other'], displayOrder: 1 },
-      { name: 'jobFunction', label: 'What is your job function?', fieldType: 'select', options: ['Sales', 'Marketing', 'Engineering', 'Product', 'Operations', 'Finance', 'HR', 'Other'], displayOrder: 2 },
-      { name: 'companyType', label: 'Company Type', fieldType: 'select', options: ['Enterprise', 'Mid-Market', 'SMB', 'Startup', 'Agency', 'Nonprofit', 'Government', 'Other'], displayOrder: 3 },
-      { name: 'country', label: 'Country', fieldType: 'select', options: ['United States', 'Canada', 'United Kingdom', 'Germany', 'France', 'Australia', 'Other'], displayOrder: 4 },
-      { name: 'dietaryRestrictions', label: 'Do you have any dietary restrictions?', fieldType: 'select', options: ['None', 'Vegetarian', 'Vegan', 'Gluten-Free', 'Kosher', 'Halal', 'Other'], displayOrder: 5 },
-      { name: 'emergencyContact', label: 'Emergency Contact', fieldType: 'text', displayOrder: 6 },
-      { name: 'emergencyPhone', label: 'Emergency Contact Phone', fieldType: 'text', displayOrder: 7 },
-      { name: 'emergencyEmail', label: 'Emergency Contact Email', fieldType: 'text', displayOrder: 8 },
-      { name: 'termsAndconditions', label: 'I have read the terms and conditions.', fieldType: 'checkbox', displayOrder: 9 },
-    ];
+    // Fetch templates from the database to seed custom fields for new organization
+    const templates = await this.getCustomFieldTemplates();
     
-    for (const field of defaultCustomFields) {
-      await db.insert(customFields).values({
-        organizationId: newOrg.id,
-        name: field.name,
-        label: field.label,
-        fieldType: field.fieldType,
-        options: field.options || null,
-        displayOrder: field.displayOrder,
-        isActive: true,
-        isGlobal: true,
-        required: false,
-        attendeeOnly: false,
-      });
+    if (templates.length > 0) {
+      // Use database templates (ordered by displayOrder)
+      for (const template of templates) {
+        await db.insert(customFields).values({
+          organizationId: newOrg.id,
+          name: template.name,
+          label: template.label,
+          fieldType: template.fieldType,
+          options: template.options || null,
+          displayOrder: template.displayOrder,
+          isActive: template.isActive,
+          isGlobal: template.isGlobal,
+          required: template.required,
+          attendeeOnly: template.attendeeOnly,
+          parentFieldId: null, // Will be resolved after all fields are created if needed
+          parentTriggerValues: template.parentTriggerValues || null,
+        });
+      }
+      
+      // Resolve parentFieldId references using parentFieldName
+      // After all fields are created, we can link them by name
+      const createdFields = await db.select().from(customFields)
+        .where(eq(customFields.organizationId, newOrg.id));
+      const fieldNameToId = new Map(createdFields.map(f => [f.name, f.id]));
+      
+      for (const template of templates) {
+        if (template.parentFieldName) {
+          const parentId = fieldNameToId.get(template.parentFieldName);
+          const childId = fieldNameToId.get(template.name);
+          if (parentId && childId) {
+            await db.update(customFields)
+              .set({ parentFieldId: parentId })
+              .where(eq(customFields.id, childId));
+          }
+        }
+      }
+    } else {
+      // Fallback to hardcoded defaults if no templates exist
+      const defaultCustomFields = [
+        { name: 'role', label: 'What best describes your role in the company?', fieldType: 'select', options: ['Executive', 'Manager', 'Individual Contributor', 'Consultant', 'Other'], displayOrder: 1 },
+        { name: 'jobFunction', label: 'What is your job function?', fieldType: 'select', options: ['Sales', 'Marketing', 'Engineering', 'Product', 'Operations', 'Finance', 'HR', 'Other'], displayOrder: 2 },
+        { name: 'companyType', label: 'Company Type', fieldType: 'select', options: ['Enterprise', 'Mid-Market', 'SMB', 'Startup', 'Agency', 'Nonprofit', 'Government', 'Other'], displayOrder: 3 },
+        { name: 'country', label: 'Country', fieldType: 'select', options: ['United States', 'Canada', 'United Kingdom', 'Germany', 'France', 'Australia', 'Other'], displayOrder: 4 },
+        { name: 'dietaryRestrictions', label: 'Do you have any dietary restrictions?', fieldType: 'select', options: ['None', 'Vegetarian', 'Vegan', 'Gluten-Free', 'Kosher', 'Halal', 'Other'], displayOrder: 5 },
+        { name: 'emergencyContact', label: 'Emergency Contact', fieldType: 'text', displayOrder: 6 },
+        { name: 'emergencyPhone', label: 'Emergency Contact Phone', fieldType: 'text', displayOrder: 7 },
+        { name: 'emergencyEmail', label: 'Emergency Contact Email', fieldType: 'text', displayOrder: 8 },
+        { name: 'termsAndconditions', label: 'I have read the terms and conditions.', fieldType: 'checkbox', displayOrder: 9 },
+      ];
+      
+      for (const field of defaultCustomFields) {
+        await db.insert(customFields).values({
+          organizationId: newOrg.id,
+          name: field.name,
+          label: field.label,
+          fieldType: field.fieldType,
+          options: field.options || null,
+          displayOrder: field.displayOrder,
+          isActive: true,
+          isGlobal: true,
+          required: false,
+          attendeeOnly: false,
+        });
+      }
     }
     
     return newOrg;
