@@ -57,10 +57,42 @@ const SYSTEM_PROPERTIES = [
   { name: "attendeeType", label: "Audience Type", fieldType: "select", required: false, description: "Categorization of the attendee" },
 ];
 
+const FIELD_TYPES = [
+  "text",
+  "number",
+  "email",
+  "phone",
+  "url",
+  "textarea",
+  "select",
+  "multiselect",
+  "checkbox",
+  "radio",
+  "date",
+  "country",
+  "state",
+] as const;
+
+const fieldTypeLabels: Record<string, string> = {
+  text: "Text",
+  number: "Number",
+  email: "Email",
+  phone: "Phone",
+  url: "URL",
+  textarea: "Textarea",
+  select: "Select",
+  multiselect: "Multi-Select",
+  checkbox: "Checkbox",
+  radio: "Radio",
+  date: "Date",
+  country: "Country",
+  state: "State",
+};
+
 const customFieldFormSchema = z.object({
   name: z.string().min(1, "Name is required").regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/, "Name must be a valid identifier (letters, numbers, underscores, starting with letter or underscore)"),
   label: z.string().min(1, "Label is required"),
-  fieldType: z.enum(["text", "textarea", "select", "checkbox", "number"]),
+  fieldType: z.enum(FIELD_TYPES),
   required: z.boolean().default(false),
   options: z.array(z.string()).default([]),
   displayOrder: z.coerce.number().int().min(0).default(0),
@@ -128,14 +160,6 @@ const ToggleSection = memo(function ToggleSection({ toggles, onToggleChange }: T
     </div>
   );
 });
-
-const fieldTypeLabels: Record<string, string> = {
-  text: "Text",
-  textarea: "Textarea",
-  select: "Select",
-  checkbox: "Checkbox",
-  number: "Number",
-};
 
 function SortableCustomFieldRow({ field, children }: { field: CustomField; children: React.ReactNode }) {
   const {
@@ -379,7 +403,7 @@ export default function CustomFields() {
     form.reset({
       name: field.name,
       label: field.label,
-      fieldType: field.fieldType as "text" | "textarea" | "select" | "checkbox" | "number",
+      fieldType: field.fieldType as typeof FIELD_TYPES[number],
       required: field.required ?? false,
       options: field.options ?? [],
       displayOrder: field.displayOrder ?? 0,
@@ -407,7 +431,7 @@ export default function CustomFields() {
   };
 
   const onSubmit = (data: CustomFieldFormData) => {
-    const options = selectedFieldType === "select"
+    const options = ["select", "multiselect", "radio"].includes(selectedFieldType)
       ? optionsText.split("\n").map(o => o.trim()).filter(o => o.length > 0)
       : [];
     
@@ -651,18 +675,18 @@ export default function CustomFields() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="text">Text</SelectItem>
-                          <SelectItem value="textarea">Textarea</SelectItem>
-                          <SelectItem value="select">Select</SelectItem>
-                          <SelectItem value="checkbox">Checkbox</SelectItem>
-                          <SelectItem value="number">Number</SelectItem>
+                          {FIELD_TYPES.map((type) => (
+                            <SelectItem key={type} value={type}>
+                              {fieldTypeLabels[type] || type}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                {selectedFieldType === "select" && (
+                {["select", "multiselect", "radio"].includes(selectedFieldType) && (
                   <FormItem>
                     <FormLabel>Options</FormLabel>
                     <Textarea
