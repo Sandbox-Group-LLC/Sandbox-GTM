@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Loader2, Globe, Palette, Type, Image, Trash2, Edit2, Check, Star, ExternalLink, Plus, Upload, X } from "lucide-react";
 import { ObjectUploader } from "@/components/ObjectUploader";
+import { CustomFontsManager } from "@/components/custom-fonts-manager";
 import type { BrandKit } from "@shared/schema";
 
 interface ExtractedBrand {
@@ -873,6 +874,8 @@ export default function BrandKitPage() {
               )}
             </CardContent>
           </Card>
+
+          <CustomFontsManager />
         </div>
       </div>
 

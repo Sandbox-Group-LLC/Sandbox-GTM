@@ -24,7 +24,6 @@ import { LogOut, User, Shield, Bell, Palette, FileText, Plug, Building2, Globe, 
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { CustomFontsManager } from "@/components/custom-fonts-manager";
 import type { Organization, ApiKey, ApiKeyAuditLog } from "@shared/schema";
 import { format } from "date-fns";
 
@@ -998,8 +997,6 @@ export default function Settings() {
               </p>
             </CardContent>
           </Card>
-
-          <CustomFontsManager />
 
           <Card>
             <CardHeader>
