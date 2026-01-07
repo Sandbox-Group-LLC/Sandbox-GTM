@@ -91,6 +91,9 @@ import HelpCenter from "@/pages/help-center";
 import FieldTemplates from "@/pages/field-templates";
 import DesignerPortal from "@/pages/designer-portal";
 import DesignerProofDetail from "@/pages/designer-proof-detail";
+import ProofManagement from "@/pages/proof-management";
+import ProofRequestDetail from "@/pages/proof-request-detail";
+import Designers from "@/pages/designers";
 import { HelpChatWidget } from "@/components/help-chat-widget";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
@@ -312,6 +315,9 @@ function Router() {
         <Route path="/meetings" component={Meetings} />
         <Route path="/help-center" component={HelpCenter} />
         <Route path="/field-templates" component={FieldTemplates} />
+        <Route path="/proof-management" component={ProofManagement} />
+        <Route path="/proof-requests/:id" component={ProofRequestDetail} />
+        <Route path="/designers" component={Designers} />
         <Route component={NotFound} />
       </Switch>
     </AuthenticatedLayout>
