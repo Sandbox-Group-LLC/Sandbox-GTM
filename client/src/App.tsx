@@ -162,7 +162,7 @@ function Router() {
   const [location, navigate] = useLocation();
   
   // Determine if this is a public event page (should render outside sidebar layout)
-  const isPublicEventPage = location.startsWith('/event/') || location.startsWith('/sponsor-portal') || location.startsWith('/portal/') || location.startsWith('/meeting-portal') || location.startsWith('/designer');
+  const isPublicEventPage = location.startsWith('/event/') || location.startsWith('/sponsor-portal') || location.startsWith('/portal/') || location.startsWith('/meeting-portal') || location === '/designer' || location.startsWith('/designer/');
 
   // Check for pending invite code after authentication and redirect to accept-invitation page
   useEffect(() => {
