@@ -171,10 +171,7 @@ export default function Designers() {
 
   return (
     <div className="flex-1 p-6 space-y-6">
-      <PageHeader
-        title="Designers"
-        description="Manage external designers and their access to proof requests"
-      />
+      <PageHeader title="Designers" />
 
       <div className="flex justify-end">
         <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
