@@ -45,6 +45,9 @@ import {
   Monitor,
   HelpCircle,
   FormInput,
+  FileCheck,
+  Palette,
+  FolderCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -707,6 +710,58 @@ export function AppSidebar() {
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+
+              <Collapsible defaultOpen={location === "/proof-management" || location === "/designers" || location === "/approved-assets"} className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton
+                      isActive={location === "/proof-management" || location === "/designers" || location === "/approved-assets"}
+                      data-testid="nav-proofs"
+                    >
+                      <FileCheck className="h-4 w-4" />
+                      <span>Proofs</span>
+                      <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={location === "/proof-management"}
+                          data-testid="nav-proof-requests"
+                        >
+                          <Link href="/proof-management">
+                            <span>Proof Requests</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={location === "/designers"}
+                          data-testid="nav-designers"
+                        >
+                          <Link href="/designers">
+                            <span>Designers</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={location === "/approved-assets"}
+                          data-testid="nav-approved-assets"
+                        >
+                          <Link href="/approved-assets">
+                            <span>Approved Assets</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
 
             </SidebarMenu>
           </SidebarGroupContent>

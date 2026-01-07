@@ -94,6 +94,7 @@ import DesignerProofDetail from "@/pages/designer-proof-detail";
 import ProofManagement from "@/pages/proof-management";
 import ProofRequestDetail from "@/pages/proof-request-detail";
 import Designers from "@/pages/designers";
+import ApprovedAssets from "@/pages/approved-assets";
 import { HelpChatWidget } from "@/components/help-chat-widget";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
@@ -318,6 +319,7 @@ function Router() {
         <Route path="/proof-management" component={ProofManagement} />
         <Route path="/proof-requests/:id" component={ProofRequestDetail} />
         <Route path="/designers" component={Designers} />
+        <Route path="/approved-assets" component={ApprovedAssets} />
         <Route component={NotFound} />
       </Switch>
     </AuthenticatedLayout>
