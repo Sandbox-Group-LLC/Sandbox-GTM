@@ -89,6 +89,8 @@ import MeetingPortalMagic from "@/pages/meeting-portal-magic";
 import BadgeGenerator from "@/pages/badge-generator";
 import HelpCenter from "@/pages/help-center";
 import FieldTemplates from "@/pages/field-templates";
+import DesignerPortal from "@/pages/designer-portal";
+import DesignerProofDetail from "@/pages/designer-proof-detail";
 import { HelpChatWidget } from "@/components/help-chat-widget";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
@@ -156,7 +158,7 @@ function Router() {
   const [location, navigate] = useLocation();
   
   // Determine if this is a public event page (should render outside sidebar layout)
-  const isPublicEventPage = location.startsWith('/event/') || location.startsWith('/sponsor-portal') || location.startsWith('/portal/') || location.startsWith('/meeting-portal');
+  const isPublicEventPage = location.startsWith('/event/') || location.startsWith('/sponsor-portal') || location.startsWith('/portal/') || location.startsWith('/meeting-portal') || location.startsWith('/designer');
 
   // Check for pending invite code after authentication and redirect to accept-invitation page
   useEffect(() => {
@@ -199,6 +201,8 @@ function Router() {
         <Route path="/meeting-portal/magic/:token" component={MeetingPortalMagic} />
         <Route path="/meeting-portal/login" component={MeetingPortalLogin} />
         <Route path="/meeting-portal" component={MeetingPortal} />
+        <Route path="/designer/proof/:id" component={DesignerProofDetail} />
+        <Route path="/designer" component={DesignerPortal} />
         <Route path="/documents/shared/:token" component={SharedDocument} />
         <Route path="/accept-invitation" component={AcceptInvitation} />
         <Route path="/portal/:eventId/moment/:momentId" component={PortalMoment} />
@@ -239,6 +243,8 @@ function Router() {
         <Route path="/meeting-portal/magic/:token" component={MeetingPortalMagic} />
         <Route path="/meeting-portal/login" component={MeetingPortalLogin} />
         <Route path="/meeting-portal" component={MeetingPortal} />
+        <Route path="/designer/proof/:id" component={DesignerProofDetail} />
+        <Route path="/designer" component={DesignerPortal} />
         <Route path="/portal/:eventId/moment/:momentId" component={PortalMoment} />
         <Route path="/portal/:eventId/live" component={PortalLiveMoments} />
         <Route component={NotFound} />
