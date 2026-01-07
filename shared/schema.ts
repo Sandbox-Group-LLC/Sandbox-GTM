@@ -2741,6 +2741,142 @@ export const engagementSignalsRelations = relations(engagementSignals, ({ one })
   attendee: one(attendees, { fields: [engagementSignals.attendeeId], references: [attendees.id] }),
 }));
 
+// =============================================================================
+// Graphic Proof Approval System
+// =============================================================================
+
+// Designers table - External designer accounts
+export const designers = pgTable("designers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  email: varchar("email", { length: 255 }).notNull(),
+  firstName: varchar("first_name", { length: 100 }),
+  lastName: varchar("last_name", { length: 100 }),
+  company: varchar("company", { length: 255 }),
+  phone: varchar("phone", { length: 50 }),
+  inviteCode: varchar("invite_code", { length: 64 }).unique().notNull(),
+  status: varchar("status", { length: 20 }).default("active"),
+  invitedBy: varchar("invited_by").references(() => users.id).notNull(),
+  lastLoginAt: timestamp("last_login_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Designer Sessions table - Session management for designers
+export const designerSessions = pgTable("designer_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  designerId: varchar("designer_id").references(() => designers.id).notNull(),
+  sessionToken: varchar("session_token", { length: 64 }).unique().notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Proof Requests table - Requests for graphic proofs
+export const proofRequests = pgTable("proof_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  eventId: varchar("event_id").references(() => events.id),
+  designerId: varchar("designer_id").references(() => designers.id).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  printVendor: varchar("print_vendor", { length: 255 }),
+  area: varchar("area", { length: 255 }),
+  category: varchar("category", { length: 100 }),
+  dueDate: timestamp("due_date"),
+  priority: varchar("priority", { length: 20 }).default("normal"),
+  status: varchar("status", { length: 30 }).default("pending_upload"),
+  assignedReviewer: varchar("assigned_reviewer").references(() => users.id),
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Proof Assets table - Uploaded proof files (versioned)
+export const proofAssets = pgTable("proof_assets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  proofRequestId: varchar("proof_request_id").references(() => proofRequests.id).notNull(),
+  version: integer("version").notNull(),
+  fileName: varchar("file_name", { length: 255 }).notNull(),
+  fileUrl: text("file_url").notNull(),
+  fileSize: integer("file_size"),
+  mimeType: varchar("mime_type", { length: 100 }),
+  uploadedBy: varchar("uploaded_by").notNull(),
+  uploaderType: varchar("uploader_type", { length: 20 }).notNull(),
+  notes: text("notes"),
+  isCurrentVersion: boolean("is_current_version").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Proof Comments table - Comments from both internal and external users
+export const proofComments = pgTable("proof_comments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  proofRequestId: varchar("proof_request_id").references(() => proofRequests.id).notNull(),
+  proofAssetId: varchar("proof_asset_id").references(() => proofAssets.id),
+  authorId: varchar("author_id").notNull(),
+  authorType: varchar("author_type", { length: 20 }).notNull(),
+  authorName: varchar("author_name", { length: 255 }),
+  content: text("content").notNull(),
+  isInternal: boolean("is_internal").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Proof Status History table - Audit trail of status changes
+export const proofStatusHistory = pgTable("proof_status_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  proofRequestId: varchar("proof_request_id").references(() => proofRequests.id).notNull(),
+  previousStatus: varchar("previous_status", { length: 30 }),
+  newStatus: varchar("new_status", { length: 30 }).notNull(),
+  changedBy: varchar("changed_by").notNull(),
+  changedByType: varchar("changed_by_type", { length: 20 }).notNull(),
+  changedByName: varchar("changed_by_name", { length: 255 }),
+  reason: text("reason"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Graphic Proof Approval System Relations
+export const designersRelations = relations(designers, ({ one, many }) => ({
+  organization: one(organizations, { fields: [designers.organizationId], references: [organizations.id] }),
+  invitedByUser: one(users, { fields: [designers.invitedBy], references: [users.id] }),
+  sessions: many(designerSessions),
+  proofRequests: many(proofRequests),
+}));
+
+export const designerSessionsRelations = relations(designerSessions, ({ one }) => ({
+  designer: one(designers, { fields: [designerSessions.designerId], references: [designers.id] }),
+}));
+
+export const proofRequestsRelations = relations(proofRequests, ({ one, many }) => ({
+  organization: one(organizations, { fields: [proofRequests.organizationId], references: [organizations.id] }),
+  event: one(events, { fields: [proofRequests.eventId], references: [events.id] }),
+  designer: one(designers, { fields: [proofRequests.designerId], references: [designers.id] }),
+  assignedReviewerUser: one(users, { fields: [proofRequests.assignedReviewer], references: [users.id] }),
+  createdByUser: one(users, { fields: [proofRequests.createdBy], references: [users.id] }),
+  assets: many(proofAssets),
+  comments: many(proofComments),
+  statusHistory: many(proofStatusHistory),
+}));
+
+export const proofAssetsRelations = relations(proofAssets, ({ one, many }) => ({
+  organization: one(organizations, { fields: [proofAssets.organizationId], references: [organizations.id] }),
+  proofRequest: one(proofRequests, { fields: [proofAssets.proofRequestId], references: [proofRequests.id] }),
+  comments: many(proofComments),
+}));
+
+export const proofCommentsRelations = relations(proofComments, ({ one }) => ({
+  organization: one(organizations, { fields: [proofComments.organizationId], references: [organizations.id] }),
+  proofRequest: one(proofRequests, { fields: [proofComments.proofRequestId], references: [proofRequests.id] }),
+  proofAsset: one(proofAssets, { fields: [proofComments.proofAssetId], references: [proofAssets.id] }),
+}));
+
+export const proofStatusHistoryRelations = relations(proofStatusHistory, ({ one }) => ({
+  organization: one(organizations, { fields: [proofStatusHistory.organizationId], references: [organizations.id] }),
+  proofRequest: one(proofRequests, { fields: [proofStatusHistory.proofRequestId], references: [proofRequests.id] }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true, updatedAt: true });
 export const insertOrganizationSchema = createInsertSchema(organizations).omit({ id: true, createdAt: true, updatedAt: true });
@@ -2847,6 +2983,12 @@ export const insertAttendeeAvailabilitySlotSchema = createInsertSchema(attendeeA
 export const insertAttendeeMeetingSchema = createInsertSchema(attendeeMeetings).omit({ id: true, createdAt: true, updatedAt: true, respondedAt: true });
 export const insertMeetingPortalMemberSchema = createInsertSchema(meetingPortalMembers).omit({ id: true, createdAt: true, updatedAt: true, lastLoginAt: true });
 export const insertMeetingPortalInvitationSchema = createInsertSchema(meetingPortalInvitations).omit({ id: true, invitedAt: true, acceptedAt: true });
+export const insertDesignerSchema = createInsertSchema(designers).omit({ id: true, createdAt: true, updatedAt: true, lastLoginAt: true });
+export const insertDesignerSessionSchema = createInsertSchema(designerSessions).omit({ id: true, createdAt: true });
+export const insertProofRequestSchema = createInsertSchema(proofRequests).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertProofAssetSchema = createInsertSchema(proofAssets).omit({ id: true, createdAt: true });
+export const insertProofCommentSchema = createInsertSchema(proofComments).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertProofStatusHistorySchema = createInsertSchema(proofStatusHistory).omit({ id: true, createdAt: true });
 
 // Types
 export type UpsertUser = typeof users.$inferInsert;
@@ -3039,3 +3181,15 @@ export type InsertMeetingPortalMember = z.infer<typeof insertMeetingPortalMember
 export type MeetingPortalMember = typeof meetingPortalMembers.$inferSelect;
 export type InsertMeetingPortalInvitation = z.infer<typeof insertMeetingPortalInvitationSchema>;
 export type MeetingPortalInvitation = typeof meetingPortalInvitations.$inferSelect;
+export type InsertDesigner = z.infer<typeof insertDesignerSchema>;
+export type Designer = typeof designers.$inferSelect;
+export type InsertDesignerSession = z.infer<typeof insertDesignerSessionSchema>;
+export type DesignerSession = typeof designerSessions.$inferSelect;
+export type InsertProofRequest = z.infer<typeof insertProofRequestSchema>;
+export type ProofRequest = typeof proofRequests.$inferSelect;
+export type InsertProofAsset = z.infer<typeof insertProofAssetSchema>;
+export type ProofAsset = typeof proofAssets.$inferSelect;
+export type InsertProofComment = z.infer<typeof insertProofCommentSchema>;
+export type ProofComment = typeof proofComments.$inferSelect;
+export type InsertProofStatusHistory = z.infer<typeof insertProofStatusHistorySchema>;
+export type ProofStatusHistory = typeof proofStatusHistory.$inferSelect;

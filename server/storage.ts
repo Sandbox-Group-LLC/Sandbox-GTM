@@ -290,6 +290,24 @@ import {
   type InsertDemoStation,
   type HelpArticle,
   type InsertHelpArticle,
+  designers,
+  designerSessions,
+  proofRequests,
+  proofAssets,
+  proofComments,
+  proofStatusHistory,
+  type Designer,
+  type InsertDesigner,
+  type DesignerSession,
+  type InsertDesignerSession,
+  type ProofRequest,
+  type InsertProofRequest,
+  type ProofAsset,
+  type InsertProofAsset,
+  type ProofComment,
+  type InsertProofComment,
+  type ProofStatusHistory,
+  type InsertProofStatusHistory,
 } from "@shared/schema";
 import crypto from "crypto";
 import { encrypt, decrypt } from "./encryption";
@@ -1036,6 +1054,50 @@ export interface IStorage {
   createHelpArticle(data: InsertHelpArticle): Promise<HelpArticle>;
   updateHelpArticle(id: string, organizationId: string, data: Partial<InsertHelpArticle>): Promise<HelpArticle | undefined>;
   deleteHelpArticle(id: string, organizationId: string): Promise<boolean>;
+
+  // Designer operations (Graphic Proof Approval System)
+  getDesignersByOrganization(organizationId: string): Promise<Designer[]>;
+  getDesignerById(id: string): Promise<Designer | undefined>;
+  getDesignerByEmail(email: string, organizationId: string): Promise<Designer | undefined>;
+  getDesignerByInviteCode(inviteCode: string): Promise<Designer | undefined>;
+  createDesigner(data: InsertDesigner): Promise<Designer>;
+  updateDesigner(id: string, data: Partial<InsertDesigner>): Promise<Designer | undefined>;
+  deleteDesigner(id: string): Promise<void>;
+
+  // Designer Session operations
+  getDesignerSessionByToken(sessionToken: string): Promise<DesignerSession | undefined>;
+  createDesignerSession(data: InsertDesignerSession): Promise<DesignerSession>;
+  deleteDesignerSession(sessionToken: string): Promise<void>;
+  deleteExpiredDesignerSessions(): Promise<void>;
+
+  // Proof Request operations
+  getProofRequestsByOrganization(organizationId: string): Promise<ProofRequest[]>;
+  getProofRequestsByDesigner(designerId: string): Promise<ProofRequest[]>;
+  getProofRequestById(id: string): Promise<ProofRequest | undefined>;
+  createProofRequest(data: InsertProofRequest): Promise<ProofRequest>;
+  updateProofRequest(id: string, data: Partial<InsertProofRequest>): Promise<ProofRequest | undefined>;
+  deleteProofRequest(id: string): Promise<void>;
+
+  // Proof Asset operations
+  getProofAssetsByRequest(proofRequestId: string): Promise<ProofAsset[]>;
+  getProofAssetById(id: string): Promise<ProofAsset | undefined>;
+  createProofAsset(data: InsertProofAsset): Promise<ProofAsset>;
+  updateProofAsset(id: string, data: Partial<InsertProofAsset>): Promise<ProofAsset | undefined>;
+  deleteProofAsset(id: string): Promise<void>;
+
+  // Proof Comment operations
+  getProofCommentsByRequest(proofRequestId: string): Promise<ProofComment[]>;
+  getProofCommentsByAsset(proofAssetId: string): Promise<ProofComment[]>;
+  createProofComment(data: InsertProofComment): Promise<ProofComment>;
+  updateProofComment(id: string, data: Partial<InsertProofComment>): Promise<ProofComment | undefined>;
+  deleteProofComment(id: string): Promise<void>;
+
+  // Proof Status History operations
+  getProofStatusHistory(proofRequestId: string): Promise<ProofStatusHistory[]>;
+  createProofStatusHistory(data: InsertProofStatusHistory): Promise<ProofStatusHistory>;
+
+  // Approved Proofs Query
+  getApprovedProofs(organizationId: string, filters?: { printVendor?: string; area?: string; eventId?: string }): Promise<ProofRequest[]>;
 }
 
 // Types for Moments Analytics
@@ -7037,6 +7099,233 @@ export class DatabaseStorage implements IStorage {
         eq(helpArticles.organizationId, organizationId)
       ));
     return true;
+  }
+
+  // Designer operations (Graphic Proof Approval System)
+  async getDesignersByOrganization(organizationId: string): Promise<Designer[]> {
+    return db.select()
+      .from(designers)
+      .where(eq(designers.organizationId, organizationId))
+      .orderBy(desc(designers.createdAt));
+  }
+
+  async getDesignerById(id: string): Promise<Designer | undefined> {
+    const [designer] = await db.select()
+      .from(designers)
+      .where(eq(designers.id, id));
+    return designer;
+  }
+
+  async getDesignerByEmail(email: string, organizationId: string): Promise<Designer | undefined> {
+    const [designer] = await db.select()
+      .from(designers)
+      .where(and(
+        ilike(designers.email, email),
+        eq(designers.organizationId, organizationId)
+      ));
+    return designer;
+  }
+
+  async getDesignerByInviteCode(inviteCode: string): Promise<Designer | undefined> {
+    const [designer] = await db.select()
+      .from(designers)
+      .where(eq(designers.inviteCode, inviteCode));
+    return designer;
+  }
+
+  async createDesigner(data: InsertDesigner): Promise<Designer> {
+    const [designer] = await db.insert(designers)
+      .values(data)
+      .returning();
+    return designer;
+  }
+
+  async updateDesigner(id: string, data: Partial<InsertDesigner>): Promise<Designer | undefined> {
+    const [updated] = await db.update(designers)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(designers.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteDesigner(id: string): Promise<void> {
+    await db.delete(designers)
+      .where(eq(designers.id, id));
+  }
+
+  // Designer Session operations
+  async getDesignerSessionByToken(sessionToken: string): Promise<DesignerSession | undefined> {
+    const [session] = await db.select()
+      .from(designerSessions)
+      .where(eq(designerSessions.sessionToken, sessionToken));
+    return session;
+  }
+
+  async createDesignerSession(data: InsertDesignerSession): Promise<DesignerSession> {
+    const [session] = await db.insert(designerSessions)
+      .values(data)
+      .returning();
+    return session;
+  }
+
+  async deleteDesignerSession(sessionToken: string): Promise<void> {
+    await db.delete(designerSessions)
+      .where(eq(designerSessions.sessionToken, sessionToken));
+  }
+
+  async deleteExpiredDesignerSessions(): Promise<void> {
+    await db.delete(designerSessions)
+      .where(lt(designerSessions.expiresAt, new Date()));
+  }
+
+  // Proof Request operations
+  async getProofRequestsByOrganization(organizationId: string): Promise<ProofRequest[]> {
+    return db.select()
+      .from(proofRequests)
+      .where(eq(proofRequests.organizationId, organizationId))
+      .orderBy(desc(proofRequests.createdAt));
+  }
+
+  async getProofRequestsByDesigner(designerId: string): Promise<ProofRequest[]> {
+    return db.select()
+      .from(proofRequests)
+      .where(eq(proofRequests.designerId, designerId))
+      .orderBy(desc(proofRequests.createdAt));
+  }
+
+  async getProofRequestById(id: string): Promise<ProofRequest | undefined> {
+    const [request] = await db.select()
+      .from(proofRequests)
+      .where(eq(proofRequests.id, id));
+    return request;
+  }
+
+  async createProofRequest(data: InsertProofRequest): Promise<ProofRequest> {
+    const [request] = await db.insert(proofRequests)
+      .values(data)
+      .returning();
+    return request;
+  }
+
+  async updateProofRequest(id: string, data: Partial<InsertProofRequest>): Promise<ProofRequest | undefined> {
+    const [updated] = await db.update(proofRequests)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(proofRequests.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteProofRequest(id: string): Promise<void> {
+    await db.delete(proofRequests)
+      .where(eq(proofRequests.id, id));
+  }
+
+  // Proof Asset operations
+  async getProofAssetsByRequest(proofRequestId: string): Promise<ProofAsset[]> {
+    return db.select()
+      .from(proofAssets)
+      .where(eq(proofAssets.proofRequestId, proofRequestId))
+      .orderBy(desc(proofAssets.version));
+  }
+
+  async getProofAssetById(id: string): Promise<ProofAsset | undefined> {
+    const [asset] = await db.select()
+      .from(proofAssets)
+      .where(eq(proofAssets.id, id));
+    return asset;
+  }
+
+  async createProofAsset(data: InsertProofAsset): Promise<ProofAsset> {
+    const [asset] = await db.insert(proofAssets)
+      .values(data)
+      .returning();
+    return asset;
+  }
+
+  async updateProofAsset(id: string, data: Partial<InsertProofAsset>): Promise<ProofAsset | undefined> {
+    const [updated] = await db.update(proofAssets)
+      .set(data)
+      .where(eq(proofAssets.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteProofAsset(id: string): Promise<void> {
+    await db.delete(proofAssets)
+      .where(eq(proofAssets.id, id));
+  }
+
+  // Proof Comment operations
+  async getProofCommentsByRequest(proofRequestId: string): Promise<ProofComment[]> {
+    return db.select()
+      .from(proofComments)
+      .where(eq(proofComments.proofRequestId, proofRequestId))
+      .orderBy(desc(proofComments.createdAt));
+  }
+
+  async getProofCommentsByAsset(proofAssetId: string): Promise<ProofComment[]> {
+    return db.select()
+      .from(proofComments)
+      .where(eq(proofComments.proofAssetId, proofAssetId))
+      .orderBy(desc(proofComments.createdAt));
+  }
+
+  async createProofComment(data: InsertProofComment): Promise<ProofComment> {
+    const [comment] = await db.insert(proofComments)
+      .values(data)
+      .returning();
+    return comment;
+  }
+
+  async updateProofComment(id: string, data: Partial<InsertProofComment>): Promise<ProofComment | undefined> {
+    const [updated] = await db.update(proofComments)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(proofComments.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteProofComment(id: string): Promise<void> {
+    await db.delete(proofComments)
+      .where(eq(proofComments.id, id));
+  }
+
+  // Proof Status History operations
+  async getProofStatusHistory(proofRequestId: string): Promise<ProofStatusHistory[]> {
+    return db.select()
+      .from(proofStatusHistory)
+      .where(eq(proofStatusHistory.proofRequestId, proofRequestId))
+      .orderBy(desc(proofStatusHistory.createdAt));
+  }
+
+  async createProofStatusHistory(data: InsertProofStatusHistory): Promise<ProofStatusHistory> {
+    const [history] = await db.insert(proofStatusHistory)
+      .values(data)
+      .returning();
+    return history;
+  }
+
+  // Approved Proofs Query
+  async getApprovedProofs(organizationId: string, filters?: { printVendor?: string; area?: string; eventId?: string }): Promise<ProofRequest[]> {
+    const conditions = [
+      eq(proofRequests.organizationId, organizationId),
+      eq(proofRequests.status, 'approved'),
+    ];
+
+    if (filters?.printVendor) {
+      conditions.push(eq(proofRequests.printVendor, filters.printVendor));
+    }
+    if (filters?.area) {
+      conditions.push(eq(proofRequests.area, filters.area));
+    }
+    if (filters?.eventId) {
+      conditions.push(eq(proofRequests.eventId, filters.eventId));
+    }
+
+    return db.select()
+      .from(proofRequests)
+      .where(and(...conditions))
+      .orderBy(desc(proofRequests.updatedAt));
   }
 }
 

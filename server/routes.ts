@@ -112,6 +112,12 @@ import {
   insertRoomOpenHoursSchema,
   insertMemberRoomAssignmentSchema,
   insertDemoStationSchema,
+  insertDesignerSchema,
+  insertProofRequestSchema,
+  insertProofAssetSchema,
+  insertProofCommentSchema,
+  insertProofStatusHistorySchema,
+  type Designer,
 } from "@shared/schema";
 import { createMailchimpProvider } from "./integrations/mailchimp";
 import { decrypt, encrypt } from "./encryption";
@@ -18298,6 +18304,1101 @@ ${articlesContext}`;
     } catch (error) {
       logError("Error in help chat:", error);
       res.status(500).json({ message: "Failed to process chat message" });
+    }
+  });
+
+  // =============================================================================
+  // GRAPHIC PROOF APPROVAL SYSTEM ROUTES
+  // =============================================================================
+
+  // Helper function to get designer from request (cookie or Authorization header)
+  async function getDesignerFromRequest(req: any): Promise<Designer | null> {
+    try {
+      // Check for session token in cookie or Authorization header
+      let sessionToken = req.cookies?.designer_session;
+      
+      if (!sessionToken) {
+        const authHeader = req.headers.authorization;
+        if (authHeader?.startsWith('Bearer ')) {
+          sessionToken = authHeader.slice(7);
+        }
+      }
+      
+      if (!sessionToken) {
+        return null;
+      }
+      
+      // Clean up expired sessions periodically
+      await storage.deleteExpiredDesignerSessions();
+      
+      // Look up the session
+      const session = await storage.getDesignerSessionByToken(sessionToken);
+      if (!session) {
+        return null;
+      }
+      
+      // Check if session is expired
+      if (new Date(session.expiresAt) < new Date()) {
+        await storage.deleteDesignerSession(sessionToken);
+        return null;
+      }
+      
+      // Get the designer
+      const designer = await storage.getDesignerById(session.designerId);
+      if (!designer || designer.status !== 'active') {
+        return null;
+      }
+      
+      return designer;
+    } catch (error) {
+      logError("Error getting designer from request:", error);
+      return null;
+    }
+  }
+
+  // =============================================================================
+  // DESIGNER PORTAL ROUTES (public/designer auth)
+  // =============================================================================
+
+  // POST /api/designer/auth/validate - Validate designer magic link
+  app.post("/api/designer/auth/validate", async (req: any, res) => {
+    try {
+      const { inviteCode } = req.body;
+      
+      if (!inviteCode || typeof inviteCode !== 'string') {
+        return res.status(400).json({ message: "Invite code is required" });
+      }
+      
+      // Find designer by invite code
+      const designer = await storage.getDesignerByInviteCode(inviteCode);
+      if (!designer) {
+        return res.status(404).json({ message: "Invalid invite code" });
+      }
+      
+      if (designer.status !== 'active') {
+        return res.status(403).json({ message: "Designer account is not active" });
+      }
+      
+      // Generate session token with 7-day expiry
+      const sessionToken = randomBytes(32).toString('hex');
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+      
+      // Create session
+      await storage.createDesignerSession({
+        designerId: designer.id,
+        sessionToken,
+        expiresAt,
+      });
+      
+      // Update last login
+      await storage.updateDesigner(designer.id, { lastLoginAt: new Date() });
+      
+      // Set cookie
+      res.cookie('designer_session', sessionToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      });
+      
+      res.json({
+        designer: {
+          id: designer.id,
+          email: designer.email,
+          firstName: designer.firstName,
+          lastName: designer.lastName,
+          company: designer.company,
+          organizationId: designer.organizationId,
+        },
+        sessionToken,
+      });
+    } catch (error) {
+      logError("Error validating designer invite code:", error);
+      res.status(500).json({ message: "Failed to validate invite code" });
+    }
+  });
+
+  // GET /api/designer/auth/me - Get current designer
+  app.get("/api/designer/auth/me", async (req: any, res) => {
+    try {
+      const designer = await getDesignerFromRequest(req);
+      
+      if (!designer) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
+      res.json({
+        id: designer.id,
+        email: designer.email,
+        firstName: designer.firstName,
+        lastName: designer.lastName,
+        company: designer.company,
+        phone: designer.phone,
+        organizationId: designer.organizationId,
+      });
+    } catch (error) {
+      logError("Error getting current designer:", error);
+      res.status(500).json({ message: "Failed to get designer info" });
+    }
+  });
+
+  // POST /api/designer/auth/logout - Logout designer
+  app.post("/api/designer/auth/logout", async (req: any, res) => {
+    try {
+      const sessionToken = req.cookies?.designer_session;
+      
+      if (sessionToken) {
+        await storage.deleteDesignerSession(sessionToken);
+      }
+      
+      res.clearCookie('designer_session');
+      res.json({ message: "Logged out successfully" });
+    } catch (error) {
+      logError("Error logging out designer:", error);
+      res.status(500).json({ message: "Failed to logout" });
+    }
+  });
+
+  // GET /api/designer/proof-requests - Get proof requests assigned to designer
+  app.get("/api/designer/proof-requests", async (req: any, res) => {
+    try {
+      const designer = await getDesignerFromRequest(req);
+      
+      if (!designer) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
+      const proofRequests = await storage.getProofRequestsByDesigner(designer.id);
+      res.json(proofRequests);
+    } catch (error) {
+      logError("Error getting designer proof requests:", error);
+      res.status(500).json({ message: "Failed to get proof requests" });
+    }
+  });
+
+  // GET /api/designer/proof-requests/:id - Get single proof request with assets and comments
+  app.get("/api/designer/proof-requests/:id", async (req: any, res) => {
+    try {
+      const designer = await getDesignerFromRequest(req);
+      
+      if (!designer) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
+      const { id } = req.params;
+      const proofRequest = await storage.getProofRequestById(id);
+      
+      if (!proofRequest) {
+        return res.status(404).json({ message: "Proof request not found" });
+      }
+      
+      // Verify this request belongs to the designer
+      if (proofRequest.designerId !== designer.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      // Get assets and comments (excluding internal comments)
+      const assets = await storage.getProofAssetsByRequest(id);
+      const allComments = await storage.getProofCommentsByRequest(id);
+      const comments = allComments.filter(c => !c.isInternal);
+      
+      res.json({
+        ...proofRequest,
+        assets,
+        comments,
+      });
+    } catch (error) {
+      logError("Error getting designer proof request:", error);
+      res.status(500).json({ message: "Failed to get proof request" });
+    }
+  });
+
+  // POST /api/designer/proof-requests/:id/assets - Upload proof asset as designer
+  app.post("/api/designer/proof-requests/:id/assets", async (req: any, res) => {
+    try {
+      const designer = await getDesignerFromRequest(req);
+      
+      if (!designer) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
+      const { id } = req.params;
+      const proofRequest = await storage.getProofRequestById(id);
+      
+      if (!proofRequest) {
+        return res.status(404).json({ message: "Proof request not found" });
+      }
+      
+      if (proofRequest.designerId !== designer.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const assetSchema = insertProofAssetSchema.pick({
+        version: true,
+        fileName: true,
+        fileUrl: true,
+        fileSize: true,
+        mimeType: true,
+        notes: true,
+      });
+      
+      const parsed = assetSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request", errors: parsed.error.errors });
+      }
+      
+      // Mark previous versions as not current
+      const existingAssets = await storage.getProofAssetsByRequest(id);
+      for (const asset of existingAssets) {
+        if (asset.isCurrentVersion) {
+          await storage.updateProofAsset(asset.id, { isCurrentVersion: false });
+        }
+      }
+      
+      const asset = await storage.createProofAsset({
+        organizationId: proofRequest.organizationId,
+        proofRequestId: id,
+        version: parsed.data.version,
+        fileName: parsed.data.fileName,
+        fileUrl: parsed.data.fileUrl,
+        fileSize: parsed.data.fileSize,
+        mimeType: parsed.data.mimeType,
+        notes: parsed.data.notes,
+        uploadedBy: designer.id,
+        uploaderType: 'designer',
+        isCurrentVersion: true,
+      });
+      
+      // Update proof request status if it was pending upload
+      if (proofRequest.status === 'pending_upload') {
+        const previousStatus = proofRequest.status;
+        await storage.updateProofRequest(id, { status: 'in_review', updatedAt: new Date() });
+        
+        // Create status history entry
+        await storage.createProofStatusHistory({
+          organizationId: proofRequest.organizationId,
+          proofRequestId: id,
+          previousStatus,
+          newStatus: 'in_review',
+          changedBy: designer.id,
+          changedByType: 'designer',
+          changedByName: `${designer.firstName || ''} ${designer.lastName || ''}`.trim() || designer.email,
+          reason: 'Designer uploaded proof asset',
+        });
+      }
+      
+      res.status(201).json(asset);
+    } catch (error) {
+      logError("Error uploading designer proof asset:", error);
+      res.status(500).json({ message: "Failed to upload asset" });
+    }
+  });
+
+  // GET /api/designer/proof-requests/:id/comments - Get comments (exclude internal-only)
+  app.get("/api/designer/proof-requests/:id/comments", async (req: any, res) => {
+    try {
+      const designer = await getDesignerFromRequest(req);
+      
+      if (!designer) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
+      const { id } = req.params;
+      const proofRequest = await storage.getProofRequestById(id);
+      
+      if (!proofRequest) {
+        return res.status(404).json({ message: "Proof request not found" });
+      }
+      
+      if (proofRequest.designerId !== designer.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const allComments = await storage.getProofCommentsByRequest(id);
+      const comments = allComments.filter(c => !c.isInternal);
+      
+      res.json(comments);
+    } catch (error) {
+      logError("Error getting designer proof comments:", error);
+      res.status(500).json({ message: "Failed to get comments" });
+    }
+  });
+
+  // POST /api/designer/proof-requests/:id/comments - Add comment as designer
+  app.post("/api/designer/proof-requests/:id/comments", async (req: any, res) => {
+    try {
+      const designer = await getDesignerFromRequest(req);
+      
+      if (!designer) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
+      const { id } = req.params;
+      const proofRequest = await storage.getProofRequestById(id);
+      
+      if (!proofRequest) {
+        return res.status(404).json({ message: "Proof request not found" });
+      }
+      
+      if (proofRequest.designerId !== designer.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const commentSchema = z.object({
+        content: z.string().min(1, "Comment content is required"),
+        proofAssetId: z.string().optional(),
+      });
+      
+      const parsed = commentSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request", errors: parsed.error.errors });
+      }
+      
+      const comment = await storage.createProofComment({
+        organizationId: proofRequest.organizationId,
+        proofRequestId: id,
+        proofAssetId: parsed.data.proofAssetId,
+        authorId: designer.id,
+        authorType: 'designer',
+        authorName: `${designer.firstName || ''} ${designer.lastName || ''}`.trim() || designer.email,
+        content: parsed.data.content,
+        isInternal: false, // Designers can only add non-internal comments
+      });
+      
+      res.status(201).json(comment);
+    } catch (error) {
+      logError("Error adding designer proof comment:", error);
+      res.status(500).json({ message: "Failed to add comment" });
+    }
+  });
+
+  // =============================================================================
+  // INTERNAL ADMIN ROUTES (require auth)
+  // =============================================================================
+
+  // GET /api/designers - List all designers for organization
+  app.get("/api/designers", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = await getOrganizationId(userId, req.session);
+      const designers = await storage.getDesignersByOrganization(organizationId);
+      
+      res.json(designers);
+    } catch (error) {
+      logError("Error getting designers:", error);
+      res.status(500).json({ message: "Failed to get designers" });
+    }
+  });
+
+  // POST /api/designers - Create/invite new designer
+  app.post("/api/designers", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = await getOrganizationId(userId, req.session);
+      
+      const designerSchema = insertDesignerSchema.pick({
+        email: true,
+        firstName: true,
+        lastName: true,
+        company: true,
+        phone: true,
+      });
+      
+      const parsed = designerSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request", errors: parsed.error.errors });
+      }
+      
+      // Check if designer with this email already exists for this organization
+      const existingDesigner = await storage.getDesignerByEmail(parsed.data.email, organizationId);
+      if (existingDesigner) {
+        return res.status(409).json({ message: "A designer with this email already exists" });
+      }
+      
+      // Generate unique invite code
+      const inviteCode = randomBytes(32).toString('hex');
+      
+      const designer = await storage.createDesigner({
+        organizationId,
+        email: parsed.data.email,
+        firstName: parsed.data.firstName,
+        lastName: parsed.data.lastName,
+        company: parsed.data.company,
+        phone: parsed.data.phone,
+        inviteCode,
+        status: 'active',
+        invitedBy: userId,
+      });
+      
+      res.status(201).json(designer);
+    } catch (error) {
+      logError("Error creating designer:", error);
+      res.status(500).json({ message: "Failed to create designer" });
+    }
+  });
+
+  // GET /api/designers/:id - Get designer by ID
+  app.get("/api/designers/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { id } = req.params;
+      
+      const designer = await storage.getDesignerById(id);
+      if (!designer || designer.organizationId !== organizationId) {
+        return res.status(404).json({ message: "Designer not found" });
+      }
+      
+      res.json(designer);
+    } catch (error) {
+      logError("Error getting designer:", error);
+      res.status(500).json({ message: "Failed to get designer" });
+    }
+  });
+
+  // PATCH /api/designers/:id - Update designer
+  app.patch("/api/designers/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { id } = req.params;
+      
+      const designer = await storage.getDesignerById(id);
+      if (!designer || designer.organizationId !== organizationId) {
+        return res.status(404).json({ message: "Designer not found" });
+      }
+      
+      const updateSchema = insertDesignerSchema.pick({
+        email: true,
+        firstName: true,
+        lastName: true,
+        company: true,
+        phone: true,
+        status: true,
+      }).partial();
+      
+      const parsed = updateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request", errors: parsed.error.errors });
+      }
+      
+      const updated = await storage.updateDesigner(id, {
+        ...parsed.data,
+        updatedAt: new Date(),
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      logError("Error updating designer:", error);
+      res.status(500).json({ message: "Failed to update designer" });
+    }
+  });
+
+  // DELETE /api/designers/:id - Delete designer
+  app.delete("/api/designers/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { id } = req.params;
+      
+      const designer = await storage.getDesignerById(id);
+      if (!designer || designer.organizationId !== organizationId) {
+        return res.status(404).json({ message: "Designer not found" });
+      }
+      
+      await storage.deleteDesigner(id);
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting designer:", error);
+      res.status(500).json({ message: "Failed to delete designer" });
+    }
+  });
+
+  // GET /api/proof-requests - List all proof requests for organization
+  app.get("/api/proof-requests", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = await getOrganizationId(userId, req.session);
+      const proofRequests = await storage.getProofRequestsByOrganization(organizationId);
+      
+      res.json(proofRequests);
+    } catch (error) {
+      logError("Error getting proof requests:", error);
+      res.status(500).json({ message: "Failed to get proof requests" });
+    }
+  });
+
+  // POST /api/proof-requests - Create new proof request
+  app.post("/api/proof-requests", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = await getOrganizationId(userId, req.session);
+      
+      const requestSchema = insertProofRequestSchema.pick({
+        eventId: true,
+        designerId: true,
+        title: true,
+        description: true,
+        printVendor: true,
+        area: true,
+        category: true,
+        dueDate: true,
+        priority: true,
+        assignedReviewer: true,
+      });
+      
+      const parsed = requestSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request", errors: parsed.error.errors });
+      }
+      
+      // Verify designer belongs to this organization
+      const designer = await storage.getDesignerById(parsed.data.designerId);
+      if (!designer || designer.organizationId !== organizationId) {
+        return res.status(400).json({ message: "Invalid designer" });
+      }
+      
+      const proofRequest = await storage.createProofRequest({
+        organizationId,
+        eventId: parsed.data.eventId,
+        designerId: parsed.data.designerId,
+        title: parsed.data.title,
+        description: parsed.data.description,
+        printVendor: parsed.data.printVendor,
+        area: parsed.data.area,
+        category: parsed.data.category,
+        dueDate: parsed.data.dueDate,
+        priority: parsed.data.priority || 'normal',
+        status: 'pending_upload',
+        assignedReviewer: parsed.data.assignedReviewer,
+        createdBy: userId,
+      });
+      
+      // Create initial status history entry
+      const user = await storage.getUser(userId);
+      await storage.createProofStatusHistory({
+        organizationId,
+        proofRequestId: proofRequest.id,
+        previousStatus: null,
+        newStatus: 'pending_upload',
+        changedBy: userId,
+        changedByType: 'user',
+        changedByName: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.email || 'Unknown',
+        reason: 'Proof request created',
+      });
+      
+      res.status(201).json(proofRequest);
+    } catch (error) {
+      logError("Error creating proof request:", error);
+      res.status(500).json({ message: "Failed to create proof request" });
+    }
+  });
+
+  // GET /api/proof-requests/:id - Get proof request with full details
+  app.get("/api/proof-requests/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { id } = req.params;
+      
+      const proofRequest = await storage.getProofRequestById(id);
+      if (!proofRequest || proofRequest.organizationId !== organizationId) {
+        return res.status(404).json({ message: "Proof request not found" });
+      }
+      
+      // Get related data
+      const assets = await storage.getProofAssetsByRequest(id);
+      const comments = await storage.getProofCommentsByRequest(id);
+      const history = await storage.getProofStatusHistory(id);
+      const designer = await storage.getDesignerById(proofRequest.designerId);
+      
+      res.json({
+        ...proofRequest,
+        assets,
+        comments,
+        statusHistory: history,
+        designer,
+      });
+    } catch (error) {
+      logError("Error getting proof request:", error);
+      res.status(500).json({ message: "Failed to get proof request" });
+    }
+  });
+
+  // PATCH /api/proof-requests/:id - Update proof request (including status)
+  app.patch("/api/proof-requests/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { id } = req.params;
+      
+      const proofRequest = await storage.getProofRequestById(id);
+      if (!proofRequest || proofRequest.organizationId !== organizationId) {
+        return res.status(404).json({ message: "Proof request not found" });
+      }
+      
+      const updateSchema = insertProofRequestSchema.pick({
+        eventId: true,
+        designerId: true,
+        title: true,
+        description: true,
+        printVendor: true,
+        area: true,
+        category: true,
+        dueDate: true,
+        priority: true,
+        status: true,
+        assignedReviewer: true,
+      }).partial().extend({
+        statusReason: z.string().optional(),
+      });
+      
+      const parsed = updateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request", errors: parsed.error.errors });
+      }
+      
+      const { statusReason, ...updateData } = parsed.data;
+      
+      // If status is changing, create history entry
+      if (updateData.status && updateData.status !== proofRequest.status) {
+        const user = await storage.getUser(userId);
+        await storage.createProofStatusHistory({
+          organizationId,
+          proofRequestId: id,
+          previousStatus: proofRequest.status,
+          newStatus: updateData.status,
+          changedBy: userId,
+          changedByType: 'user',
+          changedByName: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.email || 'Unknown',
+          reason: statusReason,
+        });
+      }
+      
+      const updated = await storage.updateProofRequest(id, {
+        ...updateData,
+        updatedAt: new Date(),
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      logError("Error updating proof request:", error);
+      res.status(500).json({ message: "Failed to update proof request" });
+    }
+  });
+
+  // DELETE /api/proof-requests/:id - Delete proof request
+  app.delete("/api/proof-requests/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { id } = req.params;
+      
+      const proofRequest = await storage.getProofRequestById(id);
+      if (!proofRequest || proofRequest.organizationId !== organizationId) {
+        return res.status(404).json({ message: "Proof request not found" });
+      }
+      
+      await storage.deleteProofRequest(id);
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting proof request:", error);
+      res.status(500).json({ message: "Failed to delete proof request" });
+    }
+  });
+
+  // GET /api/proof-requests/:id/assets - Get all assets for request
+  app.get("/api/proof-requests/:id/assets", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { id } = req.params;
+      
+      const proofRequest = await storage.getProofRequestById(id);
+      if (!proofRequest || proofRequest.organizationId !== organizationId) {
+        return res.status(404).json({ message: "Proof request not found" });
+      }
+      
+      const assets = await storage.getProofAssetsByRequest(id);
+      res.json(assets);
+    } catch (error) {
+      logError("Error getting proof assets:", error);
+      res.status(500).json({ message: "Failed to get assets" });
+    }
+  });
+
+  // POST /api/proof-requests/:id/assets - Upload asset (internal user)
+  app.post("/api/proof-requests/:id/assets", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { id } = req.params;
+      
+      const proofRequest = await storage.getProofRequestById(id);
+      if (!proofRequest || proofRequest.organizationId !== organizationId) {
+        return res.status(404).json({ message: "Proof request not found" });
+      }
+      
+      const assetSchema = insertProofAssetSchema.pick({
+        version: true,
+        fileName: true,
+        fileUrl: true,
+        fileSize: true,
+        mimeType: true,
+        notes: true,
+      });
+      
+      const parsed = assetSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request", errors: parsed.error.errors });
+      }
+      
+      // Mark previous versions as not current
+      const existingAssets = await storage.getProofAssetsByRequest(id);
+      for (const asset of existingAssets) {
+        if (asset.isCurrentVersion) {
+          await storage.updateProofAsset(asset.id, { isCurrentVersion: false });
+        }
+      }
+      
+      const asset = await storage.createProofAsset({
+        organizationId,
+        proofRequestId: id,
+        version: parsed.data.version,
+        fileName: parsed.data.fileName,
+        fileUrl: parsed.data.fileUrl,
+        fileSize: parsed.data.fileSize,
+        mimeType: parsed.data.mimeType,
+        notes: parsed.data.notes,
+        uploadedBy: userId,
+        uploaderType: 'user',
+        isCurrentVersion: true,
+      });
+      
+      res.status(201).json(asset);
+    } catch (error) {
+      logError("Error uploading proof asset:", error);
+      res.status(500).json({ message: "Failed to upload asset" });
+    }
+  });
+
+  // PATCH /api/proof-assets/:id - Update asset metadata
+  app.patch("/api/proof-assets/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { id } = req.params;
+      
+      const asset = await storage.getProofAssetById(id);
+      if (!asset || asset.organizationId !== organizationId) {
+        return res.status(404).json({ message: "Asset not found" });
+      }
+      
+      const updateSchema = insertProofAssetSchema.pick({
+        notes: true,
+        isCurrentVersion: true,
+      }).partial();
+      
+      const parsed = updateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request", errors: parsed.error.errors });
+      }
+      
+      const updated = await storage.updateProofAsset(id, parsed.data);
+      res.json(updated);
+    } catch (error) {
+      logError("Error updating proof asset:", error);
+      res.status(500).json({ message: "Failed to update asset" });
+    }
+  });
+
+  // DELETE /api/proof-assets/:id - Delete asset
+  app.delete("/api/proof-assets/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { id } = req.params;
+      
+      const asset = await storage.getProofAssetById(id);
+      if (!asset || asset.organizationId !== organizationId) {
+        return res.status(404).json({ message: "Asset not found" });
+      }
+      
+      await storage.deleteProofAsset(id);
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting proof asset:", error);
+      res.status(500).json({ message: "Failed to delete asset" });
+    }
+  });
+
+  // GET /api/proof-requests/:id/comments - Get all comments (including internal)
+  app.get("/api/proof-requests/:id/comments", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { id } = req.params;
+      
+      const proofRequest = await storage.getProofRequestById(id);
+      if (!proofRequest || proofRequest.organizationId !== organizationId) {
+        return res.status(404).json({ message: "Proof request not found" });
+      }
+      
+      const comments = await storage.getProofCommentsByRequest(id);
+      res.json(comments);
+    } catch (error) {
+      logError("Error getting proof comments:", error);
+      res.status(500).json({ message: "Failed to get comments" });
+    }
+  });
+
+  // POST /api/proof-requests/:id/comments - Add comment
+  app.post("/api/proof-requests/:id/comments", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { id } = req.params;
+      
+      const proofRequest = await storage.getProofRequestById(id);
+      if (!proofRequest || proofRequest.organizationId !== organizationId) {
+        return res.status(404).json({ message: "Proof request not found" });
+      }
+      
+      const commentSchema = z.object({
+        content: z.string().min(1, "Comment content is required"),
+        proofAssetId: z.string().optional(),
+        isInternal: z.boolean().optional(),
+      });
+      
+      const parsed = commentSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request", errors: parsed.error.errors });
+      }
+      
+      const user = await storage.getUser(userId);
+      
+      const comment = await storage.createProofComment({
+        organizationId,
+        proofRequestId: id,
+        proofAssetId: parsed.data.proofAssetId,
+        authorId: userId,
+        authorType: 'user',
+        authorName: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.email || 'Unknown',
+        content: parsed.data.content,
+        isInternal: parsed.data.isInternal || false,
+      });
+      
+      res.status(201).json(comment);
+    } catch (error) {
+      logError("Error adding proof comment:", error);
+      res.status(500).json({ message: "Failed to add comment" });
+    }
+  });
+
+  // PATCH /api/proof-comments/:id - Update comment
+  app.patch("/api/proof-comments/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { id } = req.params;
+      
+      // Get comment and verify ownership
+      const comments = await storage.getProofCommentsByRequest(id);
+      // We need to get comment by ID - let's check via all comments
+      const allProofRequests = await storage.getProofRequestsByOrganization(organizationId);
+      let targetComment = null;
+      
+      for (const pr of allProofRequests) {
+        const prComments = await storage.getProofCommentsByRequest(pr.id);
+        const found = prComments.find(c => c.id === id);
+        if (found) {
+          targetComment = found;
+          break;
+        }
+      }
+      
+      if (!targetComment || targetComment.organizationId !== organizationId) {
+        return res.status(404).json({ message: "Comment not found" });
+      }
+      
+      // Only author can update their own comment
+      if (targetComment.authorId !== userId) {
+        return res.status(403).json({ message: "You can only edit your own comments" });
+      }
+      
+      const updateSchema = z.object({
+        content: z.string().min(1).optional(),
+        isInternal: z.boolean().optional(),
+      });
+      
+      const parsed = updateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request", errors: parsed.error.errors });
+      }
+      
+      const updated = await storage.updateProofComment(id, {
+        ...parsed.data,
+        updatedAt: new Date(),
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      logError("Error updating proof comment:", error);
+      res.status(500).json({ message: "Failed to update comment" });
+    }
+  });
+
+  // DELETE /api/proof-comments/:id - Delete comment
+  app.delete("/api/proof-comments/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { id } = req.params;
+      
+      // Find the comment by iterating through proof requests
+      const allProofRequests = await storage.getProofRequestsByOrganization(organizationId);
+      let targetComment = null;
+      
+      for (const pr of allProofRequests) {
+        const prComments = await storage.getProofCommentsByRequest(pr.id);
+        const found = prComments.find(c => c.id === id);
+        if (found) {
+          targetComment = found;
+          break;
+        }
+      }
+      
+      if (!targetComment || targetComment.organizationId !== organizationId) {
+        return res.status(404).json({ message: "Comment not found" });
+      }
+      
+      await storage.deleteProofComment(id);
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting proof comment:", error);
+      res.status(500).json({ message: "Failed to delete comment" });
+    }
+  });
+
+  // GET /api/proof-requests/:id/history - Get status history
+  app.get("/api/proof-requests/:id/history", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { id } = req.params;
+      
+      const proofRequest = await storage.getProofRequestById(id);
+      if (!proofRequest || proofRequest.organizationId !== organizationId) {
+        return res.status(404).json({ message: "Proof request not found" });
+      }
+      
+      const history = await storage.getProofStatusHistory(id);
+      res.json(history);
+    } catch (error) {
+      logError("Error getting proof status history:", error);
+      res.status(500).json({ message: "Failed to get status history" });
+    }
+  });
+
+  // GET /api/approved-proofs - Get approved proofs with filters
+  app.get("/api/approved-proofs", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = await getOrganizationId(userId, req.session);
+      
+      const { printVendor, area, eventId } = req.query;
+      
+      const filters: { printVendor?: string; area?: string; eventId?: string } = {};
+      if (printVendor && typeof printVendor === 'string') filters.printVendor = printVendor;
+      if (area && typeof area === 'string') filters.area = area;
+      if (eventId && typeof eventId === 'string') filters.eventId = eventId;
+      
+      const approvedProofs = await storage.getApprovedProofs(organizationId, filters);
+      res.json(approvedProofs);
+    } catch (error) {
+      logError("Error getting approved proofs:", error);
+      res.status(500).json({ message: "Failed to get approved proofs" });
     }
   });
 
