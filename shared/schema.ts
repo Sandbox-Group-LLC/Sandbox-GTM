@@ -2771,22 +2771,23 @@ export const designerSessions = pgTable("designer_sessions", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// Proof Requests table - Requests for graphic proofs
+// Proof Requests table - Proof submissions from designers
 export const proofRequests = pgTable("proof_requests", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
   eventId: varchar("event_id").references(() => events.id),
-  designerId: varchar("designer_id").references(() => designers.id).notNull(),
+  designerId: varchar("designer_id").references(() => designers.id), // Optional for backward compatibility
+  submittedByDesignerId: varchar("submitted_by_designer_id").references(() => designers.id), // Designer who created the submission
   title: varchar("title", { length: 255 }).notNull(),
   description: text("description"),
   printVendor: varchar("print_vendor", { length: 255 }),
   area: varchar("area", { length: 255 }),
   category: varchar("category", { length: 100 }),
-  dueDate: timestamp("due_date"),
-  priority: varchar("priority", { length: 20 }).default("normal"),
-  status: varchar("status", { length: 30 }).default("pending_upload"),
+  dueDate: timestamp("due_date"), // Optional - admin can set during review
+  priority: varchar("priority", { length: 20 }), // Optional - admin can set during review
+  status: varchar("status", { length: 30 }).default("pending_review"), // Default to pending_review for new submissions
   assignedReviewer: varchar("assigned_reviewer").references(() => users.id),
-  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  createdBy: varchar("created_by").references(() => users.id), // Optional for designer-created submissions
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -2853,6 +2854,7 @@ export const proofRequestsRelations = relations(proofRequests, ({ one, many }) =
   organization: one(organizations, { fields: [proofRequests.organizationId], references: [organizations.id] }),
   event: one(events, { fields: [proofRequests.eventId], references: [events.id] }),
   designer: one(designers, { fields: [proofRequests.designerId], references: [designers.id] }),
+  submittedByDesigner: one(designers, { fields: [proofRequests.submittedByDesignerId], references: [designers.id] }),
   assignedReviewerUser: one(users, { fields: [proofRequests.assignedReviewer], references: [users.id] }),
   createdByUser: one(users, { fields: [proofRequests.createdBy], references: [users.id] }),
   assets: many(proofAssets),

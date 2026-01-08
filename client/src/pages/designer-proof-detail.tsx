@@ -631,9 +631,8 @@ export default function DesignerProofDetail() {
     );
   }
 
-  const canUpload =
-    proofRequest.status === "pending_upload" ||
-    proofRequest.status === "revision_requested";
+  // Designers can always upload new versions to their submissions
+  const canUpload = true;
 
   const nextVersion = assets && assets.length > 0
     ? Math.max(...assets.map((a) => a.version)) + 1

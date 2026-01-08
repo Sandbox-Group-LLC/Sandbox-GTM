@@ -1072,9 +1072,10 @@ export interface IStorage {
 
   // Proof Request operations
   getProofRequestsByOrganization(organizationId: string): Promise<ProofRequest[]>;
-  getProofRequestsByDesigner(designerId: string): Promise<ProofRequest[]>;
+  getProofRequestsByDesigner(designerId: string): Promise<ProofRequest[]>; // Returns submissions by/for designer
   getProofRequestById(id: string): Promise<ProofRequest | undefined>;
   createProofRequest(data: InsertProofRequest): Promise<ProofRequest>;
+  createProofSubmission(designerId: string, organizationId: string, data: { title: string; description?: string; printVendor?: string; area?: string; category?: string; eventId?: string }): Promise<ProofRequest>;
   updateProofRequest(id: string, data: Partial<InsertProofRequest>): Promise<ProofRequest | undefined>;
   deleteProofRequest(id: string): Promise<void>;
 
@@ -7189,7 +7190,10 @@ export class DatabaseStorage implements IStorage {
   async getProofRequestsByDesigner(designerId: string): Promise<ProofRequest[]> {
     return db.select()
       .from(proofRequests)
-      .where(eq(proofRequests.designerId, designerId))
+      .where(or(
+        eq(proofRequests.designerId, designerId),
+        eq(proofRequests.submittedByDesignerId, designerId)
+      ))
       .orderBy(desc(proofRequests.createdAt));
   }
 
@@ -7205,6 +7209,28 @@ export class DatabaseStorage implements IStorage {
       .values(data)
       .returning();
     return request;
+  }
+
+  async createProofSubmission(
+    designerId: string,
+    organizationId: string,
+    data: { title: string; description?: string; printVendor?: string; area?: string; category?: string; eventId?: string }
+  ): Promise<ProofRequest> {
+    const [submission] = await db.insert(proofRequests)
+      .values({
+        organizationId,
+        title: data.title,
+        description: data.description || null,
+        printVendor: data.printVendor || null,
+        area: data.area || null,
+        category: data.category || null,
+        eventId: data.eventId || null,
+        designerId: designerId, // For backward compatibility
+        submittedByDesignerId: designerId, // Track who submitted
+        status: 'pending_upload',
+      })
+      .returning();
+    return submission;
   }
 
   async updateProofRequest(id: string, data: Partial<InsertProofRequest>): Promise<ProofRequest | undefined> {

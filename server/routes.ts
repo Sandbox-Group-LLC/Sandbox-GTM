@@ -18460,7 +18460,67 @@ ${articlesContext}`;
     }
   });
 
-  // GET /api/designer/proof-requests - Get proof requests assigned to designer
+  // POST /api/designer/submissions - Designer creates a new proof submission
+  app.post("/api/designer/submissions", async (req: any, res) => {
+    try {
+      const designer = await getDesignerFromRequest(req);
+      
+      if (!designer) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
+      const { title, description, printVendor, area, category, eventId } = req.body;
+      
+      if (!title || typeof title !== 'string' || title.trim().length === 0) {
+        return res.status(400).json({ message: "Title is required" });
+      }
+      
+      // Validate eventId belongs to designer's organization if provided
+      if (eventId) {
+        const event = await storage.getEvent(eventId);
+        if (!event || event.organizationId !== designer.organizationId) {
+          return res.status(400).json({ message: "Invalid event" });
+        }
+      }
+      
+      const submission = await storage.createProofSubmission(
+        designer.id,
+        designer.organizationId,
+        {
+          title: title.trim(),
+          description: description || undefined,
+          printVendor: printVendor || undefined,
+          area: area || undefined,
+          category: category || undefined,
+          eventId: eventId || undefined,
+        }
+      );
+      
+      res.status(201).json(submission);
+    } catch (error) {
+      logError("Error creating designer submission:", error);
+      res.status(500).json({ message: "Failed to create submission" });
+    }
+  });
+
+  // GET /api/designer/events - Get events for the designer's organization
+  app.get("/api/designer/events", async (req: any, res) => {
+    try {
+      const designer = await getDesignerFromRequest(req);
+      
+      if (!designer) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
+      const events = await storage.getEvents(designer.organizationId);
+      res.json(events);
+    } catch (error) {
+      logError("Error getting designer events:", error);
+      res.status(500).json({ message: "Failed to get events" });
+    }
+  });
+
+  // GET /api/designer/proof-requests - Get proof requests/submissions for designer
   app.get("/api/designer/proof-requests", async (req: any, res) => {
     try {
       const designer = await getDesignerFromRequest(req);
@@ -18493,8 +18553,8 @@ ${articlesContext}`;
         return res.status(404).json({ message: "Proof request not found" });
       }
       
-      // Verify this request belongs to the designer
-      if (proofRequest.designerId !== designer.id) {
+      // Verify this request belongs to the designer (assigned or submitted by)
+      if (proofRequest.designerId !== designer.id && proofRequest.submittedByDesignerId !== designer.id) {
         return res.status(403).json({ message: "Access denied" });
       }
       
@@ -18530,7 +18590,8 @@ ${articlesContext}`;
         return res.status(404).json({ message: "Proof request not found" });
       }
       
-      if (proofRequest.designerId !== designer.id) {
+      // Verify this request belongs to the designer (assigned or submitted by)
+      if (proofRequest.designerId !== designer.id && proofRequest.submittedByDesignerId !== designer.id) {
         return res.status(403).json({ message: "Access denied" });
       }
       
@@ -18570,21 +18631,22 @@ ${articlesContext}`;
         isCurrentVersion: true,
       });
       
-      // Update proof request status if it was pending upload
-      if (proofRequest.status === 'pending_upload') {
+      // Update proof request status based on current status
+      // Set to pending_review when uploading (for new submissions, pending_upload, or after revision_requested)
+      if (proofRequest.status === 'pending_upload' || proofRequest.status === 'revision_requested') {
         const previousStatus = proofRequest.status;
-        await storage.updateProofRequest(id, { status: 'in_review', updatedAt: new Date() });
+        await storage.updateProofRequest(id, { status: 'pending_review', updatedAt: new Date() });
         
         // Create status history entry
         await storage.createProofStatusHistory({
           organizationId: proofRequest.organizationId,
           proofRequestId: id,
           previousStatus,
-          newStatus: 'in_review',
+          newStatus: 'pending_review',
           changedBy: designer.id,
           changedByType: 'designer',
           changedByName: `${designer.firstName || ''} ${designer.lastName || ''}`.trim() || designer.email,
-          reason: 'Designer uploaded proof asset',
+          reason: previousStatus === 'revision_requested' ? 'Designer uploaded revised proof' : 'Designer uploaded proof asset',
         });
       }
       
@@ -18611,7 +18673,8 @@ ${articlesContext}`;
         return res.status(404).json({ message: "Proof request not found" });
       }
       
-      if (proofRequest.designerId !== designer.id) {
+      // Verify this request belongs to the designer (assigned or submitted by)
+      if (proofRequest.designerId !== designer.id && proofRequest.submittedByDesignerId !== designer.id) {
         return res.status(403).json({ message: "Access denied" });
       }
       
@@ -18641,7 +18704,8 @@ ${articlesContext}`;
         return res.status(404).json({ message: "Proof request not found" });
       }
       
-      if (proofRequest.designerId !== designer.id) {
+      // Verify this request belongs to the designer (assigned or submitted by)
+      if (proofRequest.designerId !== designer.id && proofRequest.submittedByDesignerId !== designer.id) {
         return res.status(403).json({ message: "Access denied" });
       }
       
@@ -18846,7 +18910,20 @@ ${articlesContext}`;
       const organizationId = await getOrganizationId(userId, req.session);
       const proofRequests = await storage.getProofRequestsByOrganization(organizationId);
       
-      res.json(proofRequests);
+      // Enrich with designer info (assigned and submitter)
+      const enrichedRequests = await Promise.all(proofRequests.map(async (request) => {
+        const designer = request.designerId ? await storage.getDesignerById(request.designerId) : null;
+        const submittedByDesigner = request.submittedByDesignerId ? await storage.getDesignerById(request.submittedByDesignerId) : null;
+        const event = request.eventId ? await storage.getEventById(request.eventId) : null;
+        return {
+          ...request,
+          designer: designer ? { firstName: designer.firstName, lastName: designer.lastName, email: designer.email } : null,
+          submittedByDesigner: submittedByDesigner ? { firstName: submittedByDesigner.firstName, lastName: submittedByDesigner.lastName, email: submittedByDesigner.email } : null,
+          event: event ? { name: event.name } : null,
+        };
+      }));
+      
+      res.json(enrichedRequests);
     } catch (error) {
       logError("Error getting proof requests:", error);
       res.status(500).json({ message: "Failed to get proof requests" });
@@ -18943,14 +19020,18 @@ ${articlesContext}`;
       const assets = await storage.getProofAssetsByRequest(id);
       const comments = await storage.getProofCommentsByRequest(id);
       const history = await storage.getProofStatusHistory(id);
-      const designer = await storage.getDesignerById(proofRequest.designerId);
+      const designer = proofRequest.designerId ? await storage.getDesignerById(proofRequest.designerId) : null;
+      const submittedByDesigner = proofRequest.submittedByDesignerId ? await storage.getDesignerById(proofRequest.submittedByDesignerId) : null;
+      const event = proofRequest.eventId ? await storage.getEventById(proofRequest.eventId) : null;
       
       res.json({
         ...proofRequest,
         assets,
         comments,
         statusHistory: history,
-        designer,
+        designer: designer ? { firstName: designer.firstName, lastName: designer.lastName, email: designer.email } : null,
+        submittedByDesigner: submittedByDesigner ? { firstName: submittedByDesigner.firstName, lastName: submittedByDesigner.lastName, email: submittedByDesigner.email } : null,
+        event: event ? { name: event.name } : null,
       });
     } catch (error) {
       logError("Error getting proof request:", error);

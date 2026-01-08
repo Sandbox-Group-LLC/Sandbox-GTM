@@ -8,7 +8,25 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { queryClient } from "@/lib/queryClient";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Key,
   Loader2,
@@ -21,8 +39,9 @@ import {
   ArrowRight,
   LogOut,
   AlertCircle,
+  Plus,
 } from "lucide-react";
-import type { ProofRequest, Designer } from "@shared/schema";
+import type { ProofRequest, Designer, Event } from "@shared/schema";
 
 interface DesignerSession {
   designerId: string;
@@ -222,6 +241,28 @@ function LoginForm({ onSuccess }: { onSuccess: (session: DesignerSession) => voi
 function ProofRequestsList({ token }: { token: string }) {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    printVendor: "",
+    area: "",
+    category: "",
+    eventId: "",
+  });
+
+  const { data: events = [] } = useQuery<Event[]>({
+    queryKey: ["/api/designer/events"],
+    queryFn: async () => {
+      const response = await fetch("/api/designer/events", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        throw new Error("Failed to load events");
+      }
+      return response.json();
+    },
+  });
 
   const { data: requests, isLoading, error } = useQuery<ProofRequestWithDetails[]>({
     queryKey: ["/api/designer/proof-requests"],
@@ -235,11 +276,50 @@ function ProofRequestsList({ token }: { token: string }) {
           window.location.reload();
           throw new Error("Session expired");
         }
-        throw new Error("Failed to load proof requests");
+        throw new Error("Failed to load submissions");
       }
       return response.json();
     },
   });
+
+  const createSubmissionMutation = useMutation({
+    mutationFn: async (data: typeof formData) => {
+      const response = await fetch("/api/designer/submissions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to create submission");
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({ title: "Submission Created", description: "Now upload your proof files." });
+      setCreateDialogOpen(false);
+      setFormData({ title: "", description: "", printVendor: "", area: "", category: "", eventId: "" });
+      queryClient.invalidateQueries({ queryKey: ["/api/designer/proof-requests"] });
+      setLocation(`/designer/proof/${data.id}`);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create submission",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleCreateSubmission = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (formData.title.trim() && formData.eventId) {
+      createSubmissionMutation.mutate(formData);
+    }
+  };
 
   const handleLogout = () => {
     clearSessionToken();
@@ -290,13 +370,119 @@ function ProofRequestsList({ token }: { token: string }) {
               Designer Portal
             </h1>
             <p className="text-muted-foreground text-sm mt-1">
-              Your assigned proof requests
+              My Submissions
             </p>
           </div>
-          <Button variant="outline" onClick={handleLogout} data-testid="button-logout">
-            <LogOut className="h-4 w-4 mr-2" />
-            Logout
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button data-testid="button-new-submission">
+                  <Plus className="h-4 w-4 mr-2" />
+                  New Submission
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>New Proof Submission</DialogTitle>
+                  <DialogDescription>
+                    Create a new proof submission. After creating, you can upload your proof files.
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleCreateSubmission} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="eventId">Event *</Label>
+                    <Select
+                      value={formData.eventId}
+                      onValueChange={(value) => setFormData({ ...formData, eventId: value })}
+                    >
+                      <SelectTrigger data-testid="select-submission-event">
+                        <SelectValue placeholder="Select an event" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {events.map((event) => (
+                          <SelectItem key={event.id} value={event.id}>
+                            {event.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="title">Title *</Label>
+                    <Input
+                      id="title"
+                      value={formData.title}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      placeholder="e.g., Event Banner Design"
+                      required
+                      data-testid="input-submission-title"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="description">Description</Label>
+                    <Textarea
+                      id="description"
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      placeholder="Describe your submission..."
+                      data-testid="input-submission-description"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="printVendor">Print Vendor</Label>
+                      <Input
+                        id="printVendor"
+                        value={formData.printVendor}
+                        onChange={(e) => setFormData({ ...formData, printVendor: e.target.value })}
+                        placeholder="Vendor name"
+                        data-testid="input-submission-vendor"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="area">Area</Label>
+                      <Input
+                        id="area"
+                        value={formData.area}
+                        onChange={(e) => setFormData({ ...formData, area: e.target.value })}
+                        placeholder="e.g., Main Stage"
+                        data-testid="input-submission-area"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="category">Category</Label>
+                    <Input
+                      id="category"
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      placeholder="e.g., Signage, Banner, Poster"
+                      data-testid="input-submission-category"
+                    />
+                  </div>
+                  <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setCreateDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={createSubmissionMutation.isPending || !formData.title.trim() || !formData.eventId} data-testid="button-create-submission">
+                      {createSubmissionMutation.isPending ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Creating...
+                        </>
+                      ) : (
+                        "Create Submission"
+                      )}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+            <Button variant="outline" onClick={handleLogout} data-testid="button-logout">
+              <LogOut className="h-4 w-4 mr-2" />
+              Logout
+            </Button>
+          </div>
         </div>
 
         {requests && requests.length > 0 ? (
@@ -365,10 +551,14 @@ function ProofRequestsList({ token }: { token: string }) {
           <Card>
             <CardContent className="py-12 text-center">
               <FileImage className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-              <p className="text-muted-foreground">No proof requests assigned to you yet.</p>
+              <p className="text-muted-foreground">No submissions yet.</p>
               <p className="text-sm text-muted-foreground mt-1">
-                Check back later or contact your project manager.
+                Create your first submission to get started.
               </p>
+              <Button className="mt-4" onClick={() => setCreateDialogOpen(true)} data-testid="button-create-first-submission">
+                <Plus className="h-4 w-4 mr-2" />
+                New Submission
+              </Button>
             </CardContent>
           </Card>
         )}

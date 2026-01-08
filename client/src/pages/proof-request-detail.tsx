@@ -64,8 +64,9 @@ import {
 import type { ProofRequest, ProofAsset, ProofComment, ProofStatusHistory, Event, Designer, User as UserType } from "@shared/schema";
 
 interface ProofRequestWithDetails extends ProofRequest {
-  designer?: Designer | null;
-  event?: Event | null;
+  designer?: { firstName: string | null; lastName: string | null; email: string } | null;
+  submittedByDesigner?: { firstName: string | null; lastName: string | null; email: string } | null;
+  event?: { name: string } | null;
   createdByUser?: UserType | null;
   assignedReviewerUser?: UserType | null;
 }
@@ -355,21 +356,24 @@ export default function ProofRequestDetail() {
 
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <Label className="text-xs text-muted-foreground">Designer</Label>
-                  <p className="font-medium">
-                    {proofRequest.designer
-                      ? `${proofRequest.designer.firstName || ""} ${proofRequest.designer.lastName || ""}`.trim() || proofRequest.designer.email
-                      : "-"}
+                  <Label className="text-xs text-muted-foreground">Submitted By</Label>
+                  <p className="font-medium flex items-center gap-1">
+                    <User className="h-3 w-3" />
+                    {proofRequest.submittedByDesigner
+                      ? `${proofRequest.submittedByDesigner.firstName || ""} ${proofRequest.submittedByDesigner.lastName || ""}`.trim() || proofRequest.submittedByDesigner.email
+                      : proofRequest.designer
+                        ? `${proofRequest.designer.firstName || ""} ${proofRequest.designer.lastName || ""}`.trim() || proofRequest.designer.email
+                        : "-"}
                   </p>
                 </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Created By</Label>
-                  <p className="font-medium">
-                    {proofRequest.createdByUser
-                      ? `${proofRequest.createdByUser.firstName || ""} ${proofRequest.createdByUser.lastName || ""}`.trim() || proofRequest.createdByUser.email
-                      : "-"}
-                  </p>
-                </div>
+                {proofRequest.designer && proofRequest.submittedByDesignerId !== proofRequest.designerId && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Assigned Designer</Label>
+                    <p className="font-medium">
+                      {`${proofRequest.designer.firstName || ""} ${proofRequest.designer.lastName || ""}`.trim() || proofRequest.designer.email}
+                    </p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
