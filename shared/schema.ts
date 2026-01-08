@@ -2883,6 +2883,28 @@ export const proofStatusHistoryRelations = relations(proofStatusHistory, ({ one 
   proofRequest: one(proofRequests, { fields: [proofStatusHistory.proofRequestId], references: [proofRequests.id] }),
 }));
 
+// Proof Share Links - External sharing for print vendors
+export const proofShareLinks = pgTable("proof_share_links", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id).notNull(),
+  proofRequestId: varchar("proof_request_id").references(() => proofRequests.id).notNull(),
+  token: varchar("token", { length: 64 }).notNull().unique(),
+  createdBy: varchar("created_by").references(() => users.id),
+  recipientEmail: varchar("recipient_email", { length: 255 }),
+  recipientName: varchar("recipient_name", { length: 255 }),
+  expiresAt: timestamp("expires_at"),
+  accessCount: integer("access_count").default(0),
+  lastAccessedAt: timestamp("last_accessed_at"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const proofShareLinksRelations = relations(proofShareLinks, ({ one }) => ({
+  organization: one(organizations, { fields: [proofShareLinks.organizationId], references: [organizations.id] }),
+  proofRequest: one(proofRequests, { fields: [proofShareLinks.proofRequestId], references: [proofRequests.id] }),
+  createdByUser: one(users, { fields: [proofShareLinks.createdBy], references: [users.id] }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true, updatedAt: true });
 export const insertOrganizationSchema = createInsertSchema(organizations).omit({ id: true, createdAt: true, updatedAt: true });
@@ -2995,6 +3017,7 @@ export const insertProofRequestSchema = createInsertSchema(proofRequests).omit({
 export const insertProofAssetSchema = createInsertSchema(proofAssets).omit({ id: true, createdAt: true });
 export const insertProofCommentSchema = createInsertSchema(proofComments).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertProofStatusHistorySchema = createInsertSchema(proofStatusHistory).omit({ id: true, createdAt: true });
+export const insertProofShareLinkSchema = createInsertSchema(proofShareLinks).omit({ id: true, createdAt: true, accessCount: true, lastAccessedAt: true });
 
 // Types
 export type UpsertUser = typeof users.$inferInsert;
@@ -3199,3 +3222,5 @@ export type InsertProofComment = z.infer<typeof insertProofCommentSchema>;
 export type ProofComment = typeof proofComments.$inferSelect;
 export type InsertProofStatusHistory = z.infer<typeof insertProofStatusHistorySchema>;
 export type ProofStatusHistory = typeof proofStatusHistory.$inferSelect;
+export type InsertProofShareLink = z.infer<typeof insertProofShareLinkSchema>;
+export type ProofShareLink = typeof proofShareLinks.$inferSelect;
