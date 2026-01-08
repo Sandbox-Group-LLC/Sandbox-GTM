@@ -18477,7 +18477,7 @@ ${articlesContext}`;
       
       // Validate eventId belongs to designer's organization if provided
       if (eventId) {
-        const event = await storage.getEvent(eventId);
+        const event = await storage.getEventById(eventId);
         if (!event || event.organizationId !== designer.organizationId) {
           return res.status(400).json({ message: "Invalid event" });
         }
