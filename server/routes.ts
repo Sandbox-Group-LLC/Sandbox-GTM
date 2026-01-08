@@ -18578,6 +18578,61 @@ ${articlesContext}`;
     }
   });
 
+  // Designer portal file upload routes
+  // POST /api/designer/assets/upload - Get presigned upload URL for designer
+  app.post("/api/designer/assets/upload", async (req: any, res) => {
+    try {
+      const designer = await getDesignerFromRequest(req);
+      
+      if (!designer) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
+      const uploadUrl = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadUrl });
+    } catch (error) {
+      logError("Error getting designer upload URL:", error);
+      res.status(500).json({ message: "Failed to get upload URL" });
+    }
+  });
+
+  // POST /api/designer/assets - Create asset record after upload
+  app.post("/api/designer/assets", async (req: any, res) => {
+    try {
+      const designer = await getDesignerFromRequest(req);
+      
+      if (!designer) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
+      const { fileName, mimeType, byteSize, uploadUrl } = req.body;
+      
+      if (!fileName || !uploadUrl) {
+        return res.status(400).json({ message: "fileName and uploadUrl are required" });
+      }
+      
+      // Normalize path and set ACL
+      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(uploadUrl, {
+        owner: `designer:${designer.id}`,
+        visibility: "public",
+      });
+      
+      // Construct public URL
+      const publicUrl = `${req.protocol}://${req.get("host")}${objectPath}`;
+      
+      res.status(201).json({ 
+        objectPath,
+        publicUrl,
+        fileName,
+        mimeType,
+        byteSize
+      });
+    } catch (error) {
+      logError("Error creating designer asset:", error);
+      res.status(400).json({ message: "Failed to create asset" });
+    }
+  });
+
   // POST /api/designer/proof-requests/:id/assets - Upload proof asset as designer
   app.post("/api/designer/proof-requests/:id/assets", async (req: any, res) => {
     try {

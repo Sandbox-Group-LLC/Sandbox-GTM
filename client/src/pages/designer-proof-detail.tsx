@@ -133,6 +133,8 @@ function UploadForm({
 }) {
   const { toast } = useToast();
   const [isDragging, setIsDragging] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const form = useForm<UploadFormValues>({
     resolver: zodResolver(uploadFormSchema),
@@ -143,39 +145,105 @@ function UploadForm({
     },
   });
 
-  const uploadMutation = useMutation({
-    mutationFn: async (data: UploadFormValues) => {
-      const response = await fetch(`/api/designer/proof-requests/${proofRequestId}/assets`, {
+  const handleSubmit = async (data: UploadFormValues) => {
+    if (!selectedFile) {
+      toast({
+        title: "No File Selected",
+        description: "Please select a file to upload.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploading(true);
+
+    try {
+      // Step 1: Get presigned upload URL
+      const uploadUrlResponse = await fetch("/api/designer/assets/upload", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!uploadUrlResponse.ok) {
+        throw new Error("Failed to get upload URL");
+      }
+
+      const { uploadUrl } = await uploadUrlResponse.json();
+
+      // Step 2: Upload file to object storage
+      const uploadResponse = await fetch(uploadUrl, {
+        method: "PUT",
+        body: selectedFile,
+        headers: {
+          "Content-Type": selectedFile.type || "application/octet-stream",
+        },
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error("Failed to upload file to storage");
+      }
+
+      // Step 3: Create asset record and get public URL
+      const assetResponse = await fetch("/api/designer/assets", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          ...data,
+          fileName: selectedFile.name,
+          mimeType: selectedFile.type || "application/octet-stream",
+          byteSize: selectedFile.size,
+          uploadUrl,
+        }),
+      });
+
+      if (!assetResponse.ok) {
+        throw new Error("Failed to create asset record");
+      }
+
+      const assetData = await assetResponse.json();
+
+      // Step 4: Create proof asset with the real public URL
+      const proofAssetResponse = await fetch(`/api/designer/proof-requests/${proofRequestId}/assets`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          fileName: selectedFile.name,
+          fileUrl: assetData.publicUrl,
+          fileSize: selectedFile.size,
+          mimeType: selectedFile.type || "application/octet-stream",
+          notes: data.notes,
           version: nextVersion,
         }),
       });
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || "Failed to upload proof");
+
+      if (!proofAssetResponse.ok) {
+        const errorData = await proofAssetResponse.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to create proof asset");
       }
-      return response.json();
-    },
-    onSuccess: () => {
+
       toast({ title: "Proof Uploaded", description: "Your proof has been submitted for review." });
       form.reset();
+      setSelectedFile(null);
       queryClient.invalidateQueries({ queryKey: ["/api/designer/proof-requests", proofRequestId] });
       queryClient.invalidateQueries({ queryKey: ["/api/designer/proof-requests", proofRequestId, "assets"] });
-    },
-    onError: (error: Error) => {
+    } catch (error) {
       toast({
         title: "Upload Failed",
-        description: error.message || "Failed to upload proof. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to upload proof. Please try again.",
         variant: "destructive",
       });
-    },
-  });
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -192,16 +260,18 @@ function UploadForm({
     setIsDragging(false);
     const file = e.dataTransfer.files[0];
     if (file) {
+      setSelectedFile(file);
       form.setValue("fileName", file.name);
-      form.setValue("fileUrl", `placeholder://${file.name}`);
+      form.setValue("fileUrl", "pending-upload");
     }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setSelectedFile(file);
       form.setValue("fileName", file.name);
-      form.setValue("fileUrl", `placeholder://${file.name}`);
+      form.setValue("fileUrl", "pending-upload");
     }
   };
 
@@ -218,7 +288,7 @@ function UploadForm({
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit((data) => uploadMutation.mutate(data))} className="space-y-4">
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
             <div
               className={`border-2 border-dashed rounded-md p-8 text-center transition-colors ${
                 isDragging ? "border-primary bg-primary/5" : "border-muted-foreground/25"
@@ -274,11 +344,11 @@ function UploadForm({
 
             <Button
               type="submit"
-              disabled={uploadMutation.isPending || !form.watch("fileName")}
+              disabled={isUploading || !selectedFile}
               className="w-full"
               data-testid="button-submit-proof"
             >
-              {uploadMutation.isPending ? (
+              {isUploading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Uploading...
