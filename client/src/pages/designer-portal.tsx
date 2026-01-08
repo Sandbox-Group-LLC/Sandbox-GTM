@@ -248,6 +248,9 @@ function ProofRequestsList({ token }: { token: string }) {
     printVendor: "",
     area: "",
     category: "",
+    dimensions: "",
+    printSide: "",
+    material: "",
     eventId: "",
   });
 
@@ -301,7 +304,7 @@ function ProofRequestsList({ token }: { token: string }) {
     onSuccess: (data) => {
       toast({ title: "Submission Created", description: "Now upload your proof files." });
       setCreateDialogOpen(false);
-      setFormData({ title: "", description: "", printVendor: "", area: "", category: "", eventId: "" });
+      setFormData({ title: "", description: "", printVendor: "", area: "", category: "", dimensions: "", printSide: "", material: "", eventId: "" });
       queryClient.invalidateQueries({ queryKey: ["/api/designer/proof-requests"] });
       setLocation(`/designer/proof/${data.id}`);
     },
@@ -458,6 +461,43 @@ function ProofRequestsList({ token }: { token: string }) {
                       onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                       placeholder="e.g., Signage, Banner, Poster"
                       data-testid="input-submission-category"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="dimensions">Dimensions</Label>
+                      <Input
+                        id="dimensions"
+                        value={formData.dimensions}
+                        onChange={(e) => setFormData({ ...formData, dimensions: e.target.value })}
+                        placeholder="e.g., 24x36 inches"
+                        data-testid="input-submission-dimensions"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="printSide">Print Side</Label>
+                      <Select
+                        value={formData.printSide}
+                        onValueChange={(value) => setFormData({ ...formData, printSide: value })}
+                      >
+                        <SelectTrigger data-testid="select-submission-print-side">
+                          <SelectValue placeholder="Select..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="single">Single-sided</SelectItem>
+                          <SelectItem value="double">Double-sided</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="material">Material</Label>
+                    <Input
+                      id="material"
+                      value={formData.material}
+                      onChange={(e) => setFormData({ ...formData, material: e.target.value })}
+                      placeholder="e.g., Vinyl, Paper, Canvas"
+                      data-testid="input-submission-material"
                     />
                   </div>
                   <DialogFooter>

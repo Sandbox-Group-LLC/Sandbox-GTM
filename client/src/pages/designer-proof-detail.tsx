@@ -715,6 +715,26 @@ export default function DesignerProofDetail() {
                   <p className="font-medium" data-testid="text-area">{proofRequest.area}</p>
                 </div>
               )}
+              {proofRequest.dimensions && (
+                <div>
+                  <Label className="text-xs text-muted-foreground">Dimensions</Label>
+                  <p className="font-medium" data-testid="text-dimensions">{proofRequest.dimensions}</p>
+                </div>
+              )}
+              {proofRequest.printSide && (
+                <div>
+                  <Label className="text-xs text-muted-foreground">Print Side</Label>
+                  <p className="font-medium" data-testid="text-print-side">
+                    {proofRequest.printSide === "single" ? "Single-sided" : "Double-sided"}
+                  </p>
+                </div>
+              )}
+              {proofRequest.material && (
+                <div>
+                  <Label className="text-xs text-muted-foreground">Material</Label>
+                  <p className="font-medium" data-testid="text-material">{proofRequest.material}</p>
+                </div>
+              )}
               {proofRequest.dueDate && (
                 <div>
                   <Label className="text-xs text-muted-foreground">Due Date</Label>

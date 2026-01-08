@@ -341,6 +341,26 @@ export default function ProofRequestDetail() {
                     </p>
                   </div>
                 )}
+                {proofRequest.dimensions && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Dimensions</Label>
+                    <p className="font-medium">{proofRequest.dimensions}</p>
+                  </div>
+                )}
+                {proofRequest.printSide && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Print Side</Label>
+                    <p className="font-medium">
+                      {proofRequest.printSide === "single" ? "Single-sided" : "Double-sided"}
+                    </p>
+                  </div>
+                )}
+                {proofRequest.material && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Material</Label>
+                    <p className="font-medium">{proofRequest.material}</p>
+                  </div>
+                )}
                 {proofRequest.dueDate && (
                   <div>
                     <Label className="text-xs text-muted-foreground">Due Date</Label>

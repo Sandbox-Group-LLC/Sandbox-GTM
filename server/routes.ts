@@ -18469,7 +18469,7 @@ ${articlesContext}`;
         return res.status(401).json({ message: "Not authenticated" });
       }
       
-      const { title, description, printVendor, area, category, eventId } = req.body;
+      const { title, description, printVendor, area, category, dimensions, printSide, material, eventId } = req.body;
       
       if (!title || typeof title !== 'string' || title.trim().length === 0) {
         return res.status(400).json({ message: "Title is required" });
@@ -18492,6 +18492,9 @@ ${articlesContext}`;
           printVendor: printVendor || undefined,
           area: area || undefined,
           category: category || undefined,
+          dimensions: dimensions || undefined,
+          printSide: printSide || undefined,
+          material: material || undefined,
           eventId: eventId || undefined,
         }
       );

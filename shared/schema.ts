@@ -2783,6 +2783,9 @@ export const proofRequests = pgTable("proof_requests", {
   printVendor: varchar("print_vendor", { length: 255 }),
   area: varchar("area", { length: 255 }),
   category: varchar("category", { length: 100 }),
+  dimensions: varchar("dimensions", { length: 100 }), // e.g., "24x36 inches"
+  printSide: varchar("print_side", { length: 20 }), // "single" or "double"
+  material: varchar("material", { length: 255 }), // e.g., "Vinyl", "Paper", "Canvas"
   dueDate: timestamp("due_date"), // Optional - admin can set during review
   priority: varchar("priority", { length: 20 }), // Optional - admin can set during review
   status: varchar("status", { length: 30 }).default("pending_review"), // Default to pending_review for new submissions
