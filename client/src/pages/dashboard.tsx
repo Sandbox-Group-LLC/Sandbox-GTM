@@ -374,7 +374,7 @@ export default function Dashboard() {
                 <CardContent>
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="text-xl lg:text-3xl font-bold truncate" data-testid="text-total-conversions">{analytics?.attendance.total || 0}</p>
+                      <p className="text-lg lg:text-2xl font-bold truncate" data-testid="text-total-conversions">{analytics?.attendance.total || 0}</p>
                       <p className="text-xs lg:text-sm text-muted-foreground mt-1">Total conversions</p>
                     </div>
                     <div className={`flex items-center gap-1 shrink-0 ${
@@ -406,7 +406,7 @@ export default function Dashboard() {
                 <CardContent>
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="text-xl lg:text-3xl font-bold" data-testid="text-engagement-rate">{analytics?.attendance.checkInRate || 0}%</p>
+                      <p className="text-lg lg:text-2xl font-bold" data-testid="text-engagement-rate">{analytics?.attendance.checkInRate || 0}%</p>
                       <p className="text-xs lg:text-sm text-muted-foreground mt-1">Check-in rate</p>
                     </div>
                     <div className="flex items-center gap-1 shrink-0 text-green-600 dark:text-green-400">
@@ -427,7 +427,7 @@ export default function Dashboard() {
                 <CardContent>
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="text-xl lg:text-3xl font-bold truncate" data-testid="text-budget-spent">${analytics?.budget.totalSpent.toLocaleString() || 0}</p>
+                      <p className="text-lg lg:text-2xl font-bold truncate" data-testid="text-budget-spent">${analytics?.budget.totalSpent.toLocaleString() || 0}</p>
                       <p className="text-xs lg:text-sm text-muted-foreground mt-1">Investment to date</p>
                     </div>
                     <div className="flex items-center gap-1 shrink-0 text-muted-foreground">
@@ -448,7 +448,7 @@ export default function Dashboard() {
                 <CardContent>
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="text-xl lg:text-3xl font-bold" data-testid="text-nps-score">
+                      <p className="text-lg lg:text-2xl font-bold" data-testid="text-nps-score">
                         {analytics?.nps?.score !== null && analytics?.nps?.score !== undefined 
                           ? analytics.nps.score 
                           : "N/A"}
