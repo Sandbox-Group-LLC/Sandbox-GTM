@@ -95,6 +95,7 @@ import ProofManagement from "@/pages/proof-management";
 import ProofRequestDetail from "@/pages/proof-request-detail";
 import Designers from "@/pages/designers";
 import ApprovedAssets from "@/pages/approved-assets";
+import SharedProofView from "@/pages/shared-proof-view";
 import { HelpChatWidget } from "@/components/help-chat-widget";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
@@ -162,7 +163,7 @@ function Router() {
   const [location, navigate] = useLocation();
   
   // Determine if this is a public event page (should render outside sidebar layout)
-  const isPublicEventPage = location.startsWith('/event/') || location.startsWith('/sponsor-portal') || location.startsWith('/portal/') || location.startsWith('/meeting-portal') || location === '/designer' || location.startsWith('/designer/');
+  const isPublicEventPage = location.startsWith('/event/') || location.startsWith('/sponsor-portal') || location.startsWith('/portal/') || location.startsWith('/meeting-portal') || location === '/designer' || location.startsWith('/designer/') || location.startsWith('/shared/');
 
   // Check for pending invite code after authentication and redirect to accept-invitation page
   useEffect(() => {
@@ -208,6 +209,7 @@ function Router() {
         <Route path="/designer/proof/:id" component={DesignerProofDetail} />
         <Route path="/designer" component={DesignerPortal} />
         <Route path="/documents/shared/:token" component={SharedDocument} />
+        <Route path="/shared/:token" component={SharedProofView} />
         <Route path="/accept-invitation" component={AcceptInvitation} />
         <Route path="/portal/:eventId/moment/:momentId" component={PortalMoment} />
         <Route path="/portal/:eventId/live" component={PortalLiveMoments} />
@@ -249,6 +251,7 @@ function Router() {
         <Route path="/meeting-portal" component={MeetingPortal} />
         <Route path="/designer/proof/:id" component={DesignerProofDetail} />
         <Route path="/designer" component={DesignerPortal} />
+        <Route path="/shared/:token" component={SharedProofView} />
         <Route path="/portal/:eventId/moment/:momentId" component={PortalMoment} />
         <Route path="/portal/:eventId/live" component={PortalLiveMoments} />
         <Route component={NotFound} />

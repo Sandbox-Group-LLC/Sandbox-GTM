@@ -117,6 +117,7 @@ import {
   insertProofAssetSchema,
   insertProofCommentSchema,
   insertProofStatusHistorySchema,
+  insertProofShareLinkSchema,
   type Designer,
 } from "@shared/schema";
 import { createMailchimpProvider } from "./integrations/mailchimp";
@@ -19539,6 +19540,190 @@ ${articlesContext}`;
     } catch (error) {
       logError("Error getting approved proofs:", error);
       res.status(500).json({ message: "Failed to get approved proofs" });
+    }
+  });
+
+  // POST /api/proof-share-links - Create a share link for an approved proof
+  app.post("/api/proof-share-links", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = await getOrganizationId(userId, req.session);
+      
+      const createSchema = z.object({
+        proofRequestId: z.string().min(1, "Proof request ID is required"),
+        recipientEmail: z.string().email().optional().nullable(),
+        recipientName: z.string().optional().nullable(),
+        expiresInDays: z.number().min(1).max(365).optional().default(30),
+      });
+      
+      const parsed = createSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request", errors: parsed.error.errors });
+      }
+      
+      const proofRequest = await storage.getProofRequestById(parsed.data.proofRequestId);
+      if (!proofRequest || proofRequest.organizationId !== organizationId) {
+        return res.status(404).json({ message: "Proof request not found" });
+      }
+      
+      if (proofRequest.status !== 'approved') {
+        return res.status(400).json({ message: "Only approved proofs can be shared" });
+      }
+      
+      const token = randomBytes(32).toString('hex');
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + parsed.data.expiresInDays);
+      
+      const shareLink = await storage.createProofShareLink({
+        organizationId,
+        proofRequestId: parsed.data.proofRequestId,
+        token,
+        createdBy: userId,
+        recipientEmail: parsed.data.recipientEmail || null,
+        recipientName: parsed.data.recipientName || null,
+        expiresAt,
+        isActive: true,
+      });
+      
+      res.status(201).json(shareLink);
+    } catch (error) {
+      logError("Error creating proof share link:", error);
+      res.status(500).json({ message: "Failed to create share link" });
+    }
+  });
+
+  // GET /api/proof-share-links/:proofRequestId - Get all share links for a proof request
+  app.get("/api/proof-share-links/:proofRequestId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { proofRequestId } = req.params;
+      
+      const proofRequest = await storage.getProofRequestById(proofRequestId);
+      if (!proofRequest || proofRequest.organizationId !== organizationId) {
+        return res.status(404).json({ message: "Proof request not found" });
+      }
+      
+      const shareLinks = await storage.getProofShareLinksByProof(proofRequestId);
+      res.json(shareLinks);
+    } catch (error) {
+      logError("Error getting proof share links:", error);
+      res.status(500).json({ message: "Failed to get share links" });
+    }
+  });
+
+  // DELETE /api/proof-share-links/:id - Deactivate a share link
+  app.delete("/api/proof-share-links/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const organizationId = await getOrganizationId(userId, req.session);
+      const { id } = req.params;
+      
+      const shareLinks = await storage.getProofShareLinksByProof(id);
+      const allOrganizationProofs = await storage.getApprovedProofs(organizationId);
+      
+      let targetLink = null;
+      for (const proof of allOrganizationProofs) {
+        const links = await storage.getProofShareLinksByProof(proof.id);
+        const found = links.find(l => l.id === id);
+        if (found && found.organizationId === organizationId) {
+          targetLink = found;
+          break;
+        }
+      }
+      
+      if (!targetLink) {
+        return res.status(404).json({ message: "Share link not found" });
+      }
+      
+      await storage.deactivateProofShareLink(id);
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deactivating proof share link:", error);
+      res.status(500).json({ message: "Failed to deactivate share link" });
+    }
+  });
+
+  // GET /api/public/shared-proof/:token - Public endpoint to access shared proof
+  app.get("/api/public/shared-proof/:token", async (req: any, res) => {
+    try {
+      const { token } = req.params;
+      
+      const shareLink = await storage.getProofShareLinkByToken(token);
+      
+      if (!shareLink) {
+        return res.status(404).json({ message: "Share link not found" });
+      }
+      
+      if (!shareLink.isActive) {
+        return res.status(410).json({ message: "This share link has been deactivated" });
+      }
+      
+      if (shareLink.expiresAt && new Date(shareLink.expiresAt) < new Date()) {
+        return res.status(410).json({ message: "This share link has expired" });
+      }
+      
+      const proofRequest = await storage.getProofRequestById(shareLink.proofRequestId);
+      if (!proofRequest || proofRequest.status !== 'approved') {
+        return res.status(404).json({ message: "Proof not found or no longer approved" });
+      }
+      
+      const assets = await storage.getProofAssetsByRequest(proofRequest.id);
+      const currentAsset = assets.find(a => a.isCurrentVersion);
+      
+      const organization = await storage.getOrganization(proofRequest.organizationId);
+      
+      let brandKit = null;
+      if (organization) {
+        brandKit = await storage.getDefaultBrandKit(organization.id);
+      }
+      
+      await storage.updateProofShareLinkAccess(token);
+      
+      res.json({
+        proofRequest: {
+          id: proofRequest.id,
+          title: proofRequest.title,
+          description: proofRequest.description,
+          dimensions: proofRequest.dimensions,
+          material: proofRequest.material,
+          quantity: proofRequest.quantity,
+          printVendor: proofRequest.printVendor,
+          area: proofRequest.area,
+          category: proofRequest.category,
+        },
+        currentAsset: currentAsset ? {
+          id: currentAsset.id,
+          fileName: currentAsset.fileName,
+          fileUrl: currentAsset.fileUrl,
+          mimeType: currentAsset.mimeType,
+          version: currentAsset.version,
+        } : null,
+        recipientName: shareLink.recipientName,
+        organization: organization ? {
+          name: organization.name,
+        } : null,
+        brandKit: brandKit ? {
+          primaryColor: brandKit.primaryColor,
+          secondaryColor: brandKit.secondaryColor,
+          logoUrl: brandKit.logoUrl,
+        } : null,
+      });
+    } catch (error) {
+      logError("Error accessing shared proof:", error);
+      res.status(500).json({ message: "Failed to access shared proof" });
     }
   });
 
