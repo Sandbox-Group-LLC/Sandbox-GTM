@@ -251,6 +251,7 @@ function ProofRequestsList({ token }: { token: string }) {
     dimensions: "",
     printSide: "",
     material: "",
+    quantity: "",
     eventId: "",
   });
 
@@ -304,7 +305,7 @@ function ProofRequestsList({ token }: { token: string }) {
     onSuccess: (data) => {
       toast({ title: "Submission Created", description: "Now upload your proof files." });
       setCreateDialogOpen(false);
-      setFormData({ title: "", description: "", printVendor: "", area: "", category: "", dimensions: "", printSide: "", material: "", eventId: "" });
+      setFormData({ title: "", description: "", printVendor: "", area: "", category: "", dimensions: "", printSide: "", material: "", quantity: "", eventId: "" });
       queryClient.invalidateQueries({ queryKey: ["/api/designer/proof-requests"] });
       setLocation(`/designer/proof/${data.id}`);
     },
@@ -490,15 +491,29 @@ function ProofRequestsList({ token }: { token: string }) {
                       </Select>
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="material">Material</Label>
-                    <Input
-                      id="material"
-                      value={formData.material}
-                      onChange={(e) => setFormData({ ...formData, material: e.target.value })}
-                      placeholder="e.g., Vinyl, Paper, Canvas"
-                      data-testid="input-submission-material"
-                    />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="material">Material</Label>
+                      <Input
+                        id="material"
+                        value={formData.material}
+                        onChange={(e) => setFormData({ ...formData, material: e.target.value })}
+                        placeholder="e.g., Vinyl, Paper, Canvas"
+                        data-testid="input-submission-material"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="quantity">Quantity</Label>
+                      <Input
+                        id="quantity"
+                        type="number"
+                        min="1"
+                        value={formData.quantity}
+                        onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+                        placeholder="e.g., 10"
+                        data-testid="input-submission-quantity"
+                      />
+                    </div>
                   </div>
                   <DialogFooter>
                     <Button type="button" variant="outline" onClick={() => setCreateDialogOpen(false)}>

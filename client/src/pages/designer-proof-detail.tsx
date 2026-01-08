@@ -735,6 +735,12 @@ export default function DesignerProofDetail() {
                   <p className="font-medium" data-testid="text-material">{proofRequest.material}</p>
                 </div>
               )}
+              {proofRequest.quantity && (
+                <div>
+                  <Label className="text-xs text-muted-foreground">Quantity</Label>
+                  <p className="font-medium" data-testid="text-quantity">{proofRequest.quantity}</p>
+                </div>
+              )}
               {proofRequest.dueDate && (
                 <div>
                   <Label className="text-xs text-muted-foreground">Due Date</Label>
