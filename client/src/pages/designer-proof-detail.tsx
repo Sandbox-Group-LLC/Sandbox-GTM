@@ -31,6 +31,7 @@ import {
   Clock,
   Upload,
   Download,
+  ExternalLink,
   MessageSquare,
   Send,
   User,
@@ -357,17 +358,29 @@ function VersionHistory({ assets }: { assets: ProofAsset[] }) {
                   </p>
                 )}
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                asChild
-                data-testid={`button-download-${asset.version}`}
-              >
-                <a href={asset.fileUrl} target="_blank" rel="noopener noreferrer">
-                  <Download className="h-4 w-4 mr-1" />
-                  Download
-                </a>
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  asChild
+                  data-testid={`button-view-${asset.version}`}
+                >
+                  <a href={asset.fileUrl} target="_blank" rel="noopener noreferrer" title="View in new tab">
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  asChild
+                  data-testid={`button-download-${asset.version}`}
+                >
+                  <a href={asset.fileUrl} download={asset.fileName}>
+                    <Download className="h-4 w-4 mr-1" />
+                    Download
+                  </a>
+                </Button>
+              </div>
             </div>
           </div>
         ))}

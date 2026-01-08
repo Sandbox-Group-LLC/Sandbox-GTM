@@ -47,6 +47,7 @@ import {
   Calendar,
   Clock,
   Download,
+  ExternalLink,
   MessageSquare,
   Send,
   User,
@@ -59,7 +60,6 @@ import {
   CheckCircle,
   XCircle,
   RotateCcw,
-  Eye,
 } from "lucide-react";
 import type { ProofRequest, ProofAsset, ProofComment, ProofStatusHistory, Event, Designer, User as UserType } from "@shared/schema";
 
@@ -436,13 +436,11 @@ export default function ProofRequestDetail() {
                           )}
                         </div>
                         <div className="flex gap-2">
-                          {isImageFile(asset.mimeType) && (
-                            <Button variant="ghost" size="icon" asChild data-testid={`button-preview-${asset.version}`}>
-                              <a href={asset.fileUrl} target="_blank" rel="noopener noreferrer">
-                                <Eye className="h-4 w-4" />
-                              </a>
-                            </Button>
-                          )}
+                          <Button variant="ghost" size="icon" asChild data-testid={`button-view-${asset.version}`}>
+                            <a href={asset.fileUrl} target="_blank" rel="noopener noreferrer" title="View in new tab">
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
+                          </Button>
                           <Button variant="outline" size="sm" asChild data-testid={`button-download-${asset.version}`}>
                             <a href={asset.fileUrl} download={asset.fileName}>
                               <Download className="h-4 w-4 mr-1" />
