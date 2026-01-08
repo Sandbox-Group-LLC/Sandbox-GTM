@@ -372,25 +372,25 @@ export default function Dashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-4xl font-bold" data-testid="text-total-conversions">{analytics?.attendance.total || 0}</p>
-                      <p className="text-sm text-muted-foreground mt-1">Total conversions</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-2xl lg:text-4xl font-bold truncate" data-testid="text-total-conversions">{analytics?.attendance.total || 0}</p>
+                      <p className="text-xs lg:text-sm text-muted-foreground mt-1">Total conversions</p>
                     </div>
-                    <div className={`flex items-center gap-1 ${
+                    <div className={`flex items-center gap-1 shrink-0 ${
                       milestoneStatus?.statusColor === "green" ? "text-green-600 dark:text-green-400" :
                       milestoneStatus?.statusColor === "yellow" ? "text-yellow-600 dark:text-yellow-400" :
                       milestoneStatus?.statusColor === "red" ? "text-red-600 dark:text-red-400" :
                       milestoneStatus?.statusColor === "blue" ? "text-blue-600 dark:text-blue-400" :
                       "text-muted-foreground"
                     }`} data-testid="milestone-status">
-                      {milestoneStatus?.status === "on_track" && <TrendingUp className="w-5 h-5" />}
-                      {milestoneStatus?.status === "at_risk" && <AlertTriangle className="w-5 h-5" />}
-                      {milestoneStatus?.status === "behind" && <TrendingDown className="w-5 h-5" />}
-                      {milestoneStatus?.status === "achieved" && <CheckCircle className="w-5 h-5" />}
-                      {milestoneStatus?.status === "no_data" && <Minus className="w-5 h-5" />}
-                      {!milestoneStatus && <Minus className="w-5 h-5" />}
-                      <span className="text-sm font-medium">{milestoneStatus?.statusLabel || "No data"}</span>
+                      {milestoneStatus?.status === "on_track" && <TrendingUp className="w-4 h-4 lg:w-5 lg:h-5" />}
+                      {milestoneStatus?.status === "at_risk" && <AlertTriangle className="w-4 h-4 lg:w-5 lg:h-5" />}
+                      {milestoneStatus?.status === "behind" && <TrendingDown className="w-4 h-4 lg:w-5 lg:h-5" />}
+                      {milestoneStatus?.status === "achieved" && <CheckCircle className="w-4 h-4 lg:w-5 lg:h-5" />}
+                      {milestoneStatus?.status === "no_data" && <Minus className="w-4 h-4 lg:w-5 lg:h-5" />}
+                      {!milestoneStatus && <Minus className="w-4 h-4 lg:w-5 lg:h-5" />}
+                      <span className="text-xs lg:text-sm font-medium whitespace-nowrap">{milestoneStatus?.statusLabel || "No data"}</span>
                     </div>
                   </div>
                 </CardContent>
@@ -404,14 +404,14 @@ export default function Dashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-4xl font-bold" data-testid="text-engagement-rate">{analytics?.attendance.checkInRate || 0}%</p>
-                      <p className="text-sm text-muted-foreground mt-1">Check-in rate</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-2xl lg:text-4xl font-bold" data-testid="text-engagement-rate">{analytics?.attendance.checkInRate || 0}%</p>
+                      <p className="text-xs lg:text-sm text-muted-foreground mt-1">Check-in rate</p>
                     </div>
-                    <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
-                      <TrendingUp className="w-5 h-5" />
-                      <span className="text-sm font-medium">Healthy</span>
+                    <div className="flex items-center gap-1 shrink-0 text-green-600 dark:text-green-400">
+                      <TrendingUp className="w-4 h-4 lg:w-5 lg:h-5" />
+                      <span className="text-xs lg:text-sm font-medium whitespace-nowrap">Healthy</span>
                     </div>
                   </div>
                 </CardContent>
@@ -425,14 +425,14 @@ export default function Dashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-4xl font-bold" data-testid="text-budget-spent">${analytics?.budget.totalSpent.toLocaleString() || 0}</p>
-                      <p className="text-sm text-muted-foreground mt-1">Investment to date</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-2xl lg:text-4xl font-bold truncate" data-testid="text-budget-spent">${analytics?.budget.totalSpent.toLocaleString() || 0}</p>
+                      <p className="text-xs lg:text-sm text-muted-foreground mt-1">Investment to date</p>
                     </div>
-                    <div className="flex items-center gap-1 text-muted-foreground">
-                      <Target className="w-5 h-5" />
-                      <span className="text-sm font-medium">{analytics?.budget.utilizationRate || 0}% used</span>
+                    <div className="flex items-center gap-1 shrink-0 text-muted-foreground">
+                      <Target className="w-4 h-4 lg:w-5 lg:h-5" />
+                      <span className="text-xs lg:text-sm font-medium whitespace-nowrap">{analytics?.budget.utilizationRate || 0}% used</span>
                     </div>
                   </div>
                 </CardContent>
@@ -446,19 +446,19 @@ export default function Dashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-4xl font-bold" data-testid="text-nps-score">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-2xl lg:text-4xl font-bold" data-testid="text-nps-score">
                         {analytics?.nps?.score !== null && analytics?.nps?.score !== undefined 
                           ? analytics.nps.score 
                           : "N/A"}
                       </p>
-                      <p className="text-sm text-muted-foreground mt-1">
+                      <p className="text-xs lg:text-sm text-muted-foreground mt-1">
                         {analytics?.nps?.totalResponses || 0} responses
                       </p>
                     </div>
-                    <div className="flex items-center gap-1 text-muted-foreground">
-                      <span className="text-sm font-medium" data-testid="text-nps-breakdown">
+                    <div className="flex items-center gap-1 shrink-0 text-muted-foreground">
+                      <span className="text-xs lg:text-sm font-medium whitespace-nowrap" data-testid="text-nps-breakdown">
                         {analytics?.nps?.promoterRate || 0}% promoters
                       </span>
                     </div>
