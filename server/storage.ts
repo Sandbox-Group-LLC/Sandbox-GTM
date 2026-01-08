@@ -296,6 +296,7 @@ import {
   proofAssets,
   proofComments,
   proofStatusHistory,
+  proofShareLinks,
   type Designer,
   type InsertDesigner,
   type DesignerSession,
@@ -308,6 +309,8 @@ import {
   type InsertProofComment,
   type ProofStatusHistory,
   type InsertProofStatusHistory,
+  type ProofShareLink,
+  type InsertProofShareLink,
 } from "@shared/schema";
 import crypto from "crypto";
 import { encrypt, decrypt } from "./encryption";
@@ -1099,6 +1102,13 @@ export interface IStorage {
 
   // Approved Proofs Query
   getApprovedProofs(organizationId: string, filters?: { printVendor?: string; area?: string; eventId?: string }): Promise<ProofRequest[]>;
+
+  // Proof Share Link operations
+  createProofShareLink(data: InsertProofShareLink): Promise<ProofShareLink>;
+  getProofShareLinkByToken(token: string): Promise<ProofShareLink | undefined>;
+  getProofShareLinksByProof(proofRequestId: string): Promise<ProofShareLink[]>;
+  updateProofShareLinkAccess(token: string): Promise<void>;
+  deactivateProofShareLink(id: string): Promise<void>;
 }
 
 // Types for Moments Analytics
@@ -7352,6 +7362,43 @@ export class DatabaseStorage implements IStorage {
       .from(proofRequests)
       .where(and(...conditions))
       .orderBy(desc(proofRequests.updatedAt));
+  }
+
+  // Proof Share Link operations
+  async createProofShareLink(data: InsertProofShareLink): Promise<ProofShareLink> {
+    const [link] = await db.insert(proofShareLinks)
+      .values(data)
+      .returning();
+    return link;
+  }
+
+  async getProofShareLinkByToken(token: string): Promise<ProofShareLink | undefined> {
+    const [link] = await db.select()
+      .from(proofShareLinks)
+      .where(eq(proofShareLinks.token, token));
+    return link;
+  }
+
+  async getProofShareLinksByProof(proofRequestId: string): Promise<ProofShareLink[]> {
+    return db.select()
+      .from(proofShareLinks)
+      .where(eq(proofShareLinks.proofRequestId, proofRequestId))
+      .orderBy(desc(proofShareLinks.createdAt));
+  }
+
+  async updateProofShareLinkAccess(token: string): Promise<void> {
+    await db.update(proofShareLinks)
+      .set({
+        accessCount: sql`${proofShareLinks.accessCount} + 1`,
+        lastAccessedAt: new Date(),
+      })
+      .where(eq(proofShareLinks.token, token));
+  }
+
+  async deactivateProofShareLink(id: string): Promise<void> {
+    await db.update(proofShareLinks)
+      .set({ isActive: false })
+      .where(eq(proofShareLinks.id, id));
   }
 }
 
