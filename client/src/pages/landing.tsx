@@ -2,8 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Target, BarChart3, Users, Zap, Link2, ArrowRight, TrendingUp, Layers, DollarSign, Send, Hotel, CheckCircle2, XCircle } from "lucide-react";
 import { SiLinkedin, SiMailchimp, SiStripe, SiSalesforce, SiHubspot, SiOpenai, SiX, SiInstagram, SiFacebook } from "react-icons/si";
-import logoImage from "@assets/Orange_bug_-_no_background_1765765097769.png";
-import logoWhite from "@assets/Sandbox-GTM_1768253357331.png";
+import sandboxLogo from "@assets/Sandbox-GTM_1768253357331.png";
 import { LeadFormDialog } from "@/components/lead-form-dialog";
 
 const gtmIntegrations = [
@@ -76,7 +75,7 @@ export default function Landing() {
       <header className="border-b border-border">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <img src={logoWhite} alt="Sandbox" className="h-6" />
+            <img src={sandboxLogo} alt="Sandbox" className="h-6" />
           </div>
           <div className="flex items-center gap-4">
             <Button asChild data-testid="button-login-header">
