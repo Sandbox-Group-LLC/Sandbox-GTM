@@ -77,7 +77,7 @@ export default function Landing() {
         <div className="container mx-auto px-6 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <img src={sandboxIcon} alt="Sandbox" className="h-6 w-6" />
-            <img src={sandboxLogo} alt="Sandbox" className="h-5" />
+            <img src={sandboxLogo} alt="Sandbox" className="h-5 invert" />
           </div>
           <div className="flex items-center gap-4">
             <Button asChild data-testid="button-login-header">
