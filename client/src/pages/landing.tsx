@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Target, BarChart3, Users, Zap, Link2, ArrowRight, TrendingUp, Layers, DollarSign, Send, Hotel, CheckCircle2, XCircle } from "lucide-react";
 import { SiLinkedin, SiMailchimp, SiStripe, SiSalesforce, SiHubspot, SiOpenai, SiX, SiInstagram, SiFacebook } from "react-icons/si";
 import logoImage from "@assets/Orange_bug_-_no_background_1765765097769.png";
-import logoWhite from "@assets/Sandbox-White_1767253178023.png";
+import logoWhite from "@assets/Sandbox-GTM_1768253357331.png";
 import { LeadFormDialog } from "@/components/lead-form-dialog";
 
 const gtmIntegrations = [
