@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Target, BarChart3, Users, Zap, Link2, ArrowRight, TrendingUp, Layers, DollarSign, Send, Hotel, CheckCircle2, XCircle } from "lucide-react";
 import { SiLinkedin, SiMailchimp, SiStripe, SiSalesforce, SiHubspot, SiOpenai, SiX, SiInstagram, SiFacebook } from "react-icons/si";
-import sandboxLogo from "@assets/Sandbox-GTM_1768253357331.png";
+import sandboxLogo from "@assets/Sandbox-GTM_1768253990902.png";
 import { LeadFormDialog } from "@/components/lead-form-dialog";
 
 const gtmIntegrations = [
