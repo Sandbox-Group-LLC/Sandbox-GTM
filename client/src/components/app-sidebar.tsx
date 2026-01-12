@@ -57,8 +57,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import logoImage from "@assets/Orange_bug_-_no_background_1765765097769.png";
-import logoBlack from "@assets/Sandbox-Black_1767253178022.png";
-import logoWhite from "@assets/Sandbox-White_1767253178023.png";
+import sandboxLogo from "@assets/Sandbox-GTM_1768254243138.png";
 import { OnboardingChecklist } from "./onboarding-checklist";
 import { OnboardingWizard } from "./onboarding-wizard";
 import {
@@ -209,8 +208,7 @@ export function AppSidebar() {
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <img src={logoImage} alt="sandbox" className="h-6 w-6" />
-            <img src={logoBlack} alt="Sandbox" className="h-5 dark:hidden" />
-            <img src={logoWhite} alt="Sandbox" className="h-5 hidden dark:block" />
+            <img src={sandboxLogo} alt="Sandbox" className="h-5 dark:invert" />
           </div>
           {isMobile && (
             <Button
