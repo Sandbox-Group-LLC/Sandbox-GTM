@@ -369,7 +369,7 @@ export default function Attendees() {
   const { data: linkedInProgress, refetch: refetchLinkedInProgress, isLoading: isLinkedInProgressLoading } = useQuery<LinkedInProgress>({
     queryKey: ["/api/events", eventFilter, "linkedin-enrich", "progress"],
     enabled: eventFilter !== "all" && isLinkedInDialogOpen,
-    refetchInterval: linkedInProgress?.status === "running" ? 1500 : false,
+    refetchInterval: (query) => query.state.data?.status === "running" ? 1500 : false,
   });
 
   // Derive running state from server response
