@@ -19759,7 +19759,7 @@ ${articlesContext}`;
       }
       
       // Get registered attendees for the event
-      const attendees = await storage.getAttendeesByEvent(eventId);
+      const attendees = await storage.getAttendees(event.organizationId, eventId);
       const registeredAttendees = attendees.filter(a => a.registrationStatus === "registered");
       
       // Build CSV content with PhantomBuster-friendly column names
@@ -19812,7 +19812,7 @@ ${articlesContext}`;
       }
 
       // Get attendees for enrichment (confirmed, registered, checked_in, or pending status)
-      const attendees = await storage.getAttendeesByEvent(eventId);
+      const attendees = await storage.getAttendees(organizationId, eventId);
       const eligibleStatuses = ["confirmed", "registered", "checked_in", "pending"];
       const eligibleAttendees = attendees.filter(a => 
         eligibleStatuses.includes(a.registrationStatus || "")
@@ -19867,7 +19867,7 @@ ${articlesContext}`;
       
       if (!progress) {
         // No active enrichment, get stats from database
-        const attendees = await storage.getAttendeesByEvent(eventId);
+        const attendees = await storage.getAttendees(organizationId, eventId);
         const eligibleStatuses = ["confirmed", "registered", "checked_in", "pending"];
         const eligibleAttendees = attendees.filter(a => 
           eligibleStatuses.includes(a.registrationStatus || "")
