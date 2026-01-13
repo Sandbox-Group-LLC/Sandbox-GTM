@@ -4,6 +4,21 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { logInfo, logError } from "./logger";
 
+// Global error handlers to prevent crashes from circular reference JSON serialization errors
+process.on('uncaughtException', (error) => {
+  // Safely log the error message without trying to stringify the full error object
+  const message = error instanceof Error ? error.message : String(error);
+  console.error('[process] Uncaught exception:', message);
+  // Don't exit - keep server running
+});
+
+process.on('unhandledRejection', (reason) => {
+  // Safely log the rejection reason
+  const message = reason instanceof Error ? reason.message : String(reason);
+  console.error('[process] Unhandled rejection:', message);
+  // Don't exit - keep server running
+});
+
 const app = express();
 const httpServer = createServer(app);
 

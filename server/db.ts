@@ -14,5 +14,20 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+export const pool = new Pool({ 
+  connectionString: process.env.DATABASE_URL,
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
+});
+
+// Add error handler to prevent circular JSON serialization crashes
+pool.on('error', (err) => {
+  console.error('[db] Unexpected pool error:', err.message);
+});
+
+pool.on('connect', () => {
+  console.log('[db] New client connected to pool');
+});
+
 export const db = drizzle(pool, { schema });
