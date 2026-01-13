@@ -19790,11 +19790,11 @@ ${articlesContext}`;
   });
 
   // LinkedIn Enrichment API - Start enrichment for an event's attendees
-  // Uses raw pg queries to avoid drizzle/pool issues
-  app.post("/api/events/:eventId/linkedin-enrich", isAuthenticated, async (req, res) => {
+  app.post("/api/events/:eventId/linkedin-enrich", isAuthenticated, async (req: any, res) => {
     try {
       const { eventId } = req.params;
-      const organizationId = getOrganizationId(req);
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
       if (!organizationId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -19857,11 +19857,11 @@ ${articlesContext}`;
   });
 
   // LinkedIn Enrichment API - Get enrichment progress
-  // Uses shared storage to avoid connection issues
-  app.get("/api/events/:eventId/linkedin-enrich/progress", isAuthenticated, async (req, res) => {
+  app.get("/api/events/:eventId/linkedin-enrich/progress", isAuthenticated, async (req: any, res) => {
     try {
       const { eventId } = req.params;
-      const organizationId = getOrganizationId(req);
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
       if (!organizationId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
