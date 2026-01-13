@@ -37,7 +37,7 @@ function isSensitiveFieldName(key: string): boolean {
     lowerKey.includes('creditcard');
 }
 
-function sanitizeObject(obj: unknown, depth: number = 0): unknown {
+function sanitizeObject(obj: unknown, depth: number = 0, seen: WeakSet<object> = new WeakSet()): unknown {
   if (depth > MAX_OBJECT_DEPTH) {
     return '[MAX_DEPTH_EXCEEDED]';
   }
@@ -57,9 +57,28 @@ function sanitizeObject(obj: unknown, depth: number = 0): unknown {
     return obj;
   }
 
+  // Handle circular references
+  if (typeof obj === 'object') {
+    if (seen.has(obj)) {
+      return '[CIRCULAR_REFERENCE]';
+    }
+    seen.add(obj);
+  }
+
+  // Handle Error objects specially - extract safe properties only
+  if (obj instanceof Error || (obj && typeof obj === 'object' && 'message' in obj && 'name' in obj)) {
+    const errObj = obj as { name?: string; message?: string; code?: string; stack?: string };
+    return {
+      name: errObj.name || 'Error',
+      message: redactSensitiveData(String(errObj.message || '')),
+      code: errObj.code,
+      // Don't include stack in sanitized output to avoid verbose logs
+    };
+  }
+
   if (Array.isArray(obj)) {
     const truncated = obj.slice(0, MAX_ARRAY_LENGTH);
-    const sanitized = truncated.map(item => sanitizeObject(item, depth + 1));
+    const sanitized = truncated.map(item => sanitizeObject(item, depth + 1, seen));
     if (obj.length > MAX_ARRAY_LENGTH) {
       sanitized.push(`...[${obj.length - MAX_ARRAY_LENGTH} more items]`);
     }
@@ -68,13 +87,22 @@ function sanitizeObject(obj: unknown, depth: number = 0): unknown {
 
   if (typeof obj === 'object') {
     const sanitized: Record<string, unknown> = {};
+    
+    // Skip objects with circular-prone properties (Socket, HTTPParser, etc.)
+    const dangerousKeys = ['socket', 'parser', '_socket', 'connection', 'client', '_readableState', '_writableState'];
     const keys = Object.keys(obj as Record<string, unknown>);
     
     for (const key of keys) {
       if (isSensitiveFieldName(key)) {
         sanitized[key] = '[REDACTED]';
+      } else if (dangerousKeys.includes(key.toLowerCase())) {
+        sanitized[key] = '[INTERNAL_OBJECT]';
       } else {
-        sanitized[key] = sanitizeObject((obj as Record<string, unknown>)[key], depth + 1);
+        try {
+          sanitized[key] = sanitizeObject((obj as Record<string, unknown>)[key], depth + 1, seen);
+        } catch {
+          sanitized[key] = '[SERIALIZATION_ERROR]';
+        }
       }
     }
     return sanitized;
