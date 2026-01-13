@@ -19727,5 +19727,57 @@ ${articlesContext}`;
     }
   });
 
+  // PhantomBuster CSV endpoint for LinkedIn enrichment
+  // GET /api/phantom/leads.csv?token=PHANTOM_CSV_TOKEN&eventId=xxx
+  app.get("/api/phantom/leads.csv", async (req, res) => {
+    try {
+      const { token, eventId } = req.query;
+      
+      // Validate token
+      const expectedToken = process.env.PHANTOM_CSV_TOKEN;
+      if (!expectedToken || token !== expectedToken) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      // Validate eventId
+      if (!eventId || typeof eventId !== "string") {
+        return res.status(400).json({ message: "eventId parameter is required" });
+      }
+      
+      // Check event exists
+      const event = await storage.getEventById(eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      // Get registered attendees for the event
+      const attendees = await storage.getAttendeesByEvent(eventId);
+      const registeredAttendees = attendees.filter(a => a.registrationStatus === "registered");
+      
+      // Build CSV content
+      const csvHeader = "first_name,last_name,email";
+      const csvRows = registeredAttendees.map(a => {
+        // Escape fields that might contain commas or quotes
+        const escape = (val: string) => {
+          if (val.includes(",") || val.includes('"') || val.includes("\n")) {
+            return `"${val.replace(/"/g, '""')}"`;
+          }
+          return val;
+        };
+        return `${escape(a.firstName)},${escape(a.lastName)},${escape(a.email)}`;
+      });
+      
+      const csvContent = [csvHeader, ...csvRows].join("\n");
+      
+      // Return CSV with proper headers
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="leads-${eventId}.csv"`);
+      res.send(csvContent);
+    } catch (error) {
+      logError("Error generating PhantomBuster CSV:", error);
+      res.status(500).json({ message: "Failed to generate CSV" });
+    }
+  });
+
   return httpServer;
 }
