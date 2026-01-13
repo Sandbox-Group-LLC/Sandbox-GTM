@@ -14,32 +14,43 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-// Create pool with more aggressive connection management to avoid stale connections
+// Create pool with conservative settings to prevent connection corruption
+// Key: Don't reuse connections for too long, and keep pool small
 export const pool = new Pool({ 
   connectionString: process.env.DATABASE_URL,
-  max: 5, // Reduced pool size for better connection health
-  min: 1, // Minimum pool size
-  idleTimeoutMillis: 10000, // Close idle connections faster (10 seconds)
-  connectionTimeoutMillis: 5000, // Shorter timeout for connection attempts
-  allowExitOnIdle: false,
+  max: 3, // Small pool to minimize stale connections
+  min: 0, // Allow pool to shrink to zero when idle
+  idleTimeoutMillis: 5000, // Close idle connections quickly (5 seconds)
+  connectionTimeoutMillis: 5000, // Timeout for acquiring connections
+  allowExitOnIdle: true, // Allow app to exit if only idle connections remain
 });
 
-// Add error handler to prevent circular JSON serialization crashes
-// When a pool error occurs, the connection is automatically removed from the pool
+// Handle pool-level errors - these indicate a connection was lost unexpectedly
 pool.on('error', (err) => {
-  console.error('[db] Unexpected pool error:', err.message);
+  console.error('[db] Pool error (connection will be removed):', err.message);
+  // Don't crash, the pool will automatically remove the bad connection
 });
 
+// Track new connections
 pool.on('connect', (client) => {
-  console.log('[db] New client connected to pool');
-  // Add error handler to individual client to catch protocol errors
+  console.log('[db] New connection established');
+  
+  // Handle client-level errors to prevent unhandled rejections
   client.on('error', (err: Error) => {
-    console.error('[db] Client error:', err.message);
+    console.error('[db] Connection error:', err.message);
+    // Connection will be removed from pool automatically
   });
 });
 
 pool.on('remove', () => {
-  console.log('[db] Client removed from pool');
+  console.log('[db] Connection closed');
 });
 
 export const db = drizzle(pool, { schema });
+
+// Export function to reset pool if needed
+export async function resetPool(): Promise<void> {
+  console.log('[db] Resetting connection pool...');
+  await pool.end();
+  console.log('[db] Pool reset complete');
+}
