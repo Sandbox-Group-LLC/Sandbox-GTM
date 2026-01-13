@@ -1740,6 +1740,22 @@ export default function Attendees() {
                       <div className="font-medium">{viewingAttendee.jobTitle}</div>
                     </div>
                   )}
+                  {viewingAttendee.linkedinProfileUrl && (
+                    <div className="col-span-2">
+                      <div className="text-xs text-muted-foreground">LinkedIn</div>
+                      <a 
+                        href={viewingAttendee.linkedinProfileUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="font-medium text-primary hover:underline inline-flex items-center gap-1"
+                        data-testid="link-attendee-linkedin"
+                      >
+                        <Linkedin className="h-4 w-4" />
+                        View Profile
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
+                  )}
                 </div>
               </div>
 
