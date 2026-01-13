@@ -34,18 +34,23 @@ export async function searchLinkedInProfile(
   
   const searchQueries = [];
   
+  // Strategy 1: Name + company (no quotes around company for flexible matching)
   if (company) {
-    searchQueries.push(`site:linkedin.com/in "${fullName}" "${company}"`);
+    searchQueries.push(`site:linkedin.com/in "${fullName}" ${company}`);
   }
   
+  // Strategy 2: Use email domain as company hint
   if (email) {
     const emailDomain = email.split("@")[1];
     if (emailDomain && !emailDomain.includes("gmail") && !emailDomain.includes("yahoo") && !emailDomain.includes("hotmail") && !emailDomain.includes("outlook")) {
       const companyFromEmail = emailDomain.split(".")[0];
-      searchQueries.push(`site:linkedin.com/in "${fullName}" "${companyFromEmail}"`);
+      if (!company || companyFromEmail.toLowerCase() !== company.toLowerCase()) {
+        searchQueries.push(`site:linkedin.com/in "${fullName}" ${companyFromEmail}`);
+      }
     }
   }
   
+  // Strategy 3: Name only as fallback
   searchQueries.push(`site:linkedin.com/in "${fullName}"`);
 
   for (const query of searchQueries) {
