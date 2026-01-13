@@ -19761,17 +19761,19 @@ ${articlesContext}`;
       const attendees = await storage.getAttendeesByEvent(eventId);
       const registeredAttendees = attendees.filter(a => a.registrationStatus === "registered");
       
-      // Build CSV content
-      const csvHeader = "first_name,last_name,email";
+      // Build CSV content with PhantomBuster-friendly column names
+      const csvHeader = "First name,Last name,Full name,Professional email,Company name";
       const csvRows = registeredAttendees.map(a => {
         // Escape fields that might contain commas or quotes
-        const escape = (val: string) => {
+        const escape = (val: string | null | undefined) => {
+          if (!val) return "";
           if (val.includes(",") || val.includes('"') || val.includes("\n")) {
             return `"${val.replace(/"/g, '""')}"`;
           }
           return val;
         };
-        return `${escape(a.firstName)},${escape(a.lastName)},${escape(a.email)}`;
+        const fullName = `${a.firstName} ${a.lastName}`.trim();
+        return `${escape(a.firstName)},${escape(a.lastName)},${escape(fullName)},${escape(a.email)},${escape(a.company)}`;
       });
       
       const csvContent = [csvHeader, ...csvRows].join("\n");
