@@ -766,6 +766,11 @@ export const attendees = pgTable("attendees", {
   intentSources: jsonb("intent_sources").$type<{ type: string; id: string; createdAt: string }[]>().default([]),
   // Narrative explanation layer for intent scoring (computed from all interactions + meetings)
   intentExplanation: jsonb("intent_explanation").$type<IntentExplanation>(),
+  // PhantomBuster LinkedIn enrichment data
+  linkedinProfileUrl: varchar("linkedin_profile_url", { length: 500 }),
+  linkedinTitle: varchar("linkedin_title", { length: 255 }),
+  linkedinDescription: text("linkedin_description"),
+  linkedinSearchQuery: varchar("linkedin_search_query", { length: 500 }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
