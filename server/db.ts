@@ -2,7 +2,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import * as schema from "@shared/schema";
 
-const { Pool, types } = pg;
+const { Pool, Client, types } = pg;
 
 // Configure pg to return DATE values as strings to avoid timezone issues
 // PostgreSQL DATE type OID is 1082
@@ -15,30 +15,24 @@ if (!process.env.DATABASE_URL) {
 }
 
 // Create pool with conservative settings to prevent connection corruption
-// Key: Don't reuse connections for too long, and keep pool small
 export const pool = new Pool({ 
   connectionString: process.env.DATABASE_URL,
-  max: 3, // Small pool to minimize stale connections
-  min: 0, // Allow pool to shrink to zero when idle
-  idleTimeoutMillis: 5000, // Close idle connections quickly (5 seconds)
-  connectionTimeoutMillis: 5000, // Timeout for acquiring connections
-  allowExitOnIdle: true, // Allow app to exit if only idle connections remain
+  max: 3,
+  min: 0,
+  idleTimeoutMillis: 5000,
+  connectionTimeoutMillis: 5000,
+  allowExitOnIdle: true,
 });
 
-// Handle pool-level errors - these indicate a connection was lost unexpectedly
+// Handle pool-level errors
 pool.on('error', (err) => {
-  console.error('[db] Pool error (connection will be removed):', err.message);
-  // Don't crash, the pool will automatically remove the bad connection
+  console.error('[db] Pool error:', err.message);
 });
 
-// Track new connections
 pool.on('connect', (client) => {
   console.log('[db] New connection established');
-  
-  // Handle client-level errors to prevent unhandled rejections
   client.on('error', (err: Error) => {
     console.error('[db] Connection error:', err.message);
-    // Connection will be removed from pool automatically
   });
 });
 
@@ -47,6 +41,24 @@ pool.on('remove', () => {
 });
 
 export const db = drizzle(pool, { schema });
+
+// Helper to run a query with a fresh connection (bypasses pool issues)
+export async function withFreshConnection<T>(
+  fn: (db: ReturnType<typeof drizzle>) => Promise<T>
+): Promise<T> {
+  const client = new Client({
+    connectionString: process.env.DATABASE_URL,
+  });
+  
+  try {
+    await client.connect();
+    const freshDb = drizzle(client, { schema });
+    const result = await fn(freshDb);
+    return result;
+  } finally {
+    await client.end().catch(() => {}); // Ignore errors during cleanup
+  }
+}
 
 // Export function to reset pool if needed
 export async function resetPool(): Promise<void> {
