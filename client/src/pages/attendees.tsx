@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -50,7 +50,8 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { titleCase } from "@/lib/utils";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Plus, Users, Search, Download, Settings2, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Trash2, Eye, Mail, ExternalLink, Copy, Info, Flame, TrendingUp, QrCode } from "lucide-react";
+import { Plus, Users, Search, Download, Settings2, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Trash2, Eye, Mail, ExternalLink, Copy, Info, Flame, TrendingUp, QrCode, Linkedin } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { QRCodeSVG } from "qrcode.react";
 import { format } from "date-fns";
 import { Separator } from "@/components/ui/separator";
@@ -232,6 +233,7 @@ export default function Attendees() {
   const [bulkEditField, setBulkEditField] = useState<string>("");
   const [bulkEditValue, setBulkEditValue] = useState<string>("");
   const [bulkEmailTemplateId, setBulkEmailTemplateId] = useState<string>("");
+  const [isLinkedInDialogOpen, setIsLinkedInDialogOpen] = useState(false);
 
   const { data: attendees = [], isLoading } = useQuery<Attendee[]>({
     queryKey: ["/api/attendees"],
@@ -348,6 +350,73 @@ export default function Attendees() {
         return;
       }
       toast({ title: "Failed to send emails", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // LinkedIn enrichment progress polling
+  interface LinkedInProgress {
+    status: "idle" | "running" | "completed" | "error";
+    total: number;
+    processed?: number;
+    found?: number;
+    notFound?: number;
+    errors?: number;
+    enriched?: number;
+    pending?: number;
+    currentAttendee?: string;
+  }
+
+  const { data: linkedInProgress, refetch: refetchLinkedInProgress, isLoading: isLinkedInProgressLoading } = useQuery<LinkedInProgress>({
+    queryKey: ["/api/events", eventFilter, "linkedin-enrich", "progress"],
+    enabled: eventFilter !== "all" && isLinkedInDialogOpen,
+    refetchInterval: linkedInProgress?.status === "running" ? 1500 : false,
+  });
+
+  // Derive running state from server response
+  const isEnrichmentRunning = linkedInProgress?.status === "running";
+  // Show loading state until we know the actual status
+  const isEnrichmentStatusUnknown = isLinkedInDialogOpen && isLinkedInProgressLoading && !linkedInProgress;
+
+  // Track last seen status to detect completion
+  const [lastSeenStatus, setLastSeenStatus] = useState<string | null>(null);
+  
+  useEffect(() => {
+    if (linkedInProgress?.status && linkedInProgress.status !== lastSeenStatus) {
+      if (linkedInProgress.status === "completed" && lastSeenStatus === "running") {
+        queryClient.invalidateQueries({ queryKey: ["/api/attendees"] });
+        toast({
+          title: "LinkedIn enrichment completed",
+          description: `Found ${linkedInProgress.found || 0} profiles, ${linkedInProgress.notFound || 0} not found`
+        });
+      } else if (linkedInProgress.status === "error" && lastSeenStatus === "running") {
+        toast({
+          title: "LinkedIn enrichment failed",
+          description: "An error occurred during enrichment",
+          variant: "destructive"
+        });
+      }
+      setLastSeenStatus(linkedInProgress.status);
+    }
+  }, [linkedInProgress?.status, lastSeenStatus]);
+
+  const linkedInEnrichMutation = useMutation({
+    mutationFn: async (eventId: string) => {
+      return await apiRequest("POST", `/api/events/${eventId}/linkedin-enrich`);
+    },
+    onSuccess: (data: { message: string; totalAttendees: number; alreadyEnriched: number }) => {
+      toast({
+        title: "LinkedIn enrichment started",
+        description: `Processing ${data.totalAttendees - data.alreadyEnriched} attendees...`
+      });
+      setLastSeenStatus("running");
+      refetchLinkedInProgress();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to start enrichment",
+        description: error.message,
+        variant: "destructive"
+      });
     },
   });
 
@@ -1334,6 +1403,94 @@ export default function Attendees() {
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
+
+            {eventFilter !== "all" && (
+              <Dialog open={isLinkedInDialogOpen} onOpenChange={setIsLinkedInDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    data-testid="button-linkedin-enrich"
+                    disabled={linkedInEnrichMutation.isPending}
+                  >
+                    <Linkedin className="h-4 w-4 mr-2" />
+                    {isEnrichmentRunning ? "View Progress" : "Find LinkedIn"}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>LinkedIn Profile Enrichment</DialogTitle>
+                    <DialogDescription>
+                      Search Google for LinkedIn profiles matching your attendees' names and companies.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    {isEnrichmentStatusUnknown ? (
+                      <div className="flex items-center justify-center py-4">
+                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                        <span className="ml-2 text-sm text-muted-foreground">Checking status...</span>
+                      </div>
+                    ) : isEnrichmentRunning && linkedInProgress ? (
+                      <div className="space-y-3">
+                        <div className="flex justify-between text-sm">
+                          <span>Processing: {linkedInProgress.currentAttendee || "..."}</span>
+                          <span>{linkedInProgress.processed || 0} / {linkedInProgress.total}</span>
+                        </div>
+                        <Progress 
+                          value={((linkedInProgress.processed || 0) / linkedInProgress.total) * 100} 
+                        />
+                        <div className="flex justify-between text-sm text-muted-foreground">
+                          <span>Found: {linkedInProgress.found || 0}</span>
+                          <span>Not found: {linkedInProgress.notFound || 0}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-sm text-muted-foreground">
+                          This will search for LinkedIn profiles for all registered attendees 
+                          in the selected event who don't already have a LinkedIn URL.
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Requires Google Custom Search API credentials (GOOGLE_API_KEY and GOOGLE_CSE_ID).
+                        </p>
+                        {linkedInProgress && linkedInProgress.status === "idle" && (
+                          <p className="text-sm">
+                            {linkedInProgress.enriched || 0} already enriched, {linkedInProgress.pending || 0} pending.
+                          </p>
+                        )}
+                        <div className="flex justify-end gap-2">
+                          <Button 
+                            variant="outline" 
+                            onClick={() => setIsLinkedInDialogOpen(false)}
+                          >
+                            Cancel
+                          </Button>
+                          <Button 
+                            onClick={() => {
+                              linkedInEnrichMutation.mutate(eventFilter);
+                            }}
+                            disabled={linkedInEnrichMutation.isPending || isEnrichmentStatusUnknown}
+                            data-testid="button-start-enrichment"
+                          >
+                            {linkedInEnrichMutation.isPending ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Starting...
+                              </>
+                            ) : (
+                              <>
+                                <Linkedin className="h-4 w-4 mr-2" />
+                                Start Enrichment
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
           </div>
 
           {selectedIds.size > 0 && (

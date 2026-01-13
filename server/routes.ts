@@ -128,6 +128,7 @@ import { sanitizeCustomCss } from "@shared/css-sanitizer";
 import { generateSectionContent } from "./ai";
 import { z } from "zod";
 import { generateCalendarLinksHtml } from "@shared/calendarLinks";
+import { enrichEventAttendees, getEnrichmentProgress } from "./linkedinEnrichment";
 
 // Register public tracking route early (before auth middleware)
 // This ensures it works even if async initialization fails
@@ -19785,6 +19786,105 @@ ${articlesContext}`;
     } catch (error) {
       logError("Error generating PhantomBuster CSV:", error);
       res.status(500).json({ message: "Failed to generate CSV" });
+    }
+  });
+
+  // LinkedIn Enrichment API - Start enrichment for an event's attendees
+  app.post("/api/events/:eventId/linkedin-enrich", isAuthenticated, async (req, res) => {
+    try {
+      const { eventId } = req.params;
+      const organizationId = getOrganizationId(req);
+      if (!organizationId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Check Google API credentials are configured
+      if (!process.env.GOOGLE_API_KEY || !process.env.GOOGLE_CSE_ID) {
+        return res.status(400).json({ 
+          message: "Google Custom Search API not configured. Please add GOOGLE_API_KEY and GOOGLE_CSE_ID secrets." 
+        });
+      }
+
+      // Verify event exists and belongs to organization
+      const event = await storage.getEvent(organizationId, eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+
+      // Get attendees for enrichment (confirmed, registered, checked_in, or pending status)
+      const attendees = await storage.getAttendeesByEvent(eventId);
+      const eligibleStatuses = ["confirmed", "registered", "checked_in", "pending"];
+      const eligibleAttendees = attendees.filter(a => 
+        eligibleStatuses.includes(a.registrationStatus || "")
+      );
+
+      if (eligibleAttendees.length === 0) {
+        return res.status(400).json({ message: "No eligible attendees to enrich" });
+      }
+
+      // Start enrichment in background (non-blocking)
+      enrichEventAttendees(
+        eventId,
+        eligibleAttendees.map(a => ({
+          id: a.id,
+          firstName: a.firstName,
+          lastName: a.lastName,
+          company: a.company,
+          email: a.email,
+          linkedinProfileUrl: a.linkedinProfileUrl
+        })),
+        async (attendeeId, linkedinUrl, searchQuery) => {
+          await storage.updateAttendee(organizationId, attendeeId, {
+            linkedinProfileUrl: linkedinUrl || null,
+            linkedinSearchQuery: searchQuery
+          });
+        }
+      ).catch(error => {
+        logError("LinkedIn enrichment failed:", error);
+      });
+
+      res.json({ 
+        message: "LinkedIn enrichment started",
+        totalAttendees: eligibleAttendees.length,
+        alreadyEnriched: eligibleAttendees.filter(a => a.linkedinProfileUrl).length
+      });
+    } catch (error) {
+      logError("Error starting LinkedIn enrichment:", error);
+      res.status(500).json({ message: "Failed to start enrichment" });
+    }
+  });
+
+  // LinkedIn Enrichment API - Get enrichment progress
+  app.get("/api/events/:eventId/linkedin-enrich/progress", isAuthenticated, async (req, res) => {
+    try {
+      const { eventId } = req.params;
+      const organizationId = getOrganizationId(req);
+      if (!organizationId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const progress = getEnrichmentProgress(eventId);
+      
+      if (!progress) {
+        // No active enrichment, get stats from database
+        const attendees = await storage.getAttendeesByEvent(eventId);
+        const eligibleStatuses = ["confirmed", "registered", "checked_in", "pending"];
+        const eligibleAttendees = attendees.filter(a => 
+          eligibleStatuses.includes(a.registrationStatus || "")
+        );
+        
+        return res.json({
+          status: "idle",
+          total: eligibleAttendees.length,
+          enriched: eligibleAttendees.filter(a => a.linkedinProfileUrl).length,
+          pending: eligibleAttendees.filter(a => !a.linkedinProfileUrl).length
+        });
+      }
+
+      res.json(progress);
+    } catch (error) {
+      logError("Error getting LinkedIn enrichment progress:", error);
+      res.status(500).json({ message: "Failed to get enrichment progress" });
     }
   });
 
