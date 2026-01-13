@@ -19790,7 +19790,7 @@ ${articlesContext}`;
   });
 
   // LinkedIn Enrichment API - Start enrichment for an event's attendees
-  // Uses fresh database connections to avoid pool corruption issues
+  // Uses raw pg queries to avoid drizzle/pool issues
   app.post("/api/events/:eventId/linkedin-enrich", isAuthenticated, async (req, res) => {
     try {
       const { eventId } = req.params;
@@ -19806,31 +19806,13 @@ ${articlesContext}`;
         });
       }
 
-      // Use direct database query to avoid pool issues
-      const { withFreshConnection } = await import("./db");
-      const { events, attendees } = await import("@shared/schema");
-      const { eq, and, desc } = await import("drizzle-orm");
-
-      const { event, eventAttendees } = await withFreshConnection(async (freshDb) => {
-        // Verify event exists and belongs to organization
-        const [eventResult] = await freshDb.select().from(events)
-          .where(and(eq(events.organizationId, organizationId), eq(events.id, eventId)));
-        
-        if (!eventResult) {
-          return { event: null, eventAttendees: [] };
-        }
-
-        // Get attendees for enrichment
-        const attendeesResult = await freshDb.select().from(attendees)
-          .where(and(eq(attendees.organizationId, organizationId), eq(attendees.eventId, eventId)))
-          .orderBy(desc(attendees.createdAt));
-
-        return { event: eventResult, eventAttendees: attendeesResult };
-      });
-
+      // Use the shared storage which handles database properly
+      const event = await storage.getEvent(organizationId, eventId);
       if (!event) {
         return res.status(404).json({ message: "Event not found" });
       }
+
+      const eventAttendees = await storage.getAttendees(organizationId, eventId);
 
       const eligibleStatuses = ["confirmed", "registered", "checked_in", "pending"];
       const eligibleAttendees = eventAttendees.filter(a => 
@@ -19858,8 +19840,8 @@ ${articlesContext}`;
             linkedinSearchQuery: searchQuery
           });
         }
-      ).catch(error => {
-        logError("LinkedIn enrichment failed:", error);
+      ).catch(err => {
+        logError(`LinkedIn enrichment failed: ${err instanceof Error ? err.message : String(err)}`);
       });
 
       res.json({ 
@@ -19867,14 +19849,15 @@ ${articlesContext}`;
         totalAttendees: eligibleAttendees.length,
         alreadyEnriched: eligibleAttendees.filter(a => a.linkedinProfileUrl).length
       });
-    } catch (error) {
-      logError("Error starting LinkedIn enrichment:", error);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      logError(`Error starting LinkedIn enrichment: ${errorMsg}`);
       res.status(500).json({ message: "Failed to start enrichment" });
     }
   });
 
   // LinkedIn Enrichment API - Get enrichment progress
-  // Uses fresh database connections to avoid pool corruption issues
+  // Uses shared storage to avoid connection issues
   app.get("/api/events/:eventId/linkedin-enrich/progress", isAuthenticated, async (req, res) => {
     try {
       const { eventId } = req.params;
@@ -19886,16 +19869,8 @@ ${articlesContext}`;
       const progress = getEnrichmentProgress(eventId);
       
       if (!progress) {
-        // No active enrichment, get stats from database using fresh connection
-        const { withFreshConnection } = await import("./db");
-        const { attendees } = await import("@shared/schema");
-        const { eq, and, desc } = await import("drizzle-orm");
-
-        const eventAttendees = await withFreshConnection(async (freshDb) => {
-          return freshDb.select().from(attendees)
-            .where(and(eq(attendees.organizationId, organizationId), eq(attendees.eventId, eventId)))
-            .orderBy(desc(attendees.createdAt));
-        });
+        // No active enrichment, get stats from database
+        const eventAttendees = await storage.getAttendees(organizationId, eventId);
 
         const eligibleStatuses = ["confirmed", "registered", "checked_in", "pending"];
         const eligibleAttendees = eventAttendees.filter(a => 
@@ -19911,8 +19886,9 @@ ${articlesContext}`;
       }
 
       res.json(progress);
-    } catch (error) {
-      logError("Error getting LinkedIn enrichment progress:", error);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      logError(`Error getting LinkedIn enrichment progress: ${errorMsg}`);
       res.status(500).json({ message: "Failed to get enrichment progress" });
     }
   });
