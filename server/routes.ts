@@ -19733,9 +19733,16 @@ ${articlesContext}`;
     try {
       const { token, eventId } = req.query;
       
-      // Validate token
+      // Validate token - ensure it's a string and use timing-safe comparison
       const expectedToken = process.env.PHANTOM_CSV_TOKEN;
-      if (!expectedToken || token !== expectedToken) {
+      if (!expectedToken || typeof token !== "string" || token.length !== expectedToken.length) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      // Timing-safe comparison to prevent timing attacks
+      const tokenBuffer = Buffer.from(token);
+      const expectedBuffer = Buffer.from(expectedToken);
+      if (!timingSafeEqual(tokenBuffer, expectedBuffer)) {
         return res.status(401).json({ message: "Unauthorized" });
       }
       
