@@ -78,7 +78,23 @@ app.use((req, res, next) => {
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+        try {
+          // Safely stringify response, handling circular references
+          const seen = new WeakSet();
+          const safeJson = JSON.stringify(capturedJsonResponse, (key, value) => {
+            if (typeof value === 'object' && value !== null) {
+              if (seen.has(value)) {
+                return '[Circular]';
+              }
+              seen.add(value);
+            }
+            return value;
+          });
+          // Truncate long responses
+          logLine += ` :: ${safeJson.length > 500 ? safeJson.substring(0, 500) + '...' : safeJson}`;
+        } catch {
+          logLine += ` :: [Response not serializable]`;
+        }
       }
 
       log(logLine);
