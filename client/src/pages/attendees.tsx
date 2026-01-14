@@ -50,7 +50,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { titleCase } from "@/lib/utils";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Plus, Users, Search, Download, Settings2, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Trash2, Eye, Mail, ExternalLink, Copy, Info, Flame, TrendingUp, QrCode, Linkedin } from "lucide-react";
+import { Plus, Users, Search, Download, Settings2, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Trash2, Eye, Mail, ExternalLink, Copy, Info, Flame, TrendingUp, QrCode, Linkedin, RefreshCw } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { QRCodeSVG } from "qrcode.react";
 import { format } from "date-fns";
@@ -414,6 +414,27 @@ export default function Attendees() {
     onError: (error: Error) => {
       toast({
         title: "Failed to start enrichment",
+        description: error.message,
+        variant: "destructive"
+      });
+    },
+  });
+
+  // Single attendee LinkedIn scrape mutation
+  const scrapeLinkedInMutation = useMutation({
+    mutationFn: async (attendeeId: string) => {
+      return await apiRequest("POST", `/api/attendees/${attendeeId}/scrape-linkedin`);
+    },
+    onSuccess: () => {
+      toast({
+        title: "LinkedIn profile scraped",
+        description: "Profile data has been saved to the attendee record."
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/attendees"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to scrape LinkedIn",
         description: error.message,
         variant: "destructive"
       });
@@ -1743,17 +1764,40 @@ export default function Attendees() {
                   {viewingAttendee.linkedinProfileUrl && (
                     <div className="col-span-2">
                       <div className="text-xs text-muted-foreground">LinkedIn</div>
-                      <a 
-                        href={viewingAttendee.linkedinProfileUrl} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="font-medium text-primary hover:underline inline-flex items-center gap-1"
-                        data-testid="link-attendee-linkedin"
-                      >
-                        <Linkedin className="h-4 w-4" />
-                        View Profile
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
+                      <div className="flex items-center gap-3">
+                        <a 
+                          href={viewingAttendee.linkedinProfileUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="font-medium text-primary hover:underline inline-flex items-center gap-1"
+                          data-testid="link-attendee-linkedin"
+                        >
+                          <Linkedin className="h-4 w-4" />
+                          View Profile
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                        {!viewingAttendee.linkedinEnrichedAt && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => scrapeLinkedInMutation.mutate(viewingAttendee.id)}
+                            disabled={scrapeLinkedInMutation.isPending}
+                            data-testid="button-scrape-linkedin"
+                          >
+                            {scrapeLinkedInMutation.isPending ? (
+                              <>
+                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                Scraping...
+                              </>
+                            ) : (
+                              <>
+                                <RefreshCw className="h-3 w-3 mr-1" />
+                                Scrape Profile
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
