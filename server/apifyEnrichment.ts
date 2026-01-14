@@ -1,4 +1,44 @@
 import { ApifyClient } from "apify-client";
+import { z } from "zod";
+
+// Zod schemas for validating Apify response data
+const LinkedInPositionSchema = z.object({
+  startYear: z.number().optional(),
+  startMonth: z.number().optional(),
+  endYear: z.number().optional(),
+  endMonth: z.number().optional(),
+  companyName: z.string().optional(),
+  title: z.string().optional(),
+  description: z.string().optional(),
+  current: z.boolean().optional(),
+}).passthrough(); // Allow extra fields but validate core structure
+
+const LinkedInEducationSchema = z.object({
+  startYear: z.number().optional(),
+  endYear: z.number().optional(),
+  degreeName: z.string().optional(),
+  fieldOfStudy: z.string().optional(),
+  schoolName: z.string().optional(),
+}).passthrough();
+
+const LinkedInSkillSchema = z.object({
+  skillName: z.string(),
+}).passthrough();
+
+// Schema for validating profile data from Apify
+const LinkedInProfileDataSchema = z.object({
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
+  headline: z.string().optional(),
+  summary: z.string().optional(),
+  picture: z.string().optional(),
+  locationName: z.string().optional(),
+  publicIdentifier: z.string().optional(),
+  url: z.string().optional(),
+  positions: z.array(LinkedInPositionSchema).optional(),
+  educations: z.array(LinkedInEducationSchema).optional(),
+  skills: z.array(LinkedInSkillSchema).optional(),
+}).passthrough();
 
 // Apify LinkedIn profile scraper actor ID
 const LINKEDIN_SCRAPER_ACTOR_ID = "dataweave/linkedin-profile-scraper";
@@ -89,9 +129,160 @@ export interface ApifyEnrichmentProgress {
 }
 
 const enrichmentProgress: Map<string, ApifyEnrichmentProgress> = new Map();
+// Track active enrichments to prevent concurrent runs
+const activeEnrichments: Set<string> = new Set();
 
 export function getApifyEnrichmentProgress(eventId: string): ApifyEnrichmentProgress | null {
   return enrichmentProgress.get(eventId) || null;
+}
+
+export function isEnrichmentActive(eventId: string): boolean {
+  return activeEnrichments.has(eventId);
+}
+
+// Clear active enrichment immediately (prevents permanent locking)
+function clearActiveEnrichment(eventId: string) {
+  activeEnrichments.delete(eventId);
+}
+
+// Clear progress after a delay to allow final polling
+function clearProgressAfterDelay(eventId: string, delayMs: number = 30000) {
+  setTimeout(() => {
+    const progress = enrichmentProgress.get(eventId);
+    // Only clear if status is completed or error (not running)
+    if (progress && (progress.status === "completed" || progress.status === "error")) {
+      enrichmentProgress.delete(eventId);
+    }
+  }, delayMs);
+}
+
+/**
+ * Normalizes a LinkedIn public identifier for comparison
+ * Handles various URL formats and edge cases
+ */
+function normalizePublicIdentifier(url: string | null | undefined): string | null {
+  if (!url) return null;
+  
+  // Extract public identifier from URL
+  const match = url.match(/linkedin\.com\/in\/([^/?#]+)/i);
+  if (match && match[1]) {
+    return match[1].toLowerCase().trim().replace(/\/$/, "");
+  }
+  
+  // If it's already just an identifier
+  if (!url.includes("/")) {
+    return url.toLowerCase().trim();
+  }
+  
+  return null;
+}
+
+/**
+ * Validates that the scraped profile data matches the expected attendee
+ * Requires EITHER publicIdentifier match OR both first AND last name match
+ * Returns true if the profile appears to belong to the attendee
+ */
+function validateProfileMatch(
+  profileData: LinkedInProfileData,
+  attendee: { firstName: string; lastName: string; linkedinProfileUrl: string | null }
+): boolean {
+  if (!profileData || !attendee.linkedinProfileUrl) {
+    return false;
+  }
+
+  // Check 1: Compare public identifiers (strongest match)
+  const expectedPublicId = normalizePublicIdentifier(attendee.linkedinProfileUrl);
+  const actualPublicId = profileData.publicIdentifier?.toLowerCase().trim();
+  
+  if (expectedPublicId && actualPublicId && actualPublicId === expectedPublicId) {
+    return true;
+  }
+
+  // Check 2: Require BOTH first AND last name to match (case-insensitive)
+  if (profileData.firstName && profileData.lastName && attendee.firstName && attendee.lastName) {
+    const profileFirst = profileData.firstName.toLowerCase().trim();
+    const profileLast = profileData.lastName.toLowerCase().trim();
+    const attendeeFirst = attendee.firstName.toLowerCase().trim();
+    const attendeeLast = attendee.lastName.toLowerCase().trim();
+    
+    if (profileFirst === attendeeFirst && profileLast === attendeeLast) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Validates and sanitizes profile data from Apify using Zod schema
+ * Returns null if validation fails
+ */
+function validateAndSanitizeProfileData(rawData: unknown): LinkedInProfileData | null {
+  try {
+    // Parse with Zod to validate structure
+    const parsed = LinkedInProfileDataSchema.safeParse(rawData);
+    
+    if (!parsed.success) {
+      console.warn("LinkedIn profile data validation failed:", parsed.error.issues);
+      return null;
+    }
+    
+    const profileData = parsed.data;
+    
+    // Sanitize string fields to database-safe lengths
+    return {
+      ...profileData,
+      headline: profileData.headline?.substring(0, 500),
+      summary: profileData.summary?.substring(0, 5000),
+      picture: profileData.picture?.substring(0, 500),
+      locationName: profileData.locationName?.substring(0, 255),
+      // Strip unexpected properties from nested objects
+      positions: profileData.positions?.map(p => ({
+        startYear: p.startYear,
+        endYear: p.endYear,
+        companyName: p.companyName,
+        title: p.title,
+        description: p.description,
+        current: p.current,
+      })),
+      educations: profileData.educations?.map(e => ({
+        startYear: e.startYear,
+        endYear: e.endYear,
+        degreeName: e.degreeName,
+        fieldOfStudy: e.fieldOfStudy,
+        schoolName: e.schoolName,
+      })),
+      skills: profileData.skills?.map(s => ({
+        skillName: s.skillName,
+      })),
+    } as LinkedInProfileData;
+  } catch (error) {
+    console.error("Error validating LinkedIn profile data:", error);
+    return null;
+  }
+}
+
+/**
+ * Sanitizes and validates profile data fields before storage (legacy wrapper)
+ */
+function sanitizeProfileData(profileData: LinkedInProfileData): LinkedInProfileData {
+  // Use the new validation function
+  const validated = validateAndSanitizeProfileData(profileData);
+  if (validated) {
+    return validated;
+  }
+  
+  // Fallback: basic sanitization if Zod validation fails
+  return {
+    ...profileData,
+    headline: profileData.headline?.substring(0, 500),
+    summary: profileData.summary?.substring(0, 5000),
+    picture: profileData.picture?.substring(0, 500),
+    locationName: profileData.locationName?.substring(0, 255),
+    positions: Array.isArray(profileData.positions) ? profileData.positions : undefined,
+    educations: Array.isArray(profileData.educations) ? profileData.educations : undefined,
+    skills: Array.isArray(profileData.skills) ? profileData.skills : undefined,
+  };
 }
 
 /**
@@ -234,6 +425,14 @@ export async function enrichAttendeesWithLinkedInData(
     profileData: LinkedInProfileData
   ) => Promise<void>
 ): Promise<ApifyEnrichmentProgress> {
+  // Check if enrichment is already running for this event
+  if (activeEnrichments.has(eventId)) {
+    const existingProgress = enrichmentProgress.get(eventId);
+    if (existingProgress && existingProgress.status === "running") {
+      return existingProgress;
+    }
+  }
+
   // Filter to only attendees with LinkedIn URLs but no enriched data yet
   const attendeesToEnrich = attendees.filter(a => a.linkedinProfileUrl);
 
@@ -246,6 +445,9 @@ export async function enrichAttendeesWithLinkedInData(
       status: "completed"
     };
   }
+
+  // Mark enrichment as active
+  activeEnrichments.add(eventId);
 
   // Initialize progress tracking
   const progress: ApifyEnrichmentProgress = {
@@ -284,8 +486,18 @@ export async function enrichAttendeesWithLinkedInData(
         progress.processed++;
 
         if (result.success && result.profileData) {
+          // Validate that the profile matches the expected attendee
+          if (!validateProfileMatch(result.profileData, attendee)) {
+            console.warn(`Profile mismatch for attendee ${attendee.id}: expected ${attendee.firstName} ${attendee.lastName}, got ${result.profileData.firstName} ${result.profileData.lastName}`);
+            progress.failed++;
+            enrichmentProgress.set(eventId, { ...progress });
+            continue;
+          }
+
           try {
-            await updateAttendee(attendee.id, result.profileData);
+            // Sanitize the profile data before storing
+            const sanitizedData = sanitizeProfileData(result.profileData);
+            await updateAttendee(attendee.id, sanitizedData);
             progress.success++;
           } catch (error) {
             console.error(`Error updating attendee ${attendee.id}:`, error);
@@ -303,12 +515,25 @@ export async function enrichAttendeesWithLinkedInData(
     progress.currentAttendee = undefined;
     enrichmentProgress.set(eventId, progress);
 
+    // Clear active enrichment immediately to allow new enrichments
+    clearActiveEnrichment(eventId);
+    
+    // Clear progress after delay to allow final polling
+    clearProgressAfterDelay(eventId);
+
     return progress;
   } catch (error) {
     console.error("Error enriching attendees with LinkedIn data:", error);
     progress.status = "error";
     progress.errorMessage = error instanceof Error ? error.message : "Unknown error";
     enrichmentProgress.set(eventId, progress);
+    
+    // Clear active enrichment immediately to allow retry
+    clearActiveEnrichment(eventId);
+    
+    // Clear progress after delay
+    clearProgressAfterDelay(eventId);
+    
     return progress;
   }
 }

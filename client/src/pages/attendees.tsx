@@ -1759,6 +1759,116 @@ export default function Attendees() {
                 </div>
               </div>
 
+              {/* LinkedIn Profile Data (from Apify enrichment) */}
+              {viewingAttendee.linkedinEnrichedAt && (
+                <>
+                  <Separator />
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Linkedin className="h-4 w-4 text-[#0077B5]" />
+                        <h3 className="text-sm font-medium text-muted-foreground">LinkedIn Profile</h3>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        Enriched {new Date(viewingAttendee.linkedinEnrichedAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                    
+                    {/* Profile Header */}
+                    <div className="flex items-start gap-3">
+                      {viewingAttendee.linkedinPicture && (
+                        <img 
+                          src={viewingAttendee.linkedinPicture} 
+                          alt="" 
+                          className="h-12 w-12 rounded-full object-cover"
+                          data-testid="img-linkedin-avatar"
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        {viewingAttendee.linkedinHeadline && (
+                          <p className="text-sm font-medium" data-testid="text-linkedin-headline">
+                            {viewingAttendee.linkedinHeadline}
+                          </p>
+                        )}
+                        {viewingAttendee.linkedinLocation && (
+                          <p className="text-xs text-muted-foreground" data-testid="text-linkedin-location">
+                            {viewingAttendee.linkedinLocation}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Summary */}
+                    {viewingAttendee.linkedinSummary && (
+                      <div>
+                        <div className="text-xs text-muted-foreground mb-1">About</div>
+                        <p className="text-sm text-muted-foreground line-clamp-4" data-testid="text-linkedin-summary">
+                          {viewingAttendee.linkedinSummary}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Experience */}
+                    {viewingAttendee.linkedinExperience && Array.isArray(viewingAttendee.linkedinExperience) && viewingAttendee.linkedinExperience.length > 0 && (
+                      <div>
+                        <div className="text-xs text-muted-foreground mb-2">Experience</div>
+                        <div className="space-y-2" data-testid="list-linkedin-experience">
+                          {(viewingAttendee.linkedinExperience as Array<{title?: string; companyName?: string; startYear?: number; endYear?: number; current?: boolean}>).slice(0, 3).map((exp, idx) => (
+                            <div key={idx} className="text-sm">
+                              <div className="font-medium">{exp.title}</div>
+                              <div className="text-muted-foreground text-xs">
+                                {exp.companyName}
+                                {(exp.startYear || exp.endYear) && (
+                                  <span className="ml-1">
+                                    • {exp.startYear || '?'} - {exp.current ? 'Present' : (exp.endYear || '?')}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Education */}
+                    {viewingAttendee.linkedinEducation && Array.isArray(viewingAttendee.linkedinEducation) && viewingAttendee.linkedinEducation.length > 0 && (
+                      <div>
+                        <div className="text-xs text-muted-foreground mb-2">Education</div>
+                        <div className="space-y-2" data-testid="list-linkedin-education">
+                          {(viewingAttendee.linkedinEducation as Array<{schoolName?: string; degreeName?: string; fieldOfStudy?: string; startYear?: number; endYear?: number}>).slice(0, 2).map((edu, idx) => (
+                            <div key={idx} className="text-sm">
+                              <div className="font-medium">{edu.schoolName}</div>
+                              <div className="text-muted-foreground text-xs">
+                                {edu.degreeName}{edu.fieldOfStudy && `, ${edu.fieldOfStudy}`}
+                                {(edu.startYear || edu.endYear) && (
+                                  <span className="ml-1">
+                                    • {edu.startYear || '?'} - {edu.endYear || '?'}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Skills */}
+                    {viewingAttendee.linkedinSkills && (
+                      <div>
+                        <div className="text-xs text-muted-foreground mb-2">Skills</div>
+                        <div className="flex flex-wrap gap-1" data-testid="list-linkedin-skills">
+                          {viewingAttendee.linkedinSkills.split(',').slice(0, 8).map((skill, idx) => (
+                            <Badge key={idx} variant="outline" className="text-xs">
+                              {skill.trim()}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
               <Separator />
 
               <div className="space-y-4">

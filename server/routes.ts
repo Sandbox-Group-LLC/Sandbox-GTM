@@ -133,6 +133,7 @@ import {
   scrapeLinkedInProfile, 
   enrichAttendeesWithLinkedInData, 
   getApifyEnrichmentProgress,
+  isEnrichmentActive,
   formatSkills,
   type LinkedInProfileData
 } from "./apifyEnrichment";
@@ -19910,6 +19911,14 @@ ${articlesContext}`;
         return res.status(401).json({ message: "Unauthorized" });
       }
 
+      // Check if enrichment is already running for this event
+      if (isEnrichmentActive(eventId)) {
+        return res.status(409).json({ 
+          message: "Enrichment already in progress",
+          reason: "Please wait for the current enrichment to complete before starting another."
+        });
+      }
+
       // Get attendees with LinkedIn URLs but not yet scraped
       const eventAttendees = await storage.getAttendees(organizationId, eventId);
       
@@ -20046,28 +20055,60 @@ ${articlesContext}`;
         });
       }
 
-      // Update the attendee with scraped data
+      // Validate the scraped profile matches the expected attendee
       const profileData = result.profileData;
+      
+      // Normalize LinkedIn public identifier from URL
+      const expectedPublicId = attendee.linkedinProfileUrl
+        .match(/linkedin\.com\/in\/([^/?#]+)/i)?.[1]
+        ?.toLowerCase()
+        ?.trim()
+        ?.replace(/\/$/, "");
+      const actualPublicId = profileData.publicIdentifier?.toLowerCase()?.trim();
+      
+      // Check for profile match: require EITHER publicIdentifier match OR both first AND last name match
+      const publicIdMatch = expectedPublicId && actualPublicId && actualPublicId === expectedPublicId;
+      const firstNameMatch = profileData.firstName && attendee.firstName && 
+        profileData.firstName.toLowerCase().trim() === attendee.firstName.toLowerCase().trim();
+      const lastNameMatch = profileData.lastName && attendee.lastName && 
+        profileData.lastName.toLowerCase().trim() === attendee.lastName.toLowerCase().trim();
+      const fullNameMatch = firstNameMatch && lastNameMatch;
+      
+      if (!publicIdMatch && !fullNameMatch) {
+        logWarn(`Profile mismatch for attendee ${attendeeId}: expected ${attendee.firstName} ${attendee.lastName}, got ${profileData.firstName} ${profileData.lastName}`);
+        return res.status(400).json({ 
+          message: "Profile mismatch",
+          error: "The scraped profile does not appear to match the expected attendee."
+        });
+      }
+
+      // Sanitize string fields before storage
+      const sanitizedHeadline = profileData.headline?.substring(0, 500) || null;
+      const sanitizedSummary = profileData.summary?.substring(0, 5000) || null;
+      const sanitizedPicture = profileData.picture?.substring(0, 500) || null;
+      const sanitizedLocation = profileData.locationName?.substring(0, 255) || null;
+
+      // Update the attendee with scraped data
       await storage.updateAttendee(organizationId, attendeeId, {
-        linkedinHeadline: profileData.headline || null,
-        linkedinSummary: profileData.summary || null,
-        linkedinPicture: profileData.picture || null,
-        linkedinLocation: profileData.locationName || null,
-        linkedinExperience: profileData.positions?.slice(0, 10).map(p => ({
+        linkedinHeadline: sanitizedHeadline,
+        linkedinSummary: sanitizedSummary,
+        linkedinPicture: sanitizedPicture,
+        linkedinLocation: sanitizedLocation,
+        linkedinExperience: Array.isArray(profileData.positions) ? profileData.positions.slice(0, 10).map(p => ({
           title: p.title,
           companyName: p.companyName,
           startYear: p.startYear,
           endYear: p.endYear,
           current: p.current,
           description: p.description
-        })) || null,
-        linkedinEducation: profileData.educations?.slice(0, 5).map(e => ({
+        })) : null,
+        linkedinEducation: Array.isArray(profileData.educations) ? profileData.educations.slice(0, 5).map(e => ({
           schoolName: e.schoolName,
           degreeName: e.degreeName,
           fieldOfStudy: e.fieldOfStudy,
           startYear: e.startYear,
           endYear: e.endYear
-        })) || null,
+        })) : null,
         linkedinSkills: formatSkills(profileData.skills) || null,
         linkedinEnrichedAt: new Date()
       });
