@@ -41,8 +41,8 @@ const LinkedInProfileDataSchema = z.object({
 }).passthrough();
 
 // Apify LinkedIn profile scraper actor ID
-// curious_coder/linkedin-profile-scraper - popular actor that allows API access
-const LINKEDIN_SCRAPER_ACTOR_ID = "curious_coder/linkedin-profile-scraper";
+// dev_fusion/linkedin-profile-scraper - actor rented by user, tested successfully
+const LINKEDIN_SCRAPER_ACTOR_ID = "dev_fusion/linkedin-profile-scraper";
 
 interface LinkedInPosition {
   startYear?: number;
@@ -365,29 +365,14 @@ export async function scrapeLinkedInProfile(
     console.log(`[Apify] Starting scrape for: ${linkedinUrl}`);
     console.log(`[Apify] LinkedIn cookie configured: ${linkedinCookie ? 'Yes' : 'No'}`);
     
-    // curious_coder/linkedin-profile-scraper requires urls, userAgent, and proxy
+    // dev_fusion/linkedin-profile-scraper uses profileUrls and cookie (as string)
     const input: Record<string, unknown> = {
-      urls: [linkedinUrl],
-      profileUrls: [linkedinUrl],  // fallback for other actors
-      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      proxy: {
-        useApifyProxy: true,
-        apifyProxyGroups: ["RESIDENTIAL"]
-      }
+      profileUrls: [linkedinUrl]
     };
     
-    // Add session cookie as array of cookie objects (required format for curious_coder actor)
+    // Add LinkedIn session cookie (li_at value from browser)
     if (linkedinCookie) {
-      input.cookie = [
-        {
-          name: "li_at",
-          value: linkedinCookie,
-          domain: ".linkedin.com",
-          path: "/",
-          secure: true,
-          httpOnly: true
-        }
-      ];
+      input.cookie = linkedinCookie;
     }
     
     const run = await client.actor(LINKEDIN_SCRAPER_ACTOR_ID).call(input);
@@ -448,29 +433,14 @@ export async function scrapeLinkedInProfilesBatch(
     // Get LinkedIn session cookie if available
     const linkedinCookie = process.env.LINKEDIN_SESSION_COOKIE;
     
-    // Run the LinkedIn profile scraper actor with all URLs
+    // dev_fusion/linkedin-profile-scraper uses profileUrls and cookie (as string)
     const input: Record<string, unknown> = {
-      urls: linkedinUrls,
-      profileUrls: linkedinUrls,  // fallback for other actors
-      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      proxy: {
-        useApifyProxy: true,
-        apifyProxyGroups: ["RESIDENTIAL"]
-      }
+      profileUrls: linkedinUrls
     };
     
-    // Add session cookie as array of cookie objects (required format for curious_coder actor)
+    // Add LinkedIn session cookie (li_at value from browser)
     if (linkedinCookie) {
-      input.cookie = [
-        {
-          name: "li_at",
-          value: linkedinCookie,
-          domain: ".linkedin.com",
-          path: "/",
-          secure: true,
-          httpOnly: true
-        }
-      ];
+      input.cookie = linkedinCookie;
     }
     
     const run = await client.actor(LINKEDIN_SCRAPER_ACTOR_ID).call(input);
