@@ -366,10 +366,12 @@ export async function scrapeLinkedInProfile(
     console.log(`[Apify] LinkedIn cookie configured: ${linkedinCookie ? 'Yes' : 'No'}`);
     
     // supreme_coder/linkedin-profile-scraper - no cookies required
+    // URLs may need to be objects with url property
     const input: Record<string, unknown> = {
-      urls: [linkedinUrl]
+      urls: [{ url: linkedinUrl }]
     };
     
+    console.log(`[Apify] Input: ${JSON.stringify(input)}`);
     const run = await client.actor(LINKEDIN_SCRAPER_ACTOR_ID).call(input);
     console.log(`[Apify] Run completed: ${run.id}, status: ${run.status}`);
 
@@ -430,7 +432,7 @@ export async function scrapeLinkedInProfilesBatch(
     
     // supreme_coder/linkedin-profile-scraper - no cookies required
     const input: Record<string, unknown> = {
-      urls: linkedinUrls
+      urls: linkedinUrls.map(url => ({ url }))
     };
     
     const run = await client.actor(LINKEDIN_SCRAPER_ACTOR_ID).call(input);
