@@ -20036,7 +20036,7 @@ ${articlesContext}`;
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const attendee = await storage.getAttendeeById(organizationId, attendeeId);
+      const attendee = await storage.getAttendee(organizationId, attendeeId);
       if (!attendee) {
         return res.status(404).json({ message: "Attendee not found" });
       }
@@ -20114,7 +20114,7 @@ ${articlesContext}`;
       });
 
       // Fetch the updated attendee
-      const updatedAttendee = await storage.getAttendeeById(organizationId, attendeeId);
+      const updatedAttendee = await storage.getAttendee(organizationId, attendeeId);
 
       res.json({ 
         message: "LinkedIn profile scraped successfully",
