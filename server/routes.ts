@@ -20058,6 +20058,10 @@ ${articlesContext}`;
       // Validate the scraped profile matches the expected attendee
       const profileData = result.profileData;
       
+      // Log profile data for debugging
+      logInfo(`Scraped profile data keys: ${Object.keys(profileData).join(", ")}`);
+      logInfo(`Profile publicIdentifier: ${profileData.publicIdentifier}, firstName: ${profileData.firstName}, lastName: ${profileData.lastName}`);
+      
       // Normalize LinkedIn public identifier from URL
       const expectedPublicId = attendee.linkedinProfileUrl
         .match(/linkedin\.com\/in\/([^/?#]+)/i)?.[1]
@@ -20066,7 +20070,10 @@ ${articlesContext}`;
         ?.replace(/\/$/, "");
       const actualPublicId = profileData.publicIdentifier?.toLowerCase()?.trim();
       
+      logInfo(`Expected publicId: ${expectedPublicId}, Actual publicId: ${actualPublicId}`);
+      
       // Check for profile match: require EITHER publicIdentifier match OR both first AND last name match
+      // If publicIdentifier matches, this is the strongest signal - proceed even if names are undefined
       const publicIdMatch = expectedPublicId && actualPublicId && actualPublicId === expectedPublicId;
       const firstNameMatch = profileData.firstName && attendee.firstName && 
         profileData.firstName.toLowerCase().trim() === attendee.firstName.toLowerCase().trim();
