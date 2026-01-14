@@ -315,8 +315,11 @@ export async function scrapeLinkedInProfile(
     };
     
     // Add session cookie if available - required for LinkedIn to return profile data
+    // Try multiple parameter names as different actors use different conventions
     if (linkedinCookie) {
       input.sessionCookie = linkedinCookie;
+      input.cookie = linkedinCookie;
+      input.li_at = linkedinCookie;
     }
     
     const run = await client.actor(LINKEDIN_SCRAPER_ACTOR_ID).call(input);
