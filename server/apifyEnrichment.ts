@@ -41,8 +41,8 @@ const LinkedInProfileDataSchema = z.object({
 }).passthrough();
 
 // Apify LinkedIn profile scraper actor ID
-// dev_fusion/linkedin-profile-scraper - actor rented by user, tested successfully
-const LINKEDIN_SCRAPER_ACTOR_ID = "dev_fusion/linkedin-profile-scraper";
+// curious_coder/linkedin-profile-scraper - actor rented by user
+const LINKEDIN_SCRAPER_ACTOR_ID = "curious_coder/linkedin-profile-scraper";
 
 interface LinkedInPosition {
   startYear?: number;
@@ -365,14 +365,20 @@ export async function scrapeLinkedInProfile(
     console.log(`[Apify] Starting scrape for: ${linkedinUrl}`);
     console.log(`[Apify] LinkedIn cookie configured: ${linkedinCookie ? 'Yes' : 'No'}`);
     
-    // dev_fusion/linkedin-profile-scraper uses profileUrls and cookie (as string)
+    // curious_coder/linkedin-profile-scraper uses profileUrls and cookies (array)
     const input: Record<string, unknown> = {
       profileUrls: [linkedinUrl]
     };
     
-    // Add LinkedIn session cookie (li_at value from browser)
+    // Add LinkedIn session cookies as array (required format for curious_coder actor)
     if (linkedinCookie) {
-      input.cookie = linkedinCookie;
+      input.cookies = [
+        {
+          name: "li_at",
+          value: linkedinCookie,
+          domain: ".linkedin.com"
+        }
+      ];
     }
     
     const run = await client.actor(LINKEDIN_SCRAPER_ACTOR_ID).call(input);
@@ -433,14 +439,20 @@ export async function scrapeLinkedInProfilesBatch(
     // Get LinkedIn session cookie if available
     const linkedinCookie = process.env.LINKEDIN_SESSION_COOKIE;
     
-    // dev_fusion/linkedin-profile-scraper uses profileUrls and cookie (as string)
+    // curious_coder/linkedin-profile-scraper uses profileUrls and cookies (array)
     const input: Record<string, unknown> = {
       profileUrls: linkedinUrls
     };
     
-    // Add LinkedIn session cookie (li_at value from browser)
+    // Add LinkedIn session cookies as array (required format for curious_coder actor)
     if (linkedinCookie) {
-      input.cookie = linkedinCookie;
+      input.cookies = [
+        {
+          name: "li_at",
+          value: linkedinCookie,
+          domain: ".linkedin.com"
+        }
+      ];
     }
     
     const run = await client.actor(LINKEDIN_SCRAPER_ACTOR_ID).call(input);
