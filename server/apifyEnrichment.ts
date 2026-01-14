@@ -41,8 +41,8 @@ const LinkedInProfileDataSchema = z.object({
 }).passthrough();
 
 // Apify LinkedIn profile scraper actor ID
-// curious_coder/linkedin-profile-scraper - actor rented by user
-const LINKEDIN_SCRAPER_ACTOR_ID = "curious_coder/linkedin-profile-scraper";
+// supreme_coder/linkedin-profile-scraper - no cookies required
+const LINKEDIN_SCRAPER_ACTOR_ID = "supreme_coder/linkedin-profile-scraper";
 
 interface LinkedInPosition {
   startYear?: number;
@@ -365,24 +365,9 @@ export async function scrapeLinkedInProfile(
     console.log(`[Apify] Starting scrape for: ${linkedinUrl}`);
     console.log(`[Apify] LinkedIn cookie configured: ${linkedinCookie ? 'Yes' : 'No'}`);
     
-    // curious_coder/linkedin-profile-scraper requires urls, cookie, proxy, useragent
+    // supreme_coder/linkedin-profile-scraper - no cookies required
     const input: Record<string, unknown> = {
-      urls: [linkedinUrl],
-      cookie: linkedinCookie ? [
-        {
-          name: "li_at",
-          value: linkedinCookie,
-          domain: ".linkedin.com",
-          path: "/",
-          secure: true,
-          httpOnly: true
-        }
-      ] : [],
-      proxy: {
-        useApifyProxy: true,
-        apifyProxyGroups: ["RESIDENTIAL"]
-      },
-      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+      profileUrls: [linkedinUrl]
     };
     
     const run = await client.actor(LINKEDIN_SCRAPER_ACTOR_ID).call(input);
@@ -443,24 +428,9 @@ export async function scrapeLinkedInProfilesBatch(
     // Get LinkedIn session cookie if available
     const linkedinCookie = process.env.LINKEDIN_SESSION_COOKIE;
     
-    // curious_coder/linkedin-profile-scraper requires urls, cookie, proxy, useragent
+    // supreme_coder/linkedin-profile-scraper - no cookies required
     const input: Record<string, unknown> = {
-      urls: linkedinUrls,
-      cookie: linkedinCookie ? [
-        {
-          name: "li_at",
-          value: linkedinCookie,
-          domain: ".linkedin.com",
-          path: "/",
-          secure: true,
-          httpOnly: true
-        }
-      ] : [],
-      proxy: {
-        useApifyProxy: true,
-        apifyProxyGroups: ["RESIDENTIAL"]
-      },
-      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+      profileUrls: linkedinUrls
     };
     
     const run = await client.actor(LINKEDIN_SCRAPER_ACTOR_ID).call(input);
