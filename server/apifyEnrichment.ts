@@ -364,16 +364,15 @@ export async function scrapeLinkedInProfile(
     console.log(`[Apify] Starting scrape for: ${linkedinUrl}`);
     console.log(`[Apify] LinkedIn cookie configured: ${linkedinCookie ? 'Yes' : 'No'}`);
     
+    // dev_fusion/linkedin-profile-scraper expects 'profileUrls' as an array
     const input: Record<string, unknown> = {
-      urls: [linkedinUrl]
+      profileUrls: [linkedinUrl]
     };
     
     // Add session cookie if available - required for LinkedIn to return profile data
-    // Try multiple parameter names as different actors use different conventions
+    // dev_fusion actor uses 'cookie' parameter for the li_at session cookie
     if (linkedinCookie) {
-      input.sessionCookie = linkedinCookie;
       input.cookie = linkedinCookie;
-      input.li_at = linkedinCookie;
     }
     
     const run = await client.actor(LINKEDIN_SCRAPER_ACTOR_ID).call(input);
@@ -431,10 +430,19 @@ export async function scrapeLinkedInProfilesBatch(
   try {
     const client = new ApifyClient({ token: apiToken });
 
+    // Get LinkedIn session cookie if available
+    const linkedinCookie = process.env.LINKEDIN_SESSION_COOKIE;
+    
     // Run the LinkedIn profile scraper actor with all URLs
-    const run = await client.actor(LINKEDIN_SCRAPER_ACTOR_ID).call({
-      urls: linkedinUrls
-    });
+    const input: Record<string, unknown> = {
+      profileUrls: linkedinUrls
+    };
+    
+    if (linkedinCookie) {
+      input.cookie = linkedinCookie;
+    }
+    
+    const run = await client.actor(LINKEDIN_SCRAPER_ACTOR_ID).call(input);
 
     // Fetch results from the dataset
     const { items } = await client.dataset(run.defaultDatasetId).listItems();
