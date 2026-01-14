@@ -423,7 +423,7 @@ export default function Attendees() {
   // Single attendee LinkedIn scrape mutation
   const scrapeLinkedInMutation = useMutation({
     mutationFn: async (attendeeId: string) => {
-      return await apiRequest("POST", `/api/attendees/${attendeeId}/scrape-linkedin`);
+      return await apiRequest("POST", `/api/attendees/${attendeeId}/linkedin-scrape`);
     },
     onSuccess: () => {
       toast({
