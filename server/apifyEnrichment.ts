@@ -367,7 +367,7 @@ export async function scrapeLinkedInProfile(
     
     // supreme_coder/linkedin-profile-scraper - no cookies required
     const input: Record<string, unknown> = {
-      profileUrls: [linkedinUrl]
+      urls: [linkedinUrl]
     };
     
     const run = await client.actor(LINKEDIN_SCRAPER_ACTOR_ID).call(input);
@@ -430,7 +430,7 @@ export async function scrapeLinkedInProfilesBatch(
     
     // supreme_coder/linkedin-profile-scraper - no cookies required
     const input: Record<string, unknown> = {
-      profileUrls: linkedinUrls
+      urls: linkedinUrls
     };
     
     const run = await client.actor(LINKEDIN_SCRAPER_ACTOR_ID).call(input);
