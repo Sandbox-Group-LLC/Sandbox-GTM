@@ -365,21 +365,15 @@ export async function scrapeLinkedInProfile(
     console.log(`[Apify] Starting scrape for: ${linkedinUrl}`);
     console.log(`[Apify] LinkedIn cookie configured: ${linkedinCookie ? 'Yes' : 'No'}`);
     
-    // curious_coder/linkedin-profile-scraper uses profileUrls and cookies (array)
+    // curious_coder/linkedin-profile-scraper requires cookie and proxy
     const input: Record<string, unknown> = {
-      profileUrls: [linkedinUrl]
+      profileUrls: [linkedinUrl],
+      cookie: linkedinCookie || "",
+      proxy: {
+        useApifyProxy: true,
+        apifyProxyGroups: ["RESIDENTIAL"]
+      }
     };
-    
-    // Add LinkedIn session cookies as array (required format for curious_coder actor)
-    if (linkedinCookie) {
-      input.cookies = [
-        {
-          name: "li_at",
-          value: linkedinCookie,
-          domain: ".linkedin.com"
-        }
-      ];
-    }
     
     const run = await client.actor(LINKEDIN_SCRAPER_ACTOR_ID).call(input);
     console.log(`[Apify] Run completed: ${run.id}, status: ${run.status}`);
@@ -439,21 +433,15 @@ export async function scrapeLinkedInProfilesBatch(
     // Get LinkedIn session cookie if available
     const linkedinCookie = process.env.LINKEDIN_SESSION_COOKIE;
     
-    // curious_coder/linkedin-profile-scraper uses profileUrls and cookies (array)
+    // curious_coder/linkedin-profile-scraper requires cookie and proxy
     const input: Record<string, unknown> = {
-      profileUrls: linkedinUrls
+      profileUrls: linkedinUrls,
+      cookie: linkedinCookie || "",
+      proxy: {
+        useApifyProxy: true,
+        apifyProxyGroups: ["RESIDENTIAL"]
+      }
     };
-    
-    // Add LinkedIn session cookies as array (required format for curious_coder actor)
-    if (linkedinCookie) {
-      input.cookies = [
-        {
-          name: "li_at",
-          value: linkedinCookie,
-          domain: ".linkedin.com"
-        }
-      ];
-    }
     
     const run = await client.actor(LINKEDIN_SCRAPER_ACTOR_ID).call(input);
 
