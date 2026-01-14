@@ -376,11 +376,18 @@ export async function scrapeLinkedInProfile(
       }
     };
     
-    // Add session cookie - try multiple parameter names for compatibility
+    // Add session cookie as array of cookie objects (required format for curious_coder actor)
     if (linkedinCookie) {
-      input.cookie = linkedinCookie;
-      input.sessionCookie = linkedinCookie;
-      input.li_at = linkedinCookie;
+      input.cookie = [
+        {
+          name: "li_at",
+          value: linkedinCookie,
+          domain: ".linkedin.com",
+          path: "/",
+          secure: true,
+          httpOnly: true
+        }
+      ];
     }
     
     const run = await client.actor(LINKEDIN_SCRAPER_ACTOR_ID).call(input);
@@ -452,11 +459,18 @@ export async function scrapeLinkedInProfilesBatch(
       }
     };
     
-    // Add session cookie - try multiple parameter names for compatibility
+    // Add session cookie as array of cookie objects (required format for curious_coder actor)
     if (linkedinCookie) {
-      input.cookie = linkedinCookie;
-      input.sessionCookie = linkedinCookie;
-      input.li_at = linkedinCookie;
+      input.cookie = [
+        {
+          name: "li_at",
+          value: linkedinCookie,
+          domain: ".linkedin.com",
+          path: "/",
+          secure: true,
+          httpOnly: true
+        }
+      ];
     }
     
     const run = await client.actor(LINKEDIN_SCRAPER_ACTOR_ID).call(input);
