@@ -41,7 +41,8 @@ const LinkedInProfileDataSchema = z.object({
 }).passthrough();
 
 // Apify LinkedIn profile scraper actor ID
-const LINKEDIN_SCRAPER_ACTOR_ID = "dev_fusion/linkedin-profile-scraper";
+// curious_coder/linkedin-profile-scraper - popular actor that allows API access
+const LINKEDIN_SCRAPER_ACTOR_ID = "curious_coder/linkedin-profile-scraper";
 
 interface LinkedInPosition {
   startYear?: number;
@@ -364,15 +365,17 @@ export async function scrapeLinkedInProfile(
     console.log(`[Apify] Starting scrape for: ${linkedinUrl}`);
     console.log(`[Apify] LinkedIn cookie configured: ${linkedinCookie ? 'Yes' : 'No'}`);
     
-    // dev_fusion/linkedin-profile-scraper expects 'profileUrls' as an array
+    // curious_coder/linkedin-profile-scraper uses 'urls' parameter
     const input: Record<string, unknown> = {
-      profileUrls: [linkedinUrl]
+      urls: [linkedinUrl],
+      profileUrls: [linkedinUrl]  // fallback for other actors
     };
     
-    // Add session cookie if available - required for LinkedIn to return profile data
-    // dev_fusion actor uses 'cookie' parameter for the li_at session cookie
+    // Add session cookie - try multiple parameter names for compatibility
     if (linkedinCookie) {
       input.cookie = linkedinCookie;
+      input.sessionCookie = linkedinCookie;
+      input.li_at = linkedinCookie;
     }
     
     const run = await client.actor(LINKEDIN_SCRAPER_ACTOR_ID).call(input);
@@ -435,11 +438,15 @@ export async function scrapeLinkedInProfilesBatch(
     
     // Run the LinkedIn profile scraper actor with all URLs
     const input: Record<string, unknown> = {
-      profileUrls: linkedinUrls
+      urls: linkedinUrls,
+      profileUrls: linkedinUrls  // fallback for other actors
     };
     
+    // Add session cookie - try multiple parameter names for compatibility
     if (linkedinCookie) {
       input.cookie = linkedinCookie;
+      input.sessionCookie = linkedinCookie;
+      input.li_at = linkedinCookie;
     }
     
     const run = await client.actor(LINKEDIN_SCRAPER_ACTOR_ID).call(input);
