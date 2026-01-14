@@ -129,6 +129,13 @@ import { generateSectionContent } from "./ai";
 import { z } from "zod";
 import { generateCalendarLinksHtml } from "@shared/calendarLinks";
 import { enrichEventAttendees, getEnrichmentProgress } from "./linkedinEnrichment";
+import { 
+  scrapeLinkedInProfile, 
+  enrichAttendeesWithLinkedInData, 
+  getApifyEnrichmentProgress,
+  formatSkills,
+  type LinkedInProfileData
+} from "./apifyEnrichment";
 
 // Register public tracking route early (before auth middleware)
 // This ensures it works even if async initialization fails
@@ -19890,6 +19897,192 @@ ${articlesContext}`;
       const errorMsg = err instanceof Error ? err.message : String(err);
       logError(`Error getting LinkedIn enrichment progress: ${errorMsg}`);
       res.status(500).json({ message: "Failed to get enrichment progress" });
+    }
+  });
+
+  // LinkedIn Profile Scraping API - Scrape full profile data using Apify
+  app.post("/api/events/:eventId/linkedin-scrape", isAuthenticated, async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      if (!organizationId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Get attendees with LinkedIn URLs but not yet scraped
+      const eventAttendees = await storage.getAttendees(organizationId, eventId);
+      
+      const eligibleStatuses = ["confirmed", "registered", "checked_in", "pending"];
+      const attendeesToScrape = eventAttendees.filter(a => 
+        eligibleStatuses.includes(a.registrationStatus || "") &&
+        a.linkedinProfileUrl &&
+        !a.linkedinEnrichedAt // Not yet scraped
+      );
+
+      if (attendeesToScrape.length === 0) {
+        return res.status(400).json({ 
+          message: "No attendees to scrape",
+          reason: "All attendees with LinkedIn URLs have already been enriched, or no attendees have LinkedIn URLs yet."
+        });
+      }
+
+      // Start scraping in background (non-blocking)
+      enrichAttendeesWithLinkedInData(
+        eventId,
+        attendeesToScrape.map(a => ({
+          id: a.id,
+          firstName: a.firstName,
+          lastName: a.lastName,
+          linkedinProfileUrl: a.linkedinProfileUrl
+        })),
+        async (attendeeId: string, profileData: LinkedInProfileData) => {
+          await storage.updateAttendee(organizationId, attendeeId, {
+            linkedinHeadline: profileData.headline || null,
+            linkedinSummary: profileData.summary || null,
+            linkedinPicture: profileData.picture || null,
+            linkedinLocation: profileData.locationName || null,
+            linkedinExperience: profileData.positions?.slice(0, 10).map(p => ({
+              title: p.title,
+              companyName: p.companyName,
+              startYear: p.startYear,
+              endYear: p.endYear,
+              current: p.current,
+              description: p.description
+            })) || null,
+            linkedinEducation: profileData.educations?.slice(0, 5).map(e => ({
+              schoolName: e.schoolName,
+              degreeName: e.degreeName,
+              fieldOfStudy: e.fieldOfStudy,
+              startYear: e.startYear,
+              endYear: e.endYear
+            })) || null,
+            linkedinSkills: formatSkills(profileData.skills) || null,
+            linkedinEnrichedAt: new Date()
+          });
+        }
+      ).catch(err => {
+        logError(`LinkedIn scraping failed: ${err instanceof Error ? err.message : String(err)}`);
+      });
+
+      res.json({ 
+        message: "LinkedIn profile scraping started",
+        totalToScrape: attendeesToScrape.length,
+        alreadyScraped: eventAttendees.filter(a => a.linkedinEnrichedAt).length
+      });
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      logError(`Error starting LinkedIn scraping: ${errorMsg}`);
+      res.status(500).json({ message: "Failed to start scraping" });
+    }
+  });
+
+  // LinkedIn Scraping API - Get scraping progress
+  app.get("/api/events/:eventId/linkedin-scrape/progress", isAuthenticated, async (req: any, res) => {
+    try {
+      const { eventId } = req.params;
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      if (!organizationId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const progress = getApifyEnrichmentProgress(eventId);
+      
+      if (!progress) {
+        // No active scraping, get stats from database
+        const eventAttendees = await storage.getAttendees(organizationId, eventId);
+
+        const eligibleStatuses = ["confirmed", "registered", "checked_in", "pending"];
+        const eligibleAttendees = eventAttendees.filter(a => 
+          eligibleStatuses.includes(a.registrationStatus || "")
+        );
+        
+        const withLinkedin = eligibleAttendees.filter(a => a.linkedinProfileUrl);
+        const scraped = eligibleAttendees.filter(a => a.linkedinEnrichedAt);
+        
+        return res.json({
+          status: "idle",
+          total: withLinkedin.length,
+          scraped: scraped.length,
+          pending: withLinkedin.length - scraped.length
+        });
+      }
+
+      res.json(progress);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      logError(`Error getting LinkedIn scraping progress: ${errorMsg}`);
+      res.status(500).json({ message: "Failed to get scraping progress" });
+    }
+  });
+
+  // LinkedIn Scraping API - Scrape a single attendee's profile
+  app.post("/api/attendees/:attendeeId/linkedin-scrape", isAuthenticated, async (req: any, res) => {
+    try {
+      const { attendeeId } = req.params;
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      if (!organizationId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const attendee = await storage.getAttendeeById(organizationId, attendeeId);
+      if (!attendee) {
+        return res.status(404).json({ message: "Attendee not found" });
+      }
+
+      if (!attendee.linkedinProfileUrl) {
+        return res.status(400).json({ message: "Attendee has no LinkedIn profile URL" });
+      }
+
+      // Scrape the profile
+      const result = await scrapeLinkedInProfile(attendee.linkedinProfileUrl);
+
+      if (!result.success || !result.profileData) {
+        return res.status(500).json({ 
+          message: "Failed to scrape LinkedIn profile",
+          error: result.error 
+        });
+      }
+
+      // Update the attendee with scraped data
+      const profileData = result.profileData;
+      await storage.updateAttendee(organizationId, attendeeId, {
+        linkedinHeadline: profileData.headline || null,
+        linkedinSummary: profileData.summary || null,
+        linkedinPicture: profileData.picture || null,
+        linkedinLocation: profileData.locationName || null,
+        linkedinExperience: profileData.positions?.slice(0, 10).map(p => ({
+          title: p.title,
+          companyName: p.companyName,
+          startYear: p.startYear,
+          endYear: p.endYear,
+          current: p.current,
+          description: p.description
+        })) || null,
+        linkedinEducation: profileData.educations?.slice(0, 5).map(e => ({
+          schoolName: e.schoolName,
+          degreeName: e.degreeName,
+          fieldOfStudy: e.fieldOfStudy,
+          startYear: e.startYear,
+          endYear: e.endYear
+        })) || null,
+        linkedinSkills: formatSkills(profileData.skills) || null,
+        linkedinEnrichedAt: new Date()
+      });
+
+      // Fetch the updated attendee
+      const updatedAttendee = await storage.getAttendeeById(organizationId, attendeeId);
+
+      res.json({ 
+        message: "LinkedIn profile scraped successfully",
+        attendee: updatedAttendee
+      });
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      logError(`Error scraping LinkedIn profile: ${errorMsg}`);
+      res.status(500).json({ message: "Failed to scrape profile" });
     }
   });
 
