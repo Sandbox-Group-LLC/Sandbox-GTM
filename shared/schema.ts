@@ -766,11 +766,33 @@ export const attendees = pgTable("attendees", {
   intentSources: jsonb("intent_sources").$type<{ type: string; id: string; createdAt: string }[]>().default([]),
   // Narrative explanation layer for intent scoring (computed from all interactions + meetings)
   intentExplanation: jsonb("intent_explanation").$type<IntentExplanation>(),
-  // PhantomBuster LinkedIn enrichment data
+  // LinkedIn enrichment data (from Google Search)
   linkedinProfileUrl: varchar("linkedin_profile_url", { length: 500 }),
   linkedinTitle: varchar("linkedin_title", { length: 255 }),
   linkedinDescription: text("linkedin_description"),
   linkedinSearchQuery: varchar("linkedin_search_query", { length: 500 }),
+  // LinkedIn profile data (from Apify scraper)
+  linkedinHeadline: varchar("linkedin_headline", { length: 500 }),
+  linkedinSummary: text("linkedin_summary"),
+  linkedinPicture: varchar("linkedin_picture", { length: 500 }),
+  linkedinLocation: varchar("linkedin_location", { length: 255 }),
+  linkedinExperience: jsonb("linkedin_experience").$type<{
+    title?: string;
+    companyName?: string;
+    startYear?: number;
+    endYear?: number;
+    current?: boolean;
+    description?: string;
+  }[]>(),
+  linkedinEducation: jsonb("linkedin_education").$type<{
+    schoolName?: string;
+    degreeName?: string;
+    fieldOfStudy?: string;
+    startYear?: number;
+    endYear?: number;
+  }[]>(),
+  linkedinSkills: text("linkedin_skills"), // Comma-separated list
+  linkedinEnrichedAt: timestamp("linkedin_enriched_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
