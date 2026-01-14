@@ -20089,11 +20089,37 @@ ${articlesContext}`;
         });
       }
 
-      // Sanitize string fields before storage
+      // Sanitize string fields before storage (handle both old and new field names)
       const sanitizedHeadline = profileData.headline?.substring(0, 500) || null;
-      const sanitizedSummary = profileData.summary?.substring(0, 5000) || null;
-      const sanitizedPicture = profileData.picture?.substring(0, 500) || null;
-      const sanitizedLocation = profileData.locationName?.substring(0, 255) || null;
+      const sanitizedSummary = (profileData.about || profileData.summary)?.substring(0, 5000) || null;
+      const sanitizedPicture = (profileData.profilePicHighQuality || profileData.profilePic || profileData.picture)?.substring(0, 500) || null;
+      const sanitizedLocation = (profileData.addressWithCountry || profileData.locationName)?.substring(0, 255) || null;
+
+      // Map experiences (new format) or positions (old format)
+      const experiences = profileData.experiences || profileData.positions;
+      const mappedExperience = Array.isArray(experiences) ? experiences.slice(0, 10).map((exp: any) => ({
+        title: exp.title || exp.jobTitle,
+        companyName: exp.companyName,
+        startYear: exp.startYear || (exp.jobStartedOn ? parseInt(exp.jobStartedOn.split('-')[1]) : undefined),
+        endYear: exp.endYear || (exp.jobEndedOn ? parseInt(exp.jobEndedOn.split('-')[1]) : undefined),
+        current: exp.current ?? exp.jobStillWorking,
+        description: exp.description || exp.jobDescription
+      })) : null;
+
+      // Map education (handle both formats)
+      const mappedEducation = Array.isArray(profileData.educations) ? profileData.educations.slice(0, 5).map((e: any) => ({
+        schoolName: e.schoolName || e.title,
+        degreeName: e.degreeName || e.subtitle?.split(',')[0],
+        fieldOfStudy: e.fieldOfStudy || e.subtitle?.split(',')[1]?.trim(),
+        startYear: e.startYear || e.period?.startedOn,
+        endYear: e.endYear || e.period?.endedOn
+      })) : null;
+
+      // Map skills (handle both {skillName} and {title} formats)
+      const skills = profileData.skills;
+      const skillsList = Array.isArray(skills) 
+        ? skills.map((s: any) => s.skillName || s.title).filter(Boolean).slice(0, 50).join(', ')
+        : null;
 
       // Update the attendee with scraped data
       await storage.updateAttendee(organizationId, attendeeId, {
@@ -20101,22 +20127,9 @@ ${articlesContext}`;
         linkedinSummary: sanitizedSummary,
         linkedinPicture: sanitizedPicture,
         linkedinLocation: sanitizedLocation,
-        linkedinExperience: Array.isArray(profileData.positions) ? profileData.positions.slice(0, 10).map(p => ({
-          title: p.title,
-          companyName: p.companyName,
-          startYear: p.startYear,
-          endYear: p.endYear,
-          current: p.current,
-          description: p.description
-        })) : null,
-        linkedinEducation: Array.isArray(profileData.educations) ? profileData.educations.slice(0, 5).map(e => ({
-          schoolName: e.schoolName,
-          degreeName: e.degreeName,
-          fieldOfStudy: e.fieldOfStudy,
-          startYear: e.startYear,
-          endYear: e.endYear
-        })) : null,
-        linkedinSkills: formatSkills(profileData.skills) || null,
+        linkedinExperience: mappedExperience,
+        linkedinEducation: mappedEducation,
+        linkedinSkills: skillsList,
         linkedinEnrichedAt: new Date()
       });
 

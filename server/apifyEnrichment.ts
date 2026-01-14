@@ -41,7 +41,7 @@ const LinkedInProfileDataSchema = z.object({
 }).passthrough();
 
 // Apify LinkedIn profile scraper actor ID
-const LINKEDIN_SCRAPER_ACTOR_ID = "dataweave/linkedin-profile-scraper";
+const LINKEDIN_SCRAPER_ACTOR_ID = "dev_fusion/linkedin-profile-scraper";
 
 interface LinkedInPosition {
   startYear?: number;
