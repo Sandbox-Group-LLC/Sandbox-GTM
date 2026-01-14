@@ -304,12 +304,20 @@ export async function scrapeLinkedInProfile(
     const client = new ApifyClient({ token: apiToken });
 
     // Run the LinkedIn profile scraper actor
+    console.log(`[Apify] Starting scrape for: ${linkedinUrl}`);
     const run = await client.actor(LINKEDIN_SCRAPER_ACTOR_ID).call({
       urls: [linkedinUrl]
     });
+    console.log(`[Apify] Run completed: ${run.id}, status: ${run.status}`);
 
     // Fetch results from the dataset
     const { items } = await client.dataset(run.defaultDatasetId).listItems();
+    
+    // Log raw response for debugging
+    console.log(`[Apify] Dataset items count: ${items?.length || 0}`);
+    if (items && items.length > 0) {
+      console.log(`[Apify] Raw item[0]: ${JSON.stringify(items[0], null, 2)}`);
+    }
 
     if (items && items.length > 0) {
       const profileData = items[0] as LinkedInProfileData;
