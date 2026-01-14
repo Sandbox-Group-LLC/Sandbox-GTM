@@ -365,7 +365,7 @@ export async function scrapeLinkedInProfile(
     console.log(`[Apify] Starting scrape for: ${linkedinUrl}`);
     console.log(`[Apify] LinkedIn cookie configured: ${linkedinCookie ? 'Yes' : 'No'}`);
     
-    // curious_coder/linkedin-profile-scraper requires urls, cookie (array) and proxy
+    // curious_coder/linkedin-profile-scraper requires urls, cookie, proxy, useragent
     const input: Record<string, unknown> = {
       urls: [linkedinUrl],
       cookie: linkedinCookie ? [
@@ -381,7 +381,8 @@ export async function scrapeLinkedInProfile(
       proxy: {
         useApifyProxy: true,
         apifyProxyGroups: ["RESIDENTIAL"]
-      }
+      },
+      useragent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     };
     
     const run = await client.actor(LINKEDIN_SCRAPER_ACTOR_ID).call(input);
@@ -442,7 +443,7 @@ export async function scrapeLinkedInProfilesBatch(
     // Get LinkedIn session cookie if available
     const linkedinCookie = process.env.LINKEDIN_SESSION_COOKIE;
     
-    // curious_coder/linkedin-profile-scraper requires urls, cookie (array) and proxy
+    // curious_coder/linkedin-profile-scraper requires urls, cookie, proxy, useragent
     const input: Record<string, unknown> = {
       urls: linkedinUrls,
       cookie: linkedinCookie ? [
@@ -458,7 +459,8 @@ export async function scrapeLinkedInProfilesBatch(
       proxy: {
         useApifyProxy: true,
         apifyProxyGroups: ["RESIDENTIAL"]
-      }
+      },
+      useragent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     };
     
     const run = await client.actor(LINKEDIN_SCRAPER_ACTOR_ID).call(input);
