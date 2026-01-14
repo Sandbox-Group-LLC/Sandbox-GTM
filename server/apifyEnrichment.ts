@@ -89,27 +89,81 @@ interface LinkedInLanguage {
 }
 
 export interface LinkedInProfileData {
-  objectUrn?: number;
-  locationName?: string;
+  // Core identity fields
   firstName?: string;
   lastName?: string;
+  fullName?: string;
   headline?: string;
+  about?: string;
+  summary?: string; // legacy field name
+  
+  // URLs and identifiers
+  linkedinUrl?: string;
   url?: string;
   publicIdentifier?: string;
-  summary?: string;
-  picture?: string;
-  entityUrn?: string;
-  openToWork?: boolean;
-  premium?: boolean;
-  verified?: boolean;
-  creator?: boolean;
-  influencer?: boolean;
-  joinedDate?: string;
-  positions?: LinkedInPosition[];
+  linkedinPublicUrl?: string;
+  urn?: string;
+  
+  // Profile images
+  profilePic?: string;
+  profilePicHighQuality?: string;
+  picture?: string; // legacy field name
+  backgroundPic?: string;
+  
+  // Location
+  addressWithCountry?: string;
+  addressWithoutCountry?: string;
+  addressCountryOnly?: string;
+  locationName?: string; // legacy field name
+  
+  // Current job info
+  jobTitle?: string;
+  companyName?: string;
+  companyIndustry?: string;
+  companyWebsite?: string;
+  companySize?: string;
+  
+  // Experience and education
+  experiences?: LinkedInExperience[];
+  positions?: LinkedInPosition[]; // legacy field name
   educations?: LinkedInEducation[];
-  skills?: LinkedInSkill[];
+  skills?: LinkedInSkillNew[];
+  licenseAndCertificates?: LinkedInCertification[];
   certifications?: LinkedInCertification[];
   languages?: LinkedInLanguage[];
+  
+  // Counts and stats
+  connections?: number;
+  followers?: number;
+  totalExperienceYears?: number;
+  
+  // Status flags
+  isPremium?: boolean;
+  isVerified?: boolean;
+  isCreator?: boolean;
+  isInfluencer?: boolean;
+  isCurrentlyEmployed?: boolean;
+  
+  // Contact info (if available)
+  email?: string;
+  mobileNumber?: string;
+}
+
+interface LinkedInExperience {
+  companyName?: string;
+  title?: string;
+  jobDescription?: string;
+  jobStartedOn?: string;
+  jobEndedOn?: string;
+  jobLocation?: string;
+  jobStillWorking?: boolean;
+  companySize?: string;
+  companyWebsite?: string;
+  logo?: string;
+}
+
+interface LinkedInSkillNew {
+  title: string;
 }
 
 export interface ApifyScrapingResult {
