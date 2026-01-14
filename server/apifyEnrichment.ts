@@ -365,10 +365,15 @@ export async function scrapeLinkedInProfile(
     console.log(`[Apify] Starting scrape for: ${linkedinUrl}`);
     console.log(`[Apify] LinkedIn cookie configured: ${linkedinCookie ? 'Yes' : 'No'}`);
     
-    // curious_coder/linkedin-profile-scraper uses 'urls' parameter
+    // curious_coder/linkedin-profile-scraper requires urls, userAgent, and proxy
     const input: Record<string, unknown> = {
       urls: [linkedinUrl],
-      profileUrls: [linkedinUrl]  // fallback for other actors
+      profileUrls: [linkedinUrl],  // fallback for other actors
+      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      proxy: {
+        useApifyProxy: true,
+        apifyProxyGroups: ["RESIDENTIAL"]
+      }
     };
     
     // Add session cookie - try multiple parameter names for compatibility
@@ -439,7 +444,12 @@ export async function scrapeLinkedInProfilesBatch(
     // Run the LinkedIn profile scraper actor with all URLs
     const input: Record<string, unknown> = {
       urls: linkedinUrls,
-      profileUrls: linkedinUrls  // fallback for other actors
+      profileUrls: linkedinUrls,  // fallback for other actors
+      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      proxy: {
+        useApifyProxy: true,
+        apifyProxyGroups: ["RESIDENTIAL"]
+      }
     };
     
     // Add session cookie - try multiple parameter names for compatibility
