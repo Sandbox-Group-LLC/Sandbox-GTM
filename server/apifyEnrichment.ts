@@ -302,12 +302,24 @@ export async function scrapeLinkedInProfile(
 
   try {
     const client = new ApifyClient({ token: apiToken });
+    
+    // Get LinkedIn session cookie if available (required for accessing profile data)
+    const linkedinCookie = process.env.LINKEDIN_SESSION_COOKIE;
 
     // Run the LinkedIn profile scraper actor
     console.log(`[Apify] Starting scrape for: ${linkedinUrl}`);
-    const run = await client.actor(LINKEDIN_SCRAPER_ACTOR_ID).call({
+    console.log(`[Apify] LinkedIn cookie configured: ${linkedinCookie ? 'Yes' : 'No'}`);
+    
+    const input: Record<string, unknown> = {
       urls: [linkedinUrl]
-    });
+    };
+    
+    // Add session cookie if available - required for LinkedIn to return profile data
+    if (linkedinCookie) {
+      input.sessionCookie = linkedinCookie;
+    }
+    
+    const run = await client.actor(LINKEDIN_SCRAPER_ACTOR_ID).call(input);
     console.log(`[Apify] Run completed: ${run.id}, status: ${run.status}`);
 
     // Fetch results from the dataset
