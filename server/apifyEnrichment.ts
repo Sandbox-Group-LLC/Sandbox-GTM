@@ -382,7 +382,7 @@ export async function scrapeLinkedInProfile(
         useApifyProxy: true,
         apifyProxyGroups: ["RESIDENTIAL"]
       },
-      useragent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     };
     
     const run = await client.actor(LINKEDIN_SCRAPER_ACTOR_ID).call(input);
@@ -460,7 +460,7 @@ export async function scrapeLinkedInProfilesBatch(
         useApifyProxy: true,
         apifyProxyGroups: ["RESIDENTIAL"]
       },
-      useragent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     };
     
     const run = await client.actor(LINKEDIN_SCRAPER_ACTOR_ID).call(input);
