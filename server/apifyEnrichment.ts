@@ -365,9 +365,9 @@ export async function scrapeLinkedInProfile(
     console.log(`[Apify] Starting scrape for: ${linkedinUrl}`);
     console.log(`[Apify] LinkedIn cookie configured: ${linkedinCookie ? 'Yes' : 'No'}`);
     
-    // curious_coder/linkedin-profile-scraper requires cookie (array) and proxy
+    // curious_coder/linkedin-profile-scraper requires urls, cookie (array) and proxy
     const input: Record<string, unknown> = {
-      profileUrls: [linkedinUrl],
+      urls: [linkedinUrl],
       cookie: linkedinCookie ? [
         {
           name: "li_at",
@@ -442,9 +442,9 @@ export async function scrapeLinkedInProfilesBatch(
     // Get LinkedIn session cookie if available
     const linkedinCookie = process.env.LINKEDIN_SESSION_COOKIE;
     
-    // curious_coder/linkedin-profile-scraper requires cookie (array) and proxy
+    // curious_coder/linkedin-profile-scraper requires urls, cookie (array) and proxy
     const input: Record<string, unknown> = {
-      profileUrls: linkedinUrls,
+      urls: linkedinUrls,
       cookie: linkedinCookie ? [
         {
           name: "li_at",
