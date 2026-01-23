@@ -793,6 +793,10 @@ export const attendees = pgTable("attendees", {
   }[]>(),
   linkedinSkills: text("linkedin_skills"), // Comma-separated list
   linkedinEnrichedAt: timestamp("linkedin_enriched_at"),
+  // Company size enrichment (from DNB via Google CSE)
+  companySize: varchar("company_size", { length: 50 }), // SMB, Mid-Market, Enterprise
+  companyRevenue: varchar("company_revenue", { length: 100 }), // Raw revenue string from DNB
+  companySizeEnrichedAt: timestamp("company_size_enriched_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

@@ -137,6 +137,7 @@ import {
   formatSkills,
   type LinkedInProfileData
 } from "./apifyEnrichment";
+import { enrichCompanySizeForNewAttendee } from "./companyEnrichment";
 
 // Register public tracking route early (before auth middleware)
 // This ensures it works even if async initialization fails
@@ -5103,6 +5104,11 @@ export async function registerRoutes(
       });
       const attendee = await storage.createAttendee(data);
       
+      // Trigger async company size enrichment
+      if (attendee.company) {
+        enrichCompanySizeForNewAttendee(attendee.id, organizationId, attendee.company);
+      }
+      
       // Increment the used count AFTER successful attendee creation
       if (foundInviteCode) {
         try {
@@ -5244,6 +5250,11 @@ export async function registerRoutes(
           
           const parsed = insertAttendeeSchema.parse(attendeeData);
           const createdAttendee = await storage.createAttendee(parsed);
+          
+          // Trigger async company size enrichment
+          if (createdAttendee.company) {
+            enrichCompanySizeForNewAttendee(createdAttendee.id, organizationId, createdAttendee.company);
+          }
           
           // If attendee type is "Speaker" (case-insensitive), create speaker record
           const isSpeakerType = attendeeData.attendeeType && attendeeData.attendeeType.toLowerCase() === 'speaker';
@@ -6923,6 +6934,11 @@ export async function registerRoutes(
       };
       
       const newAttendee = await storage.createAttendee(attendeeData);
+      
+      // Trigger async company size enrichment
+      if (newAttendee.company) {
+        enrichCompanySizeForNewAttendee(newAttendee.id, sponsor.organizationId, newAttendee.company);
+      }
       
       await storage.updateEventSponsor(sponsor.organizationId, sponsor.id, {
         seatsUsed: seatsUsed + 1,
@@ -10075,6 +10091,11 @@ ${urls.map(u => `  <url>
       });
       
       const attendee = await storage.createAttendee(data);
+      
+      // Trigger async company size enrichment
+      if (attendee.company) {
+        enrichCompanySizeForNewAttendee(attendee.id, event.organizationId, attendee.company);
+      }
       
       // Track activation link conversion
       if (activationLinkId) {
@@ -20144,6 +20165,49 @@ ${articlesContext}`;
       const errorMsg = err instanceof Error ? err.message : String(err);
       logError(`Error scraping LinkedIn profile: ${errorMsg}`);
       res.status(500).json({ message: "Failed to scrape profile" });
+    }
+  });
+
+  // Company Size Enrichment API - Enrich a single attendee's company size
+  app.post("/api/attendees/:attendeeId/company-size-enrich", isAuthenticated, async (req: any, res) => {
+    try {
+      const { attendeeId } = req.params;
+      const userId = req.user.claims.sub;
+      const organizationId = await getOrganizationId(userId, req.session);
+      if (!organizationId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const attendee = await storage.getAttendee(organizationId, attendeeId);
+      if (!attendee) {
+        return res.status(404).json({ message: "Attendee not found" });
+      }
+
+      if (!attendee.company) {
+        return res.status(400).json({ message: "Attendee has no company to look up" });
+      }
+
+      // Import and call the company enrichment function
+      const { lookupCompanySize } = await import("./companyEnrichment");
+      const result = await lookupCompanySize(attendee.company);
+
+      // Update the attendee with the enrichment data
+      await storage.updateAttendee(organizationId, attendeeId, {
+        companySize: result.companySize,
+        companyRevenue: result.companyRevenue,
+        companySizeEnrichedAt: new Date()
+      });
+
+      const updatedAttendee = await storage.getAttendee(organizationId, attendeeId);
+
+      res.json({ 
+        message: "Company size enriched successfully",
+        attendee: updatedAttendee
+      });
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      logError(`Error enriching company size: ${errorMsg}`);
+      res.status(500).json({ message: "Failed to enrich company size" });
     }
   });
 

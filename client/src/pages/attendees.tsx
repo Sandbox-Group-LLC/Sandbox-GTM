@@ -50,7 +50,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { titleCase } from "@/lib/utils";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Plus, Users, Search, Download, Settings2, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Trash2, Eye, Mail, ExternalLink, Copy, Info, Flame, TrendingUp, QrCode, Linkedin, RefreshCw } from "lucide-react";
+import { Plus, Users, Search, Download, Settings2, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Trash2, Eye, Mail, ExternalLink, Copy, Info, Flame, TrendingUp, QrCode, Linkedin, RefreshCw, Building } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { QRCodeSVG } from "qrcode.react";
 import { format } from "date-fns";
@@ -435,6 +435,27 @@ export default function Attendees() {
     onError: (error: Error) => {
       toast({
         title: "Failed to scrape LinkedIn",
+        description: error.message,
+        variant: "destructive"
+      });
+    },
+  });
+
+  // Company size enrichment mutation
+  const enrichCompanySizeMutation = useMutation({
+    mutationFn: async (attendeeId: string) => {
+      return await apiRequest("POST", `/api/attendees/${attendeeId}/company-size-enrich`);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Company size enriched",
+        description: "Company size data has been saved to the attendee record."
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/attendees"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to enrich company size",
         description: error.message,
         variant: "destructive"
       });
@@ -1752,7 +1773,48 @@ export default function Attendees() {
                   {viewingAttendee.company && (
                     <div>
                       <div className="text-xs text-muted-foreground">Company</div>
-                      <div className="font-medium">{viewingAttendee.company}</div>
+                      <div className="font-medium flex items-center gap-2">
+                        {viewingAttendee.company}
+                        {viewingAttendee.companySize && viewingAttendee.companySize !== "Unknown" && (
+                          <Badge 
+                            variant={
+                              viewingAttendee.companySize === "Enterprise" ? "default" :
+                              viewingAttendee.companySize === "Mid-Market" ? "secondary" : "outline"
+                            }
+                            className="text-xs"
+                            data-testid="badge-company-size"
+                          >
+                            {viewingAttendee.companySize}
+                          </Badge>
+                        )}
+                      </div>
+                      {viewingAttendee.companyRevenue && (
+                        <div className="text-xs text-muted-foreground mt-0.5" data-testid="text-company-revenue">
+                          {viewingAttendee.companyRevenue}
+                        </div>
+                      )}
+                      {!viewingAttendee.companySizeEnrichedAt && viewingAttendee.company && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-1"
+                          onClick={() => enrichCompanySizeMutation.mutate(viewingAttendee.id)}
+                          disabled={enrichCompanySizeMutation.isPending}
+                          data-testid="button-enrich-company-size"
+                        >
+                          {enrichCompanySizeMutation.isPending ? (
+                            <>
+                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                              Looking up...
+                            </>
+                          ) : (
+                            <>
+                              <Building className="h-3 w-3 mr-1" />
+                              Lookup Size
+                            </>
+                          )}
+                        </Button>
+                      )}
                     </div>
                   )}
                   {viewingAttendee.jobTitle && (
