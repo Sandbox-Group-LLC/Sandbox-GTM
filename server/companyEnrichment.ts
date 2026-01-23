@@ -13,6 +13,63 @@ interface CompanySizeResult {
   rawSearchResult: string | null;
 }
 
+async function searchForRevenue(
+  companyName: string, 
+  searchQuery: string,
+  logPrefix: string
+): Promise<{ revenueString: string | null; rawSearchResult: string | null }> {
+  console.log(`[CompanyEnrichment] ${logPrefix}: "${searchQuery}"`);
+
+  const url = new URL("https://www.googleapis.com/customsearch/v1");
+  url.searchParams.set("key", GOOGLE_CSE_API_KEY!);
+  url.searchParams.set("cx", GOOGLE_CSE_SEARCH_ENGINE_ID!);
+  url.searchParams.set("q", searchQuery);
+  url.searchParams.set("num", "5");
+
+  const response = await fetch(url.toString());
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`[CompanyEnrichment] Google CSE error: ${response.status} - ${errorText}`);
+    return { revenueString: null, rawSearchResult: null };
+  }
+
+  const data = await response.json();
+  
+  if (!data.items || data.items.length === 0) {
+    console.log(`[CompanyEnrichment] No results for query`);
+    return { revenueString: null, rawSearchResult: null };
+  }
+
+  let revenueString: string | null = null;
+  let rawSearchResult: string | null = null;
+
+  console.log(`[CompanyEnrichment] Got ${data.items.length} results`);
+  
+  for (let i = 0; i < data.items.length; i++) {
+    const item = data.items[i];
+    const snippet = item.snippet || "";
+    const title = item.title || "";
+    const link = item.link || "";
+    const combinedText = `${title} ${snippet}`;
+    rawSearchResult = combinedText;
+    
+    console.log(`[CompanyEnrichment] Result ${i + 1}: ${title}`);
+    console.log(`[CompanyEnrichment] Link: ${link}`);
+    console.log(`[CompanyEnrichment] Snippet: ${snippet}`);
+
+    const revenueMatch = combinedText.match(/\$\s*([\d,.]+)\s*(billion|million|bn|mil|B|M)\b/i);
+    
+    if (revenueMatch) {
+      revenueString = revenueMatch[0];
+      console.log(`[CompanyEnrichment] Found revenue: ${revenueString}`);
+      break;
+    }
+  }
+
+  return { revenueString, rawSearchResult };
+}
+
 export async function lookupCompanySize(companyName: string): Promise<CompanySizeResult> {
   if (!GOOGLE_CSE_API_KEY || !GOOGLE_CSE_SEARCH_ENGINE_ID) {
     console.warn("[CompanyEnrichment] Google CSE credentials not configured");
@@ -25,58 +82,36 @@ export async function lookupCompanySize(companyName: string): Promise<CompanySiz
   }
 
   try {
-    const searchQuery = `"${companyName}" revenue billion`;
-    console.log(`[CompanyEnrichment] Searching for company revenue: ${companyName}`);
-
-    const url = new URL("https://www.googleapis.com/customsearch/v1");
-    url.searchParams.set("key", GOOGLE_CSE_API_KEY);
-    url.searchParams.set("cx", GOOGLE_CSE_SEARCH_ENGINE_ID);
-    url.searchParams.set("q", searchQuery);
-    url.searchParams.set("num", "5");
-
-    const response = await fetch(url.toString());
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[CompanyEnrichment] Google CSE error: ${response.status} - ${errorText}`);
-      return { companySize: "Unknown", companyRevenue: null, rawSearchResult: null };
-    }
-
-    const data = await response.json();
-    
-    if (!data.items || data.items.length === 0) {
-      console.log(`[CompanyEnrichment] No results found for: ${companyName}`);
-      return { companySize: "Unknown", companyRevenue: null, rawSearchResult: null };
-    }
-
+    const currentYear = new Date().getFullYear();
     let revenueString: string | null = null;
     let rawSearchResult: string | null = null;
 
-    console.log(`[CompanyEnrichment] Got ${data.items.length} results for: ${companyName}`);
+    // Try recent years first (current year, then previous 2 years)
+    const recentYears = [currentYear, currentYear - 1, currentYear - 2];
     
-    for (let i = 0; i < data.items.length; i++) {
-      const item = data.items[i];
-      const snippet = item.snippet || "";
-      const title = item.title || "";
-      const link = item.link || "";
-      const combinedText = `${title} ${snippet}`;
-      rawSearchResult = combinedText;
+    for (const year of recentYears) {
+      const recentQuery = `"${companyName}" revenue billion ${year}`;
+      const result = await searchForRevenue(companyName, recentQuery, `Searching recent (${year})`);
       
-      console.log(`[CompanyEnrichment] Result ${i + 1}: ${title}`);
-      console.log(`[CompanyEnrichment] Link: ${link}`);
-      console.log(`[CompanyEnrichment] Snippet: ${snippet}`);
-
-      const revenueMatch = combinedText.match(/\$\s*([\d,.]+)\s*(billion|million|bn|mil|B|M)\b/i);
-      
-      if (revenueMatch) {
-        revenueString = revenueMatch[0];
-        console.log(`[CompanyEnrichment] Found revenue for ${companyName}: ${revenueString}`);
+      if (result.revenueString) {
+        revenueString = result.revenueString;
+        rawSearchResult = result.rawSearchResult;
+        console.log(`[CompanyEnrichment] Found recent data from ${year}`);
         break;
       }
     }
 
+    // If no recent data found, fall back to broader search
     if (!revenueString) {
-      console.log(`[CompanyEnrichment] No revenue data found for: ${companyName}. Raw results logged above.`);
+      console.log(`[CompanyEnrichment] No recent data found, trying broader search...`);
+      const broaderQuery = `"${companyName}" revenue billion`;
+      const result = await searchForRevenue(companyName, broaderQuery, "Searching broader");
+      revenueString = result.revenueString;
+      rawSearchResult = result.rawSearchResult;
+    }
+
+    if (!revenueString) {
+      console.log(`[CompanyEnrichment] No revenue data found for: ${companyName}`);
       return { companySize: "Unknown", companyRevenue: null, rawSearchResult };
     }
 
