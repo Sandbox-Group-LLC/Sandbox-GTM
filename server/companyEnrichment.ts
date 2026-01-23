@@ -52,11 +52,19 @@ export async function lookupCompanySize(companyName: string): Promise<CompanySiz
     let revenueString: string | null = null;
     let rawSearchResult: string | null = null;
 
-    for (const item of data.items) {
+    console.log(`[CompanyEnrichment] Got ${data.items.length} results for: ${companyName}`);
+    
+    for (let i = 0; i < data.items.length; i++) {
+      const item = data.items[i];
       const snippet = item.snippet || "";
       const title = item.title || "";
+      const link = item.link || "";
       const combinedText = `${title} ${snippet}`;
       rawSearchResult = combinedText;
+      
+      console.log(`[CompanyEnrichment] Result ${i + 1}: ${title}`);
+      console.log(`[CompanyEnrichment] Link: ${link}`);
+      console.log(`[CompanyEnrichment] Snippet: ${snippet}`);
 
       const revenueMatch = combinedText.match(/Revenue:\s*\$?([\d,.]+)\s*(million|billion|bn|mil|M|B)?/i);
       
@@ -68,7 +76,7 @@ export async function lookupCompanySize(companyName: string): Promise<CompanySiz
     }
 
     if (!revenueString) {
-      console.log(`[CompanyEnrichment] No revenue data found for: ${companyName}`);
+      console.log(`[CompanyEnrichment] No revenue data found for: ${companyName}. Raw results logged above.`);
       return { companySize: "Unknown", companyRevenue: null, rawSearchResult };
     }
 
