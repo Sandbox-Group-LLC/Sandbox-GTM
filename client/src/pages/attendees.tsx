@@ -1773,50 +1773,57 @@ export default function Attendees() {
                   {viewingAttendee.company && (
                     <div>
                       <div className="text-xs text-muted-foreground">Company</div>
-                      <div className="font-medium flex items-center gap-2">
+                      <div className="font-medium" data-testid="text-company-name">
                         {viewingAttendee.company}
-                        {viewingAttendee.companySize && viewingAttendee.companySize !== "Unknown" && (
-                          <Badge 
-                            variant={
-                              viewingAttendee.companySize === "Enterprise" ? "default" :
-                              viewingAttendee.companySize === "Mid-Market" ? "secondary" : "outline"
-                            }
-                            className="text-xs"
-                            data-testid="badge-company-size"
-                          >
-                            {viewingAttendee.companySize}
-                          </Badge>
-                        )}
                       </div>
-                      {viewingAttendee.companyRevenue && (
-                        <div className="text-xs text-muted-foreground mt-0.5" data-testid="text-company-revenue">
-                          {viewingAttendee.companyRevenue}
-                        </div>
-                      )}
-                      {!viewingAttendee.companySizeEnrichedAt && viewingAttendee.company && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="mt-1"
-                          onClick={() => enrichCompanySizeMutation.mutate(viewingAttendee.id)}
-                          disabled={enrichCompanySizeMutation.isPending}
-                          data-testid="button-enrich-company-size"
-                        >
-                          {enrichCompanySizeMutation.isPending ? (
-                            <>
-                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                              Looking up...
-                            </>
-                          ) : (
-                            <>
-                              <Building className="h-3 w-3 mr-1" />
-                              Lookup Size
-                            </>
-                          )}
-                        </Button>
-                      )}
                     </div>
                   )}
+                  <div>
+                    <div className="text-xs text-muted-foreground">Company Size</div>
+                    <div className="font-medium flex items-center gap-2">
+                      {viewingAttendee.companySize ? (
+                        <Badge 
+                          variant={
+                            viewingAttendee.companySize === "Enterprise" ? "default" :
+                            viewingAttendee.companySize === "Mid-Market" ? "secondary" : "outline"
+                          }
+                          className="text-xs"
+                          data-testid="badge-company-size"
+                        >
+                          {viewingAttendee.companySize}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">Not enriched</span>
+                      )}
+                      {viewingAttendee.companyRevenue && (
+                        <span className="text-xs text-muted-foreground" data-testid="text-company-revenue">
+                          ({viewingAttendee.companyRevenue})
+                        </span>
+                      )}
+                    </div>
+                    {!viewingAttendee.companySizeEnrichedAt && viewingAttendee.company && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-1"
+                        onClick={() => enrichCompanySizeMutation.mutate(viewingAttendee.id)}
+                        disabled={enrichCompanySizeMutation.isPending}
+                        data-testid="button-enrich-company-size"
+                      >
+                        {enrichCompanySizeMutation.isPending ? (
+                          <>
+                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                            Looking up...
+                          </>
+                        ) : (
+                          <>
+                            <Building className="h-3 w-3 mr-1" />
+                            Lookup Size
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
                   {viewingAttendee.jobTitle && (
                     <div>
                       <div className="text-xs text-muted-foreground">Job Title</div>
