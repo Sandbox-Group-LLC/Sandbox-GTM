@@ -25,8 +25,8 @@ export async function lookupCompanySize(companyName: string): Promise<CompanySiz
   }
 
   try {
-    const searchQuery = `${companyName} site:dnb.com/business-directory`;
-    console.log(`[CompanyEnrichment] Searching DNB for: ${companyName}`);
+    const searchQuery = `"${companyName}" revenue billion`;
+    console.log(`[CompanyEnrichment] Searching for company revenue: ${companyName}`);
 
     const url = new URL("https://www.googleapis.com/customsearch/v1");
     url.searchParams.set("key", GOOGLE_CSE_API_KEY);
@@ -66,7 +66,7 @@ export async function lookupCompanySize(companyName: string): Promise<CompanySiz
       console.log(`[CompanyEnrichment] Link: ${link}`);
       console.log(`[CompanyEnrichment] Snippet: ${snippet}`);
 
-      const revenueMatch = combinedText.match(/Revenue:\s*\$?([\d,.]+)\s*(million|billion|bn|mil|M|B)?/i);
+      const revenueMatch = combinedText.match(/\$\s*([\d,.]+)\s*(billion|million|bn|mil|B|M)\b/i);
       
       if (revenueMatch) {
         revenueString = revenueMatch[0];
