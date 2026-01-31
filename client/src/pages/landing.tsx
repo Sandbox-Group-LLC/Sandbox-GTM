@@ -80,7 +80,7 @@ export default function Landing() {
             <img src={sandboxLogo} alt="Sandbox" className="h-5 invert" />
           </div>
           <div className="flex items-center gap-4">
-            <Button variant="ghost" asChild data-testid="button-pricing-header">
+            <Button variant="outline" asChild data-testid="button-pricing-header">
               <a href="/pricing">Pricing</a>
             </Button>
             <Button asChild data-testid="button-login-header">
