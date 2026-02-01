@@ -420,6 +420,21 @@ export async function seedAIGTMSummit(organizationId: string, createdBy: string)
       }
     }
 
+    // Assign intent status based on distribution
+    // 6% hot_lead, 14% high_intent, 25% engaged, 55% none
+    const intentRand = Math.random();
+    let intentStatus: "none" | "engaged" | "high_intent" | "hot_lead" = "none";
+    let salesReady = false;
+    if (intentRand < 0.06) {
+      intentStatus = "hot_lead";
+      salesReady = true; // All hot leads are sales ready
+    } else if (intentRand < 0.20) {
+      intentStatus = "high_intent";
+      salesReady = Math.random() < 0.5; // 50% of high intent are sales ready
+    } else if (intentRand < 0.45) {
+      intentStatus = "engaged";
+    }
+
     attendeeValues.push({
       organizationId,
       eventId,
@@ -439,6 +454,8 @@ export async function seedAIGTMSummit(organizationId: string, createdBy: string)
       utmSource: selectedLink?.utmSource || null,
       utmMedium: selectedLink?.utmMedium || null,
       utmCampaign: selectedLink?.utmCampaign || null,
+      intentStatus,
+      salesReady,
     });
   }
 
