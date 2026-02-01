@@ -592,11 +592,12 @@ export async function seedAIGTMSummit(organizationId: string, createdBy: string)
     .limit(50);
   
   const feedbackData = [];
-  // NPS distribution: ~30% Promoters (9-10), ~40% Passives (7-8), ~30% Detractors (0-6)
+  // NPS distribution: ~55% Promoters (9-10), ~30% Passives (7-8), ~15% Detractors (0-6)
+  // Target NPS: ~40 (55% - 15% = 40)
   const npsDistribution = [
-    { scores: [9, 10], weight: 0.30 },        // Promoters
-    { scores: [7, 8], weight: 0.40 },          // Passives  
-    { scores: [0, 1, 2, 3, 4, 5, 6], weight: 0.30 }, // Detractors
+    { scores: [9, 10], weight: 0.55 },        // Promoters
+    { scores: [7, 8], weight: 0.30 },          // Passives  
+    { scores: [4, 5, 6], weight: 0.15 },       // Detractors (mild, 4-6 only)
   ];
 
   for (const attendee of createdAttendees) {
