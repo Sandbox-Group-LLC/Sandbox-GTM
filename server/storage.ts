@@ -269,6 +269,8 @@ import {
   type SuperAdminAuditLog,
   type InsertSuperAdminAuditLog,
   attendeeMeetings,
+  attendeeConnections,
+  attendeeAvailabilitySlots,
   type AttendeeMeeting,
   type InsertAttendeeMeeting,
   meetingPortalMembers,
@@ -1691,6 +1693,10 @@ export class DatabaseStorage implements IStorage {
     // Delete product interactions BEFORE attendees (productInteractions.attendeeId references attendees.id)
     await db.delete(productInteractions).where(eq(productInteractions.eventId, id));
     
+    // Delete attendee connections and availability slots BEFORE attendees (reference attendees.id)
+    await db.delete(attendeeConnections).where(eq(attendeeConnections.eventId, id));
+    await db.delete(attendeeAvailabilitySlots).where(eq(attendeeAvailabilitySlots.eventId, id));
+    
     // Delete attendees (attendees reference activation_links and packages)
     await db.delete(attendees).where(eq(attendees.eventId, id));
     
@@ -1709,6 +1715,9 @@ export class DatabaseStorage implements IStorage {
       sql`task_id IN (SELECT id FROM sponsor_tasks WHERE event_id = ${id})`
     );
     await db.delete(sponsorContacts).where(
+      sql`sponsor_id IN (SELECT id FROM event_sponsors WHERE event_id = ${id})`
+    );
+    await db.delete(sponsorContactInvitations).where(
       sql`sponsor_id IN (SELECT id FROM event_sponsors WHERE event_id = ${id})`
     );
     await db.delete(contentAssets).where(
@@ -1803,6 +1812,34 @@ export class DatabaseStorage implements IStorage {
     
     // Delete page views
     await db.delete(pageViews).where(eq(pageViews.eventId, id));
+    
+    // Delete meeting portal invitations and members (reference events)
+    await db.delete(meetingPortalInvitations).where(eq(meetingPortalInvitations.eventId, id));
+    await db.delete(meetingPortalMembers).where(eq(meetingPortalMembers.eventId, id));
+    
+    // Delete demo stations (reference events)
+    await db.delete(demoStations).where(eq(demoStations.eventId, id));
+    
+    // Delete intent recompute history (reference events)
+    await db.delete(intentRecomputeHistory).where(eq(intentRecomputeHistory.eventId, id));
+    
+    // Delete proof-related records (reference events)
+    await db.delete(proofComments).where(
+      sql`proof_id IN (SELECT id FROM proof_requests WHERE event_id = ${id})`
+    );
+    await db.delete(proofAssets).where(
+      sql`proof_id IN (SELECT id FROM proof_requests WHERE event_id = ${id})`
+    );
+    await db.delete(proofStatusHistory).where(
+      sql`proof_id IN (SELECT id FROM proof_requests WHERE event_id = ${id})`
+    );
+    await db.delete(proofShareLinks).where(
+      sql`proof_id IN (SELECT id FROM proof_requests WHERE event_id = ${id})`
+    );
+    await db.delete(proofRequests).where(eq(proofRequests.eventId, id));
+    
+    // Delete custom field settings (reference events)
+    await db.delete(eventCustomFieldSettings).where(eq(eventCustomFieldSettings.eventId, id));
     
     // Now delete the event itself
     await db.delete(events).where(and(eq(events.organizationId, organizationId), eq(events.id, id)));
