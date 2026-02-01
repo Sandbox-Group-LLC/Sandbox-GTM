@@ -4710,7 +4710,17 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const organizationId = await getOrganizationId(userId, req.session);
-      const event = await storage.updateEvent(organizationId, req.params.id, req.body);
+      
+      // Convert empty strings to null for date fields
+      const dateFields = ['planningStartDate', 'startDate', 'endDate'];
+      const sanitizedBody = { ...req.body };
+      for (const field of dateFields) {
+        if (sanitizedBody[field] === '') {
+          sanitizedBody[field] = null;
+        }
+      }
+      
+      const event = await storage.updateEvent(organizationId, req.params.id, sanitizedBody);
       if (!event) {
         return res.status(404).json({ message: "Event not found" });
       }
