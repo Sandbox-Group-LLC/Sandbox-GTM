@@ -2,7 +2,8 @@ import { db } from "./db";
 import { 
   events, packages, eventPackages, inviteCodes, activationLinks, activationLinkClicks,
   speakers, eventSessions, sessionSpeakers, attendees, emailTemplates, emailCampaigns,
-  eventFeedback, eventPages, pageVersions
+  eventFeedback, eventPages, pageVersions, deliverables, emailMessages, eventLeads,
+  attendeeMeetings, engagementSignals
 } from "@shared/schema";
 import { sql } from "drizzle-orm";
 
@@ -643,7 +644,339 @@ export async function seedAIGTMSummit(organizationId: string, createdBy: string)
   
   console.log(`Created ${feedbackData.length} event feedback responses`);
 
-  // 14. Create beautiful event pages for site builder
+  // 14. Create deliverables for Program Health dashboard
+  const eventStartDateObj = new Date(eventStartDate);
+  const deliverableData = [
+    // Pre-program deliverables (completed and in-progress)
+    {
+      organizationId,
+      eventId,
+      title: "Finalize speaker lineup",
+      description: "Confirm all keynote and breakout session speakers",
+      workstream: "Content",
+      phase: "pre_program",
+      status: "completed",
+      priority: "high",
+      dueDate: new Date(eventStartDateObj.getTime() - 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 60 days before
+    },
+    {
+      organizationId,
+      eventId,
+      title: "Launch registration page",
+      description: "Deploy public event registration with all packages configured",
+      workstream: "Marketing",
+      phase: "pre_program",
+      status: "completed",
+      priority: "high",
+      dueDate: new Date(eventStartDateObj.getTime() - 45 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    },
+    {
+      organizationId,
+      eventId,
+      title: "Secure venue contract",
+      description: "Finalize Moscone Center contract and payment",
+      workstream: "Operations",
+      phase: "pre_program",
+      status: "completed",
+      priority: "high",
+      dueDate: new Date(eventStartDateObj.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    },
+    {
+      organizationId,
+      eventId,
+      title: "Sponsor prospectus distribution",
+      description: "Send sponsor packages to all target companies",
+      workstream: "Partnerships",
+      phase: "pre_program",
+      status: "completed",
+      priority: "medium",
+      dueDate: new Date(eventStartDateObj.getTime() - 75 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    },
+    {
+      organizationId,
+      eventId,
+      title: "Email campaign sequences",
+      description: "Set up automated email sequences for registrants",
+      workstream: "Marketing",
+      phase: "pre_program",
+      status: "in_progress",
+      priority: "medium",
+      dueDate: new Date(eventStartDateObj.getTime() - 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    },
+    // During program deliverables
+    {
+      organizationId,
+      eventId,
+      title: "Print attendee badges",
+      description: "Print all pre-registered attendee badges with QR codes",
+      workstream: "Operations",
+      phase: "during_program",
+      status: "todo",
+      priority: "high",
+      dueDate: new Date(eventStartDateObj.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    },
+    {
+      organizationId,
+      eventId,
+      title: "AV equipment setup",
+      description: "Configure all rooms with presentation equipment and recording",
+      workstream: "Operations",
+      phase: "during_program",
+      status: "todo",
+      priority: "high",
+      dueDate: new Date(eventStartDateObj.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    },
+    {
+      organizationId,
+      eventId,
+      title: "Staff briefing session",
+      description: "Pre-event briefing for all volunteers and staff",
+      workstream: "Operations",
+      phase: "during_program",
+      status: "todo",
+      priority: "medium",
+      dueDate: new Date(eventStartDateObj.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    },
+    // Post-program deliverables
+    {
+      organizationId,
+      eventId,
+      title: "Send post-event surveys",
+      description: "Distribute NPS and session feedback surveys to all attendees",
+      workstream: "Marketing",
+      phase: "post_program",
+      status: "todo",
+      priority: "high",
+      dueDate: new Date(eventStartDateObj.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    },
+    {
+      organizationId,
+      eventId,
+      title: "Compile attendee report",
+      description: "Generate comprehensive report with engagement metrics and lead data",
+      workstream: "Analytics",
+      phase: "post_program",
+      status: "todo",
+      priority: "medium",
+      dueDate: new Date(eventStartDateObj.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    },
+  ];
+
+  await db.insert(deliverables).values(deliverableData);
+  console.log(`Created ${deliverableData.length} deliverables`);
+
+  // 15. Create email messages for email campaign analytics
+  // Get attendees to link messages to
+  const allAttendees = await db.select().from(attendees)
+    .where(sql`${attendees.eventId} = ${eventId}`)
+    .limit(200);
+
+  const emailMessageData = [];
+  const emailStatuses = ['delivered', 'delivered', 'delivered', 'opened', 'opened', 'clicked', 'bounced'];
+  
+  // Create messages for each campaign
+  for (const campaign of [inviteCampaign, confirmCampaign]) {
+    const recipientCount = Math.min(allAttendees.length, 150);
+    for (let i = 0; i < recipientCount; i++) {
+      const attendee = allAttendees[i];
+      const status = randomElement(emailStatuses);
+      const sentAt = campaign.sentAt || new Date();
+      
+      emailMessageData.push({
+        organizationId,
+        campaignId: campaign.id,
+        attendeeId: attendee.id,
+        recipientEmail: attendee.email,
+        recipientName: `${attendee.firstName} ${attendee.lastName}`,
+        subject: campaign.subject,
+        status,
+        sentAt,
+        deliveredAt: status !== 'bounced' ? new Date(sentAt.getTime() + Math.random() * 60000) : null,
+        openedAt: ['opened', 'clicked'].includes(status) ? new Date(sentAt.getTime() + Math.random() * 3600000) : null,
+        clickedAt: status === 'clicked' ? new Date(sentAt.getTime() + Math.random() * 7200000) : null,
+      });
+    }
+  }
+
+  // Insert in batches
+  for (let i = 0; i < emailMessageData.length; i += batchSize) {
+    const batch = emailMessageData.slice(i, i + batchSize);
+    await db.insert(emailMessages).values(batch);
+  }
+  console.log(`Created ${emailMessageData.length} email messages for campaign analytics`);
+
+  // 16. Create event leads (lead scans) for engagement dashboard
+  const captureMethodWeights = [
+    { method: 'qr_scan', weight: 0.5 },
+    { method: 'badge_scan', weight: 0.35 },
+    { method: 'manual', weight: 0.15 },
+  ];
+  
+  const leadNotes = [
+    "Interested in enterprise demo",
+    "Looking for Q2 implementation",
+    "Currently evaluating competitors",
+    "Budget approved for this quarter",
+    "Needs to involve CTO in decision",
+    "Follow up with case study",
+    "Expanding team, needs scalable solution",
+    "Very engaged during conversation",
+    null,
+    null,
+  ];
+
+  const eventLeadData = [];
+  const leadCount = 35; // Create 35 lead scans
+  
+  for (let i = 0; i < leadCount; i++) {
+    const firstName = randomElement(FIRST_NAMES);
+    const lastName = randomElement(LAST_NAMES);
+    const company = randomElement(COMPANIES);
+    
+    let captureMethod = 'qr_scan';
+    const methodRand = Math.random();
+    let cumWeight = 0;
+    for (const cm of captureMethodWeights) {
+      cumWeight += cm.weight;
+      if (methodRand < cumWeight) {
+        captureMethod = cm.method;
+        break;
+      }
+    }
+    
+    eventLeadData.push({
+      organizationId,
+      eventId,
+      firstName,
+      lastName,
+      email: generateEmail(firstName, lastName, company),
+      company,
+      jobTitle: randomElement(JOB_TITLES),
+      notes: randomElement(leadNotes),
+      captureMethod,
+      capturedAt: randomDate(new Date(eventStartDate), new Date(eventEndDate)),
+    });
+  }
+
+  await db.insert(eventLeads).values(eventLeadData);
+  console.log(`Created ${eventLeadData.length} event leads (lead scans)`);
+
+  // 17. Create attendee meetings with outcomes for Revenue Impact dashboard
+  const meetingIntentTypes = ['partnership', 'demo_request', 'consulting', 'product_feedback', 'networking'];
+  const meetingOutcomeTypes = ['no_fit', 'early_interest', 'active_opportunity', 'follow_up_scheduled', 'deal_in_progress'];
+  const dealRanges = ['under_25k', '25k_to_100k', 'over_100k'];
+  const timelines = ['now', 'this_quarter', 'later'];
+  const confidenceLevels = ['low', 'medium', 'high'];
+  
+  // Weight toward positive outcomes for impressive dashboard
+  const outcomeWeights = [
+    { outcome: 'deal_in_progress', weight: 0.15 },
+    { outcome: 'active_opportunity', weight: 0.25 },
+    { outcome: 'follow_up_scheduled', weight: 0.25 },
+    { outcome: 'early_interest', weight: 0.25 },
+    { outcome: 'no_fit', weight: 0.10 },
+  ];
+
+  const dealRangeWeights = [
+    { range: 'over_100k', weight: 0.25 },
+    { range: '25k_to_100k', weight: 0.45 },
+    { range: 'under_25k', weight: 0.30 },
+  ];
+
+  const meetingData = [];
+  const meetingCount = 28; // Create 28 meetings
+  const checkedInAttendees = allAttendees.filter(a => a.registrationStatus === 'checked_in');
+  
+  for (let i = 0; i < Math.min(meetingCount, checkedInAttendees.length - 1); i++) {
+    const invitee = checkedInAttendees[i];
+    
+    // Select weighted outcome
+    let outcomeType = 'early_interest';
+    let outcomeRand = Math.random();
+    let cumWeight = 0;
+    for (const ow of outcomeWeights) {
+      cumWeight += ow.weight;
+      if (outcomeRand < cumWeight) {
+        outcomeType = ow.outcome;
+        break;
+      }
+    }
+
+    // Select weighted deal range (only for opportunities)
+    let dealRange = null;
+    if (['active_opportunity', 'deal_in_progress', 'follow_up_scheduled'].includes(outcomeType)) {
+      let dealRand = Math.random();
+      cumWeight = 0;
+      for (const dr of dealRangeWeights) {
+        cumWeight += dr.weight;
+        if (dealRand < cumWeight) {
+          dealRange = dr.range;
+          break;
+        }
+      }
+    }
+
+    const startTime = randomDate(new Date(eventStartDate), new Date(eventEndDate));
+    const endTime = new Date(startTime.getTime() + 30 * 60 * 1000); // 30 min meetings
+
+    meetingData.push({
+      organizationId,
+      eventId,
+      inviteeId: invitee.id,
+      startTime,
+      endTime,
+      location: randomElement(['Meeting Room A', 'Meeting Room B', 'Expo Hall Booth', 'VIP Lounge', 'Coffee Area']),
+      status: 'completed',
+      intentType: randomElement(meetingIntentTypes),
+      outcomeType,
+      dealRange,
+      timeline: dealRange ? randomElement(timelines) : null,
+      outcomeNotes: outcomeType !== 'no_fit' ? `Discussed ${randomElement(['product roadmap', 'implementation timeline', 'pricing options', 'use cases', 'integration requirements'])}` : null,
+      outcomeConfidence: dealRange ? randomElement(confidenceLevels) : null,
+      outcomeCapturedAt: new Date(),
+    });
+  }
+
+  await db.insert(attendeeMeetings).values(meetingData);
+  console.log(`Created ${meetingData.length} attendee meetings with outcomes`);
+
+  // 18. Create engagement signals for high-intent tracking
+  const engagementData = [];
+  const highIntentCount = Math.floor(checkedInAttendees.length * 0.3); // 30% show high intent
+  
+  for (let i = 0; i < checkedInAttendees.length; i++) {
+    const attendee = checkedInAttendees[i];
+    const isHighIntent = i < highIntentCount;
+    const engagementScore = isHighIntent 
+      ? Math.floor(Math.random() * 30) + 70  // 70-100 for high intent
+      : Math.floor(Math.random() * 50) + 20; // 20-70 for regular
+    
+    engagementData.push({
+      organizationId,
+      eventId,
+      attendeeId: attendee.id,
+      engaged: true,
+      engagementScore,
+      highIntent: isHighIntent,
+      lastEngagedAt: randomDate(new Date(eventStartDate), new Date(eventEndDate)),
+      signalSummaryJson: {
+        sessions_attended: Math.floor(Math.random() * 8) + 1,
+        questions_asked: isHighIntent ? Math.floor(Math.random() * 5) + 1 : Math.floor(Math.random() * 2),
+        booth_visits: Math.floor(Math.random() * 6),
+        content_downloads: isHighIntent ? Math.floor(Math.random() * 4) + 1 : Math.floor(Math.random() * 2),
+        meetings_booked: isHighIntent ? Math.floor(Math.random() * 2) + 1 : 0,
+      },
+    });
+  }
+
+  // Insert in batches
+  for (let i = 0; i < engagementData.length; i += batchSize) {
+    const batch = engagementData.slice(i, i + batchSize);
+    await db.insert(engagementSignals).values(batch);
+  }
+  console.log(`Created ${engagementData.length} engagement signals (${highIntentCount} high-intent)`);
+
+  // 19. Create beautiful event pages for site builder
   const aiGtmTheme = {
     headingFont: 'Inter',
     bodyFont: 'Inter',
@@ -1161,6 +1494,6 @@ export async function seedAIGTMSummit(organizationId: string, createdBy: string)
 
   return {
     eventId,
-    message: `Successfully created AI GTM Summit with ${attendeeCount} attendees, ${createdSessions.length} sessions, ${createdSpeakers.length} speakers, 4 activation links, ${feedbackData.length} feedback responses, and 4 beautiful event pages.`
+    message: `Successfully created AI GTM Summit with ${attendeeCount} attendees, ${createdSessions.length} sessions, ${createdSpeakers.length} speakers, 4 activation links, ${feedbackData.length} feedback responses, ${deliverableData.length} deliverables, ${emailMessageData.length} email messages, ${eventLeadData.length} lead scans, ${meetingData.length} meetings with outcomes, ${engagementData.length} engagement signals, and 4 beautiful event pages.`
   };
 }
