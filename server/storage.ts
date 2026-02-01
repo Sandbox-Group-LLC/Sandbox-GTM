@@ -2259,13 +2259,13 @@ export class DatabaseStorage implements IStorage {
       uniqueVisitors = clicksResult.filter(c => c.visitorHash).length;
     }
     
-    // Count ALL confirmed registrations for display
-    const allConfirmedAttendees = await db.select().from(attendees)
+    // Count ALL qualified registrations (registered, confirmed, checked_in - excludes cancelled/pending)
+    const allQualifiedAttendees = await db.select().from(attendees)
       .where(and(
         eq(attendees.organizationId, organizationId),
-        eq(attendees.registrationStatus, "confirmed")
+        sql`${attendees.registrationStatus} IN ('registered', 'confirmed', 'checked_in')`
       ));
-    const registrations = allConfirmedAttendees.length;
+    const registrations = allQualifiedAttendees.length;
     
     // For conversion rate, only count registrations that came through activation links
     let attributedRegistrations = 0;
@@ -2273,7 +2273,7 @@ export class DatabaseStorage implements IStorage {
       const attributedAttendees = await db.select().from(attendees)
         .where(and(
           eq(attendees.organizationId, organizationId),
-          eq(attendees.registrationStatus, "confirmed"),
+          sql`${attendees.registrationStatus} IN ('registered', 'confirmed', 'checked_in')`,
           inArray(attendees.activationLinkId, linkIds)
         ));
       attributedRegistrations = attributedAttendees.length;
@@ -2295,7 +2295,7 @@ export class DatabaseStorage implements IStorage {
     const organicAttendees = await db.select().from(attendees)
       .where(and(
         eq(attendees.organizationId, organizationId),
-        eq(attendees.registrationStatus, "confirmed"),
+        sql`${attendees.registrationStatus} IN ('registered', 'confirmed', 'checked_in')`,
         sql`${attendees.activationLinkId} IS NULL`
       ));
     if (organicAttendees.length > 0) {
