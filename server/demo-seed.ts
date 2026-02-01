@@ -373,9 +373,9 @@ export async function seedAIGTMSummit(organizationId: string, createdBy: string)
   ];
 
   const statusDistribution = [
-    { status: "registered", weight: 0.75 },
-    { status: "confirmed", weight: 0.15 },
-    { status: "checked_in", weight: 0.08 },
+    { status: "checked_in", weight: 0.85 },  // 85% checked in for realistic post-event demo
+    { status: "confirmed", weight: 0.08 },
+    { status: "registered", weight: 0.05 },
     { status: "cancelled", weight: 0.02 },
   ];
 
