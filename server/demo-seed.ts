@@ -6,6 +6,7 @@ import {
   attendeeMeetings, engagementSignals
 } from "@shared/schema";
 import { sql } from "drizzle-orm";
+import { storage } from "./storage";
 
 const FIRST_NAMES = [
   "James", "Sarah", "Michael", "Emily", "David", "Jennifer", "Robert", "Amanda", 
@@ -82,11 +83,13 @@ export async function seedAIGTMSummit(organizationId: string, createdBy: string)
     .where(sql`${events.organizationId} = ${organizationId} AND ${events.name} = 'AI GTM Summit'`);
   
   if (existingEvents.length > 0) {
-    // Return existing event instead of creating duplicate
-    return {
-      eventId: existingEvents[0].id,
-      message: `AI GTM Summit already exists for this organization. Event ID: ${existingEvents[0].id}. To create a new demo, delete the existing event first.`
-    };
+    // Auto-delete existing event(s) and reseed fresh
+    console.log(`Found ${existingEvents.length} existing AI GTM Summit event(s). Deleting to reseed fresh...`);
+    for (const existingEvent of existingEvents) {
+      console.log(`Deleting existing event: ${existingEvent.id}`);
+      await storage.deleteEvent(organizationId, existingEvent.id);
+    }
+    console.log("Existing event(s) deleted. Proceeding with fresh seed...");
   }
 
   // 1. Create the event
