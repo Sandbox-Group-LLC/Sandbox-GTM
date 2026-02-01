@@ -8545,6 +8545,17 @@ export async function registerRoutes(
         updateData.executionTime = updateData.executionTime ? new Date(updateData.executionTime) : null;
       }
       
+      // Convert empty strings to null for foreign key and date fields
+      if (updateData.assignedTo === '') {
+        updateData.assignedTo = null;
+      }
+      if (updateData.dueDate === '') {
+        updateData.dueDate = null;
+      }
+      if (updateData.milestoneId === '') {
+        updateData.milestoneId = null;
+      }
+      
       const deliverable = await storage.updateDeliverable(organizationId, req.params.id, updateData);
       if (!deliverable) {
         return res.status(404).json({ message: "Deliverable not found" });
