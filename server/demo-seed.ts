@@ -3,7 +3,7 @@ import {
   events, packages, eventPackages, inviteCodes, activationLinks, activationLinkClicks,
   speakers, eventSessions, sessionSpeakers, attendees, emailTemplates, emailCampaigns,
   eventFeedback, eventPages, pageVersions, deliverables, emailMessages, eventLeads,
-  attendeeMeetings, engagementSignals
+  attendeeMeetings, engagementSignals, moments, momentResponses
 } from "@shared/schema";
 import { sql } from "drizzle-orm";
 import { storage } from "./storage";
@@ -355,6 +355,74 @@ export async function seedAIGTMSummit(organizationId: string, createdBy: string)
   }
   await db.insert(sessionSpeakers).values(speakerSessionLinks);
 
+  // 8.5 Create engagement moments (polls, ratings, Q&A, etc.)
+  const momentData = [
+    {
+      organizationId,
+      eventId,
+      sessionId: createdSessions[0]?.id,
+      type: 'poll_single',
+      title: 'AI Adoption Readiness',
+      prompt: 'How ready is your organization to adopt AI in GTM?',
+      optionsJson: [
+        { id: '1', text: 'Already using AI extensively' },
+        { id: '2', text: 'Experimenting with AI tools' },
+        { id: '3', text: 'Just getting started' },
+        { id: '4', text: 'Not yet, but planning' },
+      ],
+      status: 'ended',
+    },
+    {
+      organizationId,
+      eventId,
+      sessionId: createdSessions[1]?.id,
+      type: 'rating',
+      title: 'Session Quality Rating',
+      prompt: 'How would you rate this session?',
+      optionsJson: { min: 1, max: 5, labels: { 1: 'Poor', 5: 'Excellent' } },
+      status: 'ended',
+    },
+    {
+      organizationId,
+      eventId,
+      sessionId: createdSessions[2]?.id,
+      type: 'poll_single',
+      title: 'Top GTM Challenge',
+      prompt: 'What is your biggest GTM challenge right now?',
+      optionsJson: [
+        { id: '1', text: 'Lead generation' },
+        { id: '2', text: 'Sales enablement' },
+        { id: '3', text: 'Pipeline velocity' },
+        { id: '4', text: 'Customer retention' },
+      ],
+      status: 'ended',
+    },
+    {
+      organizationId,
+      eventId,
+      type: 'qa',
+      title: 'Ask the Experts',
+      prompt: 'Submit your questions for our panel',
+      status: 'ended',
+    },
+    {
+      organizationId,
+      eventId,
+      type: 'pulse',
+      title: 'Event Energy Check',
+      prompt: 'How are you feeling about the event so far?',
+      optionsJson: { type: 'emoji', options: ['🔥', '👍', '😐', '😴'] },
+      status: 'ended',
+    },
+  ];
+
+  const createdMoments = [];
+  for (const moment of momentData) {
+    const [created] = await db.insert(moments).values(moment).returning();
+    createdMoments.push(created);
+  }
+  console.log(`Created ${createdMoments.length} engagement moments`);
+
   // 9. Create attendees (~850)
   const attendeeCount = 850;
   const attendeeValues = [];
@@ -467,6 +535,59 @@ export async function seedAIGTMSummit(organizationId: string, createdBy: string)
   }
 
   console.log(`Created ${attendeeCount} attendees`);
+
+  // 9.5 Create moment responses for 86% of attendees (engagement rate)
+  // Get created attendees for moment responses
+  const createdAttendees = await db.select().from(attendees).where(sql`event_id = ${eventId}`);
+  const participatingAttendees = createdAttendees.slice(0, Math.floor(createdAttendees.length * 0.86));
+  
+  const momentResponseData: any[] = [];
+  const qaQuestions = [
+    "How do you see AI impacting pipeline generation in the next 2 years?",
+    "What's the best way to measure AI ROI for GTM teams?",
+    "Can you share examples of successful AI-driven lead scoring?",
+    "How do you balance automation with the human touch in sales?",
+    "What are the biggest risks of over-relying on AI for customer engagement?",
+  ];
+  
+  for (const attendee of participatingAttendees) {
+    // Each participating attendee responds to 1-3 random moments
+    const numResponses = Math.floor(Math.random() * 3) + 1;
+    const shuffledMoments = [...createdMoments].sort(() => Math.random() - 0.5);
+    
+    for (let i = 0; i < Math.min(numResponses, shuffledMoments.length); i++) {
+      const moment = shuffledMoments[i];
+      let payload: any = {};
+      
+      if (moment.type === 'poll_single') {
+        const options = moment.optionsJson as any[];
+        payload = { selectedOption: randomElement(options)?.id || '1' };
+      } else if (moment.type === 'rating') {
+        payload = { rating: Math.floor(Math.random() * 3) + 3 }; // 3-5 ratings
+      } else if (moment.type === 'qa') {
+        payload = { question: randomElement(qaQuestions) };
+      } else if (moment.type === 'pulse') {
+        const pulseOptions = ['fire', 'thumbsup', 'neutral', 'sleepy'];
+        payload = { reaction: randomElement(pulseOptions) };
+      }
+      
+      momentResponseData.push({
+        momentId: moment.id,
+        organizationId,
+        eventId,
+        sessionId: moment.sessionId || null,
+        attendeeId: attendee.id,
+        payloadJson: payload,
+      });
+    }
+  }
+  
+  // Insert moment responses in batches
+  for (let i = 0; i < momentResponseData.length; i += batchSize) {
+    const batch = momentResponseData.slice(i, i + batchSize);
+    await db.insert(momentResponses).values(batch);
+  }
+  console.log(`Created ${momentResponseData.length} moment responses from ${participatingAttendees.length} attendees (${Math.round(participatingAttendees.length / createdAttendees.length * 100)}% engagement rate)`);
 
   // 10. Create email templates
   const [inviteTemplate] = await db.insert(emailTemplates).values({
