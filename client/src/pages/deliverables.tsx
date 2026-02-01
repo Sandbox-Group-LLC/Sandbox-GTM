@@ -97,6 +97,7 @@ const statusConfig: Record<string, { label: string; icon: typeof Circle; color: 
   in_progress: { label: "In Progress", icon: Clock, color: "text-blue-600 dark:text-blue-400" },
   review: { label: "In Review", icon: AlertCircle, color: "text-amber-600 dark:text-amber-400" },
   done: { label: "Done", icon: CheckCircle, color: "text-green-600 dark:text-green-400" },
+  completed: { label: "Completed", icon: CheckCircle, color: "text-green-600 dark:text-green-400" },
 };
 
 const priorityColors: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
