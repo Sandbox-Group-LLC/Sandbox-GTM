@@ -1744,7 +1744,10 @@ export class DatabaseStorage implements IStorage {
     
     // Delete member room assignments and room open hours BEFORE session rooms
     await db.delete(memberRoomAssignments).where(eq(memberRoomAssignments.eventId, id));
-    await db.delete(roomOpenHours).where(eq(roomOpenHours.eventId, id));
+    // roomOpenHours references sessionRooms.id via roomId, so delete via subquery
+    await db.delete(roomOpenHours).where(
+      sql`${roomOpenHours.roomId} IN (SELECT id FROM session_rooms WHERE event_id = ${id})`
+    );
     await db.delete(sessionRooms).where(eq(sessionRooms.eventId, id));
     
     await db.delete(sessionTopics).where(eq(sessionTopics.eventId, id));
