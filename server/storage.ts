@@ -1685,6 +1685,9 @@ export class DatabaseStorage implements IStorage {
     // Delete attendee meetings BEFORE attendees (attendeeMeetings.inviteeId references attendees.id)
     await db.delete(attendeeMeetings).where(eq(attendeeMeetings.eventId, id));
     
+    // Delete session check-ins BEFORE attendees (sessionCheckIns.attendeeId references attendees.id)
+    await db.delete(sessionCheckIns).where(eq(sessionCheckIns.eventId, id));
+    
     // Delete attendees (attendees reference activation_links and packages)
     await db.delete(attendees).where(eq(attendees.eventId, id));
     
