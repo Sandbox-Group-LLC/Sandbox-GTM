@@ -1823,18 +1823,18 @@ export class DatabaseStorage implements IStorage {
     // Delete intent recompute history (reference events)
     await db.delete(intentRecomputeHistory).where(eq(intentRecomputeHistory.eventId, id));
     
-    // Delete proof-related records (reference events)
+    // Delete proof-related records (reference events via proofRequestId)
     await db.delete(proofComments).where(
-      sql`proof_id IN (SELECT id FROM proof_requests WHERE event_id = ${id})`
+      sql`proof_request_id IN (SELECT id FROM proof_requests WHERE event_id = ${id})`
     );
     await db.delete(proofAssets).where(
-      sql`proof_id IN (SELECT id FROM proof_requests WHERE event_id = ${id})`
+      sql`proof_request_id IN (SELECT id FROM proof_requests WHERE event_id = ${id})`
     );
     await db.delete(proofStatusHistory).where(
-      sql`proof_id IN (SELECT id FROM proof_requests WHERE event_id = ${id})`
+      sql`proof_request_id IN (SELECT id FROM proof_requests WHERE event_id = ${id})`
     );
     await db.delete(proofShareLinks).where(
-      sql`proof_id IN (SELECT id FROM proof_requests WHERE event_id = ${id})`
+      sql`proof_request_id IN (SELECT id FROM proof_requests WHERE event_id = ${id})`
     );
     await db.delete(proofRequests).where(eq(proofRequests.eventId, id));
     
