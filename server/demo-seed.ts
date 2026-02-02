@@ -198,6 +198,7 @@ export async function seedAIGTMSummit(organizationId: string, createdBy: string)
   console.log("Created invite codes");
 
   // 5. Create activation links
+  // Click counts should result in ~30% conversion rate: ~2,800 clicks -> ~826 registrations
   const [linkedInLink] = await db.insert(activationLinks).values({
     organizationId,
     eventId,
@@ -211,8 +212,8 @@ export async function seedAIGTMSummit(organizationId: string, createdBy: string)
     inviteCodeId: linkedInCode.id,
     status: "active",
     shortCode: `li-${uniqueSuffix}`,
-    clickCount: 4850,
-    conversionCount: 312,
+    clickCount: 1200,
+    conversionCount: 360,
     createdBy,
   }).returning();
 
@@ -228,8 +229,8 @@ export async function seedAIGTMSummit(organizationId: string, createdBy: string)
     inviteCodeId: partnerCode.id,
     status: "active",
     shortCode: `ptr-${uniqueSuffix}`,
-    clickCount: 1240,
-    conversionCount: 186,
+    clickCount: 450,
+    conversionCount: 135,
     createdBy,
   }).returning();
 
@@ -245,8 +246,8 @@ export async function seedAIGTMSummit(organizationId: string, createdBy: string)
     inviteCodeId: vipCode.id,
     status: "active",
     shortCode: `vip-${uniqueSuffix}`,
-    clickCount: 320,
-    conversionCount: 89,
+    clickCount: 150,
+    conversionCount: 68,
     createdBy,
   }).returning();
 
@@ -261,7 +262,7 @@ export async function seedAIGTMSummit(organizationId: string, createdBy: string)
     utmCampaign: "ai-gtm-summit-wave1",
     status: "active",
     shortCode: `eml-${uniqueSuffix}`,
-    clickCount: 2890,
+    clickCount: 1000,
     conversionCount: 263,
     createdBy,
   }).returning();
@@ -699,16 +700,26 @@ export async function seedAIGTMSummit(organizationId: string, createdBy: string)
   console.log("Created email campaigns");
 
   // 12. Generate activation link clicks for analytics
+  // Create realistic click counts that result in ~30% conversion rate
+  // With ~826 registrations, we need ~2,750 unique visitors for 30% conversion
   const clickData = [];
   const now = new Date();
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  
+  // Define click counts per link (total ~2,800 unique visitors)
+  const linkClickCounts: Record<string, number> = {
+    [linkedInLink.id]: 1200,   // LinkedIn campaign - high volume
+    [partnerLink.id]: 450,     // Partner referrals
+    [vipLink.id]: 150,         // VIP invites - smaller, targeted
+    [emailLink.id]: 1000,      // Email campaigns
+  };
 
   for (const link of [linkedInLink, partnerLink, vipLink, emailLink]) {
-    const clickCount = Math.floor(Math.random() * 200) + 100;
+    const clickCount = linkClickCounts[link.id] || 500;
     for (let i = 0; i < clickCount; i++) {
       clickData.push({
         activationLinkId: link.id,
-        visitorHash: Math.random().toString(36).substring(2, 18),
+        visitorHash: `${link.id.substring(0, 8)}_${i}_${Math.random().toString(36).substring(2, 10)}`,
         ipHash: Math.random().toString(36).substring(2, 18),
         userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
         clickedAt: randomDate(thirtyDaysAgo, now),
@@ -722,7 +733,7 @@ export async function seedAIGTMSummit(organizationId: string, createdBy: string)
     await db.insert(activationLinkClicks).values(batch);
   }
 
-  console.log(`Created ${clickData.length} activation link clicks`);
+  console.log(`Created ${clickData.length} activation link clicks (unique visitors)`);
 
   // 13. Create event feedback with NPS scores for analytics
   const checkedInAttendees = await db.select().from(attendees)
