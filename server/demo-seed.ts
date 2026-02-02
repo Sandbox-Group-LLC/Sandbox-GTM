@@ -725,7 +725,7 @@ export async function seedAIGTMSummit(organizationId: string, createdBy: string)
   console.log(`Created ${clickData.length} activation link clicks`);
 
   // 13. Create event feedback with NPS scores for analytics
-  const createdAttendees = await db.select().from(attendees)
+  const checkedInAttendees = await db.select().from(attendees)
     .where(sql`${attendees.eventId} = ${eventId} AND ${attendees.registrationStatus} = 'checked_in'`)
     .limit(50);
   
@@ -738,7 +738,7 @@ export async function seedAIGTMSummit(organizationId: string, createdBy: string)
     { scores: [4, 5, 6], weight: 0.15 },       // Detractors (mild, 4-6 only)
   ];
 
-  for (const attendee of createdAttendees) {
+  for (const attendee of checkedInAttendees) {
     const rand = Math.random();
     let recommendationScore = 5;
     let cumWeight = 0;
