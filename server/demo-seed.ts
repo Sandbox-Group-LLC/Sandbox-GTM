@@ -1027,10 +1027,10 @@ export async function seedAIGTMSummit(organizationId: string, createdBy: string)
 
   const meetingData = [];
   const meetingCount = 28; // Create 28 meetings
-  const checkedInAttendees = allAttendees.filter(a => a.registrationStatus === 'checked_in');
+  const meetingAttendees = allAttendees.filter(a => a.registrationStatus === 'checked_in');
   
-  for (let i = 0; i < Math.min(meetingCount, checkedInAttendees.length - 1); i++) {
-    const invitee = checkedInAttendees[i];
+  for (let i = 0; i < Math.min(meetingCount, meetingAttendees.length - 1); i++) {
+    const invitee = meetingAttendees[i];
     
     // Select weighted outcome
     let outcomeType = 'early_interest';
