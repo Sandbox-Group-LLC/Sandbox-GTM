@@ -2280,7 +2280,9 @@ export class DatabaseStorage implements IStorage {
     }
     
     // Calculate conversion rate using only attributed registrations vs unique visitors
-    const conversionRate = uniqueVisitors > 0 ? (attributedRegistrations / uniqueVisitors) * 100 : 0;
+    // Cap at 100% since conversion rate above 100% is logically impossible
+    const rawConversionRate = uniqueVisitors > 0 ? (attributedRegistrations / uniqueVisitors) * 100 : 0;
+    const conversionRate = Math.min(rawConversionRate, 100);
     
     // Build channel breakdown from activation link clicks grouped by utm_source
     const channelGroups: Record<string, number> = {};
