@@ -124,26 +124,49 @@ export default function RevenueSnapshot() {
             </CardHeader>
             <CardContent className="h-64">
               {isDemoMode ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <RechartsPie>
-                    <Pie
-                      data={DEMO_DATA.attribution}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={80}
-                      paddingAngle={5}
-                      dataKey="value"
-                      label={({ name, value }) => `${name}: ${value}%`}
-                    >
-                      {DEMO_DATA.attribution.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value) => `${value}%`} />
-                    <Legend />
-                  </RechartsPie>
-                </ResponsiveContainer>
+                <div className="flex h-full items-center gap-6">
+                  <div className="flex-1 h-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RechartsPie>
+                        <Pie
+                          data={DEMO_DATA.attribution}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={45}
+                          outerRadius={75}
+                          paddingAngle={3}
+                          dataKey="value"
+                        >
+                          {DEMO_DATA.attribution.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip 
+                          formatter={(value) => [`${value}%`, "Share"]}
+                          contentStyle={{ 
+                            backgroundColor: 'hsl(var(--popover))', 
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '8px',
+                          }}
+                        />
+                      </RechartsPie>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="space-y-3 min-w-[140px]">
+                    {DEMO_DATA.attribution.map((entry) => (
+                      <div key={entry.name} className="flex items-center gap-2">
+                        <div 
+                          className="w-3 h-3 rounded-sm" 
+                          style={{ backgroundColor: entry.color }}
+                        />
+                        <div className="flex-1">
+                          <div className="text-sm font-medium">{entry.name}</div>
+                          <div className="text-lg font-bold">{entry.value}%</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               ) : (
                 <div className="h-full flex items-center justify-center text-muted-foreground">
                   <div className="text-center">
