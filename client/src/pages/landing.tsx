@@ -83,6 +83,9 @@ export default function Landing() {
             <Button variant="outline" asChild data-testid="button-pricing-header" className="text-white">
               <a href="/pricing">Pricing</a>
             </Button>
+            <Button variant="outline" asChild data-testid="button-book-demo-header" className="text-white">
+              <a href="/book-demo">Book a Demo</a>
+            </Button>
             <Button asChild data-testid="button-login-header">
               <a href="/api/login">Sign In</a>
             </Button>
