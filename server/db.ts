@@ -14,13 +14,13 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-// Create pool with conservative settings to prevent connection corruption
+// Create pool with settings that balance reliability and resource usage
 export const pool = new Pool({ 
   connectionString: process.env.DATABASE_URL,
-  max: 3,
+  max: 5,
   min: 0,
-  idleTimeoutMillis: 5000,
-  connectionTimeoutMillis: 5000,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
   allowExitOnIdle: true,
 });
 
