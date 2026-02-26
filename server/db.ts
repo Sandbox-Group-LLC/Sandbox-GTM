@@ -14,12 +14,12 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-// Create pool with simple settings
 export const pool = new Pool({ 
   connectionString: process.env.DATABASE_URL,
-  max: 5,
+  max: 10,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
+  query_timeout: 30000,
 });
 
 // Handle pool-level errors to prevent unhandled error crashes

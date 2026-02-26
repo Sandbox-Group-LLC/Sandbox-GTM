@@ -124,6 +124,7 @@ import { createMailchimpProvider } from "./integrations/mailchimp";
 import { decrypt, encrypt } from "./encryption";
 import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
+import { organizations } from "@shared/schema";
 import { sanitizeCustomCss } from "@shared/css-sanitizer";
 import { generateSectionContent } from "./ai";
 import { z } from "zod";
@@ -17166,18 +17167,23 @@ ${urls.map(u => `  <url>
     }
   });
 
-  // Background scheduler to process scheduled email campaigns
+  let campaignProcessorRunning = false;
+
   const processScheduledCampaigns = async () => {
+    if (campaignProcessorRunning) {
+      return;
+    }
+    campaignProcessorRunning = true;
+
     try {
       if (!process.env.RESEND_API_KEY) {
-        return; // Email service not configured
+        return;
       }
 
-      // Get all organizations to check their scheduled campaigns
-      const allOrganizations = await storage.getAllOrganizationsWithStats();
+      const allOrgs = await db.select({ id: organizations.id, name: organizations.name }).from(organizations);
       const now = new Date();
 
-      for (const org of allOrganizations) {
+      for (const org of allOrgs) {
         const campaigns = await storage.getEmailCampaigns(org.id);
         const scheduledCampaigns = campaigns.filter(c => 
           c.status === "scheduled" && 
@@ -17185,18 +17191,18 @@ ${urls.map(u => `  <url>
           new Date(c.scheduledAt) <= now
         );
 
+        if (scheduledCampaigns.length === 0) continue;
+
         for (const campaign of scheduledCampaigns) {
           try {
             logInfo(`Processing scheduled campaign: ${campaign.id} for org: ${org.id}`);
             
-            // Get event details for merge tags
             const event = await storage.getEvent(org.id, campaign.eventId);
             if (!event) {
               logError(`Event not found for campaign ${campaign.id}`);
               continue;
             }
 
-            // Get recipients based on recipientType
             let attendees = await storage.getAttendees(org.id, campaign.eventId);
             if (campaign.recipientType && campaign.recipientType !== "all") {
               attendees = attendees.filter(a => a.attendeeType === campaign.recipientType);
@@ -17211,7 +17217,6 @@ ${urls.map(u => `  <url>
               continue;
             }
 
-            // Format event date for merge tags
             const eventDate = event.startDate ? new Date(event.startDate).toLocaleDateString('en-US', {
               weekday: 'long',
               year: 'numeric',
@@ -17219,7 +17224,6 @@ ${urls.map(u => `  <url>
               day: 'numeric'
             }) : '';
 
-            // Generate calendar links for merge tag
             const scheduledCalendarLinksHtml = event.startDate ? generateCalendarLinksHtml({
               title: event.name,
               description: event.description || '',
@@ -17228,7 +17232,6 @@ ${urls.map(u => `  <url>
               endDate: event.endDate || undefined,
             }) : '';
 
-            // Send emails with merge tag replacement and tracking
             const result = await sendCampaignEmails({
               subject: campaign.subject,
               content: campaign.content,
@@ -17256,18 +17259,14 @@ ${urls.map(u => `  <url>
               styles: campaign.styles as any || undefined,
             });
 
-            // Update campaign status to sent
             await storage.updateEmailCampaign(org.id, campaign.id, {
               status: "sent",
               sentAt: new Date(),
             });
 
-            // If this is an invite email campaign, update attendee statuses to "invited" (only for successful sends)
             if (campaign.isInviteEmail && result.totalSent > 0) {
-              // Get set of failed emails to skip them
               const failedEmails = new Set(result.errors.map(e => e.email));
               for (const attendee of attendees) {
-                // Only update status if email was successfully sent (not in failed list and not suppressed)
                 if (!failedEmails.has(attendee.email)) {
                   const suppression = await storage.getEmailSuppression(org.id, attendee.email);
                   if (!suppression) {
@@ -17287,14 +17286,14 @@ ${urls.map(u => `  <url>
       }
     } catch (error) {
       logError("Error in scheduled campaign processor:", error);
+    } finally {
+      campaignProcessorRunning = false;
     }
   };
 
-  // Run the scheduler every minute
-  setInterval(processScheduledCampaigns, 60 * 1000);
+  setInterval(processScheduledCampaigns, 5 * 60 * 1000);
   
-  // Also run once at startup after a short delay
-  setTimeout(processScheduledCampaigns, 5000);
+  setTimeout(processScheduledCampaigns, 30000);
 
   // ========================================
   // Meeting Portal Routes
