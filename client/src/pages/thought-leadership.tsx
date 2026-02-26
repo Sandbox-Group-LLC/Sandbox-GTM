@@ -18,7 +18,6 @@ export default function ThoughtLeadership() {
 
       <main className="container mx-auto max-w-5xl px-6 py-16">
         <div className="text-center mb-12">
-          <Badge variant="secondary" className="mb-4" data-testid="badge-section-label">The Sandbox</Badge>
           <h1 className="text-4xl md:text-5xl font-semibold tracking-tight text-white mb-4" data-testid="text-page-title">
             The Sandbox
           </h1>
