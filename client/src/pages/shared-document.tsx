@@ -5,9 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FileText, Download, Eye, Calendar, FileIcon, Loader2 } from "lucide-react";
 import { format } from "date-fns";
-import logoImage from "@assets/Orange_bug_-_no_background_1765765097769.png";
-import logoBlack from "@assets/Sandbox-Black_1767253178022.png";
-import logoWhite from "@assets/Sandbox-White_1767253178023.png";
+import sandboxIcon from "@assets/Orange_bug_-_no_background_1768254114237.png";
+import sandboxLogo from "@assets/Sandbox-GTM_1768253990902.png";
 
 interface SharedDocumentData {
   document: {
@@ -80,9 +79,8 @@ export default function SharedDocument() {
     <div className="min-h-screen bg-background flex flex-col">
       <header className="border-b border-border">
         <div className="container mx-auto px-6 py-4 flex items-center gap-2">
-          <img src={logoImage} alt="sandbox" className="h-6 w-6" />
-          <img src={logoBlack} alt="Sandbox" className="h-5 dark:hidden" />
-          <img src={logoWhite} alt="Sandbox" className="h-5 hidden dark:block" />
+          <img src={sandboxIcon} alt="sandbox" className="h-6 w-6" />
+          <img src={sandboxLogo} alt="Sandbox GTM" className="h-5 dark:invert" />
           <span className="text-muted-foreground">Shared Document</span>
         </div>
       </header>

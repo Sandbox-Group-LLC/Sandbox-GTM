@@ -5,9 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Check, Loader2, Tag, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import logoImage from "@assets/Orange_bug_-_no_background_1765765097769.png";
-import logoBlack from "@assets/Sandbox-Black_1767253178022.png";
-import logoWhite from "@assets/Sandbox-White_1767253178023.png";
+import { MarketingHeader } from "@/components/marketing-header";
 
 const benefits = [
   "Run unlimited programs and events",
@@ -67,16 +65,8 @@ export default function Signup() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <header className="border-b border-border">
-        <div className="container mx-auto px-6 py-4 flex items-center justify-between gap-4">
-          <a href="/landing" className="flex items-center gap-2">
-            <img src={logoImage} alt="sandbox" className="h-6 w-6" />
-            <img src={logoBlack} alt="Sandbox" className="h-5 dark:hidden" />
-            <img src={logoWhite} alt="Sandbox" className="h-5 hidden dark:block" />
-          </a>
-        </div>
-      </header>
+    <div className="dark min-h-screen bg-background flex flex-col">
+      <MarketingHeader currentPage="signup" />
 
       <main className="flex-1 flex items-center justify-center px-6 py-12">
         <Card className="w-full max-w-md" data-testid="card-signup">

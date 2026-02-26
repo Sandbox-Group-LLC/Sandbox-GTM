@@ -5,8 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Clock, Calendar, User } from "lucide-react";
 import { format } from "date-fns";
-import sandboxIcon from "@assets/Orange_bug_-_no_background_1768254114237.png";
-import sandboxLogo from "@assets/Sandbox-GTM_1768253990902.png";
+import { MarketingHeader } from "@/components/marketing-header";
 import type { ThoughtLeadershipArticle } from "@shared/schema";
 
 export default function ThoughtLeadershipArticlePage() {
@@ -20,22 +19,7 @@ export default function ThoughtLeadershipArticlePage() {
 
   return (
     <div className="dark min-h-screen bg-background">
-      <header className="border-b border-border">
-        <div className="container mx-auto px-6 py-4 flex items-center justify-between gap-4">
-          <a href="/" className="flex items-center gap-2" data-testid="link-home-logo">
-            <img src={sandboxIcon} alt="Sandbox" className="h-6 w-6" />
-            <img src={sandboxLogo} alt="Sandbox" className="h-5 invert" />
-          </a>
-          <div className="flex items-center gap-4">
-            <Button variant="outline" asChild data-testid="button-pricing-header" className="text-white">
-              <a href="/pricing">Pricing</a>
-            </Button>
-            <Button asChild data-testid="button-login-header">
-              <a href="/api/login">Sign In</a>
-            </Button>
-          </div>
-        </div>
-      </header>
+      <MarketingHeader currentPage="article" />
 
       <main className="container mx-auto max-w-3xl px-6 py-12">
         <Button

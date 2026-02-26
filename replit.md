@@ -40,7 +40,7 @@ Preferred communication style: Simple, everyday language.
 - **Storage Interface**: Abstracted database operations (`IStorage`) with organization-scoped access.
 - **Shared Schema**: Single source of truth for database types.
 - **API Request Helper**: Centralized function for API calls with error handling.
-- **Component Composition**: Reusable UI components for consistent design.
+- **Component Composition**: Reusable UI components for consistent design. Marketing pages (landing, pricing, blog, book-demo, signup) share a unified `MarketingHeader` component (`client/src/components/marketing-header.tsx`) with Sandbox-GTM branding, responsive hamburger menu, and consistent navigation.
 - **Cascade Delete**: Event deletion follows strict FK dependency order - child tables must be deleted before parent tables. Key dependencies:
   - Tables referencing `attendees`: activationLinkClicks, engagementSignals, momentResponses, emailMessages, attendeeSavedSessions, attendeeInterests, sessionFeedback, eventFeedback, passkeyReservations
   - Tables referencing `eventSessions`: sessionSpeakers, attendeeSavedSessions, sessionFeedback, contentItems, cfpSubmissions, moments, momentResponses, engagementSignals

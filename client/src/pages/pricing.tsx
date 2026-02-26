@@ -15,9 +15,10 @@ import {
   XCircle,
   Rocket
 } from "lucide-react";
-import logoImage from "@assets/Orange_bug_-_no_background_1765765097769.png";
-import logoWhite from "@assets/Sandbox-White_1767253178023.png";
 import { LeadFormDialog } from "@/components/lead-form-dialog";
+import { MarketingHeader } from "@/components/marketing-header";
+import sandboxIcon from "@assets/Orange_bug_-_no_background_1768254114237.png";
+import sandboxLogo from "@assets/Sandbox-GTM_1768253990902.png";
 
 const includedFeatures = [
   { icon: Layers, text: "Unlimited programs and events" },
@@ -70,22 +71,7 @@ const targetAudience = [
 export default function Pricing() {
   return (
     <div className="dark min-h-screen bg-background">
-      <header className="border-b border-border">
-        <div className="container mx-auto px-6 py-4 flex items-center justify-between gap-4">
-          <a href="/" className="flex items-center gap-2" data-testid="link-home">
-            <img src={logoImage} alt="Sandbox" className="h-6 w-6" />
-            <img src={logoWhite} alt="Sandbox" className="h-5" />
-          </a>
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" asChild data-testid="link-pricing-nav">
-              <a href="/pricing" className="text-[#b8b8b8]">Pricing</a>
-            </Button>
-            <Button asChild data-testid="button-login-header">
-              <a href="/api/login">Sign In</a>
-            </Button>
-          </div>
-        </div>
-      </header>
+      <MarketingHeader currentPage="pricing" />
 
       <main>
         <section className="py-24 px-6">
@@ -322,8 +308,8 @@ export default function Pricing() {
       <footer className="border-t border-border py-8 px-6">
         <div className="container mx-auto max-w-4xl flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <img src={logoImage} alt="Sandbox" className="h-5 w-5" />
-            <img src={logoWhite} alt="Sandbox" className="h-4 opacity-60" />
+            <img src={sandboxIcon} alt="Sandbox" className="h-5 w-5" />
+            <img src={sandboxLogo} alt="Sandbox GTM" className="h-4 opacity-60 invert" />
             <span className="text-sm text-[#b8b8b8]">- Event GTM Platform</span>
           </div>
           <div className="flex items-center gap-6 text-sm text-[#b8b8b8]">

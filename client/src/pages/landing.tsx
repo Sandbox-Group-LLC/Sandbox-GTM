@@ -2,9 +2,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Target, BarChart3, Users, Zap, Link2, ArrowRight, TrendingUp, Layers, DollarSign, Send, Hotel, CheckCircle2, XCircle } from "lucide-react";
 import { SiLinkedin, SiMailchimp, SiStripe, SiSalesforce, SiHubspot, SiOpenai, SiX, SiInstagram, SiFacebook } from "react-icons/si";
-import sandboxIcon from "@assets/Orange_bug_-_no_background_1768254114237.png";
-import sandboxLogo from "@assets/Sandbox-GTM_1768253990902.png";
 import { LeadFormDialog } from "@/components/lead-form-dialog";
+import { MarketingHeader } from "@/components/marketing-header";
 
 const gtmIntegrations = [
   { icon: SiStripe, name: "Stripe", color: "#635BFF" },
@@ -73,28 +72,7 @@ const useCases = [
 export default function Landing() {
   return (
     <div className="dark min-h-screen bg-background">
-      <header className="border-b border-border">
-        <div className="container mx-auto px-6 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <img src={sandboxIcon} alt="Sandbox" className="h-6 w-6" />
-            <img src={sandboxLogo} alt="Sandbox" className="h-5 invert" />
-          </div>
-          <div className="flex items-center gap-4">
-            <Button variant="outline" asChild data-testid="button-pricing-header" className="text-white">
-              <a href="/pricing">Pricing</a>
-            </Button>
-            <Button variant="outline" asChild data-testid="button-thought-leadership-header" className="text-white">
-              <a href="/thought-leadership">Blog</a>
-            </Button>
-            <Button variant="outline" asChild data-testid="button-book-demo-header" className="text-white">
-              <a href="/book-demo">Book a Demo</a>
-            </Button>
-            <Button asChild data-testid="button-login-header">
-              <a href="/api/login">Sign In</a>
-            </Button>
-          </div>
-        </div>
-      </header>
+      <MarketingHeader currentPage="landing" />
 
       <main>
         <section className="py-24 px-6">

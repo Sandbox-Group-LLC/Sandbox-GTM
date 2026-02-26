@@ -6,9 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Check, Loader2, LogOut, Tag, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { queryClient } from "@/lib/queryClient";
-import logoImage from "@assets/Orange_bug_-_no_background_1765765097769.png";
-import logoBlack from "@assets/Sandbox-Black_1767253178022.png";
-import logoWhite from "@assets/Sandbox-White_1767253178023.png";
+import sandboxIcon from "@assets/Orange_bug_-_no_background_1768254114237.png";
+import sandboxLogo from "@assets/Sandbox-GTM_1768253990902.png";
 
 export default function RequireInviteCode() {
   const [inviteCode, setInviteCode] = useState("");
@@ -94,9 +93,8 @@ export default function RequireInviteCode() {
       <header className="border-b border-border">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <img src={logoImage} alt="sandbox" className="h-6 w-6" />
-            <img src={logoBlack} alt="Sandbox" className="h-5 dark:hidden" />
-            <img src={logoWhite} alt="Sandbox" className="h-5 hidden dark:block" />
+            <img src={sandboxIcon} alt="sandbox" className="h-6 w-6" />
+            <img src={sandboxLogo} alt="Sandbox GTM" className="h-5 dark:invert" />
           </div>
           <Button
             variant="ghost"
