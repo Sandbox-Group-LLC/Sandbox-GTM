@@ -853,6 +853,18 @@ export function AppSidebar() {
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === "/admin/thought-leadership"}
+                    data-testid="nav-thought-leadership"
+                  >
+                    <Link href="/admin/thought-leadership">
+                      <FileText className="h-4 w-4" />
+                      <span>Thought Leadership</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>

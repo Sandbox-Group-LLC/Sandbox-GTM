@@ -1118,6 +1118,7 @@ export interface IStorage {
   // Thought Leadership Articles
   getPublishedArticles(): Promise<ThoughtLeadershipArticle[]>;
   getArticleBySlug(slug: string): Promise<ThoughtLeadershipArticle | undefined>;
+  getArticleById(id: string): Promise<ThoughtLeadershipArticle | undefined>;
   upsertArticle(data: InsertThoughtLeadershipArticle): Promise<ThoughtLeadershipArticle>;
   getAllArticles(): Promise<ThoughtLeadershipArticle[]>;
   deleteArticle(id: string): Promise<void>;
@@ -7481,6 +7482,13 @@ export class DatabaseStorage implements IStorage {
     const [article] = await db.select()
       .from(thoughtLeadershipArticles)
       .where(eq(thoughtLeadershipArticles.slug, slug));
+    return article;
+  }
+
+  async getArticleById(id: string): Promise<ThoughtLeadershipArticle | undefined> {
+    const [article] = await db.select()
+      .from(thoughtLeadershipArticles)
+      .where(eq(thoughtLeadershipArticles.id, id));
     return article;
   }
 

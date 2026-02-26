@@ -93,6 +93,7 @@ import MeetingPortalMagic from "@/pages/meeting-portal-magic";
 import BadgeGenerator from "@/pages/badge-generator";
 import HelpCenter from "@/pages/help-center";
 import FieldTemplates from "@/pages/field-templates";
+import AdminThoughtLeadership from "@/pages/admin-thought-leadership";
 import DesignerPortal from "@/pages/designer-portal";
 import DesignerProofDetail from "@/pages/designer-proof-detail";
 import ProofManagement from "@/pages/proof-management";
@@ -326,6 +327,7 @@ function Router() {
         <Route path="/meetings" component={Meetings} />
         <Route path="/help-center" component={HelpCenter} />
         <Route path="/field-templates" component={FieldTemplates} />
+        <Route path="/admin/thought-leadership" component={AdminThoughtLeadership} />
         <Route path="/proof-management" component={ProofManagement} />
         <Route path="/proof-requests/:id" component={ProofRequestDetail} />
         <Route path="/designers" component={Designers} />
