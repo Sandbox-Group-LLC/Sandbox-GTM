@@ -168,123 +168,6 @@ export function registerPublicTrackingRoute(app: Express) {
     }
   });
 
-  app.get("/api/thought-leadership/articles", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      if (!user || !isSuperAdmin(user.email, user.isAdmin)) {
-        return res.status(403).json({ message: "Forbidden" });
-      }
-      const articles = await storage.getAllArticles();
-      return res.json(articles);
-    } catch (error) {
-      logError("Error fetching all articles:", error);
-      return res.status(500).json({ message: "Failed to fetch articles" });
-    }
-  });
-
-  app.get("/api/thought-leadership/articles/:id", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      if (!user || !isSuperAdmin(user.email, user.isAdmin)) {
-        return res.status(403).json({ message: "Forbidden" });
-      }
-      const { id } = req.params;
-      const article = await storage.getArticleById(id);
-      if (!article) {
-        return res.status(404).json({ message: "Article not found" });
-      }
-      return res.json(article);
-    } catch (error) {
-      logError("Error fetching article:", error);
-      return res.status(500).json({ message: "Failed to fetch article" });
-    }
-  });
-
-  app.post("/api/thought-leadership/articles", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      if (!user || !isSuperAdmin(user.email, user.isAdmin)) {
-        return res.status(403).json({ message: "Forbidden" });
-      }
-      const { title, slug, contentHtml, contentMarkdown, metaDescription, heroImageUrl, heroImageAlt, author, status, lang, tags } = req.body;
-      if (!title || !slug) {
-        return res.status(400).json({ message: "Title and slug are required" });
-      }
-      if (!contentHtml && !contentMarkdown) {
-        return res.status(400).json({ message: "Either HTML or Markdown content is required" });
-      }
-      const article = await storage.upsertArticle({
-        title,
-        slug,
-        contentHtml: contentHtml || null,
-        contentMarkdown: contentMarkdown || null,
-        metaDescription: metaDescription || null,
-        heroImageUrl: heroImageUrl || null,
-        heroImageAlt: heroImageAlt || null,
-        author: author || null,
-        status: status || "draft",
-        lang: lang || "en",
-        tags: tags || null,
-      });
-      return res.json(article);
-    } catch (error) {
-      logError("Error creating article:", error);
-      return res.status(500).json({ message: "Failed to create article" });
-    }
-  });
-
-  app.patch("/api/thought-leadership/articles/:id", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      if (!user || !isSuperAdmin(user.email, user.isAdmin)) {
-        return res.status(403).json({ message: "Forbidden" });
-      }
-      const { id } = req.params;
-      const existing = await storage.getArticleById(id);
-      if (!existing) {
-        return res.status(404).json({ message: "Article not found" });
-      }
-      const { title, slug, contentHtml, contentMarkdown, metaDescription, heroImageUrl, heroImageAlt, author, status, lang, tags } = req.body;
-      const article = await storage.upsertArticle({
-        title: title ?? existing.title,
-        slug: slug ?? existing.slug,
-        contentHtml: contentHtml !== undefined ? contentHtml : existing.contentHtml,
-        contentMarkdown: contentMarkdown !== undefined ? contentMarkdown : existing.contentMarkdown,
-        metaDescription: metaDescription !== undefined ? metaDescription : existing.metaDescription,
-        heroImageUrl: heroImageUrl !== undefined ? heroImageUrl : existing.heroImageUrl,
-        heroImageAlt: heroImageAlt !== undefined ? heroImageAlt : existing.heroImageAlt,
-        author: author !== undefined ? author : existing.author,
-        status: status ?? existing.status,
-        lang: lang ?? existing.lang,
-        tags: tags !== undefined ? tags : existing.tags,
-      });
-      return res.json(article);
-    } catch (error) {
-      logError("Error updating article:", error);
-      return res.status(500).json({ message: "Failed to update article" });
-    }
-  });
-
-  app.delete("/api/thought-leadership/articles/:id", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      if (!user || !isSuperAdmin(user.email, user.isAdmin)) {
-        return res.status(403).json({ message: "Forbidden" });
-      }
-      const { id } = req.params;
-      await storage.deleteArticle(id);
-      return res.json({ success: true });
-    } catch (error) {
-      logError("Error deleting article:", error);
-      return res.status(500).json({ message: "Failed to delete article" });
-    }
-  });
-
   // Get invite code from activation link ID (for auto-applying in registration form)
   app.get("/api/public/activation-link/:id/invite-code", async (req: any, res) => {
     try {
@@ -761,6 +644,124 @@ export async function registerRoutes(
 ): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
+
+  // Thought Leadership - Admin routes (require auth, registered after setupAuth)
+  app.get("/api/thought-leadership/articles", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      if (!user || !isSuperAdmin(user.email, user.isAdmin)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      const articles = await storage.getAllArticles();
+      return res.json(articles);
+    } catch (error) {
+      logError("Error fetching all articles:", error);
+      return res.status(500).json({ message: "Failed to fetch articles" });
+    }
+  });
+
+  app.get("/api/thought-leadership/articles/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      if (!user || !isSuperAdmin(user.email, user.isAdmin)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      const { id } = req.params;
+      const article = await storage.getArticleById(id);
+      if (!article) {
+        return res.status(404).json({ message: "Article not found" });
+      }
+      return res.json(article);
+    } catch (error) {
+      logError("Error fetching article:", error);
+      return res.status(500).json({ message: "Failed to fetch article" });
+    }
+  });
+
+  app.post("/api/thought-leadership/articles", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      if (!user || !isSuperAdmin(user.email, user.isAdmin)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      const { title, slug, contentHtml, contentMarkdown, metaDescription, heroImageUrl, heroImageAlt, author, status, lang, tags } = req.body;
+      if (!title || !slug) {
+        return res.status(400).json({ message: "Title and slug are required" });
+      }
+      if (!contentHtml && !contentMarkdown) {
+        return res.status(400).json({ message: "Either HTML or Markdown content is required" });
+      }
+      const article = await storage.upsertArticle({
+        title,
+        slug,
+        contentHtml: contentHtml || null,
+        contentMarkdown: contentMarkdown || null,
+        metaDescription: metaDescription || null,
+        heroImageUrl: heroImageUrl || null,
+        heroImageAlt: heroImageAlt || null,
+        author: author || null,
+        status: status || "draft",
+        lang: lang || "en",
+        tags: tags || null,
+      });
+      return res.json(article);
+    } catch (error) {
+      logError("Error creating article:", error);
+      return res.status(500).json({ message: "Failed to create article" });
+    }
+  });
+
+  app.patch("/api/thought-leadership/articles/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      if (!user || !isSuperAdmin(user.email, user.isAdmin)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      const { id } = req.params;
+      const existing = await storage.getArticleById(id);
+      if (!existing) {
+        return res.status(404).json({ message: "Article not found" });
+      }
+      const { title, slug, contentHtml, contentMarkdown, metaDescription, heroImageUrl, heroImageAlt, author, status, lang, tags } = req.body;
+      const article = await storage.upsertArticle({
+        title: title ?? existing.title,
+        slug: slug ?? existing.slug,
+        contentHtml: contentHtml !== undefined ? contentHtml : existing.contentHtml,
+        contentMarkdown: contentMarkdown !== undefined ? contentMarkdown : existing.contentMarkdown,
+        metaDescription: metaDescription !== undefined ? metaDescription : existing.metaDescription,
+        heroImageUrl: heroImageUrl !== undefined ? heroImageUrl : existing.heroImageUrl,
+        heroImageAlt: heroImageAlt !== undefined ? heroImageAlt : existing.heroImageAlt,
+        author: author !== undefined ? author : existing.author,
+        status: status ?? existing.status,
+        lang: lang ?? existing.lang,
+        tags: tags !== undefined ? tags : existing.tags,
+      });
+      return res.json(article);
+    } catch (error) {
+      logError("Error updating article:", error);
+      return res.status(500).json({ message: "Failed to update article" });
+    }
+  });
+
+  app.delete("/api/thought-leadership/articles/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      if (!user || !isSuperAdmin(user.email, user.isAdmin)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      const { id } = req.params;
+      await storage.deleteArticle(id);
+      return res.json({ success: true });
+    } catch (error) {
+      logError("Error deleting article:", error);
+      return res.status(500).json({ message: "Failed to delete article" });
+    }
+  });
 
   // Host-based tenant resolution middleware for custom domains
   // Resolves organization from custom domain for public-facing pages
