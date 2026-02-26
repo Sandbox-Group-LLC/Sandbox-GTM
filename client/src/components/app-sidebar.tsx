@@ -861,7 +861,7 @@ export function AppSidebar() {
                   >
                     <Link href="/admin/thought-leadership">
                       <FileText className="h-4 w-4" />
-                      <span>Thought Leadership</span>
+                      <span>The Sandbox</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

@@ -212,7 +212,7 @@ export default function AdminThoughtLeadership() {
     <div className="p-6 max-w-6xl mx-auto" data-testid="admin-thought-leadership-page">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold" data-testid="text-page-title">Thought Leadership</h1>
+          <h1 className="text-2xl font-bold" data-testid="text-page-title">The Sandbox</h1>
           <p className="text-muted-foreground mt-1">Manage blog articles published on the public site</p>
         </div>
         <Button onClick={openNew} data-testid="button-new-article">
@@ -286,7 +286,7 @@ export default function AdminThoughtLeadership() {
                       asChild
                       data-testid={`button-view-${article.id}`}
                     >
-                      <a href={`/thought-leadership/${article.slug}`} target="_blank" rel="noopener noreferrer">
+                      <a href={`/the-sandbox/${article.slug}`} target="_blank" rel="noopener noreferrer">
                         <Eye className="h-4 w-4" />
                       </a>
                     </Button>

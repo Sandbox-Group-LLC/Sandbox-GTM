@@ -13,7 +13,7 @@ export function MarketingHeader({ currentPage }: MarketingHeaderProps) {
 
   const navLinks = [
     { href: "/pricing", label: "Pricing", id: "pricing" },
-    { href: "/thought-leadership", label: "Blog", id: "blog" },
+    { href: "/the-sandbox", label: "The Sandbox", id: "blog" },
     { href: "/book-demo", label: "Book a Demo", id: "book-demo" },
   ];
 

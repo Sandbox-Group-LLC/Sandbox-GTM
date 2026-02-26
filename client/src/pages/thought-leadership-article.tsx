@@ -9,7 +9,7 @@ import { MarketingHeader } from "@/components/marketing-header";
 import type { ThoughtLeadershipArticle } from "@shared/schema";
 
 export default function ThoughtLeadershipArticlePage() {
-  const [, params] = useRoute("/thought-leadership/:slug");
+  const [, params] = useRoute("/the-sandbox/:slug");
   const slug = params?.slug;
 
   const { data: article, isLoading, error } = useQuery<ThoughtLeadershipArticle>({
@@ -28,9 +28,9 @@ export default function ThoughtLeadershipArticlePage() {
           className="mb-8 text-muted-foreground"
           data-testid="button-back-articles"
         >
-          <a href="/thought-leadership">
+          <a href="/the-sandbox">
             <ArrowLeft className="mr-2 h-4 w-4" />
-            All Articles
+            Back to The Sandbox
           </a>
         </Button>
 
@@ -50,7 +50,7 @@ export default function ThoughtLeadershipArticlePage() {
             <h2 className="text-2xl font-semibold text-white mb-2">Article not found</h2>
             <p className="text-[#999] mb-6">This article may have been removed or the URL is incorrect.</p>
             <Button asChild data-testid="button-browse-articles">
-              <a href="/thought-leadership">Browse Articles</a>
+              <a href="/the-sandbox">Browse Articles</a>
             </Button>
           </div>
         ) : (

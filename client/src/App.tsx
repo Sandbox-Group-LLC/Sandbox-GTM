@@ -196,8 +196,10 @@ function Router() {
         <Route path="/" component={Landing} />
         <Route path="/pricing" component={Pricing} />
         <Route path="/book-demo" component={BookDemo} />
-        <Route path="/thought-leadership" component={ThoughtLeadership} />
-        <Route path="/thought-leadership/:slug" component={ThoughtLeadershipArticle} />
+        <Route path="/the-sandbox" component={ThoughtLeadership} />
+        <Route path="/the-sandbox/:slug" component={ThoughtLeadershipArticle} />
+        <Route path="/thought-leadership">{() => { window.location.href = "/the-sandbox"; return null; }}</Route>
+        <Route path="/thought-leadership/:slug">{(params: any) => { window.location.href = `/the-sandbox/${params.slug}`; return null; }}</Route>
         <Route path="/signup" component={Signup} />
         <Route path="/privacy-policy" component={PrivacyPolicy} />
         <Route path="/event/:slug/register" component={PublicRegistration} />

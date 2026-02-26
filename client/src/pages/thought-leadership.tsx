@@ -18,12 +18,12 @@ export default function ThoughtLeadership() {
 
       <main className="container mx-auto max-w-5xl px-6 py-16">
         <div className="text-center mb-12">
-          <Badge variant="secondary" className="mb-4" data-testid="badge-section-label">Thought Leadership</Badge>
+          <Badge variant="secondary" className="mb-4" data-testid="badge-section-label">The Sandbox</Badge>
           <h1 className="text-4xl md:text-5xl font-semibold tracking-tight text-white mb-4" data-testid="text-page-title">
-            Insights for Event-Led Growth
+            The Sandbox
           </h1>
           <p className="text-lg text-[#b8b8b8] max-w-2xl mx-auto" data-testid="text-page-subtitle">
-            Strategies, playbooks, and perspectives on turning events into your most measurable go-to-market channel.
+            A thought leadership atelier. Ideas on event marketing, moved from theory into practice.
           </p>
         </div>
 
@@ -47,7 +47,7 @@ export default function ThoughtLeadership() {
             {articles.map((article) => (
               <a
                 key={article.id}
-                href={`/thought-leadership/${article.slug}`}
+                href={`/the-sandbox/${article.slug}`}
                 className="group block"
                 data-testid={`link-article-${article.slug}`}
               >
