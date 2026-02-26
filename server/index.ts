@@ -3,6 +3,7 @@ import { registerRoutes, registerPublicTrackingRoute } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { logInfo, logError } from "./logger";
+import { seedThoughtLeadershipArticles } from "./seed-articles";
 
 // Global error handlers to prevent crashes from circular reference JSON serialization errors
 process.on('uncaughtException', (error) => {
@@ -137,6 +138,8 @@ httpServer.listen(
     
     await registerRoutes(httpServer, app);
     log("Routes registered successfully");
+
+    await seedThoughtLeadershipArticles();
 
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
       const status = err.status || err.statusCode || 500;
