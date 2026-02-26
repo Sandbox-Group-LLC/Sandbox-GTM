@@ -15,11 +15,6 @@ export default function ThoughtLeadershipArticlePage() {
 
   const { data: article, isLoading, error } = useQuery<ThoughtLeadershipArticle>({
     queryKey: ["/api/public/thought-leadership/articles", slug],
-    queryFn: async () => {
-      const res = await fetch(`/api/public/thought-leadership/articles/${slug}`);
-      if (!res.ok) throw new Error("Article not found");
-      return res.json();
-    },
     enabled: !!slug,
   });
 
