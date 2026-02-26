@@ -14,30 +14,17 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-// Create pool with settings that balance reliability and resource usage
+// Create pool with simple settings
 export const pool = new Pool({ 
   connectionString: process.env.DATABASE_URL,
   max: 5,
-  min: 0,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
-  allowExitOnIdle: true,
 });
 
-// Handle pool-level errors
+// Handle pool-level errors to prevent unhandled error crashes
 pool.on('error', (err) => {
   console.error('[db] Pool error:', err.message);
-});
-
-pool.on('connect', (client) => {
-  console.log('[db] New connection established');
-  client.on('error', (err: Error) => {
-    console.error('[db] Connection error:', err.message);
-  });
-});
-
-pool.on('remove', () => {
-  console.log('[db] Connection closed');
 });
 
 export const db = drizzle(pool, { schema });
