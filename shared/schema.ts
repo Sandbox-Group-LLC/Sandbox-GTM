@@ -3050,6 +3050,32 @@ export const insertProofCommentSchema = createInsertSchema(proofComments).omit({
 export const insertProofStatusHistorySchema = createInsertSchema(proofStatusHistory).omit({ id: true, createdAt: true });
 export const insertProofShareLinkSchema = createInsertSchema(proofShareLinks).omit({ id: true, createdAt: true, accessCount: true, lastAccessedAt: true });
 
+// Thought Leadership Articles - public blog/article content
+export const thoughtLeadershipArticles = pgTable("thought_leadership_articles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: varchar("title", { length: 500 }).notNull(),
+  slug: varchar("slug", { length: 500 }).notNull(),
+  contentHtml: text("content_html"),
+  contentMarkdown: text("content_markdown"),
+  metaDescription: text("meta_description"),
+  heroImageUrl: text("hero_image_url"),
+  heroImageAlt: varchar("hero_image_alt", { length: 500 }),
+  author: varchar("author", { length: 255 }),
+  status: varchar("status", { length: 20 }).default("draft").notNull(),
+  lang: varchar("lang", { length: 10 }).default("en"),
+  tags: text("tags").array(),
+  readTimeMinutes: integer("read_time_minutes"),
+  publishedAt: timestamp("published_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("tl_articles_slug_idx").on(table.slug),
+  index("tl_articles_status_idx").on(table.status),
+  index("tl_articles_published_idx").on(table.publishedAt),
+]);
+
+export const insertThoughtLeadershipArticleSchema = createInsertSchema(thoughtLeadershipArticles).omit({ id: true, createdAt: true, updatedAt: true });
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -3255,3 +3281,5 @@ export type InsertProofStatusHistory = z.infer<typeof insertProofStatusHistorySc
 export type ProofStatusHistory = typeof proofStatusHistory.$inferSelect;
 export type InsertProofShareLink = z.infer<typeof insertProofShareLinkSchema>;
 export type ProofShareLink = typeof proofShareLinks.$inferSelect;
+export type InsertThoughtLeadershipArticle = z.infer<typeof insertThoughtLeadershipArticleSchema>;
+export type ThoughtLeadershipArticle = typeof thoughtLeadershipArticles.$inferSelect;

@@ -75,6 +75,8 @@ import TeamMembers from "@/pages/team-members";
 import AcceptInvitation from "@/pages/accept-invitation";
 import Pricing from "@/pages/pricing";
 import BookDemo from "@/pages/book-demo";
+import ThoughtLeadership from "@/pages/thought-leadership";
+import ThoughtLeadershipArticle from "@/pages/thought-leadership-article";
 import AudienceTargeting from "@/pages/audience-targeting";
 import EngagementMoments from "@/pages/engagement-moments";
 import ProductEngagement from "@/pages/product-engagement";
@@ -193,6 +195,8 @@ function Router() {
         <Route path="/" component={Landing} />
         <Route path="/pricing" component={Pricing} />
         <Route path="/book-demo" component={BookDemo} />
+        <Route path="/thought-leadership" component={ThoughtLeadership} />
+        <Route path="/thought-leadership/:slug" component={ThoughtLeadershipArticle} />
         <Route path="/signup" component={Signup} />
         <Route path="/privacy-policy" component={PrivacyPolicy} />
         <Route path="/event/:slug/register" component={PublicRegistration} />

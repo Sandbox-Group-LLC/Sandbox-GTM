@@ -142,6 +142,76 @@ import { enrichCompanySizeForNewAttendee } from "./companyEnrichment";
 // Register public tracking route early (before auth middleware)
 // This ensures it works even if async initialization fails
 export function registerPublicTrackingRoute(app: Express) {
+  // Thought Leadership - Public article listing
+  app.get("/api/public/thought-leadership/articles", async (_req: any, res) => {
+    try {
+      const articles = await storage.getPublishedArticles();
+      return res.json(articles);
+    } catch (error) {
+      logError("Error fetching published articles:", error);
+      return res.status(500).json({ message: "Failed to fetch articles" });
+    }
+  });
+
+  // Thought Leadership - Single article by slug
+  app.get("/api/public/thought-leadership/articles/:slug", async (req: any, res) => {
+    try {
+      const article = await storage.getArticleBySlug(req.params.slug);
+      if (!article || article.status !== "publish") {
+        return res.status(404).json({ message: "Article not found" });
+      }
+      return res.json(article);
+    } catch (error) {
+      logError("Error fetching article:", error);
+      return res.status(500).json({ message: "Failed to fetch article" });
+    }
+  });
+
+  // Thought Leadership - Ping endpoint (health check for BabyLoveGrowth)
+  app.get("/api/public/thought-leadership/ping", (_req: any, res) => {
+    return res.json({ status: "ok", service: "thought-leadership", timestamp: new Date().toISOString() });
+  });
+
+  // Thought Leadership - Publish endpoint (BabyLoveGrowth webhook)
+  app.post("/api/public/thought-leadership/publish", async (req: any, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ message: "Missing or invalid authorization header" });
+      }
+      const token = authHeader.replace("Bearer ", "");
+      const expectedToken = process.env.BABYLOVEGROWTH_API_KEY;
+      if (!expectedToken || token !== expectedToken) {
+        return res.status(403).json({ message: "Invalid API key" });
+      }
+
+      const { title, slug, content_html, content_markdown, metaDescription, heroImageUrl, status, lang } = req.body;
+      if (!title || !slug) {
+        return res.status(400).json({ message: "title and slug are required" });
+      }
+      if (!content_html && !content_markdown) {
+        return res.status(400).json({ message: "Either content_html or content_markdown is required" });
+      }
+
+      const article = await storage.upsertArticle({
+        title,
+        slug,
+        contentHtml: content_html || null,
+        contentMarkdown: content_markdown || null,
+        metaDescription: metaDescription || null,
+        heroImageUrl: heroImageUrl || null,
+        status: status || "publish",
+        lang: lang || "en",
+        author: "Sandbox Team",
+      });
+
+      return res.json({ success: true, article: { id: article.id, slug: article.slug, status: article.status } });
+    } catch (error) {
+      logError("Error publishing thought leadership article:", error);
+      return res.status(500).json({ message: "Failed to publish article" });
+    }
+  });
+
   // Get invite code from activation link ID (for auto-applying in registration form)
   app.get("/api/public/activation-link/:id/invite-code", async (req: any, res) => {
     try {

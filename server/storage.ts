@@ -313,6 +313,9 @@ import {
   type InsertProofStatusHistory,
   type ProofShareLink,
   type InsertProofShareLink,
+  thoughtLeadershipArticles,
+  type ThoughtLeadershipArticle,
+  type InsertThoughtLeadershipArticle,
 } from "@shared/schema";
 import crypto from "crypto";
 import { encrypt, decrypt } from "./encryption";
@@ -1111,6 +1114,13 @@ export interface IStorage {
   getProofShareLinksByProof(proofRequestId: string): Promise<ProofShareLink[]>;
   updateProofShareLinkAccess(token: string): Promise<void>;
   deactivateProofShareLink(id: string): Promise<void>;
+
+  // Thought Leadership Articles
+  getPublishedArticles(): Promise<ThoughtLeadershipArticle[]>;
+  getArticleBySlug(slug: string): Promise<ThoughtLeadershipArticle | undefined>;
+  upsertArticle(data: InsertThoughtLeadershipArticle): Promise<ThoughtLeadershipArticle>;
+  getAllArticles(): Promise<ThoughtLeadershipArticle[]>;
+  deleteArticle(id: string): Promise<void>;
 }
 
 // Types for Moments Analytics
@@ -7458,6 +7468,59 @@ export class DatabaseStorage implements IStorage {
     await db.update(proofShareLinks)
       .set({ isActive: false })
       .where(eq(proofShareLinks.id, id));
+  }
+
+  async getPublishedArticles(): Promise<ThoughtLeadershipArticle[]> {
+    return db.select()
+      .from(thoughtLeadershipArticles)
+      .where(eq(thoughtLeadershipArticles.status, "publish"))
+      .orderBy(desc(thoughtLeadershipArticles.publishedAt));
+  }
+
+  async getArticleBySlug(slug: string): Promise<ThoughtLeadershipArticle | undefined> {
+    const [article] = await db.select()
+      .from(thoughtLeadershipArticles)
+      .where(eq(thoughtLeadershipArticles.slug, slug));
+    return article;
+  }
+
+  async upsertArticle(data: InsertThoughtLeadershipArticle): Promise<ThoughtLeadershipArticle> {
+    const existing = await this.getArticleBySlug(data.slug);
+    if (existing) {
+      const [updated] = await db.update(thoughtLeadershipArticles)
+        .set({
+          ...data,
+          updatedAt: new Date(),
+          publishedAt: data.status === "publish" && !existing.publishedAt ? new Date() : existing.publishedAt,
+        })
+        .where(eq(thoughtLeadershipArticles.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const readTime = data.contentHtml
+      ? Math.max(1, Math.ceil((data.contentHtml.replace(/<[^>]*>/g, '').split(/\s+/).length) / 200))
+      : data.contentMarkdown
+        ? Math.max(1, Math.ceil((data.contentMarkdown.split(/\s+/).length) / 200))
+        : undefined;
+    const [article] = await db.insert(thoughtLeadershipArticles)
+      .values({
+        ...data,
+        readTimeMinutes: data.readTimeMinutes || readTime,
+        publishedAt: data.status === "publish" ? new Date() : undefined,
+      })
+      .returning();
+    return article;
+  }
+
+  async getAllArticles(): Promise<ThoughtLeadershipArticle[]> {
+    return db.select()
+      .from(thoughtLeadershipArticles)
+      .orderBy(desc(thoughtLeadershipArticles.createdAt));
+  }
+
+  async deleteArticle(id: string): Promise<void> {
+    await db.delete(thoughtLeadershipArticles)
+      .where(eq(thoughtLeadershipArticles.id, id));
   }
 }
 
