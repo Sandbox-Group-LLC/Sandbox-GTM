@@ -1,23 +1,29 @@
 import { logInfo, logError, logWarn } from "./logger";
 
-const BYWORD_CREATE_URL = "https://api.byword.ai/create_article";
-const BYWORD_GET_URL = "https://api.byword.ai/get_article";
+const BYWORD_BASE_URL = "https://cloud.byword.ai/api/projects";
 const POLL_INTERVAL_MS = 5000;
 const MAX_POLL_ATTEMPTS = 36;
 const FETCH_TIMEOUT_MS = 15000;
 const MAX_CONSECUTIVE_ERRORS = 5;
 
 interface BywordCreateResponse {
-  message: string;
-  articleID: string;
+  id: string;
+  domain_id: string;
+  status: string;
+  keyword?: string;
+  title?: string;
+  created_at: string;
 }
 
 interface BywordArticleResponse {
-  articleID: string;
+  id: string;
+  domain_id?: string;
+  status?: string;
+  keyword?: string;
   title?: string;
   content?: string;
-  metaDescription?: string;
-  status?: string;
+  meta_description?: string;
+  created_at?: string;
 }
 
 export interface BywordGenerateOptions {
@@ -50,12 +56,12 @@ function getApiKey(): string {
   return key;
 }
 
-function getDomain(): string {
-  const domain = process.env.BYWORD_DOMAIN;
-  if (!domain) {
-    throw new Error("BYWORD_DOMAIN environment variable is not set");
+function getDomainId(): string {
+  const domainId = process.env.BYWORD_DOMAIN_ID || process.env.BYWORD_DOMAIN;
+  if (!domainId) {
+    throw new Error("BYWORD_DOMAIN_ID environment variable is not set");
   }
-  return domain;
+  return domainId;
 }
 
 function slugify(text: string): string {
@@ -71,46 +77,63 @@ function fetchWithTimeout(url: string, options: RequestInit): Promise<Response> 
   return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timeout));
 }
 
+function getAuthHeaders(): Record<string, string> {
+  return {
+    "Authorization": `Bearer ${getApiKey()}`,
+    "Content-Type": "application/json",
+  };
+}
+
 async function createArticle(input: string, mode: "keyword" | "title"): Promise<string> {
-  const key = getApiKey();
-  const domain = getDomain();
+  const domainId = getDomainId();
+  const createUrl = `${BYWORD_BASE_URL}/articles`;
 
-  logInfo(`Byword: Creating article with mode="${mode}", input="${input}"`, "byword");
+  logInfo(`Byword: Creating article with mode="${mode}", input="${input}", url=${createUrl}`, "byword");
 
-  const response = await fetchWithTimeout(BYWORD_CREATE_URL, {
+  const body: Record<string, string> = {
+    domain_id: domainId,
+    mode,
+  };
+
+  if (mode === "keyword") {
+    body.keyword = input;
+  } else {
+    body.title = input;
+  }
+
+  const response = await fetchWithTimeout(createUrl, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ key, input, mode, domain }),
+    headers: getAuthHeaders(),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {
     const text = await response.text();
-    logError(`Byword create response: status=${response.status}, body="${text}", url=${BYWORD_CREATE_URL}`, "byword");
+    logError(`Byword create response: status=${response.status}, body="${text}", url=${createUrl}`, "byword");
     throw new Error(`Byword create failed (${response.status}): ${text}`);
   }
 
   const data = (await response.json()) as BywordCreateResponse;
 
-  if (!data.articleID) {
-    throw new Error(`Byword create returned no articleID: ${JSON.stringify(data)}`);
+  if (!data.id) {
+    throw new Error(`Byword create returned no article id: ${JSON.stringify(data)}`);
   }
 
-  logInfo(`Byword: Article created with ID ${data.articleID}`, "byword");
-  return data.articleID;
+  logInfo(`Byword: Article created with ID ${data.id}, status=${data.status}`, "byword");
+  return data.id;
 }
 
-async function pollArticle(articleID: string): Promise<BywordArticleResponse> {
-  const key = getApiKey();
+async function pollArticle(articleId: string): Promise<BywordArticleResponse> {
   let consecutiveErrors = 0;
+  const articleUrl = `${BYWORD_BASE_URL}/articles/${articleId}`;
 
   for (let attempt = 1; attempt <= MAX_POLL_ATTEMPTS; attempt++) {
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
 
     try {
-      const response = await fetchWithTimeout(BYWORD_GET_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key, articleID }),
+      const response = await fetchWithTimeout(articleUrl, {
+        method: "GET",
+        headers: getAuthHeaders(),
       });
 
       if (response.status === 401 || response.status === 403) {
@@ -118,7 +141,7 @@ async function pollArticle(articleID: string): Promise<BywordArticleResponse> {
       }
 
       if (response.status === 404) {
-        throw new Error(`Byword article ${articleID} not found. It may have been deleted.`);
+        throw new Error(`Byword article ${articleId} not found. It may have been deleted.`);
       }
 
       if (!response.ok) {
@@ -134,12 +157,16 @@ async function pollArticle(articleID: string): Promise<BywordArticleResponse> {
       const data = (await response.json()) as BywordArticleResponse;
 
       if (data.content && data.title) {
-        logInfo(`Byword: Article ${articleID} completed after ${attempt} polls`, "byword");
+        logInfo(`Byword: Article ${articleId} completed after ${attempt} polls`, "byword");
         return data;
       }
 
+      if (data.status === "failed" || data.status === "error") {
+        throw new Error(`Byword article generation failed with status: ${data.status}`);
+      }
+
       if (attempt % 6 === 0) {
-        logInfo(`Byword: Still waiting for article ${articleID} (attempt ${attempt}/${MAX_POLL_ATTEMPTS})`, "byword");
+        logInfo(`Byword: Still waiting for article ${articleId}, status=${data.status} (attempt ${attempt}/${MAX_POLL_ATTEMPTS})`, "byword");
       }
     } catch (error: any) {
       if (error.name === "AbortError") {
@@ -154,12 +181,12 @@ async function pollArticle(articleID: string): Promise<BywordArticleResponse> {
     }
   }
 
-  throw new Error(`Byword article ${articleID} did not complete within ${(MAX_POLL_ATTEMPTS * POLL_INTERVAL_MS) / 1000} seconds`);
+  throw new Error(`Byword article ${articleId} did not complete within ${(MAX_POLL_ATTEMPTS * POLL_INTERVAL_MS) / 1000} seconds`);
 }
 
 export async function generateArticle(options: BywordGenerateOptions): Promise<BywordGeneratedArticle> {
-  const articleID = await createArticle(options.input, options.mode);
-  const result = await pollArticle(articleID);
+  const articleId = await createArticle(options.input, options.mode);
+  const result = await pollArticle(articleId);
 
   if (!result.title || !result.content) {
     throw new Error("Byword returned incomplete article data");
@@ -171,7 +198,7 @@ export async function generateArticle(options: BywordGenerateOptions): Promise<B
     title: result.title,
     slug,
     contentHtml: result.content,
-    metaDescription: result.metaDescription || null,
+    metaDescription: result.meta_description || null,
     author: options.author || null,
     tags: options.tags || null,
     heroImageUrl: options.heroImageUrl || null,
