@@ -161,7 +161,9 @@ export function registerPublicTrackingRoute(app: Express) {
           return res.status(400).json({ message: "Missing signature headers" });
         }
 
-        const rawBody = typeof req.body === "string" ? req.body : JSON.stringify(req.body);
+        const rawBody = req.rawBody
+          ? req.rawBody.toString("utf8")
+          : (typeof req.body === "string" ? req.body : JSON.stringify(req.body));
         const isValid = verifyBywordSignature(rawBody, timestamp, signature);
         if (!isValid) {
           logWarn(`Byword webhook: invalid signature, deliveryId=${deliveryId}`, "byword-webhook");
