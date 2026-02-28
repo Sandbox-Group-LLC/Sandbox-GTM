@@ -21,6 +21,9 @@ import { calculateMilestoneStatus, getStatusLabel, getStatusColor, type Mileston
 import { isApiAuthenticated } from "./apiAuth";
 import { generateArticle } from "./byword";
 import { verifyBywordSignature, handleBywordWebhook } from "./byword-webhook";
+import { injectArticleOgTags } from "./og-injector";
+import fs from "fs";
+import path from "path";
 
 const scryptAsync = promisify(scrypt);
 
@@ -145,6 +148,29 @@ import { enrichCompanySizeForNewAttendee } from "./companyEnrichment";
 // Register public tracking route early (before auth middleware)
 // This ensures it works even if async initialization fails
 export function registerPublicTrackingRoute(app: Express) {
+  const CRAWLER_UA = /bot|crawl|spider|slurp|facebookexternalhit|linkedinbot|twitterbot|whatsapp|telegram|discord|slack|pinterest|embedly|quora|outbrain|vkShare|tumblr|skype|nuzzel|w3c_validator|redditbot|applebot|yandex|baiduspider|duckduckbot|google|bing|preview/i;
+
+  app.get("/the-sandbox/:slug", async (req, res, next) => {
+    const ua = req.headers["user-agent"] || "";
+    if (!CRAWLER_UA.test(ua)) return next();
+
+    try {
+      let indexPath: string;
+      if (process.env.NODE_ENV === "production") {
+        indexPath = path.resolve(__dirname, "public", "index.html");
+      } else {
+        indexPath = path.resolve(import.meta.dirname, "..", "client", "index.html");
+      }
+
+      let html = await fs.promises.readFile(indexPath, "utf-8");
+      html = await injectArticleOgTags(html, req.originalUrl);
+      return res.status(200).set({ "Content-Type": "text/html" }).end(html);
+    } catch (error) {
+      logError("Error serving OG-injected page:", error);
+      return next();
+    }
+  });
+
   app.post("/api/webhooks/byword", async (req: any, res) => {
     try {
       const event = req.headers["x-byword-event"] as string;
