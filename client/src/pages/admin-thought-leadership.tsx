@@ -40,6 +40,9 @@ import {
   Eye,
   Sparkles,
   Loader2,
+  Webhook,
+  Copy,
+  Check,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -120,6 +123,8 @@ export default function AdminThoughtLeadership() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [bywordDialogOpen, setBywordDialogOpen] = useState(false);
+  const [webhookCopied, setWebhookCopied] = useState(false);
+  const [showWebhookInfo, setShowWebhookInfo] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [form, setForm] = useState<ArticleForm>(emptyForm);
@@ -279,6 +284,15 @@ export default function AdminThoughtLeadership() {
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
+            size="sm"
+            onClick={() => setShowWebhookInfo(!showWebhookInfo)}
+            data-testid="button-toggle-webhook"
+          >
+            <Webhook className="h-4 w-4 mr-2" />
+            Webhook
+          </Button>
+          <Button
+            variant="outline"
             onClick={() => { setBywordForm(emptyBywordForm); setBywordDialogOpen(true); }}
             data-testid="button-generate-byword"
           >
@@ -291,6 +305,44 @@ export default function AdminThoughtLeadership() {
           </Button>
         </div>
       </div>
+
+      {showWebhookInfo && (
+        <Card className="mb-4 border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20" data-testid="card-webhook-info">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <Webhook className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm mb-1">Byword Webhook URL</p>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Add this URL in your Byword dashboard webhook settings. Articles will automatically appear here when Byword finishes generating them.
+                </p>
+                <div className="flex items-center gap-2">
+                  <code className="text-xs bg-white dark:bg-gray-900 border rounded px-2 py-1 flex-1 truncate" data-testid="text-webhook-url">
+                    {window.location.origin}/api/webhooks/byword
+                  </code>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0"
+                    data-testid="button-copy-webhook"
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/api/webhooks/byword`);
+                      setWebhookCopied(true);
+                      setTimeout(() => setWebhookCopied(false), 2000);
+                    }}
+                  >
+                    {webhookCopied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Subscribe to: <Badge variant="secondary" className="text-xs mx-0.5">article.completed</Badge>
+                  <Badge variant="secondary" className="text-xs mx-0.5">article.published</Badge>
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {isLoading ? (
         <div className="space-y-4">

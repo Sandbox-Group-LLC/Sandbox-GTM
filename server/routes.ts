@@ -20,6 +20,7 @@ import { parseUserAgent, isBot, getTimeContext, getGeoFromIP, extractRealIP } fr
 import { calculateMilestoneStatus, getStatusLabel, getStatusColor, type MilestoneStatusResult } from "./acquisitionStatus";
 import { isApiAuthenticated } from "./apiAuth";
 import { generateArticle } from "./byword";
+import { verifyBywordSignature, handleBywordWebhook } from "./byword-webhook";
 
 const scryptAsync = promisify(scrypt);
 
@@ -144,6 +145,44 @@ import { enrichCompanySizeForNewAttendee } from "./companyEnrichment";
 // Register public tracking route early (before auth middleware)
 // This ensures it works even if async initialization fails
 export function registerPublicTrackingRoute(app: Express) {
+  app.post("/api/webhooks/byword", async (req: any, res) => {
+    try {
+      const event = req.headers["x-byword-event"] as string;
+      const timestamp = req.headers["x-byword-timestamp"] as string;
+      const signature = req.headers["x-byword-signature"] as string;
+      const deliveryId = req.headers["x-byword-delivery-id"] as string || "unknown";
+
+      if (!event) {
+        return res.status(400).json({ message: "Missing X-Byword-Event header" });
+      }
+
+      if (process.env.BYWORD_WEBHOOK_SECRET) {
+        if (!timestamp || !signature) {
+          return res.status(400).json({ message: "Missing signature headers" });
+        }
+
+        const rawBody = typeof req.body === "string" ? req.body : JSON.stringify(req.body);
+        const isValid = verifyBywordSignature(rawBody, timestamp, signature);
+        if (!isValid) {
+          logWarn(`Byword webhook: invalid signature, deliveryId=${deliveryId}`, "byword-webhook");
+          return res.status(401).json({ message: "Invalid signature" });
+        }
+      }
+
+      const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+      const result = await handleBywordWebhook(event, body, deliveryId);
+
+      if (result.success) {
+        return res.status(200).json(result);
+      } else {
+        return res.status(422).json(result);
+      }
+    } catch (error) {
+      logError("Byword webhook error:", error);
+      return res.status(500).json({ message: "Internal webhook error" });
+    }
+  });
+
   // Thought Leadership - Public article listing
   app.get("/api/public/thought-leadership/articles", async (_req: any, res) => {
     try {
