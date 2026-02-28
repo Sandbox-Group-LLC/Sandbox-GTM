@@ -1,6 +1,6 @@
 import { logInfo, logError, logWarn } from "./logger";
 
-const BYWORD_CREATE_URL = "https://byword.ai/create_article";
+const BYWORD_CREATE_URL = "https://api.byword.ai/create_article";
 const BYWORD_GET_URL = "https://api.byword.ai/get_article";
 const POLL_INTERVAL_MS = 5000;
 const MAX_POLL_ATTEMPTS = 36;
