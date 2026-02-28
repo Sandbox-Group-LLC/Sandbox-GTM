@@ -19,6 +19,7 @@ import { resolveTxt } from "dns/promises";
 import { parseUserAgent, isBot, getTimeContext, getGeoFromIP, extractRealIP } from "./tracking-utils";
 import { calculateMilestoneStatus, getStatusLabel, getStatusColor, type MilestoneStatusResult } from "./acquisitionStatus";
 import { isApiAuthenticated } from "./apiAuth";
+import { generateArticle } from "./byword";
 
 const scryptAsync = promisify(scrypt);
 
@@ -760,6 +761,62 @@ export async function registerRoutes(
     } catch (error) {
       logError("Error deleting article:", error);
       return res.status(500).json({ message: "Failed to delete article" });
+    }
+  });
+
+  const bywordGenerateSchema = z.object({
+    input: z.string().min(1, "Input is required"),
+    mode: z.enum(["keyword", "title"]),
+    author: z.string().nullable().optional(),
+    tags: z.array(z.string()).nullable().optional(),
+    heroImageUrl: z.string().nullable().optional(),
+    heroImageAlt: z.string().nullable().optional(),
+    status: z.enum(["draft", "pending", "publish"]).optional().default("draft"),
+  });
+
+  app.post("/api/thought-leadership/generate", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      if (!user || !isSuperAdmin(user.email, user.isAdmin)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const parsed = bywordGenerateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.errors.map(e => e.message).join(", ") });
+      }
+
+      const { input, mode, author, tags, heroImageUrl, heroImageAlt, status } = parsed.data;
+
+      const generated = await generateArticle({
+        input,
+        mode,
+        author: author || null,
+        tags: tags || null,
+        heroImageUrl: heroImageUrl || null,
+        heroImageAlt: heroImageAlt || null,
+        status: status || "draft",
+      });
+
+      const article = await storage.upsertArticle({
+        title: generated.title,
+        slug: generated.slug,
+        contentHtml: generated.contentHtml,
+        metaDescription: generated.metaDescription,
+        heroImageUrl: generated.heroImageUrl,
+        heroImageAlt: generated.heroImageAlt,
+        author: generated.author,
+        status: generated.status,
+        lang: "en",
+        tags: generated.tags,
+      });
+
+      return res.json(article);
+    } catch (error) {
+      logError("Error generating article via Byword:", error);
+      const message = error instanceof Error ? error.message : "Failed to generate article";
+      return res.status(500).json({ message });
     }
   });
 

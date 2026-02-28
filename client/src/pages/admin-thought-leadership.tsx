@@ -18,6 +18,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -35,9 +36,10 @@ import {
   Plus,
   Pencil,
   Trash2,
-  ExternalLink,
   Clock,
   Eye,
+  Sparkles,
+  Loader2,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -73,6 +75,16 @@ interface ArticleForm {
   tags: string;
 }
 
+interface BywordForm {
+  input: string;
+  mode: "keyword" | "title";
+  author: string;
+  tags: string;
+  heroImageUrl: string;
+  heroImageAlt: string;
+  status: string;
+}
+
 const emptyForm: ArticleForm = {
   title: "",
   slug: "",
@@ -86,6 +98,16 @@ const emptyForm: ArticleForm = {
   tags: "",
 };
 
+const emptyBywordForm: BywordForm = {
+  input: "",
+  mode: "keyword",
+  author: "Brian Morgan",
+  tags: "",
+  heroImageUrl: "",
+  heroImageAlt: "",
+  status: "draft",
+};
+
 function slugify(text: string): string {
   return text
     .toLowerCase()
@@ -97,9 +119,11 @@ export default function AdminThoughtLeadership() {
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [bywordDialogOpen, setBywordDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [form, setForm] = useState<ArticleForm>(emptyForm);
+  const [bywordForm, setBywordForm] = useState<BywordForm>(emptyBywordForm);
   const [autoSlug, setAutoSlug] = useState(true);
 
   const { data: articles = [], isLoading } = useQuery<Article[]>({
@@ -144,6 +168,34 @@ export default function AdminThoughtLeadership() {
     },
     onError: () => {
       toast({ title: "Error deleting article", variant: "destructive" });
+    },
+  });
+
+  const generateMutation = useMutation({
+    mutationFn: async (data: BywordForm) => {
+      const payload = {
+        input: data.input,
+        mode: data.mode,
+        author: data.author || null,
+        tags: data.tags ? data.tags.split(",").map((t) => t.trim()).filter(Boolean) : null,
+        heroImageUrl: data.heroImageUrl || null,
+        heroImageAlt: data.heroImageAlt || null,
+        status: data.status || "draft",
+      };
+      return apiRequest("POST", "/api/thought-leadership/generate", payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/thought-leadership/articles"] });
+      toast({ title: "Article generated and saved successfully" });
+      setBywordDialogOpen(false);
+      setBywordForm(emptyBywordForm);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to generate article",
+        description: error?.message || "Byword generation failed. Please try again.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -199,6 +251,15 @@ export default function AdminThoughtLeadership() {
     saveMutation.mutate(form);
   }
 
+  function handleBywordSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!bywordForm.input) {
+      toast({ title: "Keyword or title is required", variant: "destructive" });
+      return;
+    }
+    generateMutation.mutate(bywordForm);
+  }
+
   const statusColor = (status: string) => {
     switch (status) {
       case "publish": return "default";
@@ -215,10 +276,20 @@ export default function AdminThoughtLeadership() {
           <h1 className="text-2xl font-bold" data-testid="text-page-title">The Sandbox</h1>
           <p className="text-muted-foreground mt-1">Manage blog articles published on the public site</p>
         </div>
-        <Button onClick={openNew} data-testid="button-new-article">
-          <Plus className="h-4 w-4 mr-2" />
-          New Article
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => { setBywordForm(emptyBywordForm); setBywordDialogOpen(true); }}
+            data-testid="button-generate-byword"
+          >
+            <Sparkles className="h-4 w-4 mr-2" />
+            Generate with Byword
+          </Button>
+          <Button onClick={openNew} data-testid="button-new-article">
+            <Plus className="h-4 w-4 mr-2" />
+            New Article
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -236,10 +307,20 @@ export default function AdminThoughtLeadership() {
         <Card>
           <CardContent className="p-12 text-center">
             <p className="text-muted-foreground mb-4">No articles yet. Create your first one to get started.</p>
-            <Button onClick={openNew} variant="outline" data-testid="button-new-article-empty">
-              <Plus className="h-4 w-4 mr-2" />
-              Create Article
-            </Button>
+            <div className="flex items-center justify-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => { setBywordForm(emptyBywordForm); setBywordDialogOpen(true); }}
+                data-testid="button-generate-byword-empty"
+              >
+                <Sparkles className="h-4 w-4 mr-2" />
+                Generate with Byword
+              </Button>
+              <Button onClick={openNew} variant="outline" data-testid="button-new-article-empty">
+                <Plus className="h-4 w-4 mr-2" />
+                Create Article
+              </Button>
+            </div>
           </CardContent>
         </Card>
       ) : (
@@ -460,6 +541,138 @@ export default function AdminThoughtLeadership() {
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={bywordDialogOpen} onOpenChange={(open) => { if (!generateMutation.isPending) setBywordDialogOpen(open); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle data-testid="text-byword-dialog-title">
+              <span className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5" />
+                Generate with Byword
+              </span>
+            </DialogTitle>
+            <DialogDescription>
+              Enter a keyword or article title and Byword will generate the full article content. This typically takes about 60 seconds.
+            </DialogDescription>
+          </DialogHeader>
+
+          {generateMutation.isPending ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-4" data-testid="byword-generating">
+              <Loader2 className="h-10 w-10 animate-spin text-primary" />
+              <div className="text-center">
+                <p className="font-medium text-lg">Generating article...</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Byword is writing your article. This usually takes about 60 seconds.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={handleBywordSubmit} className="space-y-4" data-testid="form-byword">
+              <div className="space-y-2">
+                <Label htmlFor="byword-mode">Generation Mode</Label>
+                <Select
+                  value={bywordForm.mode}
+                  onValueChange={(value: "keyword" | "title") => setBywordForm((p) => ({ ...p, mode: value }))}
+                >
+                  <SelectTrigger data-testid="select-byword-mode">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="keyword">Keyword (Byword generates title + article)</SelectItem>
+                    <SelectItem value="title">Title (You provide the title, Byword writes the article)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="byword-input">
+                  {bywordForm.mode === "keyword" ? "Keyword" : "Article Title"} *
+                </Label>
+                <Input
+                  id="byword-input"
+                  value={bywordForm.input}
+                  onChange={(e) => setBywordForm((p) => ({ ...p, input: e.target.value }))}
+                  placeholder={bywordForm.mode === "keyword" ? "e.g., event marketing ROI" : "e.g., How to Measure Event Marketing ROI"}
+                  data-testid="input-byword-input"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="byword-author">Author</Label>
+                  <Input
+                    id="byword-author"
+                    value={bywordForm.author}
+                    onChange={(e) => setBywordForm((p) => ({ ...p, author: e.target.value }))}
+                    placeholder="Author name"
+                    data-testid="input-byword-author"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="byword-status">Status</Label>
+                  <Select
+                    value={bywordForm.status}
+                    onValueChange={(value) => setBywordForm((p) => ({ ...p, status: value }))}
+                  >
+                    <SelectTrigger data-testid="select-byword-status">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="draft">Draft</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="publish">Published</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="byword-tags">Tags (comma-separated)</Label>
+                <Input
+                  id="byword-tags"
+                  value={bywordForm.tags}
+                  onChange={(e) => setBywordForm((p) => ({ ...p, tags: e.target.value }))}
+                  placeholder="events, marketing, strategy"
+                  data-testid="input-byword-tags"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="byword-hero">Hero Image URL</Label>
+                  <Input
+                    id="byword-hero"
+                    value={bywordForm.heroImageUrl}
+                    onChange={(e) => setBywordForm((p) => ({ ...p, heroImageUrl: e.target.value }))}
+                    placeholder="https://..."
+                    data-testid="input-byword-hero"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="byword-hero-alt">Hero Image Alt</Label>
+                  <Input
+                    id="byword-hero-alt"
+                    value={bywordForm.heroImageAlt}
+                    onChange={(e) => setBywordForm((p) => ({ ...p, heroImageAlt: e.target.value }))}
+                    placeholder="Image description"
+                    data-testid="input-byword-hero-alt"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4">
+                <Button type="button" variant="outline" onClick={() => setBywordDialogOpen(false)} data-testid="button-byword-cancel">
+                  Cancel
+                </Button>
+                <Button type="submit" data-testid="button-byword-generate">
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Generate Article
+                </Button>
+              </div>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
 
