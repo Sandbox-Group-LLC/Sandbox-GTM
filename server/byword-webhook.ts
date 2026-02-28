@@ -55,6 +55,10 @@ interface BywordArticlePayload {
   status?: string;
   domain_id?: string;
   domain_name?: string;
+  hero_image_url?: string;
+  hero_image_alt?: string;
+  author?: string;
+  tags?: string[];
   [key: string]: any;
 }
 
@@ -117,17 +121,21 @@ async function handleArticleCompleted(
   const status = overrideStatus || articleData.status || "draft";
 
   try {
+    const tags = articleData.tags && articleData.tags.length > 0
+      ? articleData.tags
+      : articleData.keyword ? [articleData.keyword] : null;
+
     const article = await storage.upsertArticle({
       title,
       slug,
       contentHtml: content,
       metaDescription: articleData.meta_description || null,
-      heroImageUrl: null,
-      heroImageAlt: null,
-      author: null,
+      heroImageUrl: articleData.hero_image_url || null,
+      heroImageAlt: articleData.hero_image_alt || null,
+      author: articleData.author || null,
       status,
       lang: "en",
-      tags: articleData.keyword ? [articleData.keyword] : null,
+      tags,
     });
 
     logInfo(`Byword webhook: article saved, id=${article.id}, slug=${slug}, status=${status}, deliveryId=${deliveryId}`, "byword-webhook");
