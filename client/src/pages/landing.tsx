@@ -5,7 +5,6 @@ import { Target, BarChart3, Users, Zap, Link2, ArrowRight, TrendingUp, Layers, D
 import { SiLinkedin, SiMailchimp, SiStripe, SiSalesforce, SiHubspot, SiOpenai, SiX, SiInstagram, SiFacebook } from "react-icons/si";
 import { LeadFormDialog } from "@/components/lead-form-dialog";
 import { MarketingHeader } from "@/components/marketing-header";
-import promoVideo from "@assets/Sandbox_Promo_1772586943699.mp4";
 
 const gtmIntegrations = [
   { icon: SiStripe, name: "Stripe", color: "#635BFF" },
@@ -116,7 +115,7 @@ export default function Landing() {
             <div className="relative mt-12 mx-auto max-w-3xl rounded-xl overflow-hidden border border-border shadow-2xl" data-testid="promo-video-container">
               <video
                 ref={videoRef}
-                src={promoVideo}
+                src="/Sandbox_Promo.mp4"
                 autoPlay
                 loop
                 muted
