@@ -1,9 +1,11 @@
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Target, BarChart3, Users, Zap, Link2, ArrowRight, TrendingUp, Layers, DollarSign, Send, Hotel, CheckCircle2, XCircle } from "lucide-react";
+import { Target, BarChart3, Users, Zap, Link2, ArrowRight, TrendingUp, Layers, DollarSign, Send, Hotel, CheckCircle2, XCircle, Volume2, VolumeX } from "lucide-react";
 import { SiLinkedin, SiMailchimp, SiStripe, SiSalesforce, SiHubspot, SiOpenai, SiX, SiInstagram, SiFacebook } from "react-icons/si";
 import { LeadFormDialog } from "@/components/lead-form-dialog";
 import { MarketingHeader } from "@/components/marketing-header";
+import promoVideo from "@assets/Sandbox_Promo_1772586943699.mp4";
 
 const gtmIntegrations = [
   { icon: SiStripe, name: "Stripe", color: "#635BFF" },
@@ -70,6 +72,17 @@ const useCases = [
 ];
 
 export default function Landing() {
+  const [isMuted, setIsMuted] = useState(true);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const toggleMute = () => {
+    if (videoRef.current) {
+      const nextMuted = !videoRef.current.muted;
+      videoRef.current.muted = nextMuted;
+      setIsMuted(nextMuted);
+    }
+  };
+
   return (
     <div className="dark min-h-screen bg-background">
       <MarketingHeader currentPage="landing" />
@@ -97,6 +110,38 @@ export default function Landing() {
               </LeadFormDialog>
               <Button size="lg" variant="secondary" asChild data-testid="button-see-how">
                 <a href="#capabilities">See How It Works</a>
+              </Button>
+            </div>
+
+            <div className="relative mt-12 mx-auto max-w-3xl rounded-xl overflow-hidden border border-border shadow-2xl" data-testid="promo-video-container">
+              <video
+                ref={videoRef}
+                src={promoVideo}
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="w-full h-auto"
+                data-testid="promo-video"
+              />
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={toggleMute}
+                className="absolute bottom-4 right-4 gap-2 bg-black/60 backdrop-blur-sm text-white border-none"
+                data-testid="button-toggle-sound"
+              >
+                {isMuted ? (
+                  <>
+                    <VolumeX className="h-4 w-4" />
+                    Sound Off
+                  </>
+                ) : (
+                  <>
+                    <Volume2 className="h-4 w-4" />
+                    Sound On
+                  </>
+                )}
               </Button>
             </div>
           </div>
