@@ -123,7 +123,7 @@ export default function Landing() {
                 className="w-full h-full object-cover"
                 data-testid="promo-video"
               >
-                <source src="/Sandbox_Promo.mp4" type="video/mp4" />
+                <source src="/api/public/promo-video" type="video/mp4" />
               </video>
               <Button
                 variant="secondary"

@@ -394,6 +394,45 @@ export function registerPublicTrackingRoute(app: Express) {
     }
   });
 
+  app.get("/api/public/promo-video", async (_req: any, res) => {
+    try {
+      const objectStorageService = new ObjectStorageService();
+      const file = await objectStorageService.searchPublicObject("Sandbox_Promo.mp4");
+      if (!file) {
+        return res.status(404).json({ error: "Video not found" });
+      }
+      const [metadata] = await file.getMetadata();
+      res.set({
+        "Content-Type": "video/mp4",
+        "Cache-Control": "public, max-age=86400",
+      });
+      if (metadata.size) {
+        res.set("Content-Length", String(metadata.size));
+      }
+      const range = _req.headers.range;
+      if (range && metadata.size) {
+        const fileSize = Number(metadata.size);
+        const parts = range.replace(/bytes=/, "").split("-");
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+        res.status(206);
+        res.set({
+          "Content-Range": `bytes ${start}-${end}/${fileSize}`,
+          "Accept-Ranges": "bytes",
+          "Content-Length": String(end - start + 1),
+        });
+        file.createReadStream({ start, end }).pipe(res);
+      } else {
+        file.createReadStream().pipe(res);
+      }
+    } catch (error) {
+      console.error("[routes] Error serving promo video:", error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Error serving video" });
+      }
+    }
+  });
+
   // Submit marketing lead (pricing page contact form)
   app.post("/api/public/lead", async (req: any, res) => {
     try {
