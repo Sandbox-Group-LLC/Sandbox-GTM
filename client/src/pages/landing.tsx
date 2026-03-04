@@ -112,17 +112,19 @@ export default function Landing() {
               </Button>
             </div>
 
-            <div className="relative mt-12 mx-auto max-w-3xl rounded-xl overflow-hidden border border-border shadow-2xl" data-testid="promo-video-container">
+            <div className="relative mt-12 mx-auto max-w-3xl rounded-xl overflow-hidden border border-border shadow-2xl aspect-video bg-black" data-testid="promo-video-container">
               <video
                 ref={videoRef}
-                src="/Sandbox_Promo.mp4"
                 autoPlay
                 loop
                 muted
                 playsInline
-                className="w-full h-auto"
+                preload="auto"
+                className="w-full h-full object-cover"
                 data-testid="promo-video"
-              />
+              >
+                <source src="/Sandbox_Promo.mp4" type="video/mp4" />
+              </video>
               <Button
                 variant="secondary"
                 size="sm"
