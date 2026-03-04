@@ -394,41 +394,36 @@ export function registerPublicTrackingRoute(app: Express) {
     }
   });
 
-  app.get("/api/public/promo-video", async (_req: any, res) => {
+  app.get("/api/public/promo-video-url", async (_req: any, res) => {
     try {
-      const objectStorageService = new ObjectStorageService();
-      const file = await objectStorageService.searchPublicObject("Sandbox_Promo.mp4");
-      if (!file) {
-        return res.status(404).json({ error: "Video not found" });
+      const bucketId = process.env.PUBLIC_OBJECT_SEARCH_PATHS?.split(",")[0]?.trim();
+      if (!bucketId) {
+        return res.status(500).json({ error: "Storage not configured" });
       }
-      const [metadata] = await file.getMetadata();
-      res.set({
-        "Content-Type": "video/mp4",
-        "Cache-Control": "public, max-age=86400",
+      const parts = bucketId.startsWith("/") ? bucketId.slice(1).split("/") : bucketId.split("/");
+      const bucketName = parts[0];
+      const objectName = [...parts.slice(1), "Sandbox_Promo.mp4"].join("/");
+
+      const request = {
+        bucket_name: bucketName,
+        object_name: objectName,
+        method: "GET",
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      };
+      const sidecarRes = await fetch("http://127.0.0.1:1106/object-storage/signed-object-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(request),
       });
-      if (metadata.size) {
-        res.set("Content-Length", String(metadata.size));
+      if (!sidecarRes.ok) {
+        throw new Error(`Sidecar returned ${sidecarRes.status}`);
       }
-      const range = _req.headers.range;
-      if (range && metadata.size) {
-        const fileSize = Number(metadata.size);
-        const parts = range.replace(/bytes=/, "").split("-");
-        const start = parseInt(parts[0], 10);
-        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-        res.status(206);
-        res.set({
-          "Content-Range": `bytes ${start}-${end}/${fileSize}`,
-          "Accept-Ranges": "bytes",
-          "Content-Length": String(end - start + 1),
-        });
-        file.createReadStream({ start, end }).pipe(res);
-      } else {
-        file.createReadStream().pipe(res);
-      }
+      const { signed_url } = await sidecarRes.json();
+      res.json({ url: signed_url });
     } catch (error) {
-      console.error("[routes] Error serving promo video:", error);
+      console.error("[routes] Error getting promo video URL:", error);
       if (!res.headersSent) {
-        res.status(500).json({ error: "Error serving video" });
+        res.status(500).json({ error: "Error getting video URL" });
       }
     }
   });

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Target, BarChart3, Users, Zap, Link2, ArrowRight, TrendingUp, Layers, DollarSign, Send, Hotel, CheckCircle2, XCircle, Volume2, VolumeX } from "lucide-react";
@@ -72,7 +72,19 @@ const useCases = [
 
 export default function Landing() {
   const [isMuted, setIsMuted] = useState(true);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    fetch("/api/public/promo-video-url")
+      .then((r) => r.json())
+      .then((data) => {
+        if (mounted && data.url) setVideoUrl(data.url);
+      })
+      .catch(() => {});
+    return () => { mounted = false; };
+  }, []);
 
   const toggleMute = () => {
     if (videoRef.current) {
@@ -113,18 +125,19 @@ export default function Landing() {
             </div>
 
             <div className="relative mt-12 mx-auto max-w-3xl rounded-xl overflow-hidden border border-border shadow-2xl aspect-video bg-black" data-testid="promo-video-container">
-              <video
-                ref={videoRef}
-                autoPlay
-                loop
-                muted
-                playsInline
-                preload="auto"
-                className="w-full h-full object-cover"
-                data-testid="promo-video"
-              >
-                <source src="/api/public/promo-video" type="video/mp4" />
-              </video>
+              {videoUrl && (
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  preload="auto"
+                  className="w-full h-full object-cover"
+                  data-testid="promo-video"
+                  src={videoUrl}
+                />
+              )}
               <Button
                 variant="secondary"
                 size="sm"
