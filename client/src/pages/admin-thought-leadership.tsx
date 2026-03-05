@@ -247,6 +247,8 @@ export default function AdminThoughtLeadership() {
     }));
   }
 
+  const [isProcessing, setIsProcessing] = useState(false);
+
   function handleHtmlFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -257,30 +259,49 @@ export default function AdminThoughtLeadership() {
     }
 
     const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result as string;
-      let htmlContent = content;
+    reader.onload = async (event) => {
+      const rawHtml = event.target?.result as string;
 
-      const bodyMatch = content.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-      if (bodyMatch) {
-        htmlContent = bodyMatch[1].trim();
+      setIsProcessing(true);
+      try {
+        const response = await apiRequest("POST", "/api/thought-leadership/process-html", { rawHtml });
+        const result = await response.json();
+
+        const extractedTitle = result.title || "";
+        const extractedMeta = result.metaDescription || "";
+
+        setForm((prev) => ({
+          ...prev,
+          contentHtml: result.contentHtml || rawHtml,
+          title: prev.title || extractedTitle,
+          slug: prev.title ? prev.slug : (autoSlug && extractedTitle ? slugify(extractedTitle) : prev.slug),
+          metaDescription: prev.metaDescription || extractedMeta,
+          heroImageUrl: prev.heroImageUrl || result.heroImageUrl || "",
+          heroImageAlt: prev.heroImageAlt || result.heroImageAlt || "",
+        }));
+
+        toast({ title: "HTML file processed and formatted" });
+      } catch {
+        const bodyMatch = rawHtml.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+        const fallbackContent = bodyMatch ? bodyMatch[1].trim() : rawHtml;
+        const titleMatch = rawHtml.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+        const extractedTitle = titleMatch ? titleMatch[1].trim() : "";
+
+        setForm((prev) => ({
+          ...prev,
+          contentHtml: fallbackContent,
+          title: prev.title || extractedTitle,
+          slug: prev.title ? prev.slug : (autoSlug && extractedTitle ? slugify(extractedTitle) : prev.slug),
+        }));
+
+        toast({
+          title: "AI processing failed — raw HTML loaded instead",
+          description: "You may need to manually clean the content.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsProcessing(false);
       }
-
-      const titleMatch = content.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-      const extractedTitle = titleMatch ? titleMatch[1].trim() : "";
-
-      const metaMatch = content.match(/<meta\s+name=["']description["']\s+content=["']([\s\S]*?)["']/i);
-      const extractedMeta = metaMatch ? metaMatch[1].trim() : "";
-
-      setForm((prev) => ({
-        ...prev,
-        contentHtml: htmlContent,
-        title: prev.title || extractedTitle,
-        slug: prev.title ? prev.slug : (autoSlug && extractedTitle ? slugify(extractedTitle) : prev.slug),
-        metaDescription: prev.metaDescription || extractedMeta,
-      }));
-
-      toast({ title: "HTML file loaded successfully" });
     };
     reader.onerror = () => {
       toast({ title: "Error reading file", variant: "destructive" });
@@ -558,22 +579,44 @@ export default function AdminThoughtLeadership() {
                     variant="outline"
                     size="sm"
                     onClick={() => fileInputRef.current?.click()}
+                    disabled={isProcessing}
                     data-testid="button-upload-html"
                   >
-                    <Upload className="h-3.5 w-3.5 mr-1.5" />
-                    Upload HTML
+                    {isProcessing ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-3.5 w-3.5 mr-1.5" />
+                        Upload HTML
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>
-              <Textarea
-                id="contentHtml"
-                value={form.contentHtml}
-                onChange={(e) => setForm((p) => ({ ...p, contentHtml: e.target.value }))}
-                placeholder="<p>Write your article content here...</p>"
-                rows={12}
-                className="font-mono text-sm"
-                data-testid="input-content"
-              />
+              {isProcessing ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-3 border rounded-md bg-muted/30" data-testid="processing-indicator">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <div className="text-center">
+                    <p className="font-medium">Processing HTML with AI...</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Cleaning up formatting, removing duplicates, and extracting metadata
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <Textarea
+                  id="contentHtml"
+                  value={form.contentHtml}
+                  onChange={(e) => setForm((p) => ({ ...p, contentHtml: e.target.value }))}
+                  placeholder="<p>Write your article content here...</p>"
+                  rows={12}
+                  className="font-mono text-sm"
+                  data-testid="input-content"
+                />
+              )}
             </div>
 
             <div className="space-y-2">

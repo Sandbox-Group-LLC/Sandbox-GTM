@@ -875,6 +875,93 @@ export async function registerRoutes(
     status: z.enum(["draft", "pending", "publish"]).optional().default("draft"),
   });
 
+  app.post("/api/thought-leadership/process-html", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      if (!user || !isSuperAdmin(user.email, user.isAdmin)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const { rawHtml } = req.body;
+      if (!rawHtml || typeof rawHtml !== "string") {
+        return res.status(400).json({ message: "rawHtml is required" });
+      }
+
+      const OpenAI = (await import("openai")).default;
+      const openai = new OpenAI({
+        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+      });
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content: `You are an HTML content processor for a blog platform called "The Sandbox". Your job is to clean up raw HTML exported from Byword (an AI article generator) so it matches the platform's formatting standards.
+
+The platform renders articles with these elements handled OUTSIDE the content HTML:
+- Title (displayed as a large h1 at the top of the page)
+- Author name, published date, read time (displayed as metadata below the title)
+- Hero image (displayed as a single large image below the metadata)
+- Tags/categories
+
+So the contentHtml must NOT include:
+- Any h1 tags (the title is rendered separately)
+- Author bylines, dates, or "X min read" text
+- Hero/banner images at the top (but inline images within the article body are fine)
+- Any wrapper divs, sections, or article tags from the original HTML structure
+- Excessive empty paragraphs, blank lines, or &nbsp; spacers
+
+The contentHtml SHOULD:
+- Start with the first h2 or first substantive paragraph
+- Use h2 for major sections, h3 for subsections
+- Have clean paragraphs with no excessive spacing
+- Keep inline images that are part of the article body (not hero images)
+- Preserve links, bold, italic, lists, blockquotes, and code blocks
+- Remove any duplicate content (sometimes Byword duplicates sections)
+- Remove any table of contents sections
+- Remove any "related articles" or "further reading" auto-generated sections at the end
+
+Also extract these metadata fields from the raw HTML:
+- title: The article's main title (from h1 or title tag)
+- metaDescription: A concise summary (from meta description or first paragraph, max 160 chars)
+- heroImageUrl: URL of the first/main hero image (if any)
+- heroImageAlt: Alt text for the hero image (if any)
+
+Return a JSON object with: { "contentHtml": "...", "title": "...", "metaDescription": "...", "heroImageUrl": "...", "heroImageAlt": "..." }
+Any field that cannot be determined should be null.`
+          },
+          {
+            role: "user",
+            content: `Process this raw HTML article export:\n\n${rawHtml}`
+          }
+        ],
+        max_tokens: 16000,
+      });
+
+      let result;
+      try {
+        result = JSON.parse(response.choices[0].message.content || "{}");
+      } catch {
+        return res.status(500).json({ message: "AI returned invalid JSON" });
+      }
+      return res.json({
+        contentHtml: result.contentHtml || null,
+        title: result.title || null,
+        metaDescription: result.metaDescription || null,
+        heroImageUrl: result.heroImageUrl || null,
+        heroImageAlt: result.heroImageAlt || null,
+      });
+    } catch (error) {
+      logError("Error processing HTML article:", error);
+      const message = error instanceof Error ? error.message : "Failed to process HTML";
+      return res.status(500).json({ message });
+    }
+  });
+
   app.post("/api/thought-leadership/generate", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
