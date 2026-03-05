@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -43,6 +43,8 @@ import {
   Webhook,
   Copy,
   Check,
+  Upload,
+  FileText,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -130,6 +132,8 @@ export default function AdminThoughtLeadership() {
   const [form, setForm] = useState<ArticleForm>(emptyForm);
   const [bywordForm, setBywordForm] = useState<BywordForm>(emptyBywordForm);
   const [autoSlug, setAutoSlug] = useState(true);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: articles = [], isLoading } = useQuery<Article[]>({
     queryKey: ["/api/thought-leadership/articles"],
@@ -243,6 +247,51 @@ export default function AdminThoughtLeadership() {
     }));
   }
 
+  function handleHtmlFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith(".html") && !file.name.endsWith(".htm")) {
+      toast({ title: "Please select an HTML file (.html or .htm)", variant: "destructive" });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      let htmlContent = content;
+
+      const bodyMatch = content.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+      if (bodyMatch) {
+        htmlContent = bodyMatch[1].trim();
+      }
+
+      const titleMatch = content.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+      const extractedTitle = titleMatch ? titleMatch[1].trim() : "";
+
+      const metaMatch = content.match(/<meta\s+name=["']description["']\s+content=["']([\s\S]*?)["']/i);
+      const extractedMeta = metaMatch ? metaMatch[1].trim() : "";
+
+      setForm((prev) => ({
+        ...prev,
+        contentHtml: htmlContent,
+        title: prev.title || extractedTitle,
+        slug: prev.title ? prev.slug : (autoSlug && extractedTitle ? slugify(extractedTitle) : prev.slug),
+        metaDescription: prev.metaDescription || extractedMeta,
+      }));
+
+      toast({ title: "HTML file loaded successfully" });
+    };
+    reader.onerror = () => {
+      toast({ title: "Error reading file", variant: "destructive" });
+    };
+    reader.readAsText(file);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.title || !form.slug) {
@@ -298,6 +347,14 @@ export default function AdminThoughtLeadership() {
           >
             <Sparkles className="h-4 w-4 mr-2" />
             Generate with Byword
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => { openNew(); setTimeout(() => fileInputRef.current?.click(), 100); }}
+            data-testid="button-upload-html-quick"
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Upload HTML
           </Button>
           <Button onClick={openNew} data-testid="button-new-article">
             <Plus className="h-4 w-4 mr-2" />
@@ -479,7 +536,35 @@ export default function AdminThoughtLeadership() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="contentHtml">Content (HTML) *</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="contentHtml">Content (HTML) *</Label>
+                <div className="flex items-center gap-2">
+                  {form.contentHtml && (
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                      <FileText className="h-3 w-3" />
+                      {Math.round(form.contentHtml.length / 1024)}KB loaded
+                    </span>
+                  )}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".html,.htm"
+                    onChange={handleHtmlFileUpload}
+                    className="hidden"
+                    data-testid="input-html-file"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    data-testid="button-upload-html"
+                  >
+                    <Upload className="h-3.5 w-3.5 mr-1.5" />
+                    Upload HTML
+                  </Button>
+                </div>
+              </div>
               <Textarea
                 id="contentHtml"
                 value={form.contentHtml}
