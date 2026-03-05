@@ -900,38 +900,38 @@ export async function registerRoutes(
         messages: [
           {
             role: "system",
-            content: `You are an HTML content processor for a blog platform called "The Sandbox". Your job is to clean up raw HTML exported from Byword (an AI article generator) so it matches the platform's formatting standards.
+            content: `You are an HTML structure cleaner for a blog platform. Your ONLY job is to restructure and clean up the HTML — you must NEVER rewrite, rephrase, summarize, or change the actual text content. Every single word, sentence, and paragraph of the original article must be preserved exactly as written.
 
-The platform renders articles with these elements handled OUTSIDE the content HTML:
-- Title (displayed as a large h1 at the top of the page)
-- Author name, published date, read time (displayed as metadata below the title)
-- Hero image (displayed as a single large image below the metadata)
-- Tags/categories
+CRITICAL RULES:
+- DO NOT rewrite any text. Keep every word exactly as it appears in the original.
+- DO NOT rephrase sentences or change wording in any way.
+- DO NOT add new text or remove existing article text.
+- DO NOT summarize or shorten paragraphs.
+- Your job is ONLY structural: remove wrapper elements, fix HTML tag hierarchy, and strip metadata elements that the platform handles separately.
 
-So the contentHtml must NOT include:
-- Any h1 tags (the title is rendered separately)
-- Author bylines, dates, or "X min read" text
-- Hero/banner images at the top (but inline images within the article body are fine)
-- Any wrapper divs, sections, or article tags from the original HTML structure
-- Excessive empty paragraphs, blank lines, or &nbsp; spacers
+The platform renders these elements OUTSIDE the content HTML (so remove them from contentHtml):
+- The article title (h1) — the platform displays it separately
+- Author bylines, dates, "X min read" text — displayed separately
+- The first/hero image at the very top — displayed separately
+- Table of contents sections
+- "Related articles" or "further reading" sections at the end
 
-The contentHtml SHOULD:
-- Start with the first h2 or first substantive paragraph
-- Use h2 for major sections, h3 for subsections
-- Have clean paragraphs with no excessive spacing
-- Keep inline images that are part of the article body (not hero images)
-- Preserve links, bold, italic, lists, blockquotes, and code blocks
-- Remove any duplicate content (sometimes Byword duplicates sections)
-- Remove any table of contents sections
-- Remove any "related articles" or "further reading" auto-generated sections at the end
+Structural cleanup to perform:
+- Remove all h1 tags (extract the text for the title field)
+- Remove wrapper divs, sections, article, header, footer, nav tags — keep only the inner content
+- Remove excessive empty paragraphs, consecutive <br> tags, and &nbsp; spacers
+- Remove the first/top image element (extract its URL for heroImageUrl) but keep all other images
+- If content has truly duplicated sections (identical text appearing twice), remove the duplicate
+- Collapse nested unnecessary tags (e.g. <p><p>text</p></p> → <p>text</p>)
+- Ensure headings use h2 for major sections and h3 for subsections
 
-Also extract these metadata fields from the raw HTML:
-- title: The article's main title (from h1 or title tag)
-- metaDescription: A concise summary (from meta description or first paragraph, max 160 chars)
-- heroImageUrl: URL of the first/main hero image (if any)
-- heroImageAlt: Alt text for the hero image (if any)
+Extract these metadata fields:
+- title: The article's main title (from h1 or title tag) — exact original text
+- metaDescription: From meta description tag, or if not present, use the first paragraph text verbatim (max 160 chars)
+- heroImageUrl: URL of the first/main image (if any)
+- heroImageAlt: Alt text of the first/main image (if any)
 
-Return a JSON object with: { "contentHtml": "...", "title": "...", "metaDescription": "...", "heroImageUrl": "...", "heroImageAlt": "..." }
+Return JSON: { "contentHtml": "...", "title": "...", "metaDescription": "...", "heroImageUrl": "...", "heroImageAlt": "..." }
 Any field that cannot be determined should be null.`
           },
           {
