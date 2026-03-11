@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useAuth as useClerkAuth } from "@clerk/react";
 import type { User, Organization, FeaturePermission } from "@shared/schema";
 
 interface Membership {
@@ -14,10 +15,13 @@ interface UserWithSuperAdmin extends User {
 }
 
 export function useAuth() {
+  const { isLoaded: clerkLoaded, isSignedIn } = useClerkAuth();
+
   const { data: user, isLoading: userLoading } = useQuery<UserWithSuperAdmin | null>({
     queryKey: ["/api/auth/user"],
     retry: false,
     staleTime: 5 * 60 * 1000,
+    enabled: clerkLoaded && !!isSignedIn,
   });
 
   const { data: organization, isLoading: orgLoading } = useQuery<Organization | null>({
@@ -59,8 +63,8 @@ export function useAuth() {
     membership: membership || null,
     isOwner,
     hasPermission,
-    isLoading: userLoading || (!!user && (orgLoading || membershipLoading)),
-    isAuthenticated: !!user,
+    isLoading: !clerkLoaded || (clerkLoaded && !!isSignedIn && (userLoading || (!!user && (orgLoading || membershipLoading)))),
+    isAuthenticated: clerkLoaded && !!isSignedIn && !!user,
   };
 }
 
