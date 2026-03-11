@@ -29,6 +29,9 @@ export default defineConfig({
   },
   root: path.resolve(import.meta.dirname, "client"),
   envDir: path.resolve(import.meta.dirname),
+  optimizeDeps: {
+    include: ["@clerk/react"],
+  },
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
