@@ -1,5 +1,7 @@
 import { Switch, Route, useLocation } from "wouter";
 import { useEffect } from "react";
+import { useAuth as useClerkAuth } from "@clerk/react";
+import { setClerkTokenGetter } from "@/lib/queryClient";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -104,6 +106,14 @@ import Designers from "@/pages/designers";
 import ApprovedAssets from "@/pages/approved-assets";
 import SharedProofView from "@/pages/shared-proof-view";
 import { HelpChatWidget } from "@/components/help-chat-widget";
+
+function ClerkTokenSync() {
+  const { getToken } = useClerkAuth();
+  useEffect(() => {
+    setClerkTokenGetter(getToken);
+  }, [getToken]);
+  return null;
+}
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const sidebarStyle = {
@@ -350,6 +360,7 @@ function App() {
       <ThemeProvider defaultTheme="system" storageKey="event-cms-theme">
         <DemoModeProvider>
           <TooltipProvider>
+            <ClerkTokenSync />
             <Router />
             <Toaster />
           </TooltipProvider>
