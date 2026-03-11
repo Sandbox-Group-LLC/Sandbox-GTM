@@ -20,6 +20,7 @@ export default defineConfig({
       : []),
   ],
   resolve: {
+    modules: [path.resolve(import.meta.dirname, "node_modules"), "node_modules"],
     alias: {
       "@": path.resolve(import.meta.dirname, "client", "src"),
       "@shared": path.resolve(import.meta.dirname, "shared"),
