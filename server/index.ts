@@ -120,16 +120,9 @@ app.use((req, res, next) => {
 const port = parseInt(process.env.PORT || "5000", 10);
 
 // Start server immediately so health checks pass
-httpServer.listen(
-  {
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  },
-  () => {
-    log(`Server listening on port ${port}`);
-  },
-);
+httpServer.listen(port, "0.0.0.0", () => {
+  log(`Server listening on port ${port}`);
+});
 
 // Initialize routes and other middleware asynchronously
 (async () => {

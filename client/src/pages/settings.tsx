@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useClerk } from "@clerk/react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -62,6 +63,7 @@ type EditApiKeyFormData = z.infer<typeof editApiKeySchema>;
 
 export default function Settings() {
   const { user, organization, isOwner } = useAuth();
+  const { signOut } = useClerk();
   const { toast } = useToast();
   const [customDomain, setCustomDomain] = useState("");
   const [isEditingDomain, setIsEditingDomain] = useState(false);
@@ -959,11 +961,9 @@ export default function Settings() {
                 <Badge variant="outline">Active</Badge>
               </div>
               <Separator />
-              <Button variant="destructive" className="w-full" asChild>
-                <a href="/api/logout" data-testid="button-logout">
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Sign Out
-                </a>
+              <Button variant="destructive" className="w-full" data-testid="button-logout" onClick={() => signOut({ redirectUrl: '/' })}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Sign Out
               </Button>
             </CardContent>
           </Card>

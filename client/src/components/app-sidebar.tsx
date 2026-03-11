@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useClerk } from "@clerk/react";
 import { Link, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -152,6 +153,7 @@ interface UserOrganization {
 export function AppSidebar() {
   const [location] = useLocation();
   const { user, organization, hasPermission, isOwner } = useAuth();
+  const { signOut } = useClerk();
   const [wizardOpen, setWizardOpen] = useState(false);
   const { isMobile, setOpenMobile } = useSidebar();
 
@@ -985,11 +987,9 @@ export function AppSidebar() {
             </SidebarMenuItem>
           </Collapsible>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild data-testid="button-logout">
-              <a href="/api/logout">
-                <LogOut className="h-4 w-4" />
-                <span>Sign Out</span>
-              </a>
+            <SidebarMenuButton data-testid="button-logout" onClick={() => signOut({ redirectUrl: '/' })}>
+              <LogOut className="h-4 w-4" />
+              <span>Sign Out</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

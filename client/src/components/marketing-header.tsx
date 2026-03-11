@@ -38,13 +38,13 @@ export function MarketingHeader({ currentPage }: MarketingHeaderProps) {
             </Button>
           ))}
           <Button asChild data-testid="button-login-header" className="ml-2">
-            <a href="/api/login">Sign In</a>
+            <a href="/sign-in">Sign In</a>
           </Button>
         </nav>
 
         <div className="md:hidden flex items-center gap-2">
           <Button asChild size="sm" data-testid="button-login-header-mobile">
-            <a href="/api/login">Sign In</a>
+            <a href="/sign-in">Sign In</a>
           </Button>
           <Button
             variant="ghost"

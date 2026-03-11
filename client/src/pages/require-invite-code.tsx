@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useClerk } from "@clerk/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,6 +11,7 @@ import sandboxIcon from "@assets/Orange_bug_-_no_background_1768254114237.png";
 import sandboxLogo from "@assets/Sandbox-GTM_1768253990902.png";
 
 export default function RequireInviteCode() {
+  const { signOut } = useClerk();
   const [inviteCode, setInviteCode] = useState("");
   const [isValidating, setIsValidating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -79,7 +81,7 @@ export default function RequireInviteCode() {
   };
 
   const handleLogout = () => {
-    window.location.href = "/api/logout";
+    signOut({ redirectUrl: '/' });
   };
 
   const clearInviteCode = () => {

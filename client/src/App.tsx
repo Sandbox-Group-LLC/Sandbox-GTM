@@ -16,6 +16,8 @@ import type { BrandKit as BrandKitType } from "@shared/schema";
 import NotFound from "@/pages/not-found";
 import RequireInviteCode from "@/pages/require-invite-code";
 import Landing from "@/pages/landing";
+import SignInPage from "@/pages/sign-in";
+import SignUpPage from "@/pages/sign-up";
 import Dashboard from "@/pages/dashboard";
 import Events from "@/pages/events";
 import Attendees from "@/pages/attendees";
@@ -201,6 +203,8 @@ function Router() {
         <Route path="/thought-leadership">{() => { window.location.href = "/the-sandbox"; return null; }}</Route>
         <Route path="/thought-leadership/:slug">{(params: any) => { window.location.href = `/the-sandbox/${params.slug}`; return null; }}</Route>
         <Route path="/signup" component={Signup} />
+        <Route path="/sign-in" component={SignInPage} />
+        <Route path="/sign-up" component={SignUpPage} />
         <Route path="/privacy-policy" component={PrivacyPolicy} />
         <Route path="/event/:slug/register" component={PublicRegistration} />
         <Route path="/event/:slug/portal" component={AttendeePortal} />

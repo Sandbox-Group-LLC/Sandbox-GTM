@@ -1,10 +1,16 @@
 import OpenAI from "openai";
 import { logError, logInfo } from "./logger";
 
-const openai = new OpenAI({
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-});
+let openai: OpenAI;
+function getOpenAI(): OpenAI {
+  if (!openai) {
+    openai = new OpenAI({
+      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY ?? 'not-configured',
+    });
+  }
+  return openai;
+}
 
 export interface AIGenerationRequest {
   sectionType: string;
@@ -162,7 +168,7 @@ export async function generateSectionContent(
 
   try {
     // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: "gpt-5",
       messages: [
         { role: "system", content: systemPrompt },
