@@ -213,8 +213,8 @@ function Router() {
         <Route path="/thought-leadership">{() => { window.location.href = "/the-sandbox"; return null; }}</Route>
         <Route path="/thought-leadership/:slug">{(params: any) => { window.location.href = `/the-sandbox/${params.slug}`; return null; }}</Route>
         <Route path="/signup" component={Signup} />
-        <Route path="/sign-in/:rest*" component={SignInPage} />
-        <Route path="/sign-up/:rest*" component={SignUpPage} />
+        <Route path="/sign-in" component={SignInPage} />
+        <Route path="/sign-up" component={SignUpPage} />
         <Route path="/privacy-policy" component={PrivacyPolicy} />
         <Route path="/event/:slug/register" component={PublicRegistration} />
         <Route path="/event/:slug/portal" component={AttendeePortal} />
