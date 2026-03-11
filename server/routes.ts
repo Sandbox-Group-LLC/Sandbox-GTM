@@ -888,19 +888,12 @@ export async function registerRoutes(
         return res.status(400).json({ message: "rawHtml is required" });
       }
 
-      const OpenAI = (await import("openai")).default;
-      const openai = new OpenAI({
-        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-      });
+      const { default: Anthropic } = await import("@anthropic-ai/sdk");
+      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        response_format: { type: "json_object" },
-        messages: [
-          {
-            role: "system",
-            content: `You are an HTML structure cleaner for a blog platform. Your ONLY job is to restructure and clean up the HTML — you must NEVER rewrite, rephrase, summarize, or change the actual text content. Every single word, sentence, and paragraph of the original article must be preserved exactly as written.
+      const response = await anthropic.messages.create({
+        model: "claude-sonnet-4-6",
+        system: `You are an HTML structure cleaner for a blog platform. Your ONLY job is to restructure and clean up the HTML — you must NEVER rewrite, rephrase, summarize, or change the actual text content. Every single word, sentence, and paragraph of the original article must be preserved exactly as written.
 
 CRITICAL RULES:
 - DO NOT rewrite any text. Keep every word exactly as it appears in the original.
@@ -931,12 +924,12 @@ Extract these metadata fields:
 - heroImageUrl: URL of the first/main image (if any)
 - heroImageAlt: Alt text of the first/main image (if any)
 
-Return JSON: { "contentHtml": "...", "title": "...", "metaDescription": "...", "heroImageUrl": "...", "heroImageAlt": "..." }
-Any field that cannot be determined should be null.`
-          },
+Return JSON only: { "contentHtml": "...", "title": "...", "metaDescription": "...", "heroImageUrl": "...", "heroImageAlt": "..." }
+Any field that cannot be determined should be null.`,
+        messages: [
           {
             role: "user",
-            content: `Process this raw HTML article export:\n\n${rawHtml}`
+            content: `Process this raw HTML article export:\n\n${rawHtml}`,
           }
         ],
         max_tokens: 16000,
@@ -944,7 +937,8 @@ Any field that cannot be determined should be null.`
 
       let result;
       try {
-        result = JSON.parse(response.choices[0].message.content || "{}");
+        const text = response.content[0]?.type === "text" ? response.content[0].text : "{}";
+        result = JSON.parse(text);
       } catch {
         return res.status(500).json({ message: "AI returned invalid JSON" });
       }
@@ -18712,32 +18706,25 @@ ${urls.map(u => `  <url>
         return context;
       }).join('\n---\n');
 
-      // Use OpenAI to generate a response
-      const OpenAI = (await import('openai')).default;
-      const openai = new OpenAI({
-        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-      });
+      const { default: Anthropic } = await import("@anthropic-ai/sdk");
+      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-      const systemPrompt = `You are a helpful assistant for the Sandbox event management platform. 
+      const response = await anthropic.messages.create({
+        model: "claude-sonnet-4-6",
+        system: `You are a helpful assistant for the Sandbox event management platform.
 Your role is to answer user questions based on the help documentation provided below.
-Be friendly, concise, and helpful. If the documentation doesn't contain information to answer the question, 
+Be friendly, concise, and helpful. If the documentation doesn't contain information to answer the question,
 politely say so and suggest contacting support.
 
 Help Documentation:
-${articlesContext}`;
-
-      // the newest OpenAI model is "gpt-5" which was released August 7, 2025
-      const response = await openai.chat.completions.create({
-        model: "gpt-5",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: message },
-        ],
-        max_completion_tokens: 1024,
+${articlesContext}`,
+        messages: [{ role: "user", content: message }],
+        max_tokens: 1024,
       });
 
-      const aiResponse = response.choices[0]?.message?.content || "I'm sorry, I couldn't generate a response. Please try again.";
+      const aiResponse = response.content[0]?.type === "text"
+        ? response.content[0].text
+        : "I'm sorry, I couldn't generate a response. Please try again.";
       
       res.json({ response: aiResponse });
     } catch (error) {

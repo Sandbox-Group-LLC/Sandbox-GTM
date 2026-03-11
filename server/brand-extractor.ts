@@ -1,9 +1,8 @@
-import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
 import { logError, logInfo } from "./logger";
 
-const openai = new OpenAI({
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
 export interface ExtractedBrand {
@@ -173,32 +172,28 @@ async function suggestColorPalette(colors: Array<{ hex: string; frequency: numbe
   try {
     const topColors = colors.slice(0, 10).map(c => c.hex);
     
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `You are a brand design expert. Analyze the provided color palette extracted from a website and suggest the most appropriate brand colors. Return a JSON object with:
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-4-6",
+      system: `You are a brand design expert. Analyze the provided color palette extracted from a website and suggest the most appropriate brand colors. Return a JSON object with:
 - primaryColor: The main brand color (hex)
 - secondaryColor: A complementary secondary color (hex)
 - accentColor: An accent color for highlights and CTAs (hex)
 - backgroundColor: A suitable background color (hex, typically light like #ffffff or #f5f5f5)
 - textColor: A suitable text color (hex, typically dark like #1a1a1a or #333333)
 
-Choose from the provided colors when possible, but you may suggest variations if needed for a cohesive palette.`
-        },
+Choose from the provided colors when possible, but you may suggest variations if needed for a cohesive palette. Respond with only valid JSON.`,
+      messages: [
         {
           role: "user",
           content: `These colors were extracted from a website (sorted by frequency of use): ${topColors.join(', ')}
 
-Suggest the best brand color palette based on these colors.`
+Suggest the best brand color palette based on these colors.`,
         }
       ],
-      response_format: { type: "json_object" },
       max_tokens: 500,
     });
-    
-    const content = response.choices[0].message.content;
+
+    const content = response.content[0]?.type === "text" ? response.content[0].text : null;
     if (!content) return undefined;
     
     const palette = JSON.parse(content);

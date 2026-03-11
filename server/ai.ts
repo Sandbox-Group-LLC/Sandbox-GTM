@@ -1,15 +1,14 @@
-import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
 import { logError, logInfo } from "./logger";
 
-let openai: OpenAI;
-function getOpenAI(): OpenAI {
-  if (!openai) {
-    openai = new OpenAI({
-      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY ?? 'not-configured',
+let anthropic: Anthropic;
+function getAnthropic(): Anthropic {
+  if (!anthropic) {
+    anthropic = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
     });
   }
-  return openai;
+  return anthropic;
 }
 
 export interface AIGenerationRequest {
@@ -167,18 +166,14 @@ export async function generateSectionContent(
   logInfo(`Generating AI content for section type: ${request.sectionType}`);
 
   try {
-    // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-    const response = await getOpenAI().chat.completions.create({
-      model: "gpt-5",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 8192,
+    const response = await getAnthropic().messages.create({
+      model: "claude-sonnet-4-6",
+      system: systemPrompt,
+      messages: [{ role: "user", content: userPrompt }],
+      max_tokens: 8192,
     });
 
-    const content = response.choices[0]?.message?.content;
+    const content = response.content[0]?.type === "text" ? response.content[0].text : null;
     if (!content) {
       throw new Error("No content returned from AI");
     }
