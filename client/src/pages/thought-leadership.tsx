@@ -1,3 +1,4 @@
+import { useHubSpot } from "@/hooks/useHubSpot";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +9,7 @@ import { MarketingHeader } from "@/components/marketing-header";
 import type { ThoughtLeadershipArticle } from "@shared/schema";
 
 export default function ThoughtLeadership() {
+  useHubSpot();
   const { data: articles, isLoading } = useQuery<ThoughtLeadershipArticle[]>({
     queryKey: ["/api/public/thought-leadership/articles"],
   });

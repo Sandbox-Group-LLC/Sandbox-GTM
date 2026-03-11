@@ -1,3 +1,4 @@
+import { useHubSpot } from "@/hooks/useHubSpot";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -69,6 +70,7 @@ const targetAudience = [
 ];
 
 export default function Pricing() {
+  useHubSpot();
   return (
     <div className="dark min-h-screen bg-background">
       <MarketingHeader currentPage="pricing" />

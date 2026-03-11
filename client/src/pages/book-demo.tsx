@@ -1,8 +1,10 @@
+import { useHubSpot } from "@/hooks/useHubSpot";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { MarketingHeader } from "@/components/marketing-header";
 
 export default function BookDemo() {
+  useHubSpot();
   return (
     <div className="dark min-h-screen bg-background">
       <MarketingHeader currentPage="book-demo" />

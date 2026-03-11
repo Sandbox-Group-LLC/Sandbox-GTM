@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useHubSpot } from "@/hooks/useHubSpot";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Target, BarChart3, Users, Zap, Link2, ArrowRight, TrendingUp, Layers, DollarSign, Send, Hotel, CheckCircle2, XCircle, Volume2, VolumeX } from "lucide-react";
@@ -71,6 +72,7 @@ const useCases = [
 ];
 
 export default function Landing() {
+  useHubSpot();
   const [isMuted, setIsMuted] = useState(true);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
