@@ -74,18 +74,12 @@ const useCases = [
 export default function Landing() {
   useHubSpot();
   const [isMuted, setIsMuted] = useState(true);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    let mounted = true;
-    fetch("/api/public/promo-video-url")
-      .then((r) => r.json())
-      .then((data) => {
-        if (mounted && data.url) setVideoUrl(data.url);
-      })
-      .catch(() => {});
-    return () => { mounted = false; };
+    if (videoRef.current) {
+      videoRef.current.play().catch(() => {});
+    }
   }, []);
 
   const toggleMute = () => {
@@ -127,19 +121,17 @@ export default function Landing() {
             </div>
 
             <div className="relative mt-12 mx-auto max-w-3xl rounded-xl overflow-hidden border border-border shadow-2xl aspect-video bg-black" data-testid="promo-video-container">
-              {videoUrl && (
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  preload="auto"
-                  className="w-full h-full object-cover"
-                  data-testid="promo-video"
-                  src={videoUrl}
-                />
-              )}
+              <video
+                ref={videoRef}
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="auto"
+                className="w-full h-full object-cover"
+                data-testid="promo-video"
+                src="/Sandbox%20Promo.mp4"
+              />
               <Button
                 variant="secondary"
                 size="sm"
