@@ -1,0 +1,199 @@
+{
+  "project_name": "Sandbox-GTM Launch and Positioning",
+  "project_description": "Strategic positioning, content creation, and narrative development for launching Sandbox-GTM as a go-to-market platform focused on event-driven pipeline and revenue impact.",
+  "domain_knowledge": [
+    "Sandbox-GTM positions events as a first-class go-to-market channel rather than a logistics exercise.",
+    "Traditional event platforms primarily measure attendance and registration metrics rather than downstream GTM impact.",
+    "Sandbox-GTM focuses on analytics such as acquisition health, engagement signals, and revenue impact tied to events.",
+    "The platform philosophy is that events should connect directly to pipeline, sales follow-up, and revenue attribution.",
+    "Enterprise event marketing teams struggle to prove ROI from events because systems are fragmented across event platforms, CRM, and post-event workflows.",
+    "AI features in event platforms typically optimize tasks inside the platform but do not solve cross-functional GTM coordination issues.",
+    "Event-led growth requires alignment between marketing, sales, and operations systems.",
+    "Sandbox-GTM\u2019s narrative emphasizes what happens during and after events rather than just getting people to attend.",
+    "Forge by Sandbox is the product engineering arm building software products related to event infrastructure.",
+    "Event Connect is the first Forge by Sandbox product and provides branded kiosk check-in stations syncing attendee data with HubSpot or Google Sheets in real time."
+  ],
+  "decisions_made": [
+    {
+      "decision": "Position Sandbox-GTM as a GTM intelligence layer for events rather than a logistics platform.",
+      "rationale": "The core differentiation is proving pipeline and revenue impact rather than managing registration and attendance."
+    },
+    {
+      "decision": "Launch Sandbox-GTM publicly through a founder-led LinkedIn announcement.",
+      "rationale": "Founder narrative creates authenticity and positions the company as a category challenger."
+    },
+    {
+      "decision": "Use editorial, sophisticated photography for visual branding rather than illustrations or cartoon-style imagery.",
+      "rationale": "The brand aesthetic aims to feel premium, strategic, and enterprise-ready."
+    },
+    {
+      "decision": "Anchor messaging around questions event teams actually need answered: engagement, outcomes, and revenue.",
+      "rationale": "This framing highlights the limitations of traditional event platform analytics."
+    },
+    {
+      "decision": "Keep mentions of Sandbox in industry commentary minimal and contextual rather than overtly promotional.",
+      "rationale": "Thought leadership should feel credible and not sales-driven."
+    },
+    {
+      "decision": "Build credibility through industry influencers and thought leadership collaboration.",
+      "rationale": "Industry validation accelerates trust and distribution in the event tech ecosystem."
+    }
+  ],
+  "preferences": [
+    {
+      "key": "visual_style",
+      "value": "Editorial, sophisticated, human photography with moody professional lighting"
+    },
+    {
+      "key": "brand_tone",
+      "value": "Founder-led, strategic, confident, and industry-challenging"
+    },
+    {
+      "key": "messaging_style",
+      "value": "Minimal promotion, strong insight-led thought leadership"
+    },
+    {
+      "key": "design_aesthetic",
+      "value": "Clean, modern, enterprise-grade visuals aligned with a premium SaaS feel"
+    },
+    {
+      "key": "content_format",
+      "value": "Short, punchy founder posts and thought leadership commentary"
+    }
+  ],
+  "patterns_that_worked": [
+    "Framing industry problems through questions event teams actually care about.",
+    "Contrasting traditional event platform metrics with GTM impact metrics.",
+    "Using founder voice posts on LinkedIn to establish thought leadership.",
+    "Combining strategic commentary with minimal references to Sandbox as the solution.",
+    "Creating editorial-style imagery that reflects strategy sessions rather than live event environments."
+  ],
+  "mistakes_to_avoid": [
+    "Positioning Sandbox as an add-on to traditional registration platforms.",
+    "Using cartoonish or illustrative imagery for brand visuals.",
+    "Overtly selling the platform in thought leadership content.",
+    "Including onsite event environments when visuals are meant to represent strategic planning.",
+    "Messaging that focuses only on event logistics instead of GTM impact."
+  ],
+  "current_state": "Sandbox-GTM is fully live in production at sandbox-gtm.com. The app is deployed on Render with Clerk production auth, Neon PostgreSQL, and full super admin access confirmed. The public narrative and thought leadership positioning is underway with founder-led LinkedIn posts, a teaser video, and an article titled 'Event Platform Analytics vs. GTM: Which Is Better?'. Early ecosystem relationships are forming. The platform is now ready to onboard users via invite codes.",
+  "next_steps": [
+    "Publish and promote the article 'Event Platform Analytics vs. GTM: Which Is Better?' with a refined editorial hero image.",
+    "Develop additional thought leadership posts reinforcing the GTM narrative around events.",
+    "Explore a joint thought leadership opportunity with Intel around event-led pipeline growth.",
+    "Engage with the event tech founder community for partnerships and introductions.",
+    "Schedule a product walkthrough with key industry influencers."
+  ],
+  "open_questions": [
+    "How Sandbox-GTM will formally package and price its platform offering.",
+    "Whether Intel will participate in a public thought leadership collaboration.",
+    "What distribution channels beyond LinkedIn will be used to scale the Sandbox-GTM narrative.",
+    "How the product roadmap will evolve beyond analytics and attribution capabilities.",
+    "How Forge by Sandbox products like Event Connect will integrate into the broader Sandbox-GTM ecosystem."
+  ],
+  "engineering_state": {
+    "last_updated": "2026-03-10",
+    "summary": "Sandbox-GTM app is fully deployed to production at sandbox-gtm.com via Render. Clerk production auth is live. Super admin (brian@makemysandbox.com) confirmed working. Drizzle schema synced to Neon. GitHub repo up to date on main.",
+    "repo": "https://github.com/Sandbox-Group-LLC/Sandbox-GTM",
+    "app_path": "/Users/brianmorgan/Documents/Sandbox-GTM/app/",
+    "stack": "React + Vite (client), Express + TypeScript (server), Drizzle ORM + Neon PostgreSQL, Clerk auth, Wouter routing, Radix UI + Tailwind",
+    "production": {
+      "url": "https://sandbox-gtm.com",
+      "host": "Render",
+      "build_command": "npm install --include=dev && npm run build",
+      "start_command": "npm start",
+      "node_version": "20 (enforced via .node-version file in repo)",
+      "notes": [
+        "VITE_CLERK_PUBLISHABLE_KEY must be set in Render env vars — it is baked into the frontend bundle at build time",
+        "Clear Render build cache if packages seem missing after adding new dependencies",
+        "Clerk production instance locked to sandbox-gtm.com domain — onrender.com URL will not work with production keys"
+      ]
+    },
+    "auth_migration": {
+      "from": "Replit Auth (openid-client + passport)",
+      "to": "Clerk (@clerk/react v6 frontend, @clerk/express v2 backend)",
+      "status": "complete and live in production",
+      "key_files": {
+        "server/clerkAuth.ts": "New auth file — clerkMiddleware, isAuthenticated middleware, lazy user upsert from Clerk API.",
+        "client/src/main.tsx": "Wrapped with ClerkProvider using VITE_CLERK_PUBLISHABLE_KEY",
+        "client/src/App.tsx": "ClerkTokenSync component registers getToken getter for all API requests. Sign-in/sign-up routes use simple paths (not wildcards).",
+        "client/src/hooks/useAuth.ts": "Gates /api/auth/user query on clerkLoaded && isSignedIn from useClerkAuth(). isAuthenticated = clerkLoaded && isSignedIn && !!user.",
+        "client/src/lib/queryClient.ts": "Injects Clerk JWT as Authorization: Bearer header on all API requests via clerkTokenGetter module variable.",
+        "client/src/pages/sign-in.tsx": "Clerk SignIn with routing=hash (NOT routing=path — causes Wouter sub-path conflicts)",
+        "client/src/pages/sign-up.tsx": "Clerk SignUp with routing=hash (NOT routing=path — causes Wouter sub-path conflicts)",
+        "vite.config.ts": "resolve.alias points @clerk/react directly to node_modules/@clerk/react/dist/index.mjs to fix Render resolution. optimizeDeps includes @clerk/react.",
+        "server/replitAuth.ts": "Deleted"
+      },
+      "critical_gotchas": [
+        "Use routing=hash on Clerk components — routing=path navigates to sub-paths like /sign-up/verify-email-address that Wouter cannot match, causing immediate redirect to Landing",
+        "Clerk JWT must be sent as Authorization: Bearer header — cookie-based auth alone is unreliable with @clerk/express v2",
+        "Super admin check is email domain based: any @makemysandbox.com email gets super admin automatically (routes.ts:44)"
+      ]
+    },
+    "env_setup": {
+      "file": ".env in project root (gitignored)",
+      "vars_required": [
+        "PORT=3001",
+        "CLERK_PUBLISHABLE_KEY (server-side)",
+        "VITE_CLERK_PUBLISHABLE_KEY (frontend — baked in at build time)",
+        "CLERK_SECRET_KEY",
+        "SESSION_SECRET",
+        "DATABASE_URL"
+      ],
+      "reference_file": "Sandbox-GTM.env.txt (not committed)"
+    },
+    "local_dev": {
+      "command": "npm run dev",
+      "url": "http://localhost:3001",
+      "notes": [
+        "Port 5000 blocked on macOS by AirPlay Receiver — always use PORT=3001",
+        "reusePort removed from httpServer.listen (ENOTSUP on macOS)",
+        "OpenAI client is lazy-initialized via getOpenAI() — no crash if key missing",
+        "Local dev uses Clerk test keys; production uses live keys"
+      ]
+    },
+    "cta_architecture": {
+      "sign_in_button": "Top-right nav (desktop + mobile) → /sign-in → Clerk auth",
+      "request_access_landing": "Hero + footer CTA → LeadFormDialog (HubSpot lead gen — intentional)",
+      "request_access_pricing": "Pricing page → /signup → invite code redemption page"
+    },
+    "clerk_account": {
+      "tier": "Pro",
+      "production_domain": "sandbox-gtm.com",
+      "cname_required": "clerk.sandbox-gtm.com",
+      "mode": "production live keys active",
+      "sign_in_url": "/sign-in",
+      "sign_up_url": "/sign-up",
+      "after_sign_in_redirect": "/"
+    }
+  },
+  "key_terminology": [
+    {
+      "term": "Sandbox-GTM",
+      "definition": "A platform and strategic framework focused on connecting events directly to go-to-market pipeline and revenue outcomes."
+    },
+    {
+      "term": "Event-Led GTM",
+      "definition": "A strategy where events act as a primary driver of pipeline, engagement, and revenue within a company's go-to-market motion."
+    },
+    {
+      "term": "Acquisition Health",
+      "definition": "Metrics that evaluate how effectively events attract and engage target buyers."
+    },
+    {
+      "term": "Engagement Signals",
+      "definition": "Behavioral data from event participation that indicates buyer interest and intent."
+    },
+    {
+      "term": "Revenue Impact",
+      "definition": "The measurable pipeline and revenue outcomes attributable to event activity."
+    },
+    {
+      "term": "Forge by Sandbox",
+      "definition": "The product engineering arm responsible for building software products related to event infrastructure."
+    },
+    {
+      "term": "Event Connect",
+      "definition": "A Forge by Sandbox product that provides branded kiosk-based event check-in stations integrated with HubSpot or Google Sheets."
+    }
+  ]
+}
