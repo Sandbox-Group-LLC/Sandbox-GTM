@@ -10,6 +10,7 @@ import MomentsAdmin from "./pages/moments";
 import MomentLive from "./pages/moment-live";
 import DemoStations from "./pages/demo-stations";
 import MeetingsPage from "./pages/meetings";
+import LeadsPage from "./pages/leads";
 import NotFound from "./pages/not-found";
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -21,13 +22,9 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
         <div style={{ padding: 32, fontFamily: "monospace" }}>
           <h2 style={{ color: "red" }}>Runtime Error</h2>
           <pre style={{ background: "#f5f5f5", padding: 16, borderRadius: 8, overflow: "auto" }}>
-            {(this.state.error as Error).message}
-            {"\n\n"}
-            {(this.state.error as Error).stack}
+            {(this.state.error as Error).message}{"\n\n"}{(this.state.error as Error).stack}
           </pre>
-          <button onClick={() => this.setState({ error: null })} style={{ marginTop: 16, padding: "8px 16px" }}>
-            Retry
-          </button>
+          <button onClick={() => this.setState({ error: null })} style={{ marginTop: 16, padding: "8px 16px" }}>Retry</button>
         </div>
       );
     }
@@ -48,6 +45,7 @@ export default function App() {
             <Route path="/moment/:momentId" component={MomentLive} />
             <Route path="/stations" component={DemoStations} />
             <Route path="/meetings" component={MeetingsPage} />
+            <Route path="/leads" component={LeadsPage} />
             <Route component={NotFound} />
           </Switch>
         </div>
