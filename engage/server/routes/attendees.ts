@@ -1,35 +1,56 @@
 import { Router, Request, Response } from "express";
 import { db } from "../db.js";
-import { attendees, events, platformConnections } from "../../shared/schema.js";
-import { eq, and, or, ilike } from "drizzle-orm";
-import { createAdapter } from "../integrations/adapter-factory.js";
-import type { AdapterType } from "../integrations/adapter-factory.js";
-import type { RainfocusAdapter } from "../integrations/rainfocus.js";
+import { orgAttendees, eventAttendees } from "../../shared/schema.js";
+import { eq, or, ilike, and } from "drizzle-orm";
 
 type EP = { eventId: string };
 const router = Router({ mergeParams: true });
 
+// GET /api/events/:eventId/attendees
 router.get("/", async (req: Request<EP>, res: Response) => {
   try {
     const { eventId } = req.params;
-    const { search, limit = "200", offset = "0" } = req.query as Record<string, string>;
+    const { q } = req.query as { q?: string };
 
-    const rows = await db.select().from(attendees)
+    const rows = await db
+      .select({
+        id: eventAttendees.id,
+        eventId: eventAttendees.eventId,
+        orgAttendeeId: eventAttendees.orgAttendeeId,
+        externalId: eventAttendees.externalId,
+        badgeCode: eventAttendees.badgeCode,
+        registrationType: eventAttendees.registrationType,
+        registrationStatus: eventAttendees.registrationStatus,
+        checkedIn: eventAttendees.checkedIn,
+        checkInTime: eventAttendees.checkInTime,
+        eventIntentStatus: eventAttendees.eventIntentStatus,
+        eventMomentumScore: eventAttendees.eventMomentumScore,
+        eventSalesReady: eventAttendees.eventSalesReady,
+        eventIntentNarrative: eventAttendees.eventIntentNarrative,
+        // PII from org_attendees
+        firstName: orgAttendees.firstName,
+        lastName: orgAttendees.lastName,
+        email: orgAttendees.email,
+        company: orgAttendees.company,
+        jobTitle: orgAttendees.jobTitle,
+        phone: orgAttendees.phone,
+      })
+      .from(eventAttendees)
+      .innerJoin(orgAttendees, eq(eventAttendees.orgAttendeeId, orgAttendees.id))
       .where(
-        search
+        q
           ? and(
-              eq(attendees.eventId, eventId),
+              eq(eventAttendees.eventId, eventId),
               or(
-                ilike(attendees.firstName, `%${search}%`),
-                ilike(attendees.lastName, `%${search}%`),
-                ilike(attendees.email, `%${search}%`),
-                ilike(attendees.badgeCode, `%${search}%`)
+                ilike(orgAttendees.firstName, `%${q}%`),
+                ilike(orgAttendees.lastName, `%${q}%`),
+                ilike(orgAttendees.email, `%${q}%`),
+                ilike(eventAttendees.badgeCode, `%${q}%`),
+                ilike(orgAttendees.company, `%${q}%`)
               )
             )
-          : eq(attendees.eventId, eventId)
-      )
-      .limit(parseInt(limit))
-      .offset(parseInt(offset));
+          : eq(eventAttendees.eventId, eventId)
+      );
 
     res.json(rows);
   } catch (err: any) {
@@ -37,149 +58,44 @@ router.get("/", async (req: Request<EP>, res: Response) => {
   }
 });
 
-router.post("/sync", async (req: Request<EP>, res: Response) => {
+// GET /api/events/:eventId/attendees/:id
+router.get("/:id", async (req: Request<EP & { id: string }>, res: Response) => {
   try {
-    const { eventId } = req.params;
-    const { incremental = false } = req.body as { incremental?: boolean };
-
     const [row] = await db
-      .select({ event: events, conn: platformConnections })
-      .from(events)
-      .innerJoin(platformConnections, eq(events.connectionId, platformConnections.id))
-      .where(eq(events.id, eventId));
+      .select({
+        id: eventAttendees.id,
+        eventId: eventAttendees.eventId,
+        orgAttendeeId: eventAttendees.orgAttendeeId,
+        badgeCode: eventAttendees.badgeCode,
+        registrationStatus: eventAttendees.registrationStatus,
+        checkedIn: eventAttendees.checkedIn,
+        checkInTime: eventAttendees.checkInTime,
+        eventIntentStatus: eventAttendees.eventIntentStatus,
+        eventMomentumScore: eventAttendees.eventMomentumScore,
+        eventIntentNarrative: eventAttendees.eventIntentNarrative,
+        firstName: orgAttendees.firstName,
+        lastName: orgAttendees.lastName,
+        email: orgAttendees.email,
+        company: orgAttendees.company,
+        jobTitle: orgAttendees.jobTitle,
+        phone: orgAttendees.phone,
+        lifetimeIntentStatus: orgAttendees.lifetimeIntentStatus,
+        lifetimeMomentumScore: orgAttendees.lifetimeMomentumScore,
+      })
+      .from(eventAttendees)
+      .innerJoin(orgAttendees, eq(eventAttendees.orgAttendeeId, orgAttendees.id))
+      .where(eq(eventAttendees.id, req.params.id));
 
-    if (!row) return res.status(404).json({ error: "Event not found" });
-
-    const { event, conn } = row;
-    const adapter = createAdapter(conn.adapter as AdapterType, {
-      apiUrl: conn.apiUrl || undefined,
-      apiKey: conn.apiKey || "",
-      profileId: conn.profileId || undefined,
-      extra: (conn.configJson as Record<string, string>) || undefined,
-    });
-
-    let externalAttendees;
-    let nextTimestamp: string | undefined;
-
-    if (incremental && conn.adapter === "rainfocus") {
-      const rfAdapter = adapter as RainfocusAdapter;
-      const sinceTimestamp = (event.metaJson as any)?.rfSyncTimestamp;
-      const result = await rfAdapter.getAttendeesIncremental(event.externalId, sinceTimestamp);
-      externalAttendees = result.attendees;
-      nextTimestamp = result.nextTimestamp;
-    } else {
-      externalAttendees = await adapter.getAttendees(event.externalId);
-    }
-
-    let upserted = 0;
-    for (const ext of externalAttendees) {
-      if (!ext.externalId) continue;
-      await db.insert(attendees).values({
-        eventId,
-        externalId: ext.externalId,
-        firstName: ext.firstName,
-        lastName: ext.lastName,
-        email: ext.email,
-        company: ext.company,
-        jobTitle: ext.jobTitle,
-        phone: ext.phone,
-        badgeCode: ext.badgeCode,
-        registrationType: ext.registrationType,
-        registrationStatus: ext.registrationStatus,
-        metaJson: ext.meta,
-        lastSyncedAt: new Date(),
-      }).onConflictDoUpdate({
-        target: [attendees.eventId, attendees.externalId],
-        set: {
-          firstName: ext.firstName,
-          lastName: ext.lastName,
-          email: ext.email,
-          company: ext.company,
-          jobTitle: ext.jobTitle,
-          phone: ext.phone,
-          badgeCode: ext.badgeCode,
-          registrationType: ext.registrationType,
-          registrationStatus: ext.registrationStatus,
-          metaJson: ext.meta,
-          lastSyncedAt: new Date(),
-          updatedAt: new Date(),
-        },
-      });
-      upserted++;
-    }
-
-    const updatedMeta = {
-      ...((event.metaJson as Record<string, unknown>) || {}),
-      ...(nextTimestamp ? { rfSyncTimestamp: nextTimestamp } : {}),
-    };
-
-    await db.update(events)
-      .set({ lastSyncedAt: new Date(), metaJson: updatedMeta })
-      .where(eq(events.id, eventId));
-
-    res.json({ synced: upserted, incremental, nextTimestamp });
+    if (!row) return res.status(404).json({ error: "Attendee not found" });
+    res.json(row);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-router.get("/lookup", async (req: Request<EP>, res: Response) => {
-  try {
-    const { eventId } = req.params;
-    const { badgeCode, email } = req.query as Record<string, string>;
-
-    if (!badgeCode && !email) {
-      return res.status(400).json({ error: "Provide badgeCode or email" });
-    }
-
-    const conditions: any[] = [eq(attendees.eventId, eventId)];
-    if (badgeCode) conditions.push(eq(attendees.badgeCode, badgeCode));
-    else if (email) conditions.push(ilike(attendees.email, email));
-
-    const [local] = await db.select().from(attendees).where(and(...conditions));
-    if (local) return res.json(local);
-
-    const [row] = await db
-      .select({ event: events, conn: platformConnections })
-      .from(events)
-      .innerJoin(platformConnections, eq(events.connectionId, platformConnections.id))
-      .where(eq(events.id, eventId));
-
-    if (!row) return res.status(404).json({ error: "Event not found" });
-
-    const { event, conn } = row;
-    const adapter = createAdapter(conn.adapter as AdapterType, {
-      apiUrl: conn.apiUrl || undefined,
-      apiKey: conn.apiKey || "",
-      profileId: conn.profileId || undefined,
-    });
-
-    const ext = await adapter.lookupAttendee(event.externalId, { badgeCode, email });
-    if (!ext) return res.status(404).json({ error: "Attendee not found" });
-
-    const [upserted] = await db.insert(attendees).values({
-      eventId,
-      externalId: ext.externalId,
-      firstName: ext.firstName,
-      lastName: ext.lastName,
-      email: ext.email,
-      company: ext.company,
-      jobTitle: ext.jobTitle,
-      phone: ext.phone,
-      badgeCode: ext.badgeCode,
-      registrationType: ext.registrationType,
-      registrationStatus: ext.registrationStatus,
-      metaJson: ext.meta,
-      lastSyncedAt: new Date(),
-    }).onConflictDoUpdate({
-      target: [attendees.eventId, attendees.externalId],
-      set: { lastSyncedAt: new Date(), updatedAt: new Date() },
-    }).returning();
-
-    res.json(upserted);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+// POST /api/events/:eventId/attendees/sync  (trigger sync from adapter)
+router.post("/sync", async (req: Request<EP>, res: Response) => {
+  res.json({ message: "Sync triggered — connect platform and run sync from the Connect page." });
 });
 
 export default router;
