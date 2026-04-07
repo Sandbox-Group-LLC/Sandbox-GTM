@@ -403,6 +403,7 @@ export const appUsers = pgTable("app_users", {
   eventId: varchar("event_id").references(() => events.id),                // scoped to event
   stationId: varchar("station_id").references(() => demoStations.id),      // null = meetings-only staff
   sponsorCompany: varchar("sponsor_company", { length: 255 }),             // sponsor_admin only
+  passwordHash: varchar("password_hash", { length: 255 }),
   isActive: boolean("is_active").default(true),
   lastLoginAt: timestamp("last_login_at"),
   createdAt: timestamp("created_at").defaultNow(),
