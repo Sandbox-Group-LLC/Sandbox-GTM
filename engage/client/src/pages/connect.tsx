@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link } from "wouter";
+import { AppHeader } from "./dashboard";
 import { queryClient, apiRequest, fetchJSON } from "../lib/queryClient";
 import { useToast } from "../hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
@@ -149,16 +150,7 @@ export default function Connect() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <header className="border-b px-6 py-4 flex items-center gap-4">
-        <Link href="/"><Button variant="ghost" size="sm"><ArrowLeft className="h-4 w-4 mr-1" />Back</Button></Link>
-        <div className="flex-1">
-          <h1 className="text-lg font-semibold">Platform Connection</h1>
-          <p className="text-xs text-muted-foreground">Connect Engage to your event registration platform</p>
-        </div>
-        {!createOpen && (
-          <Button size="sm" onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4 mr-2" />Add Connection</Button>
-        )}
-      </header>
+      <AppHeader />
 
       <main className="flex-1 p-6 max-w-3xl mx-auto w-full space-y-6">
 
