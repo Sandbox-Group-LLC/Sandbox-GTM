@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -10,6 +11,7 @@ type Mode = "signin" | "signup";
 
 export default function Login() {
   const [, navigate] = useLocation();
+  const queryClient = useQueryClient();
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,28 +26,23 @@ export default function Login() {
 
     try {
       const endpoint = mode === "signup" ? "/api/auth/signup" : "/api/auth/login";
-      const body: any = { email, password };
+      const body: Record<string, string> = { email, password };
       if (mode === "signup" && name) body.name = name;
 
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include", // sends + receives httpOnly cookies
         body: JSON.stringify(body),
       });
 
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Authentication failed");
 
-      if (!res.ok) {
-        throw new Error(data.error || "Authentication failed");
-      }
+      // Invalidate the /me cache so AuthGuard picks up the new session
+      await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
 
-      // Store token + user
-      localStorage.setItem("engage_token", data.token);
-      localStorage.setItem("engage_user", JSON.stringify(data.user));
-
-      // Route by role
       navigate(data.user.role === "staff" ? "/check-in" : "/");
-
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -68,61 +65,38 @@ export default function Login() {
 
         <Card>
           <CardContent className="pt-6">
-            {/* Mode toggle */}
             <div className="flex rounded-lg border p-1 gap-1 mb-5">
-              <button
-                onClick={() => { setMode("signin"); setError(""); }}
-                className={`flex-1 text-sm py-1.5 rounded-md transition-colors font-medium
-                  ${mode === "signin" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-              >
-                Sign In
-              </button>
-              <button
-                onClick={() => { setMode("signup"); setError(""); }}
-                className={`flex-1 text-sm py-1.5 rounded-md transition-colors font-medium
-                  ${mode === "signup" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-              >
-                Sign Up
-              </button>
+              {(["signin", "signup"] as Mode[]).map(m => (
+                <button
+                  key={m}
+                  onClick={() => { setMode(m); setError(""); }}
+                  className={`flex-1 text-sm py-1.5 rounded-md transition-colors font-medium
+                    ${mode === m ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  {m === "signin" ? "Sign In" : "Sign Up"}
+                </button>
+              ))}
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               {mode === "signup" && (
                 <div className="space-y-2">
                   <Label htmlFor="name">Name</Label>
-                  <Input
-                    id="name"
-                    type="text"
-                    placeholder="Your name"
-                    value={name}
-                    onChange={e => setName(e.target.value)}
-                    autoComplete="name"
-                  />
+                  <Input id="name" type="text" placeholder="Your name"
+                    value={name} onChange={e => setName(e.target.value)} autoComplete="name" />
                 </div>
               )}
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@company.com"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  required
-                  autoComplete="email"
-                />
+                <Input id="email" type="email" placeholder="you@company.com"
+                  value={email} onChange={e => setEmail(e.target.value)}
+                  required autoComplete="email" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  required
-                  autoComplete={mode === "signup" ? "new-password" : "current-password"}
-                />
+                <Input id="password" type="password" placeholder="••••••••"
+                  value={password} onChange={e => setPassword(e.target.value)}
+                  required autoComplete={mode === "signup" ? "new-password" : "current-password"} />
                 {mode === "signup" && (
                   <p className="text-xs text-muted-foreground">Minimum 8 characters</p>
                 )}
