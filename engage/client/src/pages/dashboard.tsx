@@ -11,6 +11,7 @@ import {
   Menu, X, Plug,
 } from "lucide-react";
 import { apiRequest, fetchJSON } from "../lib/queryClient";
+import { useActiveEvent } from "../hooks/use-active-event";
 import { useToast } from "../hooks/use-toast";
 
 const NAV_LINKS = [
@@ -22,6 +23,17 @@ const NAV_LINKS = [
   { href: "/connect",   label: "Connect" },
 ];
 
+function EventBadge() {
+  const { eventName, hasEvent } = useActiveEvent();
+  if (!hasEvent) return <p className="text-xs text-muted-foreground">Event Engagement Platform</p>;
+  return (
+    <div className="flex items-center gap-1.5">
+      <div className="h-1.5 w-1.5 rounded-full bg-green-500" />
+      <p className="text-xs text-muted-foreground truncate max-w-[180px]">{eventName}</p>
+    </div>
+  );
+}
+
 export function AppHeader() {
   const [open, setOpen] = useState(false);
   const [location] = useLocation();
@@ -32,7 +44,7 @@ export function AppHeader() {
         <Link href="/">
           <div className="cursor-pointer">
             <h1 className="text-lg font-semibold tracking-tight leading-none">Engage</h1>
-            <p className="text-xs text-muted-foreground">Event Engagement Platform</p>
+            <EventBadge />
           </div>
         </Link>
 
