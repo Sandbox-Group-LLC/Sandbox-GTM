@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link } from "wouter";
+import { AppHeader } from "./dashboard";
 import { queryClient, apiRequest, fetchJSON } from "../lib/queryClient";
 import { useToast } from "../hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
@@ -254,19 +255,7 @@ export default function CheckIn() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <header className="border-b px-6 py-4 flex items-center gap-4">
-        <Link href="/"><Button variant="ghost" size="sm"><ArrowLeft className="h-4 w-4 mr-1" />Back</Button></Link>
-        <div className="flex-1">
-          <h1 className="text-lg font-semibold">Engagement Capture</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <Select value={selectedEventId} onValueChange={setSelectedEventId}>
-            <SelectTrigger className="w-[200px]"><SelectValue placeholder="Select event" /></SelectTrigger>
-            <SelectContent>{events.map((e: any) => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}</SelectContent>
-          </Select>
-          {mode === "lead" && <Button size="icon" onClick={openManualLead}><UserPlus className="h-4 w-4" /></Button>}
-        </div>
-      </header>
+      <AppHeader />
 
       <main className="flex-1 p-6 max-w-5xl mx-auto w-full space-y-6">
         <Tabs value={mode} onValueChange={v => setMode(v as Mode)}>
