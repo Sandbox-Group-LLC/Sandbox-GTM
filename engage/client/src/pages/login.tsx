@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
 import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -9,7 +8,6 @@ import { Zap, Loader2 } from "lucide-react";
 type Mode = "signin" | "signup";
 
 export default function Login() {
-  const [, navigate] = useLocation();
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -38,10 +36,10 @@ export default function Login() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Authentication failed");
 
-      // Cookies are set by the server (httpOnly) — we only store non-sensitive user profile
+      // Cookies are set server-side (httpOnly). Store non-sensitive profile
+      // then force a full reload so AuthGuard re-initializes with fresh state.
       sessionStorage.setItem("engage_user", JSON.stringify(data.user));
-
-      navigate(data.user.role === "staff" ? "/check-in" : "/");
+      window.location.href = data.user.role === "staff" ? "/check-in" : "/";
 
     } catch (err: any) {
       setError(err.message);
