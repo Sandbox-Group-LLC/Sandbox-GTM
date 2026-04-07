@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -11,7 +10,6 @@ type Mode = "signin" | "signup";
 
 export default function Login() {
   const [, navigate] = useLocation();
-  const queryClient = useQueryClient();
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,20 +27,22 @@ export default function Login() {
       const body: Record<string, string> = { email, password };
       if (mode === "signup" && name) body.name = name;
 
+      // credentials: "include" ensures cookies are sent/received
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include", // sends + receives httpOnly cookies
+        credentials: "include",
         body: JSON.stringify(body),
       });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Authentication failed");
 
-      // Invalidate the /me cache so AuthGuard picks up the new session
-      await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      // Cookies are set by the server (httpOnly) — we only store non-sensitive user profile
+      sessionStorage.setItem("engage_user", JSON.stringify(data.user));
 
       navigate(data.user.role === "staff" ? "/check-in" : "/");
+
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -66,16 +66,20 @@ export default function Login() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex rounded-lg border p-1 gap-1 mb-5">
-              {(["signin", "signup"] as Mode[]).map(m => (
-                <button
-                  key={m}
-                  onClick={() => { setMode(m); setError(""); }}
-                  className={`flex-1 text-sm py-1.5 rounded-md transition-colors font-medium
-                    ${mode === m ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-                >
-                  {m === "signin" ? "Sign In" : "Sign Up"}
-                </button>
-              ))}
+              <button
+                onClick={() => { setMode("signin"); setError(""); }}
+                className={`flex-1 text-sm py-1.5 rounded-md transition-colors font-medium
+                  ${mode === "signin" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                Sign In
+              </button>
+              <button
+                onClick={() => { setMode("signup"); setError(""); }}
+                className={`flex-1 text-sm py-1.5 rounded-md transition-colors font-medium
+                  ${mode === "signup" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                Sign Up
+              </button>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -109,8 +113,7 @@ export default function Login() {
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading
                   ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Please wait...</>
-                  : mode === "signin" ? "Sign In" : "Create Account"
-                }
+                  : mode === "signin" ? "Sign In" : "Create Account"}
               </Button>
             </form>
           </CardContent>
