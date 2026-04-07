@@ -85,13 +85,14 @@ async function verifyEdDSAJWT(token: string): Promise<Record<string, unknown> | 
   try {
     const keyData = base64urlDecode(jwk.x);
     const cryptoKey = await crypto.subtle.importKey(
-      "raw", keyData, { name: "Ed25519" }, false, ["verify"]
+      "raw", keyData.buffer.slice(keyData.byteOffset, keyData.byteOffset + keyData.byteLength) as ArrayBuffer, { name: "Ed25519" }, false, ["verify"]
     );
 
     const message = new TextEncoder().encode(`${headerB64}.${payloadB64}`);
     const signature = base64urlDecode(sigB64);
 
-    const valid = await crypto.subtle.verify("Ed25519", cryptoKey, signature, message);
+    const sigBuffer = signature.buffer.slice(signature.byteOffset, signature.byteOffset + signature.byteLength) as ArrayBuffer;
+    const valid = await crypto.subtle.verify("Ed25519", cryptoKey, sigBuffer, message);
     if (!valid) return null;
 
     const payload = JSON.parse(atob(payloadB64.replace(/-/g, "+").replace(/_/g, "/")));
