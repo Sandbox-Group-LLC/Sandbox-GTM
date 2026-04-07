@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link } from "wouter";
-import { queryClient, apiRequest } from "../lib/queryClient";
+import { queryClient, apiRequest, fetchJSON } from "../lib/queryClient";
 import { useToast } from "../hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -108,7 +108,7 @@ export default function CheckIn() {
 
   const { data: events = [] } = useQuery<any[]>({
     queryKey: ["/api/events"],
-    queryFn: () => fetch("/api/events", { credentials: "include" }).then(r => r.json()),
+    queryFn: () => fetchJSON("/api/events"),
   });
 
   useEffect(() => {
@@ -117,32 +117,32 @@ export default function CheckIn() {
 
   const { data: checkinStats } = useQuery<any>({
     queryKey: ["/api/checkin-stats", selectedEventId, "program"],
-    queryFn: () => fetch(`/api/events/${selectedEventId}/checkin/stats?mode=program`, { credentials: "include" }).then(r => r.json()),
+    queryFn: () => fetchJSON(`/api/events/${selectedEventId}/checkin/stats?mode=program`),
     enabled: mode === "program" && !!selectedEventId,
   });
   const { data: sessionStats } = useQuery<any>({
     queryKey: ["/api/checkin-stats", selectedEventId, "session"],
-    queryFn: () => fetch(`/api/events/${selectedEventId}/checkin/stats?mode=session`, { credentials: "include" }).then(r => r.json()),
+    queryFn: () => fetchJSON(`/api/events/${selectedEventId}/checkin/stats?mode=session`),
     enabled: mode === "session" && !!selectedEventId,
   });
   const { data: leadStats } = useQuery<any>({
     queryKey: ["/api/interaction-stats", selectedEventId],
-    queryFn: () => fetch(`/api/events/${selectedEventId}/interactions/stats`, { credentials: "include" }).then(r => r.json()),
+    queryFn: () => fetchJSON(`/api/events/${selectedEventId}/interactions/stats`),
     enabled: mode === "lead" && !!selectedEventId,
   });
   const { data: sessions = [] } = useQuery<any[]>({
     queryKey: ["/api/sessions", selectedEventId],
-    queryFn: () => fetch(`/api/events/${selectedEventId}/sessions`, { credentials: "include" }).then(r => r.json()),
+    queryFn: () => fetchJSON(`/api/events/${selectedEventId}/sessions`),
     enabled: mode === "session" && !!selectedEventId,
   });
   const { data: attendees = [], isLoading: attendeesLoading } = useQuery<any[]>({
     queryKey: ["/api/attendees", selectedEventId],
-    queryFn: () => fetch(`/api/events/${selectedEventId}/attendees`, { credentials: "include" }).then(r => r.json()),
+    queryFn: () => fetchJSON(`/api/events/${selectedEventId}/attendees`),
     enabled: !!selectedEventId,
   });
   const { data: stations = [] } = useQuery<any[]>({
     queryKey: ["/api/stations", selectedEventId],
-    queryFn: () => fetch(`/api/events/${selectedEventId}/stations`, { credentials: "include" }).then(r => r.json()),
+    queryFn: () => fetchJSON(`/api/events/${selectedEventId}/stations`),
     enabled: mode === "lead" && !!selectedEventId,
   });
 
