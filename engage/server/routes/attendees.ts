@@ -1,12 +1,4 @@
-/**
- * Attendees routes
- *
- * GET  /api/events/:eventId/attendees             list from local mirror (search + filter)
- * POST /api/events/:eventId/attendees/sync        full sync OR incremental (since-timestamp)
- * GET  /api/events/:eventId/attendees/lookup      real-time badge/email lookup
- */
-
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { db } from "../db.js";
 import { attendees, events, platformConnections } from "../../shared/schema.js";
 import { eq, and, or, ilike } from "drizzle-orm";
@@ -14,19 +6,15 @@ import { createAdapter } from "../integrations/adapter-factory.js";
 import type { AdapterType } from "../integrations/adapter-factory.js";
 import type { RainfocusAdapter } from "../integrations/rainfocus.js";
 
+type EP = { eventId: string };
 const router = Router({ mergeParams: true });
 
-// ---------------------------------------------------------------------------
-// GET /api/events/:eventId/attendees
-// ---------------------------------------------------------------------------
-router.get("/", async (req, res) => {
+router.get("/", async (req: Request<EP>, res: Response) => {
   try {
     const { eventId } = req.params;
     const { search, limit = "200", offset = "0" } = req.query as Record<string, string>;
 
-    const rows = await db
-      .select()
-      .from(attendees)
+    const rows = await db.select().from(attendees)
       .where(
         search
           ? and(
@@ -49,23 +37,11 @@ router.get("/", async (req, res) => {
   }
 });
 
-// ---------------------------------------------------------------------------
-// POST /api/events/:eventId/attendees/sync
-//
-// Body (optional):
-//   { incremental: true }   — only pull records changed since last sync
-//                             uses Rainfocus `since` timestamp mechanism
-//   {}                      — full pull (default)
-//
-// The `since` timestamp from Rainfocus is stored in events.metaJson.rfSyncTimestamp
-// and passed back on the next incremental call.
-// ---------------------------------------------------------------------------
-router.post("/sync", async (req, res) => {
+router.post("/sync", async (req: Request<EP>, res: Response) => {
   try {
     const { eventId } = req.params;
     const { incremental = false } = req.body as { incremental?: boolean };
 
-    // Load event + connection in one join
     const [row] = await db
       .select({ event: events, conn: platformConnections })
       .from(events)
@@ -85,11 +61,9 @@ router.post("/sync", async (req, res) => {
     let externalAttendees;
     let nextTimestamp: string | undefined;
 
-    // Use incremental sync if requested and adapter supports it
     if (incremental && conn.adapter === "rainfocus") {
       const rfAdapter = adapter as RainfocusAdapter;
       const sinceTimestamp = (event.metaJson as any)?.rfSyncTimestamp;
-
       const result = await rfAdapter.getAttendeesIncremental(event.externalId, sinceTimestamp);
       externalAttendees = result.attendees;
       nextTimestamp = result.nextTimestamp;
@@ -97,16 +71,26 @@ router.post("/sync", async (req, res) => {
       externalAttendees = await adapter.getAttendees(event.externalId);
     }
 
-    // Upsert all attendees into local mirror
     let upserted = 0;
     for (const ext of externalAttendees) {
       if (!ext.externalId) continue;
-
-      await db
-        .insert(attendees)
-        .values({
-          eventId,
-          externalId: ext.externalId,
+      await db.insert(attendees).values({
+        eventId,
+        externalId: ext.externalId,
+        firstName: ext.firstName,
+        lastName: ext.lastName,
+        email: ext.email,
+        company: ext.company,
+        jobTitle: ext.jobTitle,
+        phone: ext.phone,
+        badgeCode: ext.badgeCode,
+        registrationType: ext.registrationType,
+        registrationStatus: ext.registrationStatus,
+        metaJson: ext.meta,
+        lastSyncedAt: new Date(),
+      }).onConflictDoUpdate({
+        target: [attendees.eventId, attendees.externalId],
+        set: {
           firstName: ext.firstName,
           lastName: ext.lastName,
           email: ext.email,
@@ -118,56 +102,28 @@ router.post("/sync", async (req, res) => {
           registrationStatus: ext.registrationStatus,
           metaJson: ext.meta,
           lastSyncedAt: new Date(),
-        })
-        .onConflictDoUpdate({
-          target: [attendees.eventId, attendees.externalId],
-          set: {
-            firstName: ext.firstName,
-            lastName: ext.lastName,
-            email: ext.email,
-            company: ext.company,
-            jobTitle: ext.jobTitle,
-            phone: ext.phone,
-            badgeCode: ext.badgeCode,
-            registrationType: ext.registrationType,
-            registrationStatus: ext.registrationStatus,
-            metaJson: ext.meta,
-            lastSyncedAt: new Date(),
-            updatedAt: new Date(),
-          },
-        });
+          updatedAt: new Date(),
+        },
+      });
       upserted++;
     }
 
-    // Persist the new Rainfocus timestamp so next incremental pull is scoped correctly
     const updatedMeta = {
       ...((event.metaJson as Record<string, unknown>) || {}),
       ...(nextTimestamp ? { rfSyncTimestamp: nextTimestamp } : {}),
     };
 
-    await db
-      .update(events)
+    await db.update(events)
       .set({ lastSyncedAt: new Date(), metaJson: updatedMeta })
       .where(eq(events.id, eventId));
 
-    res.json({
-      synced: upserted,
-      incremental,
-      nextTimestamp,
-    });
+    res.json({ synced: upserted, incremental, nextTimestamp });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// ---------------------------------------------------------------------------
-// GET /api/events/:eventId/attendees/lookup?badgeCode=XXX&email=xxx
-//
-// Checks local mirror first (fast path for repeat scans).
-// Falls back to live Rainfocus attendee/search by regcode or email.
-// Caches any live-lookup result into the local mirror.
-// ---------------------------------------------------------------------------
-router.get("/lookup", async (req, res) => {
+router.get("/lookup", async (req: Request<EP>, res: Response) => {
   try {
     const { eventId } = req.params;
     const { badgeCode, email } = req.query as Record<string, string>;
@@ -176,7 +132,6 @@ router.get("/lookup", async (req, res) => {
       return res.status(400).json({ error: "Provide badgeCode or email" });
     }
 
-    // 1. Fast path — check local mirror
     const conditions: any[] = [eq(attendees.eventId, eventId)];
     if (badgeCode) conditions.push(eq(attendees.badgeCode, badgeCode));
     else if (email) conditions.push(ilike(attendees.email, email));
@@ -184,7 +139,6 @@ router.get("/lookup", async (req, res) => {
     const [local] = await db.select().from(attendees).where(and(...conditions));
     if (local) return res.json(local);
 
-    // 2. Live lookup via adapter
     const [row] = await db
       .select({ event: events, conn: platformConnections })
       .from(events)
@@ -203,29 +157,24 @@ router.get("/lookup", async (req, res) => {
     const ext = await adapter.lookupAttendee(event.externalId, { badgeCode, email });
     if (!ext) return res.status(404).json({ error: "Attendee not found" });
 
-    // 3. Cache into local mirror
-    const [upserted] = await db
-      .insert(attendees)
-      .values({
-        eventId,
-        externalId: ext.externalId,
-        firstName: ext.firstName,
-        lastName: ext.lastName,
-        email: ext.email,
-        company: ext.company,
-        jobTitle: ext.jobTitle,
-        phone: ext.phone,
-        badgeCode: ext.badgeCode,
-        registrationType: ext.registrationType,
-        registrationStatus: ext.registrationStatus,
-        metaJson: ext.meta,
-        lastSyncedAt: new Date(),
-      })
-      .onConflictDoUpdate({
-        target: [attendees.eventId, attendees.externalId],
-        set: { lastSyncedAt: new Date(), updatedAt: new Date() },
-      })
-      .returning();
+    const [upserted] = await db.insert(attendees).values({
+      eventId,
+      externalId: ext.externalId,
+      firstName: ext.firstName,
+      lastName: ext.lastName,
+      email: ext.email,
+      company: ext.company,
+      jobTitle: ext.jobTitle,
+      phone: ext.phone,
+      badgeCode: ext.badgeCode,
+      registrationType: ext.registrationType,
+      registrationStatus: ext.registrationStatus,
+      metaJson: ext.meta,
+      lastSyncedAt: new Date(),
+    }).onConflictDoUpdate({
+      target: [attendees.eventId, attendees.externalId],
+      set: { lastSyncedAt: new Date(), updatedAt: new Date() },
+    }).returning();
 
     res.json(upserted);
   } catch (err: any) {
