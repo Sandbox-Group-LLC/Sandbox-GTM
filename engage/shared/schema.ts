@@ -52,8 +52,11 @@ export type InsertEvent = z.infer<typeof insertEventSchema>;
 export type Event = typeof events.$inferSelect;
 
 // ---------------------------------------------------------------------------
-// Attendees Mirror
+// Attendees Mirror — with intent scoring fields
 // ---------------------------------------------------------------------------
+export const INTENT_STATUSES = ["none", "engaged", "high_intent", "hot_lead"] as const;
+export type IntentStatus = typeof INTENT_STATUSES[number];
+
 export const attendees = pgTable("attendees", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   eventId: varchar("event_id").references(() => events.id).notNull(),
@@ -71,6 +74,14 @@ export const attendees = pgTable("attendees", {
   checkInTime: timestamp("check_in_time"),
   metaJson: jsonb("meta_json").$type<Record<string, unknown>>(),
   lastSyncedAt: timestamp("last_synced_at"),
+  // ── Intent scoring ──────────────────────────────────────────────────────
+  intentStatus: varchar("intent_status", { length: 50 }).default("none"),   // none | engaged | high_intent | hot_lead
+  momentumScore: integer("momentum_score").default(0),                        // 0–10 capped
+  salesReady: boolean("sales_ready").default(false),
+  intentSources: jsonb("intent_sources").$type<IntentSource[]>().default([]), // which signals contributed
+  intentNarrative: text("intent_narrative"),                                  // prose explanation for CRM
+  lastScoredAt: timestamp("last_scored_at"),
+  // ────────────────────────────────────────────────────────────────────────
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
@@ -78,7 +89,17 @@ export const attendees = pgTable("attendees", {
   eventIdx: index("attendees_event_idx").on(table.eventId),
   badgeIdx: index("attendees_badge_idx").on(table.badgeCode),
   emailIdx: index("attendees_email_idx").on(table.email),
+  intentIdx: index("attendees_intent_idx").on(table.intentStatus),
 }));
+
+export interface IntentSource {
+  type: "product_interaction" | "meeting" | "session_checkin";
+  id: string;
+  signal: string;       // human-readable: "Requested trial/pilot", "Active opportunity", etc.
+  tier: 1 | 2;
+  points?: number;      // tier 2 only
+  createdAt: string;
+}
 
 export const insertAttendeeSchema = createInsertSchema(attendees).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertAttendee = z.infer<typeof insertAttendeeSchema>;
@@ -196,11 +217,12 @@ export type InsertDemoStation = z.infer<typeof insertDemoStationSchema>;
 export type DemoStation = typeof demoStations.$inferSelect;
 
 // ---------------------------------------------------------------------------
-// Product Interactions
+// Product Interactions — expanded tags from qualifiers doc
 // ---------------------------------------------------------------------------
 export const INTERACTION_TYPES = [
   "demo", "product_discussion", "pricing_request", "technical_deep_dive",
-  "use_case_exploration", "integration_question", "support_inquiry", "partnership", "other",
+  "use_case_exploration", "integration_question", "support_inquiry", "partnership",
+  "product_demo", "pricing_packaging", "integration_security", "executive_conversation", "other",
 ] as const;
 
 export const OUTCOME_TYPES = [
@@ -215,9 +237,12 @@ export const NEXT_STEP_TYPES = [
 
 export const OPPORTUNITY_POTENTIAL_TYPES = ["under_10k", "10k_to_50k", "50k_to_100k", "over_100k"] as const;
 export const INTENT_LEVELS = ["low", "medium", "high"] as const;
+
+// Full qualifying tag set from qualifiers doc
 export const INTERACTION_TAGS = [
-  "competitor_mention", "budget_approved", "decision_maker",
-  "influencer", "champion", "technical_buyer", "executive",
+  "icp_fit", "competitor_mentioned", "security_review", "budget_confirmed",
+  "buying_committee", "urgent_timeline", "partner_motion",
+  "decision_maker", "influencer", "champion", "technical_buyer", "executive",
 ] as const;
 
 export const productInteractions = pgTable("product_interactions", {
@@ -296,6 +321,39 @@ export type InsertMeeting = z.infer<typeof insertMeetingSchema>;
 export type Meeting = typeof meetings.$inferSelect;
 
 // ---------------------------------------------------------------------------
+// Intent Recompute History — before/after snapshots per batch run
+// ---------------------------------------------------------------------------
+export const intentRecomputeHistory = pgTable("intent_recompute_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").references(() => events.id).notNull(),
+  recomputedAt: timestamp("recomputed_at").defaultNow(),
+  // Before snapshot
+  beforeHotLeads: integer("before_hot_leads").default(0),
+  beforeHighIntent: integer("before_high_intent").default(0),
+  beforeEngaged: integer("before_engaged").default(0),
+  // After snapshot
+  afterHotLeads: integer("after_hot_leads").default(0),
+  afterHighIntent: integer("after_high_intent").default(0),
+  afterEngaged: integer("after_engaged").default(0),
+  // Deltas (after - before)
+  deltaHotLeads: integer("delta_hot_leads").default(0),
+  deltaHighIntent: integer("delta_high_intent").default(0),
+  deltaEngaged: integer("delta_engaged").default(0),
+  // Totals processed
+  totalAttendees: integer("total_attendees").default(0),
+  totalPromoted: integer("total_promoted").default(0),
+  triggeredBy: varchar("triggered_by", { length: 255 }),   // user or "auto"
+  notes: text("notes"),
+}, (table) => ({
+  eventIdx: index("intent_recompute_history_event_idx").on(table.eventId),
+  recomputedAtIdx: index("intent_recompute_history_time_idx").on(table.recomputedAt),
+}));
+
+export const insertIntentRecomputeHistorySchema = createInsertSchema(intentRecomputeHistory).omit({ id: true, recomputedAt: true });
+export type InsertIntentRecomputeHistory = z.infer<typeof insertIntentRecomputeHistorySchema>;
+export type IntentRecomputeHistory = typeof intentRecomputeHistory.$inferSelect;
+
+// ---------------------------------------------------------------------------
 // Relations
 // ---------------------------------------------------------------------------
 export const eventsRelations = relations(events, ({ one, many }) => ({
@@ -306,6 +364,7 @@ export const eventsRelations = relations(events, ({ one, many }) => ({
   demoStations: many(demoStations),
   productInteractions: many(productInteractions),
   meetings: many(meetings),
+  intentHistory: many(intentRecomputeHistory),
 }));
 
 export const attendeesRelations = relations(attendees, ({ one, many }) => ({
