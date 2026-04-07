@@ -34,22 +34,23 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   }
 }
 
-// Public routes that don't require auth
 const PUBLIC_ROUTES = ["/login", "/moment/"];
 
 function AuthGuard({ children }: { children: ReactNode }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const [location, navigate] = useLocation();
-
   const isPublic = PUBLIC_ROUTES.some(r => location.startsWith(r));
 
   useEffect(() => {
-    if (!isAuthenticated && !isPublic) {
+    if (!isLoading && !isAuthenticated && !isPublic) {
       navigate("/login");
     }
-  }, [isAuthenticated, isPublic, location]);
+  }, [isAuthenticated, isLoading, isPublic, location]);
 
+  // Show nothing while checking auth — prevents flash of login page
+  if (isLoading && !isPublic) return null;
   if (!isAuthenticated && !isPublic) return null;
+
   return <>{children}</>;
 }
 
