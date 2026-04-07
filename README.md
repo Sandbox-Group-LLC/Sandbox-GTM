@@ -1,102 +1,163 @@
-# Event Management CMS
+# Sandbox GTM — Engage
 
-## Overview
-This Event Management CMS is a full-stack administrative platform for comprehensive event management. It enables organizations to manage events, attendees, speakers, sessions, content, budgets, deliverables, and marketing campaigns. The system prioritizes efficiency and clarity with a utility-focused, information-dense design, supporting multi-tenancy with data isolation per organization and automatic user-to-organization assignment. Its key capabilities include registration tracking, agenda building, speaker management, budget monitoring, integrated communication tools, and a visual site builder for custom public event pages. The platform aims to provide a robust solution for diverse event management needs, from small gatherings to large-scale conferences.
+**Branch:** `engage` | **Deployed:** [sandbox-gtm-1.onrender.com](https://sandbox-gtm-1.onrender.com)
 
-## User Preferences
-Preferred communication style: Simple, everyday language.
+Engage is a standalone event engagement platform that attaches to external event registration systems (Rainfocus, Cvent, etc.) via API. It captures attendee signals across check-ins, product demos, meetings, and live moments — then runs them through an intent scoring engine to surface sales-ready leads in real time.
 
-## System Architecture
+---
 
-### Frontend
-- **Framework**: React 18 with TypeScript
-- **Routing**: Wouter
-- **State Management**: TanStack React Query (server state), React hooks (local state)
-- **UI Components**: shadcn/ui (built on Radix UI)
-- **Styling**: Tailwind CSS with CSS custom properties (light/dark mode)
-- **Build Tool**: Vite
-- **Form Handling**: React Hook Form with Zod validation
+## Architecture
 
-### Backend
-- **Runtime**: Node.js with Express.js
-- **Language**: TypeScript (ESM modules)
-- **API Style**: RESTful JSON API (`/api` prefix)
-- **Session Management**: Express-session with PostgreSQL store
+```
+engage/
+├── client/          React 18 + TypeScript + Vite + Tailwind + shadcn/ui
+├── server/          Node.js + Express + TypeScript (ESM)
+│   ├── routes/      auth, events, attendees, checkin, moments,
+│   │                interactions, meetings, intent
+│   ├── auth.ts      bcrypt + jose JWT, httpOnly cookies, rate limiting
+│   ├── db.ts        Drizzle ORM + pg pool
+│   └── intentScoring.ts  Engagement signals engine
+├── shared/
+│   └── schema.ts    Drizzle schema — single source of truth for all tables
+└── dist/            Compiled output (gitignored)
+```
 
-### Data Storage
-- **Database**: PostgreSQL
-- **ORM**: Drizzle ORM with drizzle-zod
-- **Schema**: `shared/schema.ts`
-- **Migrations**: Drizzle Kit
+**Runtime:** Node 20 · PostgreSQL (Neon) · Render (auto-deploy on push to `engage`)
 
-### Project Structure
-- `client/`: React frontend
-- `server/`: Express backend
-- `shared/`: Shared code (e.g., database schema)
-- `migrations/`: Database migrations
+---
 
-### Key Design Patterns
-- **Multi-Tenancy**: Data isolated by `organizationId` with a `getOrganizationId` helper.
-- **Storage Interface**: Abstracted database operations (`IStorage`) with organization-scoped access.
-- **Shared Schema**: Single source of truth for database types.
-- **API Request Helper**: Centralized function for API calls with error handling.
-- **Component Composition**: Reusable UI components for consistent design. Marketing pages (landing, pricing, blog, book-demo, signup) share a unified `MarketingHeader` component (`client/src/components/marketing-header.tsx`) with Sandbox-GTM branding, responsive hamburger menu, and consistent navigation.
-- **Cascade Delete**: Event deletion follows strict FK dependency order - child tables must be deleted before parent tables. Key dependencies:
-  - Tables referencing `attendees`: activationLinkClicks, engagementSignals, momentResponses, emailMessages, attendeeSavedSessions, attendeeInterests, sessionFeedback, eventFeedback, passkeyReservations
-  - Tables referencing `eventSessions`: sessionSpeakers, attendeeSavedSessions, sessionFeedback, contentItems, cfpSubmissions, moments, momentResponses, engagementSignals
-  - Tables referencing `eventSponsors`: sponsorContacts, contentAssets, sponsorTaskCompletions
-  - Tables referencing `activationLinks`: activationLinkClicks
-  - When adding new tables with FK references, update `deleteEvent` in storage.ts accordingly.
+## Tech Stack
 
-### Feature Specifications
-- **Site Builder**: Visual page builder for custom public-facing event pages (Landing, Registration, Portal) with configurable sections including "Layout Columns".
-- **Invite Codes & Package Visibility**: Support for invite codes, discounts, and public/code-only package access.
-- **Email Management**: Reusable email templates with merge tags, test functionality, and comprehensive analytics (open, click, unsubscribe tracking). Includes automatic `registrationStatus` update to "invited" for successfully delivered invite emails.
-- **Media Library**: Hosts images (via Replit Object Storage) with upload, public URL generation, and deletion.
-- **Call for Papers (CFP)**: System for collecting, reviewing, and managing paper/abstract submissions.
-- **Email Marketing Platform Integrations**: Connect external platforms (e.g., Mailchimp) for attendee data sync.
-- **Passkey (Cvent) Housing Integration**: RegLink Basic integration for hotel room block management with pre-filled booking links.
-- **Document Workspace**: Secure document sharing with folder organization, file upload, permission-based sharing, threaded comments, approval workflows, and activity logging.
-- **Activation Links**: Trackable campaign URLs for marketing attribution with short codes, UTM parameters, and conversion analytics.
-- **Enhanced Marketing Analytics**: Admin-level analytics for landing pages including User-Agent parsing, IP geolocation, returning visitor detection, and bot detection (privacy-friendly with visitor hashes).
-- **Revenue & ROI Feature Toggle**: A bolt-on sidebar menu section (Pipeline Influence, Sales Handoff, Follow-Up Performance, ROI Reporting) that can be enabled/disabled per organization by super admins.
-- **Attendee Preview (Spoof Mode)**: Organization owners can preview public-facing pages as a specific attendee, evaluating visibility conditions.
-- **Custom Domain Support**: Organizations can configure custom domains for their event pages with DNS verification.
-- **Multi-Language Support**: Event content translation into 10 supported languages, configurable per event, with locale detection and fallback mechanisms.
-- **Personalized Schedules & Recommendations**: Attendees can save sessions, view personal schedules, configure interests, and receive AI-powered session recommendations.
-- **Session & Event Feedback**: Comprehensive feedback collection system for sessions and overall event experience, including NPS, ratings, and comments.
-- **NPS (Net Promoter Score) Analytics**: Integration of NPS calculation from event feedback into the GTM Overview dashboard.
-- **Acquisition Milestone Status**: Dynamic status calculation (on_track, at_risk, behind, achieved, no_data) based on registration progress against milestones. Counts all non-cancelled registrations (confirmed, registered, checked_in, pending) to align with dashboard's "Total conversions" metric.
-- **Engagement Moments with QR Codes**: Live engagement moments (polls, ratings, Q&A, pulse checks, CTAs) with dedicated moment pages (`/event/:slug/moment/:momentId` and `/portal/:eventId/moment/:momentId`) supporting QR code generation for instant audience participation.
-- **API Key Management**: Secure API key system for external integrations with scrypt hashing, scope-based permissions (events.read, attendees.read, leads.read, sessions.read, speakers.read, analytics.read, sponsors.read), rate limiting per minute/day, audit logging, and owner-only access. Keys use prefix.secret format with one-time secret display. Authentication middleware (`server/apiAuth.ts`) supports Bearer token validation with timing-safe comparison.
-- **Brand Kit**: Organization-level branding management that extracts colors, fonts, and logos from a company website using web scraping and AI-powered color palette suggestions. Stored in `brandKits` table with support for default kit selection and manual editing. Accessible via My Organization sidebar menu.
-- **Event-Specific Custom Field Settings**: Per-event overrides for custom field configuration stored in `eventCustomFieldSettings` table. Allows events to customize field behavior (required, isActive, displayOrder, parentFieldId, parentTriggerValues) independently from organization-level defaults. Public registration forms automatically resolve and apply these per-event overrides.
-- **Meeting Room Assignment System**: Assign rooms to team members (portal members or admin users) with open hours configuration. Features include: room open hours per day of week (stored in `roomOpenHours` table), member room assignments (`memberRoomAssignments` table linking rooms to users), double-booking prevention when a room is already occupied, smart room suggestions for users without assigned rooms, and automatic pre-selection of primary assigned rooms in meeting forms. Both admin and portal meeting creation validate room availability during the scheduled time.
-- **Intent Recompute History & Follow-Up Readiness**: Delta tracking for intent recomputation with `intentRecomputeHistory` table storing before/after snapshots of Hot Leads, High-Intent, and Engaged (momentum-only) counts. Events track `lastIntentRecomputedAt` timestamp. UI displays a "Follow-Up Readiness" KPI (combined Hot Leads + High-Intent count) and a Changelog tab showing recompute history timeline with delta indicators.
-- **Company Size Enrichment**: Automatic company size classification using Google Custom Search API to search D&B business directory. Classifies companies as SMB (<$50M revenue), Mid-Market ($50M-$1B), or Enterprise (>$1B). Auto-triggers on attendee creation (registration, manual, sponsor portal). Manual enrichment available via "Lookup Size" button. Data stored in `companySize`, `companyRevenue`, `companySizeEnrichedAt` fields. Requires `GOOGLE_CSE_API_KEY` and `GOOGLE_CSE_SEARCH_ENGINE_ID` environment variables.
-- **The Sandbox (Thought Leadership Blog)**: Public-facing article pages at `/the-sandbox` (listing) and `/the-sandbox/:slug` (individual article). Old `/thought-leadership` URLs redirect to new paths. Manual article management via admin UI at `/admin/thought-leadership` (super-admin only). Public API endpoints: `GET /api/public/thought-leadership/articles` (list published), `GET /api/public/thought-leadership/articles/:slug` (single article). Admin API endpoints (authenticated, super-admin): `GET/POST /api/thought-leadership/articles`, `GET/PATCH/DELETE /api/thought-leadership/articles/:id`, `POST /api/thought-leadership/generate` (Byword AI generation), `POST /api/thought-leadership/process-html` (AI-powered HTML cleanup for uploaded articles). HTML upload feature with AI processing layer: uploads raw Byword HTML exports, sends to OpenAI (gpt-4o) for cleanup — removes duplicate titles/hero images, strips excessive whitespace, extracts metadata (title, meta description, hero image), and formats content to match platform standards. Falls back to basic body extraction if AI fails. Articles upsert by slug, auto-calculate read time, and support HTML/Markdown content. Schema: `thoughtLeadershipArticles` table. Articles are auto-seeded on startup via `server/seed-articles.ts`.
-- **Byword.ai Integration**: AI article generation via Byword API (`server/byword.ts`). Uses new cloud API at `cloud.byword.ai/api/projects/articles`. Two-step process: POST to create article → GET to poll for completion (~60s). Auth via Bearer token with `bw_live_` API key. Supports keyword mode (Byword generates title + article) and title mode (user provides title). Admin UI has "Generate with Byword" button with loading state. Requires `BYWORD_API_KEY` secret and `BYWORD_DOMAIN_ID` (or `BYWORD_DOMAIN`) env var.
-- **Byword Webhook Receiver**: Webhook endpoint at `POST /api/webhooks/byword` (`server/byword-webhook.ts`) receives articles from Byword when generation completes. Supports `article.completed`, `article.published`, and `campaign.completed` events. Verifies HMAC SHA256 signatures (optional, via `BYWORD_WEBHOOK_SECRET` env var). Auto-saves articles to database via `upsertArticle`. Admin UI shows webhook URL with copy button via "Webhook" toggle in The Sandbox admin page.
+| Layer | Technology |
+|---|---|
+| Frontend | React 18, TypeScript, Wouter, TanStack Query, shadcn/ui, Tailwind CSS |
+| Backend | Node.js, Express, TypeScript (ESM) |
+| Database | Neon PostgreSQL (SOC2 Type II) |
+| ORM | Drizzle |
+| Auth | bcrypt (cost 12) + jose JWT, httpOnly cookies |
+| Deploy | Render (auto-deploy) |
 
-### Deployment Strategy
-Supports a hybrid multi-tenant (default) and dedicated instance model for enterprise customers, ensuring data isolation and flexible deployment options.
+---
 
-## External Dependencies
+## Database Schema
 
-### Database
-- PostgreSQL
+| Table | Purpose |
+|---|---|
+| `platform_connections` | Rainfocus / Cvent API credentials |
+| `events` | Event mirror from registration platform |
+| `attendees` | Attendee roster + intent scoring fields |
+| `sessions` | Session/breakout mirror |
+| `session_check_ins` | Physical attendance via badge scan |
+| `moments` | Live polls, Q&A, ratings, pulse checks |
+| `moment_responses` | Attendee responses to moments |
+| `demo_stations` | Booth/station roster |
+| `product_interactions` | Lead capture from demos and conversations |
+| `meetings` | Scheduled 1:1s with pre/post intent capture |
+| `intent_recompute_history` | Before/after snapshots from signals engine runs |
+| `app_users` | Platform users (admin, staff, sponsor_admin) |
+| `user_tokens` | Token-based auth for sponsor staff + attendee identity |
 
-### Authentication
-- Replit OpenID Connect (OIDC) via Passport.js
+---
 
-### UI Libraries
-- Radix UI
-- Lucide React
-- Embla Carousel
-- Recharts
-- date-fns
+## Engagement Signals Engine
 
-### Development Tools
-- Vite
-- ESBuild
-- TSX
+Located at `server/intentScoring.ts`. Runs on demand via `POST /api/events/:id/intent/recompute`.
+
+**Core principle:** Explicit intent always beats inferred behavior.
+
+**Tier 1 — Explicit buying signals** (immediate promotion):
+- Product outcomes: `wants_trial_pilot`, `asked_for_pricing`, `requested_follow_up`
+- Tags: `budget_confirmed`, `urgent_timeline`, `buying_committee`
+- Meeting outcomes: `active_opportunity` or `deal_in_progress` + near-term timeline
+
+**Tier 2 — Momentum** (cumulative, capped at 10):
+- Intent level: low=1, medium=2, high=3
+- Role tags: decision_maker=1, executive=1
+- Frequency bonus: +1 per interaction beyond first
+- Opportunity potential: $50k–100k=2, $100k+=3
+- Session check-ins: up to 2pts
+
+**Promotion thresholds:**
+- `engaged` — momentum ≥ 3
+- `high_intent` — Tier 1 signal OR momentum ≥ 8
+- `hot_lead` — Tier 1 signal AND ($50k+ opportunity OR 2+ Tier 1 signals)
+
+Each promotion generates a human-readable narrative for CRM sync.
+
+---
+
+## User Roles
+
+| Role | Access | Auth Method |
+|---|---|---|
+| `admin` | Full platform — config, users, all data | Email + password |
+| `staff` | Check-in, lead capture, meetings for assigned station | Email + password |
+| `sponsor_admin` | Their company's leads + license management | Email + password |
+| `sponsor_staff` | Lead capture only, scoped to company | Token link |
+| `attendee` | Moment responses, identity resolution | Badge QR scan |
+
+---
+
+## Auth
+
+- **Credential-based** (admin, staff, sponsor_admin): bcrypt cost 12 + HS256 JWT
+- **Access token:** 1h TTL, httpOnly + Secure + SameSite=Strict cookie
+- **Refresh token:** 30d TTL, same cookie flags — auto-issues new access token silently
+- **Rate limiting:** 10 failed auth attempts per IP per 15 min
+- **Token-based** (sponsor staff, attendees): scoped tokens in `user_tokens` table
+
+---
+
+## Environment Variables
+
+| Variable | Description |
+|---|---|
+| `DATABASE_URL` | Neon PostgreSQL connection string |
+| `JWT_SECRET` | 256-bit random hex — used to sign access + refresh tokens |
+| `SESSION_SECRET` | Express session secret |
+| `ADMIN_PASSWORD` | Relay endpoint password (dev only — remove before production) |
+| `NODE_ENV` | `production` on Render |
+| `PORT` | `10000` on Render |
+| `PLATFORM_ADAPTER` | `rainfocus` \| `cvent` |
+| `NEON_AUTH_URL` | Neon Auth base URL (reserved for future SSO) |
+| `NEON_AUTH_JWKS_URL` | Neon Auth JWKS endpoint |
+
+---
+
+## Developer Relay
+
+A raw SQL relay endpoint exists at `POST /api/admin/relay` for development database access. Protected by `ADMIN_PASSWORD`. **Must be removed before production launch.** See pre-launch checklist.
+
+```bash
+curl -X POST https://sandbox-gtm-1.onrender.com/api/admin/relay \
+  -H "Content-Type: application/json" \
+  -d '{"adminPassword":"sg-relay-2025","query":"SELECT count(*) FROM attendees"}'
+```
+
+---
+
+## Local Development
+
+```bash
+cd engage
+cp .env.example .env       # add DATABASE_URL + JWT_SECRET
+npm install
+npm run db:push            # push schema to Neon
+npm run dev                # runs server + client concurrently
+```
+
+---
+
+## Deployment
+
+Render auto-deploys on every push to the `engage` branch. No manual deploy step.
+
+Build command: `npm install && npm run build`
+Start command: `node dist/server/index.js`
+Root directory: `engage`
+
+---
+
+## Pre-Launch Checklist
+
+See [PRE-LAUNCH.md](./PRE-LAUNCH.md)
