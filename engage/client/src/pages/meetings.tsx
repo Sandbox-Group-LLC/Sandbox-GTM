@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { queryClient, apiRequest } from "../lib/queryClient";
+import { queryClient, apiRequest, fetchJSON } from "../lib/queryClient";
 import { useToast } from "../hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -65,7 +65,7 @@ export default function Meetings() {
 
   const { data: events = [] } = useQuery<any[]>({
     queryKey: ["/api/events"],
-    queryFn: () => fetch("/api/events", { credentials: "include" }).then(r => r.json()),
+    queryFn: () => fetchJSON("/api/events"),
   });
 
   const { data: meetings = [], isLoading } = useQuery<any[]>({
@@ -73,21 +73,20 @@ export default function Meetings() {
     queryFn: async () => {
       const params = new URLSearchParams();
       if (statusFilter !== "all") params.set("status", statusFilter);
-      const r = await fetch(`/api/events/${selectedEventId}/meetings?${params}`, { credentials: "include" });
-      return r.json();
+      return fetchJSON(`/api/events/${selectedEventId}/meetings?${params}`);
     },
     enabled: !!selectedEventId,
   });
 
   const { data: stats } = useQuery<any>({
     queryKey: ["/api/meeting-stats", selectedEventId],
-    queryFn: () => fetch(`/api/events/${selectedEventId}/meetings/stats`, { credentials: "include" }).then(r => r.json()),
+    queryFn: () => fetchJSON(`/api/events/${selectedEventId}/meetings/stats`),
     enabled: !!selectedEventId,
   });
 
   const { data: attendees = [] } = useQuery<any[]>({
     queryKey: ["/api/attendees", selectedEventId],
-    queryFn: () => fetch(`/api/events/${selectedEventId}/attendees`, { credentials: "include" }).then(r => r.json()),
+    queryFn: () => fetchJSON(`/api/events/${selectedEventId}/attendees`),
     enabled: !!selectedEventId,
   });
 
