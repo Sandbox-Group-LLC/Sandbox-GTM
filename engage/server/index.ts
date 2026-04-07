@@ -2,6 +2,7 @@ import express from "express";
 import session from "express-session";
 import { fileURLToPath } from "url";
 import path from "path";
+import { pool } from "./db.js";
 import eventsRouter from "./routes/events.js";
 import attendeesRouter from "./routes/attendees.js";
 import checkInRouter from "./routes/checkin.js";
@@ -24,6 +25,20 @@ app.use(session({
   },
 }));
 
+// ── Neon SQL Relay ─────────────────────────────────────────────────────────────
+app.post("/api/admin/relay", express.json({ limit: "500kb" }), async (req, res) => {
+  const { adminPassword, query, values } = req.body;
+  if (!process.env.ADMIN_PASSWORD || adminPassword !== process.env.ADMIN_PASSWORD) {
+    return res.status(403).json({ success: false, error: "Unauthorized" });
+  }
+  try {
+    const result = await pool.query(query, values || []);
+    return res.json({ success: true, rows: result.rows, rowCount: result.rowCount });
+  } catch (e: any) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 // API routes
 app.use("/api", eventsRouter);
 app.use("/api/events/:eventId/attendees", attendeesRouter);
@@ -39,7 +54,6 @@ app.use("/api/meetings", meetingsRouter);
 app.get("/api/health", (_req, res) => res.json({ status: "ok", service: "engage" }));
 
 // Serve Vite-built client in production
-// __dirname = dist/server/ → go up two levels to engage/, then into dist/public
 if (process.env.NODE_ENV === "production") {
   const publicPath = path.join(__dirname, "../../dist/public");
   const { default: sirv } = await import("sirv");
