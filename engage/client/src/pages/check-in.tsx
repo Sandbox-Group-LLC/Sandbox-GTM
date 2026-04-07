@@ -107,11 +107,7 @@ export default function CheckIn() {
     defaultValues: { firstName: "", lastName: "", email: "", company: "", jobTitle: "", phone: "", interactionType: "", intentLevel: "", outcome: "", opportunityPotential: "", nextStep: "", station: "", tags: [], notes: "" },
   });
 
-  const { data: events = [] } = useQuery<any[]>({
-    queryKey: ["/api/events"],
-    queryFn: () => fetchJSON("/api/events"),
-  });
-
+  const { eventId: selectedEventId, hasEvent } = useActiveEvent();
 
   const { data: checkinStats } = useQuery<any>({
     queryKey: ["/api/checkin-stats", selectedEventId, "program"],
@@ -176,7 +172,7 @@ export default function CheckIn() {
   const manualCheckInMutation = useMutation({
     mutationFn: async (attendeeId: string) => {
       const res = await apiRequest("POST", `/api/events/${selectedEventId}/checkin/manual`, {
-        attendeeId,
+        eventAttendeeId: attendeeId,
         sessionId: selectedSessionId || undefined,
         mode,
       });
