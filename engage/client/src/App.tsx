@@ -1,8 +1,10 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { Component, type ReactNode } from "react";
+import { Component, type ReactNode, useEffect } from "react";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "./components/ui/toaster";
+import { useAuth } from "./hooks/use-auth";
+import Login from "./pages/login";
 import Dashboard from "./pages/dashboard";
 import Connect from "./pages/connect";
 import CheckIn from "./pages/check-in";
@@ -32,22 +34,44 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   }
 }
 
+// Public routes that don't require auth
+const PUBLIC_ROUTES = ["/login", "/moment/"];
+
+function AuthGuard({ children }: { children: ReactNode }) {
+  const { isAuthenticated } = useAuth();
+  const [location, navigate] = useLocation();
+
+  const isPublic = PUBLIC_ROUTES.some(r => location.startsWith(r));
+
+  useEffect(() => {
+    if (!isAuthenticated && !isPublic) {
+      navigate("/login");
+    }
+  }, [isAuthenticated, isPublic, location]);
+
+  if (!isAuthenticated && !isPublic) return null;
+  return <>{children}</>;
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ErrorBoundary>
         <div className="min-h-screen bg-background text-foreground">
-          <Switch>
-            <Route path="/" component={Dashboard} />
-            <Route path="/connect" component={Connect} />
-            <Route path="/check-in" component={CheckIn} />
-            <Route path="/moments" component={MomentsAdmin} />
-            <Route path="/moment/:momentId" component={MomentLive} />
-            <Route path="/stations" component={DemoStations} />
-            <Route path="/meetings" component={MeetingsPage} />
-            <Route path="/leads" component={LeadsPage} />
-            <Route component={NotFound} />
-          </Switch>
+          <AuthGuard>
+            <Switch>
+              <Route path="/login" component={Login} />
+              <Route path="/" component={Dashboard} />
+              <Route path="/connect" component={Connect} />
+              <Route path="/check-in" component={CheckIn} />
+              <Route path="/moments" component={MomentsAdmin} />
+              <Route path="/moment/:momentId" component={MomentLive} />
+              <Route path="/stations" component={DemoStations} />
+              <Route path="/meetings" component={MeetingsPage} />
+              <Route path="/leads" component={LeadsPage} />
+              <Route component={NotFound} />
+            </Switch>
+          </AuthGuard>
         </div>
       </ErrorBoundary>
       <Toaster />
