@@ -386,3 +386,70 @@ export const momentsRelations = relations(moments, ({ one, many }) => ({
   session: one(sessions, { fields: [moments.sessionId], references: [sessions.id] }),
   responses: many(momentResponses),
 }));
+
+// ---------------------------------------------------------------------------
+// App Users — extends Neon Auth users with Engage-specific fields
+// ---------------------------------------------------------------------------
+
+export const USER_ROLES = ["admin", "staff", "sponsor_admin"] as const;
+export type UserRole = typeof USER_ROLES[number];
+
+export const appUsers = pgTable("app_users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  neonUserId: varchar("neon_user_id", { length: 255 }).unique().notNull(), // Neon Auth sub
+  email: varchar("email", { length: 500 }).notNull(),
+  name: varchar("name", { length: 255 }),
+  role: varchar("role", { length: 50 }).default("staff"),                  // admin | staff | sponsor_admin
+  eventId: varchar("event_id").references(() => events.id),                // scoped to event
+  stationId: varchar("station_id").references(() => demoStations.id),      // null = meetings-only staff
+  sponsorCompany: varchar("sponsor_company", { length: 255 }),             // sponsor_admin only
+  isActive: boolean("is_active").default(true),
+  lastLoginAt: timestamp("last_login_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  neonUserIdx: uniqueIndex("app_users_neon_user_idx").on(table.neonUserId),
+  emailIdx: index("app_users_email_idx").on(table.email),
+  roleIdx: index("app_users_role_idx").on(table.role),
+  eventIdx: index("app_users_event_idx").on(table.eventId),
+}));
+
+export const insertAppUserSchema = createInsertSchema(appUsers).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertAppUser = z.infer<typeof insertAppUserSchema>;
+export type AppUser = typeof appUsers.$inferSelect;
+
+// ---------------------------------------------------------------------------
+// User Tokens — for link-based auth flows (sponsor staff, attendee, meeting invite)
+// ---------------------------------------------------------------------------
+
+export const TOKEN_TYPES = [
+  "sponsor_staff",      // booth rep link, scoped to sponsor company
+  "attendee_identity",  // badge QR scan → resolves attendee
+  "meeting_invite",     // accept/decline a specific meeting
+] as const;
+export type TokenType = typeof TOKEN_TYPES[number];
+
+export const userTokens = pgTable("user_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  token: varchar("token", { length: 255 }).unique().notNull(),  // hashed token
+  type: varchar("type", { length: 50 }).notNull(),
+  eventId: varchar("event_id").references(() => events.id).notNull(),
+  // What the token is scoped to (one of these will be set)
+  appUserId: varchar("app_user_id").references(() => appUsers.id),           // sponsor_admin → their staff
+  attendeeId: varchar("attendee_id").references(() => attendees.id),         // attendee_identity
+  meetingId: varchar("meeting_id").references(() => meetings.id),            // meeting_invite
+  scopedData: jsonb("scoped_data").$type<Record<string, unknown>>(),         // extra context (company, station, etc.)
+  // Lifecycle
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  revokedAt: timestamp("revoked_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  tokenIdx: uniqueIndex("user_tokens_token_idx").on(table.token),
+  typeIdx: index("user_tokens_type_idx").on(table.type),
+  eventIdx: index("user_tokens_event_idx").on(table.eventId),
+}));
+
+export const insertUserTokenSchema = createInsertSchema(userTokens).omit({ id: true, createdAt: true });
+export type InsertUserToken = z.infer<typeof insertUserTokenSchema>;
+export type UserToken = typeof userTokens.$inferSelect;
