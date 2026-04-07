@@ -12,6 +12,7 @@ import interactionsRouter from "./routes/interactions.js";
 import meetingsRouter from "./routes/meetings.js";
 import intentRouter from "./routes/intent.js";
 import authRouter from "./routes/auth.js";
+import sirv from "sirv";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -77,7 +78,6 @@ app.get("/api/health", (_req, res) => res.json({ status: "ok", service: "engage"
 // Serve Vite-built client in production
 if (process.env.NODE_ENV === "production") {
   const publicPath = path.join(__dirname, "../../dist/public");
-  const { default: sirv } = await import("sirv");
   app.use(sirv(publicPath, { single: true }));
 }
 
