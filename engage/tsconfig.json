@@ -8,13 +8,13 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "outDir": "./engage/dist",
+    "outDir": "./dist",
     "baseUrl": ".",
     "paths": {
-      "@shared/*": ["./engage/shared/*"],
-      "@/*": ["./engage/client/src/*"]
+      "@shared/*": ["./shared/*"],
+      "@/*": ["./client/src/*"]
     }
   },
-  "include": ["engage/**/*"],
-  "exclude": ["node_modules", "engage/dist"]
+  "include": ["server/**/*", "shared/**/*"],
+  "exclude": ["node_modules", "dist", "client"]
 }
