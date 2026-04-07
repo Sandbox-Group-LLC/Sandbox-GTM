@@ -1,11 +1,15 @@
 import express from "express";
 import session from "express-session";
+import { fileURLToPath } from "url";
+import path from "path";
 import eventsRouter from "./routes/events.js";
 import attendeesRouter from "./routes/attendees.js";
 import checkInRouter from "./routes/checkin.js";
 import momentsRouter from "./routes/moments.js";
 import interactionsRouter from "./routes/interactions.js";
 import meetingsRouter from "./routes/meetings.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 app.use(express.json());
@@ -14,7 +18,10 @@ app.use(session({
   secret: process.env.SESSION_SECRET || "engage-dev-secret-change-me",
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: process.env.NODE_ENV === "production", maxAge: 24 * 60 * 60 * 1000 },
+  cookie: {
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 24 * 60 * 60 * 1000,
+  },
 }));
 
 // API routes
@@ -32,9 +39,11 @@ app.use("/api/meetings", meetingsRouter);
 app.get("/api/health", (_req, res) => res.json({ status: "ok", service: "engage" }));
 
 // Serve Vite-built client in production
+// __dirname = dist/server/ → go up two levels to engage/, then into dist/public
 if (process.env.NODE_ENV === "production") {
+  const publicPath = path.join(__dirname, "../../dist/public");
   const { default: sirv } = await import("sirv");
-  app.use(sirv("dist/public", { single: true }));
+  app.use(sirv(publicPath, { single: true }));
 }
 
 const PORT = parseInt(process.env.PORT || "3001");
