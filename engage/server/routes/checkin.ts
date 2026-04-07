@@ -72,10 +72,11 @@ router.post("/scan", async (req: Request<EP>, res: Response) => {
 router.post("/manual", async (req: Request<EP>, res: Response) => {
   try {
     const { eventId } = req.params;
-    const { eventAttendeeId, mode = "program", sessionId } = req.body as { eventAttendeeId: string; mode?: string; sessionId?: string };
+    const { eventAttendeeId, attendeeId, mode = "program", sessionId } = req.body as { eventAttendeeId?: string; attendeeId?: string; mode?: string; sessionId?: string };
+    const resolvedId = eventAttendeeId || attendeeId;
 
     const [ea] = await db.select().from(eventAttendees)
-      .where(and(eq(eventAttendees.id, eventAttendeeId), eq(eventAttendees.eventId, eventId)));
+      .where(and(eq(eventAttendees.id, resolvedId!), eq(eventAttendees.eventId, eventId)));
     if (!ea) return res.status(404).json({ error: "Attendee not found" });
 
     if (mode === "program") {
