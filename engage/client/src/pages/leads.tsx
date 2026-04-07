@@ -4,6 +4,7 @@ import { Link } from "wouter";
 import { queryClient, fetchJSON, apiRequest } from "../lib/queryClient";
 import { useToast } from "../hooks/use-toast";
 import { AppHeader } from "./dashboard";
+import { useActiveEvent } from "../hooks/use-active-event";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
@@ -53,13 +54,9 @@ function DeltaBadge({ delta }: { delta: number }) {
 
 export default function Leads() {
   const { toast } = useToast();
-  const [selectedEventId, setSelectedEventId] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const { data: events = [] } = useQuery<any[]>({
-    queryKey: ["/api/events"],
-    queryFn: () => fetchJSON("/api/events"),
-  });
+  const { eventId: selectedEventId, eventName, hasEvent } = useActiveEvent();
 
   const { data: summary, isLoading: summaryLoading } = useQuery<any>({
     queryKey: ["/api/intent/summary", selectedEventId],
@@ -107,13 +104,7 @@ export default function Leads() {
 
         {/* Event + recompute controls */}
         <div className="flex items-center gap-3 flex-wrap">
-          <Select value={selectedEventId} onValueChange={setSelectedEventId}>
-            <SelectTrigger className="w-[220px]"><SelectValue placeholder="Select event" /></SelectTrigger>
-            <SelectContent>
-              {events.map((e: any) => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          {selectedEventId && (
+          {hasEvent && (
             <Button
               onClick={() => recomputeMutation.mutate()}
               disabled={recomputeMutation.isPending}
