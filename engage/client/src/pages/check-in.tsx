@@ -93,6 +93,10 @@ export default function CheckIn() {
   const { toast } = useToast();
   const [mode, setMode] = useState<Mode>("program");
   const [selectedSessionId, setSelectedSessionId] = useState("");
+  const handleSessionChange = (id: string) => {
+    setSelectedSessionId(id);
+    setSessionCheckedIn(new Set()); // reset per-session tracking on session switch
+  };
   const [code, setCode] = useState("");
   const [search, setSearch] = useState("");
   const [leadSearch, setLeadSearch] = useState("");
@@ -101,6 +105,7 @@ export default function CheckIn() {
   const [isMatched, setIsMatched] = useState(false);
   const [matchedAttendeeId, setMatchedAttendeeId] = useState<string | null>(null);
   const [captureMethod, setCaptureMethod] = useState("manual");
+  const [sessionCheckedIn, setSessionCheckedIn] = useState<Set<string>>(new Set());
 
   const leadForm = useForm<LeadForm>({
     resolver: zodResolver(leadSchema),
@@ -179,16 +184,20 @@ export default function CheckIn() {
       return res.json();
     },
     onSuccess: (data, attendeeId) => {
-      // Optimistically update the cached attendee list so button flips instantly
-      queryClient.setQueryData(["/api/attendees", selectedEventId], (old: any[]) =>
-        (old || []).map(a => a.id === attendeeId ? { ...a, checkedIn: true } : a)
-      );
+      if (mode === "program") {
+        // Optimistically flip program check-in badge
+        queryClient.setQueryData(["/api/attendees", selectedEventId], (old: any[]) =>
+          (old || []).map(a => a.id === attendeeId ? { ...a, checkedIn: true } : a)
+        );
+        toast({ title: "Checked in", description: `${data.attendee?.firstName} ${data.attendee?.lastName}` });
+      } else {
+        // Track session check-in in local state — flips button to badge instantly
+        setSessionCheckedIn(prev => new Set([...prev, attendeeId]));
+        toast({ title: "Session check-in recorded", description: `${data.attendee?.firstName} ${data.attendee?.lastName}` });
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/checkin-stats", selectedEventId, "program"] });
       queryClient.invalidateQueries({ queryKey: ["/api/checkin-stats", selectedEventId, "session"] });
-      // Background refetch to sync with server
       queryClient.invalidateQueries({ queryKey: ["/api/attendees", selectedEventId] });
-      if (mode === "program") toast({ title: "Checked in", description: `${data.attendee?.firstName} ${data.attendee?.lastName}` });
-      else toast({ title: "Session check-in recorded" });
     },
     onError: (err: any) => toast({ title: "Check-in failed", description: err.message, variant: "destructive" }),
   });
@@ -269,7 +278,7 @@ export default function CheckIn() {
         {mode === "session" && (
           <Card><CardContent className="pt-4">
             <Label className="text-sm font-medium mb-2 block">Select Session</Label>
-            <Select value={selectedSessionId} onValueChange={setSelectedSessionId}>
+            <Select value={selectedSessionId} onValueChange={handleSessionChange}>
               <SelectTrigger><SelectValue placeholder="Choose a session" /></SelectTrigger>
               <SelectContent>{sessions.map((s: any) => <SelectItem key={s.id} value={s.id}>{s.title}</SelectItem>)}</SelectContent>
             </Select>
@@ -339,9 +348,10 @@ export default function CheckIn() {
                           <p className="text-sm font-medium truncate">{a.firstName} {a.lastName}</p>
                           <p className="text-xs text-muted-foreground truncate">{a.email}</p>
                         </div>
-                        {mode === "program" && a.checkedIn
+                        {(mode === "program" && a.checkedIn) || (mode === "session" && sessionCheckedIn.has(a.id))
                           ? <Badge variant="outline" className="text-green-700 bg-green-50 border-green-200 text-xs"><CheckCircle className="h-3 w-3 mr-1" />In</Badge>
-                          : <Button size="sm" onClick={() => manualCheckInMutation.mutate(a.id)} disabled={mode === "session" && !selectedSessionId}>
+                          : <Button size="sm" onClick={() => manualCheckInMutation.mutate(a.id)} disabled={mode === "session" && !selectedSessionId}
+                              className={manualCheckInMutation.isPending ? "opacity-50" : ""}>
                               Check In
                             </Button>
                         }
