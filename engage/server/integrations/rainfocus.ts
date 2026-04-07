@@ -1,265 +1,402 @@
 /**
- * Rainfocus Platform Adapter
+ * Rainfocus Platform Adapter — fully implemented
  *
- * Rainfocus API docs should be consulted for exact field names and endpoints.
- * This scaffold maps to the expected Rainfocus REST API patterns.
- * Update field mappings in mapAttendee() once API documentation is confirmed.
+ * URL pattern:  https://events.rainfocus.com/api/{orgId}/v3/{api-call}
+ * Auth:         header `apiProfile: {token}`  (NOT Bearer)
+ * Responses:    { responseCode, responseMessage, results?, data?, cursor?, timestamp? }
+ * Pagination:   cursor-based — if response has `cursor`, more pages exist
+ * Incremental:  pass `since` (ms-epoch from previous `timestamp`) for delta pulls
  *
- * Key concepts:
- *   - Profile ID = the "show" identifier in Rainfocus
- *   - Attendees are called "registrants" in Rainfocus terminology
- *   - Badge codes may come from a separate barcode/badge field
+ * Config mapping:
+ *   config.apiKey     → apiProfile token (passed as `apiProfile` header)
+ *   config.profileId  → org-id for URL path (e.g. "acme" → /api/acme/v3/...)
+ *   config.apiUrl     → base host override (default: https://events.rainfocus.com)
+ *   config.extra?.version → API version string (default: "3")
  *
- * Environment variables needed:
- *   RAINFOCUS_API_URL      e.g. https://api.rainfocus.com
- *   RAINFOCUS_API_KEY      API key from Rainfocus admin
- *   RAINFOCUS_PROFILE_ID   Show/profile identifier
+ * Attendee field reference (from Rainfocus API docs):
+ *   attendeeId         Internal Rainfocus ID
+ *   externalId         Client-side external ID
+ *   clientId           Alternative client ID
+ *   firstname          First name
+ *   lastname           Last name
+ *   email              Email address
+ *   companyname        Company/organization
+ *   jobtitle           Job title
+ *   phone              Phone number
+ *   regcode            Badge/QR code — primary key for scan lookup
+ *   registered         "true" | "false"
+ *   registeredDate     Registration date
+ *   checkedin          "true" | "false"
+ *   checkinDate        Check-in date
+ *   checkinTime        Check-in time
+ *   address1-2, city, state, zip, country
+ *   createDate, modifiedDate
  */
 
-import { BasePlatformAdapter, ExternalAttendee, ExternalEvent, ExternalSession, AdapterConfig } from "./base-adapter.js";
+import {
+  BasePlatformAdapter,
+  ExternalAttendee,
+  ExternalEvent,
+  ExternalSession,
+  AdapterConfig,
+} from "./base-adapter.js";
 
 // ---------------------------------------------------------------------------
-// Raw Rainfocus API response shapes — update these once docs are confirmed
+// Raw Rainfocus API response shape
 // ---------------------------------------------------------------------------
-interface RFEvent {
-  id: string;
-  name?: string;
-  title?: string;
-  startDate?: string;
-  endDate?: string;
-  timezone?: string;
-  venue?: string;
+
+interface RFResponse<T = unknown> {
+  responseCode: string;        // "0" = success, anything else = error
+  responseMessage: string;
+  timestamp?: string;          // ms-epoch — save for next `since` incremental pull
+  cursor?: string;             // present when more pages exist
+  results?: T[];               // search API returns this
+  data?: T;                    // load API returns this
   [key: string]: unknown;
 }
 
 interface RFAttendee {
-  id?: string;
-  rfId?: string;                   // Rainfocus internal ID
-  firstName?: string;
-  first_name?: string;
-  lastName?: string;
-  last_name?: string;
+  attendeeId?: string;
+  externalId?: string;
+  clientId?: string;
+  firstname?: string;
+  lastname?: string;
   email?: string;
-  emailAddress?: string;
-  company?: string;
-  organization?: string;
-  jobTitle?: string;
-  title?: string;
+  companyname?: string;
+  jobtitle?: string;
   phone?: string;
-  phoneNumber?: string;
-  badgeCode?: string;
-  barcode?: string;
-  qrCode?: string;
-  registrationType?: string;
-  type?: string;
-  status?: string;
-  registrationStatus?: string;
+  address1?: string;
+  address2?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  country?: string;
+  regcode?: string;            // badge QR/barcode — what gets scanned at check-in
+  registered?: string;
+  registeredDate?: string;
+  registeredTime?: string;
+  checkedin?: string;
+  checkinDate?: string;
+  checkinTime?: string;
+  language?: string;
+  createDate?: string;
+  modifiedDate?: string;
   [key: string]: unknown;
 }
 
 interface RFSession {
-  id?: string;
-  rfId?: string;
+  sessionId?: string;
+  externalId?: string;
   title?: string;
   name?: string;
   description?: string;
-  startTime?: string;
-  endTime?: string;
+  starttime?: string;
+  endtime?: string;
   room?: string;
   location?: string;
   type?: string;
-  sessionType?: string;
   capacity?: number;
   [key: string]: unknown;
 }
 
-interface RFListResponse<T> {
-  data?: T[];
-  items?: T[];
-  results?: T[];
-  registrants?: T[];              // Rainfocus may use "registrants" for attendees
-  sessions?: T[];
-  total?: number;
-  [key: string]: unknown;
-}
+// ---------------------------------------------------------------------------
+// Adapter
+// ---------------------------------------------------------------------------
 
-// ---------------------------------------------------------------------------
-// Adapter implementation
-// ---------------------------------------------------------------------------
 export class RainfocusAdapter extends BasePlatformAdapter {
-  private baseUrl: string;
+  private readonly baseHost: string;
+  private readonly orgId: string;
+  private readonly version: string;
 
   constructor(config: AdapterConfig) {
     super(config);
-    this.baseUrl = (config.apiUrl || "https://api.rainfocus.com").replace(/\/$/, "");
+    this.baseHost = (config.apiUrl || "https://events.rainfocus.com").replace(/\/$/, "");
+    // profileId = org-id used in the URL path (e.g. "acme" → /api/acme/v3/...)
+    this.orgId = config.profileId || "";
+    this.version = config.extra?.version || "3";
+
+    if (!this.orgId) {
+      throw new Error(
+        "Rainfocus adapter: profileId is required (org-id for URL path, e.g. 'acme')"
+      );
+    }
+    if (!config.apiKey) {
+      throw new Error("Rainfocus adapter: apiKey is required (apiProfile token)");
+    }
   }
 
-  private get headers(): Record<string, string> {
+  // -------------------------------------------------------------------------
+  // HTTP helpers
+  // -------------------------------------------------------------------------
+
+  private get authHeaders(): Record<string, string> {
     return {
-      "Authorization": `Bearer ${this.config.apiKey}`,
+      // Rainfocus uses `apiProfile` header — NOT a Bearer token
+      apiProfile: this.config.apiKey,
+      Accept: "application/json",
       "Content-Type": "application/json",
-      "Accept": "application/json",
-      // Rainfocus may use a different auth header — update once docs confirmed
-      // "rfApiProfileId": this.config.profileId || "",
-      // "rfAccessToken": this.config.apiKey,
     };
   }
 
-  private async get<T>(path: string, params?: Record<string, string>): Promise<T> {
-    const url = new URL(`${this.baseUrl}${path}`);
+  private buildUrl(apiCall: string): string {
+    return `${this.baseHost}/api/${this.orgId}/v${this.version}/${apiCall}`;
+  }
+
+  private async request<T>(
+    apiCall: string,
+    method: "GET" | "POST",
+    params?: Record<string, string>,
+    body?: unknown
+  ): Promise<RFResponse<T>> {
+    const url = new URL(this.buildUrl(apiCall));
     if (params) {
       Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
     }
-    const res = await fetch(url.toString(), { headers: this.headers });
+
+    const res = await fetch(url.toString(), {
+      method,
+      headers: this.authHeaders,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+
     if (!res.ok) {
-      const body = await res.text();
-      throw new Error(`Rainfocus API error ${res.status}: ${body.slice(0, 200)}`);
+      const text = await res.text();
+      throw new Error(`Rainfocus HTTP ${res.status}: ${text.slice(0, 300)}`);
     }
-    return res.json() as Promise<T>;
+
+    const json = (await res.json()) as RFResponse<T>;
+    if (json.responseCode !== "0") {
+      throw new Error(
+        `Rainfocus API error [${json.responseCode}]: ${json.responseMessage}`
+      );
+    }
+    return json;
+  }
+
+  private async get<T>(apiCall: string, params: Record<string, string> = {}): Promise<RFResponse<T>> {
+    return this.request<T>(apiCall, "GET", params);
+  }
+
+  private async post<T>(apiCall: string, body: unknown): Promise<RFResponse<T>> {
+    return this.request<T>(apiCall, "POST", undefined, body);
+  }
+
+  /**
+   * Cursor-based paginator — follows the cursor until exhausted.
+   * Per Rainfocus docs: timestamp is only present on the first page;
+   * we capture it once and discard from subsequent pages.
+   */
+  private async searchAll<T>(
+    apiCall: string,
+    params: Record<string, string> = {}
+  ): Promise<{ results: T[]; timestamp?: string }> {
+    const allResults: T[] = [];
+    let cursor: string | undefined;
+    let firstTimestamp: string | undefined;
+
+    do {
+      const callParams = { ...params };
+      if (cursor) callParams.cursor = cursor;
+
+      const data = await this.get<T>(apiCall, callParams);
+
+      // Capture timestamp from first page only (API docs requirement)
+      if (!cursor && data.timestamp) {
+        firstTimestamp = data.timestamp;
+      }
+
+      allResults.push(...(data.results || []));
+      cursor = data.cursor;
+    } while (cursor);
+
+    return { results: allResults, timestamp: firstTimestamp };
   }
 
   // -------------------------------------------------------------------------
-  // Field mapping helpers — update once Rainfocus docs are confirmed
+  // Field mapping
   // -------------------------------------------------------------------------
-  private mapEvent(raw: RFEvent): ExternalEvent {
-    return {
-      externalId: String(raw.id || raw.rfId || ""),
-      name: String(raw.name || raw.title || "Untitled Event"),
-      startDate: raw.startDate,
-      endDate: raw.endDate,
-      timezone: raw.timezone,
-      venue: raw.venue,
-      meta: raw,
-    };
-  }
 
   private mapAttendee(raw: RFAttendee): ExternalAttendee {
-    // TODO: Confirm exact field names from Rainfocus API documentation
     return {
-      externalId: String(raw.id || raw.rfId || ""),
-      firstName: String(raw.firstName || raw.first_name || ""),
-      lastName: String(raw.lastName || raw.last_name || ""),
-      email: String(raw.email || raw.emailAddress || ""),
-      company: String(raw.company || raw.organization || "") || undefined,
-      jobTitle: String(raw.jobTitle || raw.title || "") || undefined,
-      phone: String(raw.phone || raw.phoneNumber || "") || undefined,
-      // Badge code field — Rainfocus likely exposes this; update field name from docs
-      badgeCode: String(raw.badgeCode || raw.barcode || raw.qrCode || "") || undefined,
-      registrationType: String(raw.registrationType || raw.type || "") || undefined,
-      registrationStatus: String(raw.status || raw.registrationStatus || "") || undefined,
+      externalId: raw.attendeeId || raw.externalId || raw.clientId || "",
+      firstName: raw.firstname || "",
+      lastName: raw.lastname || "",
+      email: raw.email || "",
+      company: raw.companyname || undefined,
+      jobTitle: raw.jobtitle || undefined,
+      phone: raw.phone || undefined,
+      // regcode is the badge QR/barcode scanned at check-in kiosks
+      badgeCode: raw.regcode || undefined,
+      registrationType: undefined,   // pulled from custom attributes if needed
+      registrationStatus: raw.registered === "true"
+        ? "registered"
+        : raw.registered || undefined,
       meta: raw,
     };
   }
 
   private mapSession(raw: RFSession): ExternalSession {
     return {
-      externalId: String(raw.id || raw.rfId || ""),
-      title: String(raw.title || raw.name || "Untitled Session"),
+      externalId: raw.sessionId || raw.externalId || "",
+      title: raw.title || raw.name || "Untitled Session",
       description: raw.description,
-      startTime: raw.startTime,
-      endTime: raw.endTime,
-      room: String(raw.room || raw.location || "") || undefined,
-      sessionType: String(raw.type || raw.sessionType || "") || undefined,
+      startTime: raw.starttime,
+      endTime: raw.endtime,
+      room: raw.room || raw.location || undefined,
+      sessionType: raw.type || undefined,
       capacity: raw.capacity,
       meta: raw,
     };
   }
 
   // -------------------------------------------------------------------------
-  // Public API methods
+  // Public interface implementation
   // -------------------------------------------------------------------------
 
   /**
-   * List all shows/events under the configured API key.
-   * TODO: Confirm endpoint from Rainfocus docs — likely GET /api/v1/shows or similar
+   * Rainfocus does not expose an event-list API.
+   * The apiProfile token is scoped to a specific show/event.
+   * We return one synthetic event using the orgId as the externalId.
+   * The connection name in the UI serves as the human-readable event label.
    */
   async getEvents(): Promise<ExternalEvent[]> {
-    const profileId = this.config.profileId;
-    if (profileId) {
-      // If a single profile ID is configured, return it as a synthetic event list
-      // until we know the correct list endpoint
-      return [{
-        externalId: profileId,
-        name: "Event (configure name from Rainfocus)",
-        meta: { profileId },
-      }];
-    }
-    // TODO: Replace with actual Rainfocus events list endpoint
-    const data = await this.get<RFListResponse<RFEvent>>("/api/v1/events");
-    const items = data.data || data.items || data.results || [];
-    return items.map(this.mapEvent.bind(this));
+    return [
+      {
+        externalId: this.orgId,
+        name: `Rainfocus Event (${this.orgId})`,
+        meta: { orgId: this.orgId, adapter: "rainfocus" },
+      },
+    ];
   }
 
   /**
-   * Pull full attendee/registrant roster for a show.
-   * TODO: Confirm endpoint — likely GET /api/v1/registrants?profileId=...
-   *       Pagination strategy (page/limit or cursor) needed for large events.
+   * Pull full attendee roster via attendee/search.
+   * Handles cursor-based pagination automatically.
+   * Pass `since` (ms-epoch from previous sync) for incremental pulls.
+   *
+   * From the docs, default page size is 1000; we request that explicitly.
    */
-  async getAttendees(externalEventId: string): Promise<ExternalAttendee[]> {
-    const allAttendees: ExternalAttendee[] = [];
-    let page = 1;
-    const pageSize = 500;
+  async getAttendees(
+    _externalEventId: string,
+    options?: { since?: string }
+  ): Promise<ExternalAttendee[]> {
+    const params: Record<string, string> = { pageSize: "1000" };
+    if (options?.since) params.since = options.since;
 
-    while (true) {
-      // TODO: Replace with confirmed Rainfocus registrant list endpoint + params
-      const data = await this.get<RFListResponse<RFAttendee>>("/api/v1/registrants", {
-        profileId: externalEventId,
-        page: String(page),
-        pageSize: String(pageSize),
-      });
-
-      const items = data.data || data.items || data.results || data.registrants || [];
-      if (items.length === 0) break;
-
-      allAttendees.push(...items.map(this.mapAttendee.bind(this)));
-      if (items.length < pageSize) break;
-      page++;
-    }
-
-    return allAttendees;
+    const { results } = await this.searchAll<RFAttendee>("attendee/search", params);
+    return results.map(this.mapAttendee.bind(this));
   }
 
   /**
-   * Real-time badge scan lookup — called on every scan at check-in.
-   * TODO: Confirm the lookup endpoint; Rainfocus may support search by barcode field.
+   * Incremental attendee sync — returns only changed records plus the
+   * new timestamp to store for the next delta pull.
+   *
+   * Usage:
+   *   const { attendees, nextTimestamp } = await adapter.getAttendeesIncremental(id, lastTs);
+   *   // persist nextTimestamp → pass back as sinceTimestamp next time
+   */
+  async getAttendeesIncremental(
+    externalEventId: string,
+    sinceTimestamp?: string
+  ): Promise<{ attendees: ExternalAttendee[]; nextTimestamp?: string }> {
+    const params: Record<string, string> = { pageSize: "1000" };
+    if (sinceTimestamp) params.since = sinceTimestamp;
+
+    const { results, timestamp } = await this.searchAll<RFAttendee>("attendee/search", params);
+    return {
+      attendees: results.map(this.mapAttendee.bind(this)),
+      nextTimestamp: timestamp,
+    };
+  }
+
+  /**
+   * Real-time badge scan lookup — called on every QR scan at check-in.
+   *
+   * Rainfocus field: `regcode` = the barcode/QR value printed on the badge.
+   * Falls back to email search if no badge code provided.
+   *
+   * Uses attendee/search with pageSize=1 for minimal latency.
    */
   async lookupAttendee(
-    externalEventId: string,
+    _externalEventId: string,
     query: { badgeCode?: string; email?: string }
   ): Promise<ExternalAttendee | null> {
-    const params: Record<string, string> = { profileId: externalEventId };
-    if (query.badgeCode) params.badgeCode = query.badgeCode;  // TODO: confirm field name
-    if (query.email) params.email = query.email;
+    if (!query.badgeCode && !query.email) return null;
 
-    // TODO: Replace with confirmed Rainfocus registrant lookup endpoint
-    const data = await this.get<RFListResponse<RFAttendee>>("/api/v1/registrants/lookup", params);
-    const items = data.data || data.items || data.results || data.registrants || [];
+    const params: Record<string, string> = { pageSize: "1" };
 
-    if (items.length === 0) return null;
-    return this.mapAttendee(items[0]);
+    if (query.badgeCode) {
+      // regcode is the Rainfocus field for the badge QR/barcode
+      params.regcode = query.badgeCode;
+    } else if (query.email) {
+      params.email = query.email;
+    }
+
+    const data = await this.get<RFAttendee>("attendee/search", params);
+    const results = data.results || [];
+    if (results.length === 0) return null;
+
+    return this.mapAttendee(results[0]);
   }
 
   /**
-   * Pull agenda/sessions for a show.
-   * TODO: Confirm endpoint — likely GET /api/v1/sessions?profileId=...
+   * Load a single attendee by Rainfocus attendeeId.
+   * Uses attendee/load which returns a single `data` object.
    */
-  async getSessions(externalEventId: string): Promise<ExternalSession[]> {
-    // TODO: Replace with confirmed Rainfocus sessions endpoint
-    const data = await this.get<RFListResponse<RFSession>>("/api/v1/sessions", {
-      profileId: externalEventId,
+  async loadAttendeeById(attendeeId: string): Promise<ExternalAttendee | null> {
+    const data = await this.get<RFAttendee>("attendee/load", { attendeeId });
+    if (!data.data) return null;
+    return this.mapAttendee(data.data);
+  }
+
+  /**
+   * Pull sessions via session/search.
+   * Session fields: sessionId, title, description, starttime, endtime, room, type, capacity.
+   */
+  async getSessions(_externalEventId: string): Promise<ExternalSession[]> {
+    const { results } = await this.searchAll<RFSession>("session/search", {
+      pageSize: "1000",
     });
-    const items = data.data || data.items || data.results || data.sessions || [];
-    return items.map(this.mapSession.bind(this));
+    return results.map(this.mapSession.bind(this));
   }
 
   /**
-   * Push check-in status back to Rainfocus (if supported).
-   * TODO: Confirm write endpoint and required payload from docs.
+   * Write check-in back to Rainfocus via attendee/update.
+   * Sets checkedin=true with current date/time.
+   *
+   * Note: attendee/update errors if the attendee doesn't exist.
+   * Use attendee/store if upserting.
    */
-  async pushCheckIn(externalEventId: string, externalAttendeeId: string): Promise<void> {
-    // TODO: Implement once write endpoints are confirmed from Rainfocus docs
-    // Example pattern:
-    // await this.post(`/api/v1/registrants/${externalAttendeeId}/checkin`, { profileId: externalEventId });
-    console.log(`[Rainfocus] pushCheckIn not yet implemented — ${externalAttendeeId}`);
+  async pushCheckIn(_externalEventId: string, externalAttendeeId: string): Promise<void> {
+    const now = new Date();
+    await this.post("attendee/update", {
+      attendeeId: externalAttendeeId,
+      checkedin: "true",
+      checkinDate: now.toISOString().split("T")[0],          // YYYY-MM-DD
+      checkinTime: now.toTimeString().split(" ")[0],          // HH:MM:SS
+    });
+  }
+
+  /**
+   * Upsert an attendee record back to Rainfocus (attendee/store).
+   * Useful for writing back enriched lead data, custom attributes, etc.
+   */
+  async pushAttendeeData(data: Record<string, unknown>): Promise<void> {
+    await this.post("attendee/store", data);
+  }
+
+  /**
+   * Search attendees with arbitrary Rainfocus filter params.
+   * Supports wildcards: firstname=*ing*, companyname=*
+   * Useful for custom lookups not covered by lookupAttendee.
+   */
+  async searchAttendees(
+    filters: Record<string, string>
+  ): Promise<ExternalAttendee[]> {
+    const { results } = await this.searchAll<RFAttendee>("attendee/search", {
+      pageSize: "100",
+      ...filters,
+    });
+    return results.map(this.mapAttendee.bind(this));
   }
 }
