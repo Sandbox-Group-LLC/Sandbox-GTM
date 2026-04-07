@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link } from "wouter";
+import { AppHeader } from "./dashboard";
 import { QRCodeSVG } from "qrcode.react";
 import { queryClient, apiRequest, fetchJSON } from "../lib/queryClient";
 import { useToast } from "../hooks/use-toast";
@@ -179,24 +180,7 @@ export default function MomentsAdmin() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <header className="border-b px-6 py-4 flex items-center gap-4">
-        <Link href="/"><Button variant="ghost" size="sm"><ArrowLeft className="h-4 w-4 mr-1" />Back</Button></Link>
-        <div className="flex-1">
-          <h1 className="text-lg font-semibold">Engagement Moments</h1>
-          <p className="text-xs text-muted-foreground">Live polls, Q&A, ratings, and calls to action</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Select value={selectedEventId} onValueChange={setSelectedEventId}>
-            <SelectTrigger className="w-[200px]"><SelectValue placeholder="Select event" /></SelectTrigger>
-            <SelectContent>
-              {events.map((e: any) => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          {selectedEventId && (
-            <Button size="sm" onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4 mr-1" />New Moment</Button>
-          )}
-        </div>
-      </header>
+      <AppHeader />
 
       <main className="flex-1 p-6 max-w-4xl mx-auto w-full">
         {!selectedEventId ? (
