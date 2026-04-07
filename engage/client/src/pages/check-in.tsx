@@ -337,7 +337,7 @@ export default function CheckIn() {
                         {mode === "program" && a.checkedIn
                           ? <Badge variant="outline" className="text-green-700 bg-green-50 border-green-200 text-xs"><CheckCircle className="h-3 w-3 mr-1" />In</Badge>
                           : <Button size="sm" onClick={() => manualCheckInMutation.mutate(a.id)} disabled={mode === "session" && !selectedSessionId}>
-                              {mode === "session" ? "Session" : "Check In"}
+                              "Check In"
                             </Button>
                         }
                       </div>
