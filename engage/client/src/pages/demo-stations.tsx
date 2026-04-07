@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link } from "wouter";
-import { queryClient, apiRequest } from "../lib/queryClient";
+import { queryClient, apiRequest, fetchJSON } from "../lib/queryClient";
 import { useToast } from "../hooks/use-toast";
 import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -38,12 +38,12 @@ export default function DemoStations() {
 
   const { data: events = [] } = useQuery<any[]>({
     queryKey: ["/api/events"],
-    queryFn: () => fetch("/api/events", { credentials: "include" }).then(r => r.json()),
+    queryFn: () => fetchJSON("/api/events"),
   });
 
   const { data: stations = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/stations", selectedEventId],
-    queryFn: () => fetch(`/api/events/${selectedEventId}/stations`, { credentials: "include" }).then(r => r.json()),
+    queryFn: () => fetchJSON(`/api/events/${selectedEventId}/stations`),
     enabled: !!selectedEventId,
   });
 
