@@ -5,13 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
-    "dev:server": "tsx watch engage/server/index.ts",
-    "dev:client": "vite engage/client",
-    "build": "tsc && vite build engage/client --outDir engage/dist/public",
-    "start": "node engage/dist/server/index.js",
-    "db:push": "drizzle-kit push --config engage/drizzle.config.ts",
-    "db:generate": "drizzle-kit generate --config engage/drizzle.config.ts",
-    "db:migrate": "drizzle-kit migrate --config engage/drizzle.config.ts"
+    "dev:server": "tsx watch server/index.ts",
+    "dev:client": "vite client",
+    "build": "npm run build:server && npm run build:client",
+    "build:server": "tsc --project tsconfig.json",
+    "build:client": "vite build client --outDir dist/public",
+    "start": "node dist/server/index.js",
+    "db:push": "drizzle-kit push --config drizzle.config.ts",
+    "db:generate": "drizzle-kit generate --config drizzle.config.ts",
+    "db:migrate": "drizzle-kit migrate --config drizzle.config.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",
@@ -40,7 +42,6 @@
     "qrcode.react": "^3.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-hook-form": "^7.51.1",
     "sirv": "^2.0.4",
     "tailwind-merge": "^2.2.2",
     "tailwindcss-animate": "^1.0.7",
