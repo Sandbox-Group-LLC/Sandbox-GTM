@@ -18,6 +18,7 @@ const NAV_LINKS = [
   { href: "/moments",   label: "Moments" },
   { href: "/stations",  label: "Stations" },
   { href: "/meetings",  label: "Meetings" },
+  { href: "/leads",     label: "Leads" },
   { href: "/connect",   label: "Connect" },
 ];
 
