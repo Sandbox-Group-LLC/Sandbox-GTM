@@ -1,29 +1,16 @@
-/**
- * Product Interactions (lead capture) routes
- *
- * GET  /api/events/:eventId/interactions
- * POST /api/events/:eventId/interactions
- * GET  /api/events/:eventId/interactions/stats
- *
- * GET  /api/events/:eventId/stations
- * POST /api/events/:eventId/stations
- * PATCH /api/stations/:stationId
- * DELETE /api/stations/:stationId
- */
-
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { db } from "../db.js";
 import { productInteractions, demoStations } from "../../shared/schema.js";
 import { eq, and, count, sql } from "drizzle-orm";
 
+type EP = { eventId: string };
 const router = Router({ mergeParams: true });
 
 // ---------------------------------------------------------------------------
 // Product Interactions
 // ---------------------------------------------------------------------------
 
-// GET /api/events/:eventId/interactions
-router.get("/interactions", async (req, res) => {
+router.get("/interactions", async (req: Request<EP>, res: Response) => {
   try {
     const rows = await db.select().from(productInteractions)
       .where(eq(productInteractions.eventId, req.params.eventId));
@@ -33,8 +20,7 @@ router.get("/interactions", async (req, res) => {
   }
 });
 
-// POST /api/events/:eventId/interactions
-router.post("/interactions", async (req, res) => {
+router.post("/interactions", async (req: Request<EP>, res: Response) => {
   try {
     const [created] = await db.insert(productInteractions)
       .values({ ...req.body, eventId: req.params.eventId })
@@ -45,28 +31,18 @@ router.post("/interactions", async (req, res) => {
   }
 });
 
-// GET /api/events/:eventId/interactions/stats
-router.get("/interactions/stats", async (req, res) => {
+router.get("/interactions/stats", async (req: Request<EP>, res: Response) => {
   try {
     const { eventId } = req.params;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const [total] = await db.select({ count: count() }).from(productInteractions)
-      .where(eq(productInteractions.eventId, eventId));
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const [total] = await db.select({ count: count() }).from(productInteractions).where(eq(productInteractions.eventId, eventId));
     const [todayCount] = await db.select({ count: count() }).from(productInteractions)
       .where(and(eq(productInteractions.eventId, eventId), sql`${productInteractions.createdAt} >= ${today}`));
     const [qrCount] = await db.select({ count: count() }).from(productInteractions)
       .where(and(eq(productInteractions.eventId, eventId), eq(productInteractions.captureMethod, "qr_scan")));
     const [manualCount] = await db.select({ count: count() }).from(productInteractions)
       .where(and(eq(productInteractions.eventId, eventId), eq(productInteractions.captureMethod, "manual")));
-
-    res.json({
-      totalInteractions: total.count,
-      interactionsToday: todayCount.count,
-      badgeScans: qrCount.count,
-      manualInteractions: manualCount.count,
-    });
+    res.json({ totalInteractions: total.count, interactionsToday: todayCount.count, badgeScans: qrCount.count, manualInteractions: manualCount.count });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -76,8 +52,7 @@ router.get("/interactions/stats", async (req, res) => {
 // Demo Stations
 // ---------------------------------------------------------------------------
 
-// GET /api/events/:eventId/stations
-router.get("/stations", async (req, res) => {
+router.get("/stations", async (req: Request<EP>, res: Response) => {
   try {
     const rows = await db.select().from(demoStations).where(eq(demoStations.eventId, req.params.eventId));
     res.json(rows);
@@ -86,8 +61,7 @@ router.get("/stations", async (req, res) => {
   }
 });
 
-// POST /api/events/:eventId/stations
-router.post("/stations", async (req, res) => {
+router.post("/stations", async (req: Request<EP>, res: Response) => {
   try {
     const [created] = await db.insert(demoStations)
       .values({ ...req.body, eventId: req.params.eventId })
@@ -98,8 +72,7 @@ router.post("/stations", async (req, res) => {
   }
 });
 
-// PATCH /api/stations/:stationId
-router.patch("/stations/:stationId", async (req, res) => {
+router.patch("/stations/:stationId", async (req: Request<EP & { stationId: string }>, res: Response) => {
   try {
     const [updated] = await db.update(demoStations)
       .set({ ...req.body, updatedAt: new Date() })
@@ -112,8 +85,7 @@ router.patch("/stations/:stationId", async (req, res) => {
   }
 });
 
-// DELETE /api/stations/:stationId
-router.delete("/stations/:stationId", async (req, res) => {
+router.delete("/stations/:stationId", async (req: Request<EP & { stationId: string }>, res: Response) => {
   try {
     await db.delete(demoStations).where(eq(demoStations.id, req.params.stationId));
     res.status(204).end();
