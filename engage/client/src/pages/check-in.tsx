@@ -181,7 +181,8 @@ export default function CheckIn() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/checkin-stats", selectedEventId, "program"] });
       queryClient.invalidateQueries({ queryKey: ["/api/checkin-stats", selectedEventId, "session"] });
-      if (mode === "program") toast({ title: "Checked in", description: `${data.firstName} ${data.lastName}` });
+      queryClient.invalidateQueries({ queryKey: ["/api/attendees", selectedEventId] });
+      if (mode === "program") toast({ title: "Checked in", description: `${data.attendee?.firstName} ${data.attendee?.lastName}` });
       else toast({ title: "Session check-in recorded" });
     },
     onError: (err: any) => toast({ title: "Check-in failed", description: err.message, variant: "destructive" }),
