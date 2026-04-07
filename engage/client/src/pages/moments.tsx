@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link } from "wouter";
 import { AppHeader } from "./dashboard";
+import { useActiveEvent } from "../hooks/use-active-event";
 import { QRCodeSVG } from "qrcode.react";
 import { queryClient, apiRequest, fetchJSON } from "../lib/queryClient";
 import { useToast } from "../hooks/use-toast";
@@ -51,7 +52,6 @@ type MomentFormValues = z.infer<typeof momentFormSchema>;
 
 export default function MomentsAdmin() {
   const { toast } = useToast();
-  const [selectedEventId, setSelectedEventId] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [editingMoment, setEditingMoment] = useState<any>(null);
   const [deletingMoment, setDeletingMoment] = useState<any>(null);
@@ -59,10 +59,7 @@ export default function MomentsAdmin() {
   const [pollOptions, setPollOptions] = useState(["", ""]);
   const qrRef = useRef<HTMLDivElement>(null);
 
-  const { data: events = [] } = useQuery<any[]>({
-    queryKey: ["/api/events"],
-    queryFn: () => fetchJSON("/api/events"),
-  });
+  const { eventId: selectedEventId, eventName, hasEvent } = useActiveEvent();
 
   const { data: moments = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/moments", selectedEventId],
