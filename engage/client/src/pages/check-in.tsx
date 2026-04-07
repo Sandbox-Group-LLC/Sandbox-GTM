@@ -178,9 +178,14 @@ export default function CheckIn() {
       });
       return res.json();
     },
-    onSuccess: (data) => {
+    onSuccess: (data, attendeeId) => {
+      // Optimistically update the cached attendee list so button flips instantly
+      queryClient.setQueryData(["/api/attendees", selectedEventId], (old: any[]) =>
+        (old || []).map(a => a.id === attendeeId ? { ...a, checkedIn: true } : a)
+      );
       queryClient.invalidateQueries({ queryKey: ["/api/checkin-stats", selectedEventId, "program"] });
       queryClient.invalidateQueries({ queryKey: ["/api/checkin-stats", selectedEventId, "session"] });
+      // Background refetch to sync with server
       queryClient.invalidateQueries({ queryKey: ["/api/attendees", selectedEventId] });
       if (mode === "program") toast({ title: "Checked in", description: `${data.attendee?.firstName} ${data.attendee?.lastName}` });
       else toast({ title: "Session check-in recorded" });
