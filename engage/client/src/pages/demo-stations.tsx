@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link } from "wouter";
 import { AppHeader } from "./dashboard";
+import { useActiveEvent } from "../hooks/use-active-event";
 import { queryClient, apiRequest, fetchJSON } from "../lib/queryClient";
 import { useToast } from "../hooks/use-toast";
 import { Card, CardContent } from "../components/ui/card";
@@ -31,16 +32,12 @@ type StationForm = z.infer<typeof stationSchema>;
 
 export default function DemoStations() {
   const { toast } = useToast();
-  const [selectedEventId, setSelectedEventId] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [editingStation, setEditingStation] = useState<any>(null);
   const [deletingStation, setDeletingStation] = useState<any>(null);
   const [tagInput, setTagInput] = useState("");
 
-  const { data: events = [] } = useQuery<any[]>({
-    queryKey: ["/api/events"],
-    queryFn: () => fetchJSON("/api/events"),
-  });
+  const { eventId: selectedEventId, eventName, hasEvent } = useActiveEvent();
 
   const { data: stations = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/stations", selectedEventId],
