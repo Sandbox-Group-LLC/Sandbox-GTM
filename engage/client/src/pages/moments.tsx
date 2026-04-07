@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link } from "wouter";
 import { QRCodeSVG } from "qrcode.react";
-import { queryClient, apiRequest } from "../lib/queryClient";
+import { queryClient, apiRequest, fetchJSON } from "../lib/queryClient";
 import { useToast } from "../hooks/use-toast";
 import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -60,18 +60,18 @@ export default function MomentsAdmin() {
 
   const { data: events = [] } = useQuery<any[]>({
     queryKey: ["/api/events"],
-    queryFn: () => fetch("/api/events", { credentials: "include" }).then(r => r.json()),
+    queryFn: () => fetchJSON("/api/events"),
   });
 
   const { data: moments = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/moments", selectedEventId],
-    queryFn: () => fetch(`/api/events/${selectedEventId}/moments`, { credentials: "include" }).then(r => r.json()),
+    queryFn: () => fetchJSON(`/api/events/${selectedEventId}/moments`),
     enabled: !!selectedEventId,
   });
 
   const { data: sessions = [] } = useQuery<any[]>({
     queryKey: ["/api/sessions", selectedEventId],
-    queryFn: () => fetch(`/api/events/${selectedEventId}/sessions`, { credentials: "include" }).then(r => r.json()),
+    queryFn: () => fetchJSON(`/api/events/${selectedEventId}/sessions`),
     enabled: !!selectedEventId,
   });
 
