@@ -112,9 +112,6 @@ export default function CheckIn() {
     queryFn: () => fetchJSON("/api/events"),
   });
 
-  useEffect(() => {
-    if (events.length > 0 && !selectedEventId) setSelectedEventId(events[0].id);
-  }, [events]);
 
   const { data: checkinStats } = useQuery<any>({
     queryKey: ["/api/checkin-stats", selectedEventId, "program"],
