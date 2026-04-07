@@ -1,93 +1,96 @@
 import { Router, Request, Response } from "express";
 import { db } from "../db.js";
 import { moments, momentResponses } from "../../shared/schema.js";
-import { eq, count } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 
 type EP = { eventId: string };
-type MP = { momentId: string };
 const router = Router({ mergeParams: true });
 
 router.get("/", async (req: Request<EP>, res: Response) => {
   try {
-    const rows = await db.select().from(moments).where(eq(moments.eventId, req.params.eventId));
+    const rows = await db.select().from(moments)
+      .where(eq(moments.eventId, req.params.eventId)).orderBy(desc(moments.createdAt));
     res.json(rows);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
 router.post("/", async (req: Request<EP>, res: Response) => {
   try {
-    const [created] = await db.insert(moments)
-      .values({ ...req.body, eventId: req.params.eventId })
-      .returning();
-    res.status(201).json(created);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.patch("/:momentId", async (req: Request<MP>, res: Response) => {
-  try {
-    const [updated] = await db.update(moments)
-      .set({ ...req.body, updatedAt: new Date() })
-      .where(eq(moments.id, req.params.momentId))
-      .returning();
-    if (!updated) return res.status(404).json({ error: "Moment not found" });
-    res.json(updated);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.delete("/:momentId", async (req: Request<MP>, res: Response) => {
-  try {
-    await db.delete(momentResponses).where(eq(momentResponses.momentId, req.params.momentId));
-    await db.delete(moments).where(eq(moments.id, req.params.momentId));
-    res.status(204).end();
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.get("/:momentId/public", async (req: Request<MP>, res: Response) => {
-  try {
-    const [moment] = await db.select().from(moments).where(eq(moments.id, req.params.momentId));
-    if (!moment) return res.status(404).json({ error: "Moment not found" });
-    if (moment.status === "ended") return res.status(410).json({ error: "This moment has ended" });
-    res.json(moment);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.post("/:momentId/respond", async (req: Request<MP>, res: Response) => {
-  try {
-    const [moment] = await db.select().from(moments).where(eq(moments.id, req.params.momentId));
-    if (!moment) return res.status(404).json({ error: "Moment not found" });
-    if (moment.status !== "live") return res.status(403).json({ error: "Moment is not accepting responses" });
-    const [response] = await db.insert(momentResponses).values({
-      momentId: moment.id,
-      eventId: moment.eventId,
-      attendeeId: req.body.attendeeId || null,
-      payloadJson: req.body.payload,
+    const { type, title, prompt, optionsJson, sessionId, showResults } = req.body;
+    if (!type || !title) return res.status(400).json({ error: "type and title required" });
+    const [m] = await db.insert(moments).values({
+      eventId: req.params.eventId, type, title, prompt,
+      optionsJson, sessionId: sessionId || null, showResults: showResults || false, status: "draft",
     }).returning();
-    res.status(201).json(response);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+    res.status(201).json(m);
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
-router.get("/:momentId/results", async (req: Request<MP>, res: Response) => {
+router.patch("/:id/status", async (req: Request<EP & { id: string }>, res: Response) => {
   try {
-    const [moment] = await db.select().from(moments).where(eq(moments.id, req.params.momentId));
-    if (!moment) return res.status(404).json({ error: "Moment not found" });
-    const responses = await db.select().from(momentResponses).where(eq(momentResponses.momentId, moment.id));
-    const [totalRow] = await db.select({ count: count() }).from(momentResponses).where(eq(momentResponses.momentId, moment.id));
-    res.json({ moment, totalResponses: totalRow.count, responses: moment.showResults ? responses : [] });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+    const { status } = req.body;
+    if (!["draft","live","locked","ended"].includes(status)) return res.status(400).json({ error: "Invalid status" });
+    const [m] = await db.update(moments).set({
+      status,
+      ...(status === "live" ? { startTime: new Date() } : {}),
+      ...(status === "ended" ? { endTime: new Date() } : {}),
+      updatedAt: new Date(),
+    }).where(and(eq(moments.id, req.params.id), eq(moments.eventId, req.params.eventId))).returning();
+    if (!m) return res.status(404).json({ error: "Moment not found" });
+    res.json(m);
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.patch("/:id", async (req: Request<EP & { id: string }>, res: Response) => {
+  try {
+    const { title, prompt, optionsJson, showResults, sessionId } = req.body;
+    const [m] = await db.update(moments).set({
+      ...(title !== undefined && { title }),
+      ...(prompt !== undefined && { prompt }),
+      ...(optionsJson !== undefined && { optionsJson }),
+      ...(showResults !== undefined && { showResults }),
+      ...(sessionId !== undefined && { sessionId }),
+      updatedAt: new Date(),
+    }).where(and(eq(moments.id, req.params.id), eq(moments.eventId, req.params.eventId))).returning();
+    if (!m) return res.status(404).json({ error: "Moment not found" });
+    res.json(m);
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+// GET /api/moments/:id  (public — for attendee QR scan)
+router.get("/:id", async (req: Request<any>, res: Response) => {
+  try {
+    const [m] = await db.select().from(moments).where(eq(moments.id, req.params.id));
+    if (!m) return res.status(404).json({ error: "Moment not found" });
+    res.json(m);
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+// POST /api/moments/:id/respond  (public)
+router.post("/:id/respond", async (req: Request<any>, res: Response) => {
+  try {
+    const [m] = await db.select().from(moments).where(eq(moments.id, req.params.id));
+    if (!m) return res.status(404).json({ error: "Moment not found" });
+    if (m.status !== "live") return res.status(400).json({ error: "Moment is not accepting responses" });
+
+    const { payloadJson, eventAttendeeId } = req.body;
+    const [resp] = await db.insert(momentResponses).values({
+      momentId: m.id, eventId: m.eventId,
+      eventAttendeeId: eventAttendeeId || null,
+      payloadJson,
+    }).returning();
+    res.status(201).json(resp);
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+// GET results
+router.get("/:id/results", async (req: Request<any>, res: Response) => {
+  try {
+    const [m] = await db.select().from(moments).where(eq(moments.id, req.params.id));
+    if (!m) return res.status(404).json({ error: "Moment not found" });
+    const responses = await db.select().from(momentResponses).where(eq(momentResponses.momentId, m.id));
+    res.json({ moment: m, responses, count: responses.length });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
 export default router;
