@@ -116,7 +116,7 @@ router.post("/events/:id/sync", async (req, res) => {
           await db.insert(eventAttendees).values({
             eventId, orgAttendeeId, externalId: a.externalId,
             badgeCode: a.badgeCode, registrationStatus: a.registrationStatus,
-            registrationType: a.registrationType, checkedIn: a.checkedIn || false,
+            registrationType: a.registrationType, checkedIn: false,
             lastSyncedAt: new Date(),
           });
         }
