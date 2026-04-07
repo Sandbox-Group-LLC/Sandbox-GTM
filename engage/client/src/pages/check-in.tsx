@@ -117,7 +117,7 @@ export default function CheckIn() {
   const { data: sessionStats } = useQuery<any>({
     queryKey: ["/api/checkin-stats", selectedEventId, "session"],
     queryFn: () => fetchJSON(`/api/events/${selectedEventId}/checkin/stats?mode=session`),
-    enabled: mode === "session" && !!selectedEventId,
+    enabled: !!selectedEventId,
   });
   const { data: leadStats } = useQuery<any>({
     queryKey: ["/api/interaction-stats", selectedEventId],
@@ -127,7 +127,7 @@ export default function CheckIn() {
   const { data: sessions = [] } = useQuery<any[]>({
     queryKey: ["/api/sessions", selectedEventId],
     queryFn: () => fetchJSON(`/api/events/${selectedEventId}/checkin/sessions`),
-    enabled: mode === "session" && !!selectedEventId,
+    enabled: !!selectedEventId,
   });
   const { data: attendees = [], isLoading: attendeesLoading } = useQuery<any[]>({
     queryKey: ["/api/attendees", selectedEventId],
