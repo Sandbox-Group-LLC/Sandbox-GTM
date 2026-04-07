@@ -6,6 +6,16 @@ export const queryClient = new QueryClient({
   },
 });
 
+/** Fetch JSON and throw on non-2xx so TanStack Query sets data=undefined instead of passing error objects to the UI */
+export async function fetchJSON<T>(path: string): Promise<T> {
+  const res = await fetch(path, { credentials: "include" });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`${res.status}: ${text.slice(0, 200)}`);
+  }
+  return res.json() as Promise<T>;
+}
+
 export async function apiRequest(
   method: string,
   path: string,
