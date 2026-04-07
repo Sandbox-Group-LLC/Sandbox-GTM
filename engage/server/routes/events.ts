@@ -1,186 +1,144 @@
-/**
- * Events + Platform Connections routes
- *
- * GET    /api/connections
- * POST   /api/connections
- * PATCH  /api/connections/:id
- * DELETE /api/connections/:id
- *
- * GET    /api/events
- * POST   /api/events/sync/:connectionId   — pull events from platform + upsert
- * GET    /api/events/:eventId
- */
-
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { db } from "../db.js";
-import { events, platformConnections, sessions } from "../../shared/schema.js";
-import { eq } from "drizzle-orm";
-import { createAdapter } from "../integrations/adapter-factory.js";
-import type { AdapterType } from "../integrations/adapter-factory.js";
+import { organizations, platformConnections, events, orgAttendees, eventAttendees } from "../../shared/schema.js";
+import { eq, and } from "drizzle-orm";
 
 const router = Router();
 
-// ---------------------------------------------------------------------------
-// Platform Connections
-// ---------------------------------------------------------------------------
+// GET /api/organizations
+router.get("/organizations", async (_req, res) => {
+  try {
+    const rows = await db.select().from(organizations).where(eq(organizations.isActive, true));
+    res.json(rows);
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
 
+// GET /api/connections
 router.get("/connections", async (_req, res) => {
   try {
     const rows = await db.select().from(platformConnections);
     res.json(rows);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
+// POST /api/connections
 router.post("/connections", async (req, res) => {
   try {
-    const [created] = await db.insert(platformConnections).values(req.body).returning();
-    res.status(201).json(created);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+    const { orgId, name, adapter, apiUrl, apiKey, profileId } = req.body;
+    if (!orgId || !name || !adapter) return res.status(400).json({ error: "orgId, name and adapter required" });
+    const [conn] = await db.insert(platformConnections).values({
+      orgId, name, adapter, apiUrl, apiKey, profileId, isActive: false, syncStatus: "idle",
+    }).returning();
+    res.status(201).json(conn);
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
-router.patch("/connections/:id", async (req, res) => {
+// POST /api/connections/:id/connect  — activate connection
+router.post("/connections/:id/connect", async (req, res) => {
   try {
-    const [updated] = await db.update(platformConnections)
-      .set({ ...req.body, updatedAt: new Date() })
-      .where(eq(platformConnections.id, req.params.id))
-      .returning();
-    if (!updated) return res.status(404).json({ error: "Connection not found" });
-    res.json(updated);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+    const [conn] = await db.update(platformConnections)
+      .set({ isActive: true, syncStatus: "idle", updatedAt: new Date() })
+      .where(eq(platformConnections.id, req.params.id)).returning();
+    res.json(conn);
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
-router.delete("/connections/:id", async (req, res) => {
+// POST /api/connections/:id/disconnect  — deactivate after sync
+router.post("/connections/:id/disconnect", async (req, res) => {
   try {
-    await db.delete(platformConnections).where(eq(platformConnections.id, req.params.id));
-    res.status(204).end();
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+    const [conn] = await db.update(platformConnections)
+      .set({ isActive: false, syncStatus: "idle", updatedAt: new Date() })
+      .where(eq(platformConnections.id, req.params.id)).returning();
+    res.json(conn);
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
-// ---------------------------------------------------------------------------
-// Events
-// ---------------------------------------------------------------------------
-
+// GET /api/events
 router.get("/events", async (_req, res) => {
   try {
     const rows = await db.select().from(events);
     res.json(rows);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
-router.get("/events/:eventId", async (req, res) => {
+// POST /api/events/:id/sync  — full sync from adapter
+router.post("/events/:id/sync", async (req, res) => {
   try {
-    const [event] = await db.select().from(events).where(eq(events.id, req.params.eventId));
+    const { id: eventId } = req.params;
+    const [event] = await db.select().from(events).where(eq(events.id, eventId));
     if (!event) return res.status(404).json({ error: "Event not found" });
-    res.json(event);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
 
-// POST /api/events/sync/:connectionId — pull events from platform and upsert locally
-router.post("/events/sync/:connectionId", async (req, res) => {
-  try {
-    const [conn] = await db.select().from(platformConnections).where(eq(platformConnections.id, req.params.connectionId));
-    if (!conn) return res.status(404).json({ error: "Connection not found" });
+    const [conn] = await db.select().from(platformConnections).where(eq(platformConnections.id, event.connectionId));
+    if (!conn || !conn.isActive) return res.status(400).json({ error: "Platform connection is not active. Connect first." });
 
-    const adapter = createAdapter(conn.adapter as AdapterType, {
-      apiUrl: conn.apiUrl || undefined,
-      apiKey: conn.apiKey || "",
-      profileId: conn.profileId || undefined,
-    });
-
-    const externalEvents = await adapter.getEvents();
-    let upserted = 0;
-    for (const ext of externalEvents) {
-      await db.insert(events).values({
-        connectionId: conn.id,
-        externalId: ext.externalId,
-        name: ext.name,
-        startDate: ext.startDate ? new Date(ext.startDate) : null,
-        endDate: ext.endDate ? new Date(ext.endDate) : null,
-        timezone: ext.timezone,
-        venue: ext.venue,
-        metaJson: ext.meta,
-        lastSyncedAt: new Date(),
-      }).onConflictDoUpdate({
-        target: [events.connectionId, events.externalId],
-        set: { name: ext.name, lastSyncedAt: new Date(), updatedAt: new Date() },
-      });
-      upserted++;
-    }
-
-    await db.update(platformConnections)
-      .set({ lastSyncedAt: new Date() })
+    // Mark syncing
+    await db.update(platformConnections).set({ syncStatus: "syncing", updatedAt: new Date() })
       .where(eq(platformConnections.id, conn.id));
 
-    res.json({ synced: upserted });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+    try {
+      const { createAdapter } = await import("../integrations/adapter-factory.js");
+      const adapter = createAdapter(conn);
+      const attendeeList = await adapter.fetchAttendees(conn.profileId || "", { full: true });
 
-// GET /api/events/:eventId/sessions
-router.get("/events/:eventId/sessions", async (req, res) => {
-  try {
-    const rows = await db.select().from(sessions).where(eq(sessions.eventId, req.params.eventId));
-    res.json(rows);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+      let upsertCount = 0;
+      for (const a of attendeeList) {
+        // Upsert org_attendee (PII layer)
+        const existing = await db.select().from(orgAttendees)
+          .where(and(eq(orgAttendees.orgId, event.orgId), eq(orgAttendees.email, a.email.toLowerCase())));
 
-// POST /api/events/:eventId/sessions/sync — pull sessions from platform
-router.post("/events/:eventId/sessions/sync", async (req, res) => {
-  try {
-    const { eventId } = req.params;
-    const [eventRow] = await db.select({
-      event: events,
-      conn: platformConnections,
-    }).from(events)
-      .innerJoin(platformConnections, eq(events.connectionId, platformConnections.id))
-      .where(eq(events.id, eventId));
+        let orgAttendeeId: string;
+        if (existing.length > 0) {
+          await db.update(orgAttendees).set({
+            firstName: a.firstName, lastName: a.lastName,
+            company: a.company, jobTitle: a.jobTitle, phone: a.phone,
+            lastSeenAt: new Date(), updatedAt: new Date(),
+          }).where(eq(orgAttendees.id, existing[0].id));
+          orgAttendeeId = existing[0].id;
+        } else {
+          const [oa] = await db.insert(orgAttendees).values({
+            orgId: event.orgId, firstName: a.firstName, lastName: a.lastName,
+            email: a.email.toLowerCase(), company: a.company, jobTitle: a.jobTitle,
+            phone: a.phone, firstSeenAt: new Date(), lastSeenAt: new Date(),
+          }).returning();
+          orgAttendeeId = oa.id;
+        }
 
-    if (!eventRow) return res.status(404).json({ error: "Event not found" });
+        // Upsert event_attendee (event-specific, no PII)
+        const existingEA = await db.select().from(eventAttendees)
+          .where(and(eq(eventAttendees.eventId, eventId), eq(eventAttendees.orgAttendeeId, orgAttendeeId)));
 
-    const adapter = createAdapter(eventRow.conn.adapter as AdapterType, {
-      apiUrl: eventRow.conn.apiUrl || undefined,
-      apiKey: eventRow.conn.apiKey || "",
-      profileId: eventRow.conn.profileId || undefined,
-    });
+        if (existingEA.length > 0) {
+          await db.update(eventAttendees).set({
+            externalId: a.externalId, badgeCode: a.badgeCode,
+            registrationStatus: a.registrationStatus, lastSyncedAt: new Date(), updatedAt: new Date(),
+          }).where(eq(eventAttendees.id, existingEA[0].id));
+        } else {
+          await db.insert(eventAttendees).values({
+            eventId, orgAttendeeId, externalId: a.externalId,
+            badgeCode: a.badgeCode, registrationStatus: a.registrationStatus,
+            registrationType: a.registrationType, checkedIn: a.checkedIn || false,
+            lastSyncedAt: new Date(),
+          });
+        }
+        upsertCount++;
+      }
 
-    const externalSessions = await adapter.getSessions(eventRow.event.externalId);
-    for (const ext of externalSessions) {
-      await db.insert(sessions).values({
-        eventId,
-        externalId: ext.externalId,
-        title: ext.title,
-        description: ext.description,
-        startTime: ext.startTime ? new Date(ext.startTime) : null,
-        endTime: ext.endTime ? new Date(ext.endTime) : null,
-        room: ext.room,
-        sessionType: ext.sessionType,
-        capacity: ext.capacity,
-        metaJson: ext.meta,
-      }).onConflictDoUpdate({
-        target: [sessions.eventId, sessions.externalId],
-        set: { title: ext.title, updatedAt: new Date() },
-      });
+      await db.update(platformConnections).set({
+        syncStatus: "idle", lastFullSyncAt: new Date(),
+        lastSyncCount: upsertCount, updatedAt: new Date(),
+      }).where(eq(platformConnections.id, conn.id));
+
+      await db.update(events).set({ lastSyncedAt: new Date(), updatedAt: new Date() })
+        .where(eq(events.id, eventId));
+
+      res.json({ success: true, synced: upsertCount });
+    } catch (syncErr: any) {
+      await db.update(platformConnections).set({
+        syncStatus: "error", lastSyncError: syncErr.message, updatedAt: new Date(),
+      }).where(eq(platformConnections.id, conn.id));
+      throw syncErr;
     }
-
-    res.json({ synced: externalSessions.length });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
 export default router;
