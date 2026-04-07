@@ -9,6 +9,7 @@ import checkInRouter from "./routes/checkin.js";
 import momentsRouter from "./routes/moments.js";
 import interactionsRouter from "./routes/interactions.js";
 import meetingsRouter from "./routes/meetings.js";
+import intentRouter from "./routes/intent.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -49,6 +50,7 @@ app.use("/api/events/:eventId", interactionsRouter);
 app.use("/api/stations", interactionsRouter);
 app.use("/api/events/:eventId/meetings", meetingsRouter);
 app.use("/api/meetings", meetingsRouter);
+app.use("/api/events/:eventId/intent", intentRouter);
 
 // Health check
 app.get("/api/health", (_req, res) => res.json({ status: "ok", service: "engage" }));
