@@ -5,16 +5,16 @@ import { z } from "zod";
 import { sql } from "drizzle-orm";
 
 // ---------------------------------------------------------------------------
-// Platform Connections — config for external registration platform integration
+// Platform Connections
 // ---------------------------------------------------------------------------
 export const platformConnections = pgTable("platform_connections", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: varchar("name", { length: 255 }).notNull(),               // e.g. "Rainfocus - Cisco Live 2025"
-  adapter: varchar("adapter", { length: 50 }).notNull(),           // rainfocus | cvent | eventbrite
+  name: varchar("name", { length: 255 }).notNull(),
+  adapter: varchar("adapter", { length: 50 }).notNull(),
   apiUrl: varchar("api_url", { length: 500 }),
   apiKey: varchar("api_key", { length: 500 }),
-  profileId: varchar("profile_id", { length: 255 }),               // Rainfocus profile/show ID
-  configJson: jsonb("config_json").$type<Record<string, string>>(), // adapter-specific extras
+  profileId: varchar("profile_id", { length: 255 }),
+  configJson: jsonb("config_json").$type<Record<string, string>>(),
   isActive: boolean("is_active").default(true),
   lastSyncedAt: timestamp("last_synced_at"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -26,66 +26,66 @@ export type InsertPlatformConnection = z.infer<typeof insertPlatformConnectionSc
 export type PlatformConnection = typeof platformConnections.$inferSelect;
 
 // ---------------------------------------------------------------------------
-// Events Mirror — local representation of events pulled from external platform
+// Events Mirror
 // ---------------------------------------------------------------------------
 export const events = pgTable("events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   connectionId: varchar("connection_id").references(() => platformConnections.id).notNull(),
-  externalId: varchar("external_id", { length: 255 }).notNull(),   // ID from source platform
+  externalId: varchar("external_id", { length: 255 }).notNull(),
   name: varchar("name", { length: 500 }).notNull(),
-  slug: varchar("slug", { length: 255 }),                           // for public moment URLs
+  slug: varchar("slug", { length: 255 }),
   startDate: timestamp("start_date"),
   endDate: timestamp("end_date"),
   timezone: varchar("timezone", { length: 100 }),
   venue: varchar("venue", { length: 500 }),
-  metaJson: jsonb("meta_json").$type<Record<string, unknown>>(),    // raw platform data
+  metaJson: jsonb("meta_json").$type<Record<string, unknown>>(),
   lastSyncedAt: timestamp("last_synced_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => [
-  uniqueIndex("events_connection_external_idx").on(table.connectionId, table.externalId),
-  index("events_connection_idx").on(table.connectionId),
-]);
+}, (table) => ({
+  connectionExternalIdx: uniqueIndex("events_connection_external_idx").on(table.connectionId, table.externalId),
+  connectionIdx: index("events_connection_idx").on(table.connectionId),
+}));
 
 export const insertEventSchema = createInsertSchema(events).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertEvent = z.infer<typeof insertEventSchema>;
 export type Event = typeof events.$inferSelect;
 
 // ---------------------------------------------------------------------------
-// Attendees Mirror — local cache of attendees pulled from external platform
+// Attendees Mirror
 // ---------------------------------------------------------------------------
 export const attendees = pgTable("attendees", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   eventId: varchar("event_id").references(() => events.id).notNull(),
-  externalId: varchar("external_id", { length: 255 }).notNull(),   // ID from source platform
+  externalId: varchar("external_id", { length: 255 }).notNull(),
   firstName: varchar("first_name", { length: 255 }).notNull(),
   lastName: varchar("last_name", { length: 255 }).notNull(),
   email: varchar("email", { length: 500 }).notNull(),
   company: varchar("company", { length: 500 }),
   jobTitle: varchar("job_title", { length: 500 }),
   phone: varchar("phone", { length: 100 }),
-  badgeCode: varchar("badge_code", { length: 100 }),                // QR/barcode on badge
-  registrationType: varchar("registration_type", { length: 255 }), // attendee type from platform
-  registrationStatus: varchar("registration_status", { length: 100 }), // confirmed, cancelled, etc.
+  badgeCode: varchar("badge_code", { length: 100 }),
+  registrationType: varchar("registration_type", { length: 255 }),
+  registrationStatus: varchar("registration_status", { length: 100 }),
   checkedIn: boolean("checked_in").default(false),
   checkInTime: timestamp("check_in_time"),
-  metaJson: jsonb("meta_json").$type<Record<string, unknown>>(),    // raw platform fields
+  metaJson: jsonb("meta_json").$type<Record<string, unknown>>(),
   lastSyncedAt: timestamp("last_synced_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => [
-  uniqueIndex("attendees_event_external_idx").on(table.eventId, table.externalId),
-  index("attendees_event_idx").on(table.eventId),
-  index("attendees_badge_idx").on(table.badgeCode),
-  index("attendees_email_idx").on(table.email),
-]);
+}, (table) => ({
+  eventExternalIdx: uniqueIndex("attendees_event_external_idx").on(table.eventId, table.externalId),
+  eventIdx: index("attendees_event_idx").on(table.eventId),
+  badgeIdx: index("attendees_badge_idx").on(table.badgeCode),
+  emailIdx: index("attendees_email_idx").on(table.email),
+}));
 
 export const insertAttendeeSchema = createInsertSchema(attendees).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertAttendee = z.infer<typeof insertAttendeeSchema>;
 export type Attendee = typeof attendees.$inferSelect;
 
 // ---------------------------------------------------------------------------
-// Sessions Mirror — sessions/agenda items from external platform
+// Sessions Mirror
 // ---------------------------------------------------------------------------
 export const sessions = pgTable("sessions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -101,9 +101,9 @@ export const sessions = pgTable("sessions", {
   metaJson: jsonb("meta_json").$type<Record<string, unknown>>(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => [
-  index("sessions_event_idx").on(table.eventId),
-]);
+}, (table) => ({
+  eventIdx: index("sessions_event_idx").on(table.eventId),
+}));
 
 export const insertSessionSchema = createInsertSchema(sessions).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertSession = z.infer<typeof insertSessionSchema>;
@@ -117,12 +117,12 @@ export const sessionCheckIns = pgTable("session_check_ins", {
   eventId: varchar("event_id").references(() => events.id).notNull(),
   sessionId: varchar("session_id").references(() => sessions.id).notNull(),
   attendeeId: varchar("attendee_id").references(() => attendees.id).notNull(),
-  checkInMethod: varchar("check_in_method", { length: 50 }),        // qr_scan | manual | lookup
+  checkInMethod: varchar("check_in_method", { length: 50 }),
   sourceCode: varchar("source_code", { length: 100 }),
   checkedInAt: timestamp("checked_in_at").defaultNow(),
-}, (table) => [
-  uniqueIndex("session_check_ins_session_attendee_idx").on(table.sessionId, table.attendeeId),
-]);
+}, (table) => ({
+  sessionAttendeeIdx: uniqueIndex("session_check_ins_session_attendee_idx").on(table.sessionId, table.attendeeId),
+}));
 
 export const insertSessionCheckInSchema = createInsertSchema(sessionCheckIns).omit({ id: true, checkedInAt: true });
 export type InsertSessionCheckIn = z.infer<typeof insertSessionCheckInSchema>;
@@ -141,34 +141,34 @@ export const moments = pgTable("moments", {
   type: varchar("type", { length: 50 }).notNull(),
   title: varchar("title", { length: 500 }).notNull(),
   prompt: text("prompt"),
-  optionsJson: jsonb("options_json"),                                // poll options, rating config, cta config
-  status: varchar("status", { length: 50 }).default("draft").notNull(), // draft | live | locked | ended
+  optionsJson: jsonb("options_json"),
+  status: varchar("status", { length: 50 }).default("draft").notNull(),
   showResults: boolean("show_results").default(false),
   startTime: timestamp("start_time"),
   endTime: timestamp("end_time"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => [
-  index("moments_event_idx").on(table.eventId),
-]);
+}, (table) => ({
+  eventIdx: index("moments_event_idx").on(table.eventId),
+}));
 
 export const insertMomentSchema = createInsertSchema(moments).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertMoment = z.infer<typeof insertMomentSchema>;
 export type Moment = typeof moments.$inferSelect;
 
 // ---------------------------------------------------------------------------
-// Moment Responses — anonymous or attendee-linked
+// Moment Responses
 // ---------------------------------------------------------------------------
 export const momentResponses = pgTable("moment_responses", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   momentId: varchar("moment_id").references(() => moments.id).notNull(),
   eventId: varchar("event_id").references(() => events.id).notNull(),
-  attendeeId: varchar("attendee_id").references(() => attendees.id), // nullable = anonymous
-  payloadJson: jsonb("payload_json").notNull(),                      // selected option, text, rating value, etc.
+  attendeeId: varchar("attendee_id").references(() => attendees.id),
+  payloadJson: jsonb("payload_json").notNull(),
   respondedAt: timestamp("responded_at").defaultNow(),
-}, (table) => [
-  index("moment_responses_moment_idx").on(table.momentId),
-]);
+}, (table) => ({
+  momentIdx: index("moment_responses_moment_idx").on(table.momentId),
+}));
 
 export const insertMomentResponseSchema = createInsertSchema(momentResponses).omit({ id: true, respondedAt: true });
 export type InsertMomentResponse = z.infer<typeof insertMomentResponseSchema>;
@@ -187,16 +187,16 @@ export const demoStations = pgTable("demo_stations", {
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => [
-  index("demo_stations_event_idx").on(table.eventId),
-]);
+}, (table) => ({
+  eventIdx: index("demo_stations_event_idx").on(table.eventId),
+}));
 
 export const insertDemoStationSchema = createInsertSchema(demoStations).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertDemoStation = z.infer<typeof insertDemoStationSchema>;
 export type DemoStation = typeof demoStations.$inferSelect;
 
 // ---------------------------------------------------------------------------
-// Product Interactions — lead capture at demo stations / booths
+// Product Interactions
 // ---------------------------------------------------------------------------
 export const INTERACTION_TYPES = [
   "demo", "product_discussion", "pricing_request", "technical_deep_dive",
@@ -213,12 +213,8 @@ export const NEXT_STEP_TYPES = [
   "demo_scheduled", "trial_setup", "internal_review", "none",
 ] as const;
 
-export const OPPORTUNITY_POTENTIAL_TYPES = [
-  "under_10k", "10k_to_50k", "50k_to_100k", "over_100k",
-] as const;
-
+export const OPPORTUNITY_POTENTIAL_TYPES = ["under_10k", "10k_to_50k", "50k_to_100k", "over_100k"] as const;
 export const INTENT_LEVELS = ["low", "medium", "high"] as const;
-
 export const INTERACTION_TAGS = [
   "competitor_mention", "budget_approved", "decision_maker",
   "influencer", "champion", "technical_buyer", "executive",
@@ -227,18 +223,16 @@ export const INTERACTION_TAGS = [
 export const productInteractions = pgTable("product_interactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   eventId: varchar("event_id").references(() => events.id).notNull(),
-  attendeeId: varchar("attendee_id").references(() => attendees.id),  // nullable = unmatched
-  // Unmatched contact info (when not in attendee roster)
+  attendeeId: varchar("attendee_id").references(() => attendees.id),
   unmatchedFirstName: varchar("unmatched_first_name", { length: 255 }),
   unmatchedLastName: varchar("unmatched_last_name", { length: 255 }),
   unmatchedEmail: varchar("unmatched_email", { length: 500 }),
   unmatchedCompany: varchar("unmatched_company", { length: 500 }),
   unmatchedJobTitle: varchar("unmatched_job_title", { length: 500 }),
-  // Interaction details
-  captureMethod: varchar("capture_method", { length: 50 }),           // qr_scan | manual | lookup
+  captureMethod: varchar("capture_method", { length: 50 }),
   sourceCode: varchar("source_code", { length: 100 }),
   interactionType: varchar("interaction_type", { length: 100 }).notNull(),
-  intentLevel: varchar("intent_level", { length: 20 }).notNull(),     // low | medium | high
+  intentLevel: varchar("intent_level", { length: 20 }).notNull(),
   outcome: varchar("outcome", { length: 100 }).notNull(),
   opportunityPotential: varchar("opportunity_potential", { length: 50 }),
   nextStep: varchar("next_step", { length: 100 }),
@@ -247,10 +241,10 @@ export const productInteractions = pgTable("product_interactions", {
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => [
-  index("product_interactions_event_idx").on(table.eventId),
-  index("product_interactions_attendee_idx").on(table.attendeeId),
-]);
+}, (table) => ({
+  eventIdx: index("product_interactions_event_idx").on(table.eventId),
+  attendeeIdx: index("product_interactions_attendee_idx").on(table.attendeeId),
+}));
 
 export const insertProductInteractionSchema = createInsertSchema(productInteractions).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertProductInteraction = z.infer<typeof insertProductInteractionSchema>;
@@ -276,16 +270,15 @@ export const meetings = pgTable("meetings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   eventId: varchar("event_id").references(() => events.id).notNull(),
   attendeeId: varchar("attendee_id").references(() => attendees.id).notNull(),
-  hostName: varchar("host_name", { length: 255 }),                   // team member scheduling the meeting
+  hostName: varchar("host_name", { length: 255 }),
   hostEmail: varchar("host_email", { length: 500 }),
   intentType: varchar("intent_type", { length: 100 }),
-  intentStrength: varchar("intent_strength", { length: 20 }),        // low | medium | high
-  status: varchar("status", { length: 50 }).default("pending"),      // pending | accepted | declined | completed
+  intentStrength: varchar("intent_strength", { length: 20 }),
+  status: varchar("status", { length: 50 }).default("pending"),
   startTime: timestamp("start_time"),
   endTime: timestamp("end_time"),
   room: varchar("room", { length: 255 }),
   message: text("message"),
-  // Outcome fields (captured post-meeting)
   outcomeType: varchar("outcome_type", { length: 100 }),
   outcomeConfidence: varchar("outcome_confidence", { length: 20 }),
   dealRange: varchar("deal_range", { length: 50 }),
@@ -293,10 +286,10 @@ export const meetings = pgTable("meetings", {
   outcomeNotes: text("outcome_notes"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => [
-  index("meetings_event_idx").on(table.eventId),
-  index("meetings_attendee_idx").on(table.attendeeId),
-]);
+}, (table) => ({
+  eventIdx: index("meetings_event_idx").on(table.eventId),
+  attendeeIdx: index("meetings_attendee_idx").on(table.attendeeId),
+}));
 
 export const insertMeetingSchema = createInsertSchema(meetings).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertMeeting = z.infer<typeof insertMeetingSchema>;
