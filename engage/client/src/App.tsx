@@ -37,18 +37,17 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
 const PUBLIC_ROUTES = ["/login", "/moment/"];
 
 function AuthGuard({ children }: { children: ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, checking } = useAuth();
   const [location, navigate] = useLocation();
   const isPublic = PUBLIC_ROUTES.some(r => location.startsWith(r));
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated && !isPublic) {
-      navigate("/login");
-    }
-  }, [isAuthenticated, isLoading, isPublic, location]);
+    if (!checking && !isAuthenticated && !isPublic) navigate("/login");
+  }, [checking, isAuthenticated, isPublic, location]);
 
-  // Show nothing while checking auth — prevents flash of login page
-  if (isLoading && !isPublic) return null;
+  // Still verifying cookie — show nothing to avoid flash
+  if (checking && !isPublic) return null;
+
   if (!isAuthenticated && !isPublic) return null;
 
   return <>{children}</>;
