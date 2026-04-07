@@ -1,97 +1,97 @@
 import { Router, Request, Response } from "express";
 import { db } from "../db.js";
-import { productInteractions, demoStations } from "../../shared/schema.js";
-import { eq, and, count, sql } from "drizzle-orm";
+import { productInteractions, demoStations, eventAttendees, orgAttendees } from "../../shared/schema.js";
+import { eq, and, desc } from "drizzle-orm";
 
 type EP = { eventId: string };
 const router = Router({ mergeParams: true });
 
-// ---------------------------------------------------------------------------
-// Product Interactions
-// ---------------------------------------------------------------------------
-
+// GET /api/events/:eventId/interactions
 router.get("/interactions", async (req: Request<EP>, res: Response) => {
   try {
-    const rows = await db.select().from(productInteractions)
-      .where(eq(productInteractions.eventId, req.params.eventId));
+    const rows = await db.select({
+      id: productInteractions.id,
+      eventAttendeeId: productInteractions.eventAttendeeId,
+      interactionType: productInteractions.interactionType,
+      intentLevel: productInteractions.intentLevel,
+      outcome: productInteractions.outcome,
+      opportunityPotential: productInteractions.opportunityPotential,
+      nextStep: productInteractions.nextStep,
+      station: productInteractions.station,
+      tags: productInteractions.tags,
+      notes: productInteractions.notes,
+      createdAt: productInteractions.createdAt,
+      firstName: orgAttendees.firstName,
+      lastName: orgAttendees.lastName,
+      company: orgAttendees.company,
+      jobTitle: orgAttendees.jobTitle,
+    }).from(productInteractions)
+      .leftJoin(eventAttendees, eq(productInteractions.eventAttendeeId, eventAttendees.id))
+      .leftJoin(orgAttendees, eq(eventAttendees.orgAttendeeId, orgAttendees.id))
+      .where(eq(productInteractions.eventId, req.params.eventId))
+      .orderBy(desc(productInteractions.createdAt));
     res.json(rows);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
+// POST /api/events/:eventId/interactions
 router.post("/interactions", async (req: Request<EP>, res: Response) => {
   try {
-    const [created] = await db.insert(productInteractions)
-      .values({ ...req.body, eventId: req.params.eventId })
-      .returning();
-    res.status(201).json(created);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+    const {
+      eventAttendeeId, interactionType, intentLevel, outcome,
+      opportunityPotential, nextStep, station, tags, notes,
+      unmatchedFirstName, unmatchedLastName, unmatchedEmail, unmatchedCompany, unmatchedJobTitle,
+    } = req.body;
+    if (!interactionType || !intentLevel || !outcome) {
+      return res.status(400).json({ error: "interactionType, intentLevel, and outcome required" });
+    }
+    const [pi] = await db.insert(productInteractions).values({
+      eventId: req.params.eventId,
+      eventAttendeeId: eventAttendeeId || null,
+      interactionType, intentLevel, outcome,
+      opportunityPotential, nextStep, station,
+      tags: tags || [],
+      notes,
+      unmatchedFirstName, unmatchedLastName, unmatchedEmail,
+      unmatchedCompany, unmatchedJobTitle,
+      captureMethod: "manual",
+    }).returning();
+    res.status(201).json(pi);
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
+// GET /api/events/:eventId/interactions/stats
 router.get("/interactions/stats", async (req: Request<EP>, res: Response) => {
   try {
-    const { eventId } = req.params;
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const [total] = await db.select({ count: count() }).from(productInteractions).where(eq(productInteractions.eventId, eventId));
-    const [todayCount] = await db.select({ count: count() }).from(productInteractions)
-      .where(and(eq(productInteractions.eventId, eventId), sql`${productInteractions.createdAt} >= ${today}`));
-    const [qrCount] = await db.select({ count: count() }).from(productInteractions)
-      .where(and(eq(productInteractions.eventId, eventId), eq(productInteractions.captureMethod, "qr_scan")));
-    const [manualCount] = await db.select({ count: count() }).from(productInteractions)
-      .where(and(eq(productInteractions.eventId, eventId), eq(productInteractions.captureMethod, "manual")));
-    res.json({ totalInteractions: total.count, interactionsToday: todayCount.count, badgeScans: qrCount.count, manualInteractions: manualCount.count });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+    const all = await db.select({ id: productInteractions.id, createdAt: productInteractions.createdAt })
+      .from(productInteractions).where(eq(productInteractions.eventId, req.params.eventId));
+    const today = new Date(); today.setHours(0,0,0,0);
+    res.json({
+      totalInteractions: all.length,
+      interactionsToday: all.filter(i => i.createdAt && new Date(i.createdAt) >= today).length,
+    });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
-// ---------------------------------------------------------------------------
-// Demo Stations
-// ---------------------------------------------------------------------------
-
+// GET /api/stations
 router.get("/stations", async (req: Request<EP>, res: Response) => {
   try {
     const rows = await db.select().from(demoStations).where(eq(demoStations.eventId, req.params.eventId));
     res.json(rows);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
+// POST /api/stations
 router.post("/stations", async (req: Request<EP>, res: Response) => {
   try {
-    const [created] = await db.insert(demoStations)
-      .values({ ...req.body, eventId: req.params.eventId })
-      .returning();
-    res.status(201).json(created);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.patch("/stations/:stationId", async (req: Request<EP & { stationId: string }>, res: Response) => {
-  try {
-    const [updated] = await db.update(demoStations)
-      .set({ ...req.body, updatedAt: new Date() })
-      .where(eq(demoStations.id, req.params.stationId))
-      .returning();
-    if (!updated) return res.status(404).json({ error: "Station not found" });
-    res.json(updated);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.delete("/stations/:stationId", async (req: Request<EP & { stationId: string }>, res: Response) => {
-  try {
-    await db.delete(demoStations).where(eq(demoStations.id, req.params.stationId));
-    res.status(204).end();
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+    const { stationName, stationLocation, stationPresenter, productFocus } = req.body;
+    if (!stationName || !stationLocation) return res.status(400).json({ error: "stationName and stationLocation required" });
+    const [s] = await db.insert(demoStations).values({
+      eventId: req.params.eventId, stationName, stationLocation, stationPresenter,
+      productFocus: productFocus || [], isActive: true,
+    }).returning();
+    res.status(201).json(s);
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
 export default router;
