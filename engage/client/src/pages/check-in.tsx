@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link } from "wouter";
 import { AppHeader } from "./dashboard";
+import { useActiveEvent } from "../hooks/use-active-event";
 import { queryClient, apiRequest, fetchJSON } from "../lib/queryClient";
 import { useToast } from "../hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
@@ -91,7 +92,6 @@ const TAGS = [
 export default function CheckIn() {
   const { toast } = useToast();
   const [mode, setMode] = useState<Mode>("program");
-  const [selectedEventId, setSelectedEventId] = useState("");
   const [selectedSessionId, setSelectedSessionId] = useState("");
   const [code, setCode] = useState("");
   const [search, setSearch] = useState("");
