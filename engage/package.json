@@ -9,7 +9,7 @@
     "dev:client": "vite client",
     "build": "npm run build:server && npm run build:client",
     "build:server": "tsc --project tsconfig.json",
-    "build:client": "vite build client --outDir dist/public",
+    "build:client": "vite build client",
     "start": "node dist/server/index.js",
     "db:push": "drizzle-kit push --config drizzle.config.ts",
     "db:generate": "drizzle-kit generate --config drizzle.config.ts",
