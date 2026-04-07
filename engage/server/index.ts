@@ -10,6 +10,7 @@ import momentsRouter from "./routes/moments.js";
 import interactionsRouter from "./routes/interactions.js";
 import meetingsRouter from "./routes/meetings.js";
 import intentRouter from "./routes/intent.js";
+import authRouter from "./routes/auth.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -39,6 +40,9 @@ app.post("/api/admin/relay", express.json({ limit: "500kb" }), async (req, res) 
     res.status(500).json({ success: false, error: e.message });
   }
 });
+
+// Auth routes (unprotected — handles its own token verification)
+app.use("/api/auth", authRouter);
 
 // API routes
 app.use("/api", eventsRouter);
