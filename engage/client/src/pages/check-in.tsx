@@ -308,7 +308,7 @@ export default function CheckIn() {
                 disabled={mode === "session" && !selectedSessionId}
               />
               <Button className="w-full" variant="outline" disabled={!code.trim() || scanMutation.isPending || (mode === "session" && !selectedSessionId)} onClick={() => scanMutation.mutate()}>
-                {scanMutation.isPending ? "Processing..." : mode === "lead" ? "Capture Interaction" : Check In}
+                {scanMutation.isPending ? "Processing..." : mode === "lead" ? "Capture Interaction" : "Check In"}
               </Button>
               {lastCheckedIn && mode === "program" && (
                 <div className="p-3 bg-green-50 dark:bg-green-950/20 rounded-md border border-green-200 dark:border-green-800">
