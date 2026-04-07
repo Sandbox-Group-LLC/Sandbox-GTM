@@ -1,11 +1,4 @@
-/**
- * useAuth — cookie-based auth
- *
- * Tokens are in httpOnly cookies — JS can't read them directly.
- * We fetch /api/auth/me to know who's logged in. The browser
- * automatically sends the httpOnly cookies with every request.
- */
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect, useCallback } from "react";
 
 export interface AuthUser {
   id: string;
@@ -16,33 +9,46 @@ export interface AuthUser {
   eventId: string | null;
 }
 
-async function fetchMe(): Promise<AuthUser | null> {
-  const res = await fetch("/api/auth/me", { credentials: "include" });
-  if (res.status === 401 || res.status === 403) return null;
-  if (!res.ok) return null;
-  const data = await res.json();
-  return data.user || null;
-}
-
+/**
+ * Auth state — token lives in httpOnly cookie (server-managed, not readable by JS).
+ * We verify auth status by calling /api/auth/me which reads the cookie server-side.
+ * Non-sensitive user profile is cached in sessionStorage for instant reads.
+ */
 export function useAuth() {
-  const queryClient = useQueryClient();
-
-  const { data: user, isLoading } = useQuery<AuthUser | null>({
-    queryKey: ["/api/auth/me"],
-    queryFn: fetchMe,
-    staleTime: 5 * 60 * 1000, // re-check every 5 min
-    retry: false,
+  const [user, setUser] = useState<AuthUser | null>(() => {
+    try {
+      const stored = sessionStorage.getItem("engage_user");
+      return stored ? JSON.parse(stored) : null;
+    } catch { return null; }
   });
 
-  const logout = async () => {
+  const [checking, setChecking] = useState(!user); // skip check if we have cached user
+
+  // Verify session is still valid on mount (cookie may have expired)
+  useEffect(() => {
+    if (user) return; // have cached user, trust it until a 401 comes back
+    fetch("/api/auth/me", { credentials: "include" })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.user) {
+          setUser(data.user);
+          sessionStorage.setItem("engage_user", JSON.stringify(data.user));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setChecking(false));
+  }, []);
+
+  const logout = useCallback(async () => {
     await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
-    queryClient.clear();
+    sessionStorage.removeItem("engage_user");
+    setUser(null);
     window.location.href = "/login";
-  };
+  }, []);
 
   return {
-    user: user ?? null,
-    isLoading,
+    user,
+    checking,
     isAuthenticated: !!user,
     isAdmin: user?.role === "admin",
     isStaff: user?.role === "staff" || user?.role === "admin",
