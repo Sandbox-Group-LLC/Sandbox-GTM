@@ -308,7 +308,7 @@ export default function CheckIn() {
                 disabled={mode === "session" && !selectedSessionId}
               />
               <Button className="w-full" variant="outline" disabled={!code.trim() || scanMutation.isPending || (mode === "session" && !selectedSessionId)} onClick={() => scanMutation.mutate()}>
-                {scanMutation.isPending ? "Processing..." : mode === "lead" ? "Capture Interaction" : "Check In"}
+                {scanMutation.isPending ? "Processing..." : mode === "lead" ? "Capture Interaction" : Check In}
               </Button>
               {lastCheckedIn && mode === "program" && (
                 <div className="p-3 bg-green-50 dark:bg-green-950/20 rounded-md border border-green-200 dark:border-green-800">
@@ -337,7 +337,7 @@ export default function CheckIn() {
                         {mode === "program" && a.checkedIn
                           ? <Badge variant="outline" className="text-green-700 bg-green-50 border-green-200 text-xs"><CheckCircle className="h-3 w-3 mr-1" />In</Badge>
                           : <Button size="sm" onClick={() => manualCheckInMutation.mutate(a.id)} disabled={mode === "session" && !selectedSessionId}>
-                              "Check In"
+                              Check In
                             </Button>
                         }
                       </div>
