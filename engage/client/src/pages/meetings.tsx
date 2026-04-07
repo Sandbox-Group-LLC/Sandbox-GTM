@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { AppHeader } from "./dashboard";
+import { useActiveEvent } from "../hooks/use-active-event";
 import { queryClient, apiRequest, fetchJSON } from "../lib/queryClient";
 import { useToast } from "../hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
@@ -55,7 +56,6 @@ const INTENT_LABELS: Record<string, string> = Object.fromEntries(INTENT_TYPES.ma
 
 export default function Meetings() {
   const { toast } = useToast();
-  const [selectedEventId, setSelectedEventId] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [createOpen, setCreateOpen] = useState(false);
   const [outcomeOpen, setOutcomeOpen] = useState(false);
@@ -64,10 +64,7 @@ export default function Meetings() {
   const [newMeeting, setNewMeeting] = useState({ attendeeId: "", intentType: "", startTime: "", message: "", hostName: "", hostEmail: "" });
   const [outcomeData, setOutcomeData] = useState({ outcomeType: "", outcomeConfidence: "", dealRange: "", timeline: "", outcomeNotes: "" });
 
-  const { data: events = [] } = useQuery<any[]>({
-    queryKey: ["/api/events"],
-    queryFn: () => fetchJSON("/api/events"),
-  });
+  const { eventId: selectedEventId, eventName, hasEvent } = useActiveEvent();
 
   const { data: meetings = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/meetings", selectedEventId, statusFilter],
