@@ -1,123 +1,71 @@
 /**
- * Auth middleware — verifies JWTs issued by Neon Auth (Stack Auth)
+ * Auth — self-managed bcrypt + JWT
  *
- * Neon Auth issues EdDSA-signed JWTs. We verify them against the
- * JWKS endpoint without a DB call on every request.
+ * We issue our own JWTs signed with a secret stored in JWT_SECRET env var.
+ * Passwords are hashed with bcrypt and stored in app_users.password_hash.
  *
- * JWT payload shape from Neon Auth:
- *   sub          — Neon Auth user ID
- *   email        — user email
- *   exp          — expiry
- *   iat          — issued at
+ * This keeps auth fully in our control — no external SDK dependencies,
+ * no project ID requirements, no black boxes.
  *
- * We extend req with:
- *   req.user     — { neonUserId, email, role, id, stationId, eventId }
+ * Neon Auth JWKS URL is kept as an env var for future SSO integration if needed.
  */
 
 import { Request, Response, NextFunction } from "express";
+import { SignJWT, jwtVerify } from "jose";
+import bcrypt from "bcryptjs";
 import { db } from "./db.js";
 import { appUsers } from "../shared/schema.js";
 import { eq } from "drizzle-orm";
 
 // ---------------------------------------------------------------------------
-// JWKS key cache — fetched once, refreshed if verification fails
+// JWT helpers
 // ---------------------------------------------------------------------------
 
-interface JWK {
-  kty: string;
-  crv?: string;
-  x?: string;
-  kid?: string;
-  alg?: string;
-  use?: string;
+function getJwtSecret(): Uint8Array {
+  const secret = process.env.JWT_SECRET || process.env.SESSION_SECRET || "engage-jwt-secret-change-me";
+  return new TextEncoder().encode(secret);
 }
 
-let cachedKeys: JWK[] = [];
-let keysFetchedAt = 0;
-const KEY_TTL_MS = 10 * 60 * 1000; // 10 min
-
-async function getJWKS(): Promise<JWK[]> {
-  if (cachedKeys.length > 0 && Date.now() - keysFetchedAt < KEY_TTL_MS) {
-    return cachedKeys;
-  }
-  const url = process.env.NEON_AUTH_JWKS_URL;
-  if (!url) throw new Error("NEON_AUTH_JWKS_URL not configured");
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`JWKS fetch failed: ${res.status}`);
-  const data = await res.json() as { keys: JWK[] };
-  cachedKeys = data.keys || [];
-  keysFetchedAt = Date.now();
-  return cachedKeys;
+export async function signToken(payload: Record<string, unknown>): Promise<string> {
+  return new SignJWT(payload)
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("30d")
+    .sign(getJwtSecret());
 }
 
-// ---------------------------------------------------------------------------
-// Minimal EdDSA JWT verification (no external lib needed)
-// Neon Auth uses EdDSA (Ed25519) — we verify using Web Crypto API
-// ---------------------------------------------------------------------------
-
-function base64urlDecode(str: string): Uint8Array {
-  const b64 = str.replace(/-/g, "+").replace(/_/g, "/");
-  const padded = b64 + "=".repeat((4 - b64.length % 4) % 4);
-  const binary = atob(padded);
-  return new Uint8Array([...binary].map(c => c.charCodeAt(0)));
-}
-
-async function verifyEdDSAJWT(token: string): Promise<Record<string, unknown> | null> {
-  const parts = token.split(".");
-  if (parts.length !== 3) return null;
-
-  const [headerB64, payloadB64, sigB64] = parts;
-
-  let header: { alg: string; kid?: string };
+export async function verifyToken(token: string): Promise<Record<string, unknown> | null> {
   try {
-    header = JSON.parse(atob(headerB64.replace(/-/g, "+").replace(/_/g, "/")));
-  } catch { return null; }
-
-  if (header.alg !== "EdDSA") return null;
-
-  const keys = await getJWKS();
-  const jwk = header.kid
-    ? keys.find(k => k.kid === header.kid)
-    : keys[0];
-
-  if (!jwk || !jwk.x) return null;
-
-  try {
-    const keyData = base64urlDecode(jwk.x);
-    const cryptoKey = await crypto.subtle.importKey(
-      "raw", keyData.buffer.slice(keyData.byteOffset, keyData.byteOffset + keyData.byteLength) as ArrayBuffer, { name: "Ed25519" }, false, ["verify"]
-    );
-
-    const message = new TextEncoder().encode(`${headerB64}.${payloadB64}`);
-    const signature = base64urlDecode(sigB64);
-
-    const sigBuffer = signature.buffer.slice(signature.byteOffset, signature.byteOffset + signature.byteLength) as ArrayBuffer;
-    const valid = await crypto.subtle.verify("Ed25519", cryptoKey, sigBuffer, message);
-    if (!valid) return null;
-
-    const payload = JSON.parse(atob(payloadB64.replace(/-/g, "+").replace(/_/g, "/")));
-
-    // Check expiry
-    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return null;
-
-    return payload;
+    const { payload } = await jwtVerify(token, getJwtSecret());
+    return payload as Record<string, unknown>;
   } catch {
     return null;
   }
 }
 
 // ---------------------------------------------------------------------------
-// Extract token from request
+// Password helpers
+// ---------------------------------------------------------------------------
+
+export async function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, 12);
+}
+
+export async function verifyPassword(password: string, hash: string): Promise<boolean> {
+  return bcrypt.compare(password, hash);
+}
+
+// ---------------------------------------------------------------------------
+// Token extraction
 // ---------------------------------------------------------------------------
 
 function extractToken(req: Request): string | null {
   const auth = req.headers.authorization;
   if (auth?.startsWith("Bearer ")) return auth.slice(7);
-  // Also check cookie for browser sessions
   const cookie = req.headers.cookie;
   if (cookie) {
     const match = cookie.match(/engage_token=([^;]+)/);
-    if (match) return match[1];
+    if (match) return decodeURIComponent(match[1]);
   }
   return null;
 }
@@ -127,13 +75,12 @@ function extractToken(req: Request): string | null {
 // ---------------------------------------------------------------------------
 
 export interface AuthUser {
-  neonUserId: string;
+  id: string;
   email: string;
-  id: string;           // our appUsers.id
-  role: string;         // admin | staff | sponsor_admin
+  name: string | null;
+  role: string;
   stationId: string | null;
   eventId: string | null;
-  name: string | null;
 }
 
 declare global {
@@ -148,81 +95,52 @@ declare global {
 // Middleware
 // ---------------------------------------------------------------------------
 
-/**
- * requireAuth — verifies JWT, loads app user from DB, attaches to req.user
- * If allowedRoles provided, also enforces role check.
- */
 export function requireAuth(allowedRoles?: string[]) {
   return async (req: Request, res: Response, next: NextFunction) => {
     const token = extractToken(req);
-    if (!token) {
-      return res.status(401).json({ error: "Authentication required" });
-    }
+    if (!token) return res.status(401).json({ error: "Authentication required" });
 
-    let payload: Record<string, unknown> | null = null;
-    try {
-      payload = await verifyEdDSAJWT(token);
-    } catch (err) {
-      return res.status(401).json({ error: "Invalid token" });
-    }
+    const payload = await verifyToken(token);
+    if (!payload) return res.status(401).json({ error: "Invalid or expired token" });
 
-    if (!payload) {
-      return res.status(401).json({ error: "Invalid or expired token" });
-    }
+    const userId = payload.sub as string;
+    const [appUser] = await db.select().from(appUsers).where(eq(appUsers.id, userId));
 
-    const neonUserId = payload.sub as string;
-
-    // Load our app user record
-    const [appUser] = await db.select().from(appUsers).where(eq(appUsers.neonUserId, neonUserId));
-
-    if (!appUser) {
-      return res.status(403).json({ error: "User not provisioned. Contact your administrator." });
-    }
-
-    if (!appUser.isActive) {
-      return res.status(403).json({ error: "Account is inactive." });
-    }
-
+    if (!appUser) return res.status(403).json({ error: "User not found" });
+    if (!appUser.isActive) return res.status(403).json({ error: "Account is inactive" });
     if (allowedRoles && !allowedRoles.includes(appUser.role || "")) {
-      return res.status(403).json({ error: "Insufficient permissions." });
+      return res.status(403).json({ error: "Insufficient permissions" });
     }
 
     req.user = {
-      neonUserId,
-      email: payload.email as string || appUser.email,
       id: appUser.id,
+      email: appUser.email,
+      name: appUser.name,
       role: appUser.role || "staff",
       stationId: appUser.stationId,
       eventId: appUser.eventId,
-      name: appUser.name,
     };
 
     next();
   };
 }
 
-/**
- * optionalAuth — attaches user if token present, continues either way
- * Useful for endpoints that behave differently for authed vs anon users
- */
 export function optionalAuth() {
   return async (req: Request, res: Response, next: NextFunction) => {
     const token = extractToken(req);
     if (!token) return next();
     try {
-      const payload = await verifyEdDSAJWT(token);
+      const payload = await verifyToken(token);
       if (payload) {
-        const neonUserId = payload.sub as string;
-        const [appUser] = await db.select().from(appUsers).where(eq(appUsers.neonUserId, neonUserId));
+        const [appUser] = await db.select().from(appUsers).where(eq(appUsers.id, payload.sub as string));
         if (appUser?.isActive) {
           req.user = {
-            neonUserId,
-            email: payload.email as string || appUser.email,
             id: appUser.id,
+            email: appUser.email,
+            name: appUser.name,
             role: appUser.role || "staff",
             stationId: appUser.stationId,
             eventId: appUser.eventId,
-            name: appUser.name,
           };
         }
       }
