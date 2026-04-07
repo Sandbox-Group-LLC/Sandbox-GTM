@@ -77,8 +77,8 @@ router.post("/events/:id/sync", async (req, res) => {
 
     try {
       const { createAdapter } = await import("../integrations/adapter-factory.js");
-      const adapter = createAdapter(conn);
-      const attendeeList = await adapter.fetchAttendees(conn.profileId || "", { full: true });
+      const adapter = createAdapter(conn.adapter as any, { apiKey: conn.apiKey || '', apiUrl: conn.apiUrl || undefined, profileId: conn.profileId || undefined });
+      const attendeeList = await adapter.getAttendees(event.externalId);
 
       let upsertCount = 0;
       for (const a of attendeeList) {
