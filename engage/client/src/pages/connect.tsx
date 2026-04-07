@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link } from "wouter";
-import { queryClient, apiRequest } from "../lib/queryClient";
+import { queryClient, apiRequest, fetchJSON } from "../lib/queryClient";
 import { useToast } from "../hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -57,12 +57,12 @@ export default function Connect() {
 
   const { data: connections = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/connections"],
-    queryFn: () => fetch("/api/connections", { credentials: "include" }).then(r => r.json()),
+    queryFn: () => fetchJSON("/api/connections"),
   });
 
   const { data: events = [] } = useQuery<any[]>({
     queryKey: ["/api/events"],
-    queryFn: () => fetch("/api/events", { credentials: "include" }).then(r => r.json()),
+    queryFn: () => fetchJSON("/api/events"),
   });
 
   const form = useForm<ConnectionForm>({
