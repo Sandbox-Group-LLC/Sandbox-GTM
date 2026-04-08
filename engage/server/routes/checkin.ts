@@ -134,4 +134,18 @@ router.get("/sessions", async (req: Request<EP>, res: Response) => {
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
+// GET /api/events/:eventId/checkin/sessions/:sessionId/checked-in
+// Returns array of event_attendee_ids already checked into this session
+router.get("/sessions/:sessionId/checked-in", async (req: Request<EP & { sessionId: string }>, res: Response) => {
+  try {
+    const rows = await db.select({ eventAttendeeId: sessionCheckIns.eventAttendeeId })
+      .from(sessionCheckIns)
+      .where(and(
+        eq(sessionCheckIns.eventId, req.params.eventId),
+        eq(sessionCheckIns.sessionId, req.params.sessionId)
+      ));
+    res.json(rows.map(r => r.eventAttendeeId));
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
 export default router;
