@@ -6,6 +6,27 @@ Engage is a standalone event engagement platform that attaches to external event
 
 ---
 
+## What's Built
+
+### Core Platform
+- **Org-centric architecture** — Organizations own attendees across events. PII isolated per org. Intel and Cisco never share a table.
+- **Platform connections** — Transactional sync model. Connect → Full Sync → Disconnect. No continuous API meter running. Built for Rainfocus's $2,500/event API fee reality.
+- **Dual intent scoring** — Per-event scores for isolation, lifetime scores for cross-event intelligence. Both live on the same attendee record.
+- **Engagement Signals Engine** — Tier 1 buying signals (explicit) + Tier 2 momentum (cumulative, capped at 10). Generates prose narratives for CRM sync.
+
+### Portals
+- **Admin portal** — Full platform access. Events, connections, signals engine, leads, moments, check-in, stations, meetings.
+- **Staff portal** — Phone-first. Station card, scanner, lead capture, hallway capture. Check-in gated behind a toggle so Romeo doesn't click the big blue button by mistake.
+
+### The Hallway Feature 🚶
+The best lead at any event happens between sessions. Mike from meetings has a conversation with a DoD executive in the elevator. No booth form. No badge scan. Just a real conversation that every other platform loses forever.
+
+Hallway Capture fixes that. Any staff member — station or not — can capture an unplanned interaction in seconds. Tagged separately from station captures. Feeds the signals engine identically. Hallway Tier 1 is still Tier 1.
+
+**Station: 0. Hallway: 3. Mike Turd is exonerated.**
+
+---
+
 ## Architecture
 
 ```
@@ -18,54 +39,50 @@ engage/
 │   ├── db.ts        Drizzle ORM + pg pool
 │   └── intentScoring.ts  Engagement signals engine
 ├── shared/
-│   └── schema.ts    Drizzle schema — single source of truth for all tables
+│   └── schema.ts    Drizzle schema — single source of truth
 └── dist/            Compiled output (gitignored)
 ```
 
-**Runtime:** Node 20 · PostgreSQL (Neon) · Render (auto-deploy on push to `engage`)
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Frontend | React 18, TypeScript, Wouter, TanStack Query, shadcn/ui, Tailwind CSS |
-| Backend | Node.js, Express, TypeScript (ESM) |
-| Database | Neon PostgreSQL (SOC2 Type II) |
-| ORM | Drizzle |
-| Auth | bcrypt (cost 12) + jose JWT, httpOnly cookies |
-| Deploy | Render (auto-deploy) |
+**Runtime:** Node 20 · PostgreSQL (Neon, SOC2 Type II) · Render Starter
 
 ---
 
 ## Database Schema
 
+### Org Layer (PII isolated per org)
 | Table | Purpose |
 |---|---|
-| `platform_connections` | Rainfocus / Cvent API credentials |
+| `organizations` | Root entity. Cisco, Intel, etc. You provision these. |
+| `org_attendees` | Canonical identity. PII lives here. One record per person per org. |
+| `platform_connections` | Rainfocus / Cvent credentials. Transactional — connect to sync, disconnect to stop the meter. |
+
+### Event Layer (no raw PII)
+| Table | Purpose |
+|---|---|
 | `events` | Event mirror from registration platform |
-| `attendees` | Attendee roster + intent scoring fields |
+| `event_attendees` | Event participation. Badge code, check-in status, per-event intent scores. |
 | `sessions` | Session/breakout mirror |
-| `session_check_ins` | Physical attendance via badge scan |
-| `moments` | Live polls, Q&A, ratings, pulse checks |
+| `session_check_ins` | Physical attendance via badge scan or manual |
+| `moments` | Live polls, Q&A, ratings, pulse checks, CTAs |
 | `moment_responses` | Attendee responses to moments |
 | `demo_stations` | Booth/station roster |
-| `product_interactions` | Lead capture from demos and conversations |
+| `product_interactions` | Lead capture — station, hallway, walk-up, badge scan |
 | `meetings` | Scheduled 1:1s with pre/post intent capture |
-| `intent_recompute_history` | Before/after snapshots from signals engine runs |
-| `app_users` | Platform users (admin, staff, sponsor_admin) |
-| `user_tokens` | Token-based auth for sponsor staff + attendee identity |
+| `intent_recompute_history` | Before/after snapshots per engine run, dual-scoped (event + org lifetime) |
+
+### Auth Layer
+| Table | Purpose |
+|---|---|
+| `app_users` | Platform users scoped to org. Roles: sandbox_admin, admin, staff, sponsor_admin |
+| `user_tokens` | Token-based auth for sponsor staff, attendee identity, meeting invites |
 
 ---
 
 ## Engagement Signals Engine
 
-Located at `server/intentScoring.ts`. Runs on demand via `POST /api/events/:id/intent/recompute`.
-
 **Core principle:** Explicit intent always beats inferred behavior.
 
-**Tier 1 — Explicit buying signals** (immediate promotion):
+**Tier 1 — Explicit buying signals** (immediate promotion eligible):
 - Product outcomes: `wants_trial_pilot`, `asked_for_pricing`, `requested_follow_up`
 - Tags: `budget_confirmed`, `urgent_timeline`, `buying_committee`
 - Meeting outcomes: `active_opportunity` or `deal_in_progress` + near-term timeline
@@ -82,29 +99,56 @@ Located at `server/intentScoring.ts`. Runs on demand via `POST /api/events/:id/i
 - `high_intent` — Tier 1 signal OR momentum ≥ 8
 - `hot_lead` — Tier 1 signal AND ($50k+ opportunity OR 2+ Tier 1 signals)
 
-Each promotion generates a human-readable narrative for CRM sync.
+Each promotion generates a human-readable narrative. Contra-signals add nuance without blocking promotion. Recompute is idempotent — rebuilds from raw signal data every time.
+
+**Dual scoring:** Event-level recompute rolls up to org-level lifetime scores automatically. Cisco Live 2025 signals feed Alex Morgan's lifetime intent trajectory.
+
+---
+
+## Capture Methods
+
+| Method | Description | Who |
+|---|---|---|
+| `scan` | Badge QR scan | Any staff |
+| `lookup` | Found in attendee list | Any staff |
+| `hallway` | Unplanned interaction, no station | Meeting staff / anyone |
+| `walk_up` | Manual entry, person not in system | Any staff |
 
 ---
 
 ## User Roles
 
-| Role | Access | Auth Method |
+| Role | Access | Auth |
 |---|---|---|
-| `admin` | Full platform — config, users, all data | Email + password |
-| `staff` | Check-in, lead capture, meetings for assigned station | Email + password |
-| `sponsor_admin` | Their company's leads + license management | Email + password |
-| `sponsor_staff` | Lead capture only, scoped to company | Token link |
-| `attendee` | Moment responses, identity resolution | Badge QR scan |
+| `sandbox_admin` | All orgs, all events, everything | Email + password |
+| `admin` | Their org — full platform | Email + password |
+| `staff` | Check-in + lead capture + hallway | Email + password → `/staff` portal |
+| `sponsor_admin` | Their company's leads + licenses | Email + password |
+| `sponsor_staff` | Lead capture scoped to company | Token link |
+| `attendee` | Moment responses, identity | Badge QR scan |
 
 ---
 
 ## Auth
 
-- **Credential-based** (admin, staff, sponsor_admin): bcrypt cost 12 + HS256 JWT
-- **Access token:** 1h TTL, httpOnly + Secure + SameSite=Strict cookie
-- **Refresh token:** 30d TTL, same cookie flags — auto-issues new access token silently
-- **Rate limiting:** 10 failed auth attempts per IP per 15 min
-- **Token-based** (sponsor staff, attendees): scoped tokens in `user_tokens` table
+- bcrypt cost 12 for password hashing
+- Access token: HS256 JWT, 1h TTL, httpOnly + Secure + SameSite=Strict cookie
+- Refresh token: HS256 JWT, 30d TTL, same flags — auto-issues new access token silently
+- Rate limiting: 10 failed attempts per IP per 15 min on auth routes
+- First account created auto-provisioned as admin
+
+---
+
+## Staff Portal
+
+Phone-first design. Separate from the admin app — same database, different door.
+
+- **Station staff** → primary blue station card with products, Capture button, their captures
+- **Meeting staff** (null station) → amber Hallway Mode card, footprints Capture button
+- **Check-In toggle** → off by default, gates the Check In buttons so staff can find attendees without accidentally processing them
+- **My Captures tab** → splits Hallway vs Station captures visually
+
+Staff login → auto-redirected to `/staff`. They never see the admin app.
 
 ---
 
@@ -113,7 +157,7 @@ Each promotion generates a human-readable narrative for CRM sync.
 | Variable | Description |
 |---|---|
 | `DATABASE_URL` | Neon PostgreSQL connection string |
-| `JWT_SECRET` | 256-bit random hex — used to sign access + refresh tokens |
+| `JWT_SECRET` | 256-bit random hex — signs access + refresh tokens |
 | `SESSION_SECRET` | Express session secret |
 | `ADMIN_PASSWORD` | Relay endpoint password (dev only — remove before production) |
 | `NODE_ENV` | `production` on Render |
@@ -126,13 +170,32 @@ Each promotion generates a human-readable narrative for CRM sync.
 
 ## Developer Relay
 
-A raw SQL relay endpoint exists at `POST /api/admin/relay` for development database access. Protected by `ADMIN_PASSWORD`. **Must be removed before production launch.** See pre-launch checklist.
+Raw SQL execution endpoint for development database access. Protected by `ADMIN_PASSWORD`. **Remove before production launch.**
 
 ```bash
 curl -X POST https://sandbox-gtm-1.onrender.com/api/admin/relay \
   -H "Content-Type: application/json" \
-  -d '{"adminPassword":"sg-relay-2025","query":"SELECT count(*) FROM attendees"}'
+  -d '{"adminPassword":"sg-relay-2025","query":"SELECT count(*) FROM org_attendees"}'
 ```
+
+See [PRE-LAUNCH.md](./PRE-LAUNCH.md) for full checklist.
+
+---
+
+## Repo Access Protocol
+
+**Repo:** `Sandbox-Group-LLC/Sandbox-GTM` | **Branch:** `engage`
+
+```
+PUT https://api.github.com/repos/Sandbox-Group-LLC/Sandbox-GTM/contents/{path}
+```
+
+Body must include `message`, `content` (base64 encoded), `sha` (from the read), and `branch: engage`.
+
+**Rules:**
+- Always read the file and capture its SHA before writing — never write blind
+- Commit with conventional commits (`feat:`, `fix:`, `refactor:`, `style:`)
+- Render auto-deploys on every push to `engage` — no manual deploy needed
 
 ---
 
@@ -148,28 +211,16 @@ npm run dev                # runs server + client concurrently
 
 ---
 
-## Deployment
-
-Render auto-deploys on every push to the `engage` branch. No manual deploy step.
-
-Build command: `npm install && npm run build`
-Start command: `node dist/server/index.js`
-Root directory: `engage`
-
----
-
-## Pre-Launch Checklist
-
-See [PRE-LAUNCH.md](./PRE-LAUNCH.md)
-
----
-
 ## GTM Zingers
 
-Features born from real event floor chaos. These aren't in any other platform.
+Features born from real event floor chaos. Not in any other platform.
 
 | Feature | The Line |
 |---|---|
 | **Hallway Capture** 🚶 | Because the best leads happen between sessions. |
+| **Mike Turd** 💩 | Meeting-only staff. No station. Full hallway privileges. Surprisingly effective. |
 
 ---
+
+*Last updated: April 7, 2026 — End of Day 1. Built from scratch in one session.*
+*Tomorrow: sponsor portal, attendee identity, meetings booking, admin user management.*
