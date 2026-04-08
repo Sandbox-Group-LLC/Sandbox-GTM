@@ -76,7 +76,11 @@ router.post("/login", async (req: Request, res: Response) => {
 
 // POST /api/auth/logout
 router.post("/logout", (req: Request, res: Response) => {
-  clearAuthCookies(res);
+  // Must match exact options used when setting cookies
+  const IS_PROD = process.env.NODE_ENV === "production";
+  const opts = { httpOnly: true, secure: IS_PROD, sameSite: "strict" as const, path: "/" };
+  res.clearCookie("engage_access", opts);
+  res.clearCookie("engage_refresh", opts);
   res.json({ success: true });
 });
 
