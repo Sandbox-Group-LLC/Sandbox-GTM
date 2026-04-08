@@ -345,21 +345,19 @@ export default function StaffPortal() {
         </div>
 
         {/* Mode tabs */}
-        <Tabs value={checkInEnabled ? mode : "leads"} onValueChange={v => setMode(v as Mode)}>
+        <Tabs value={mode} onValueChange={v => setMode(v as Mode)}>
           <TabsList className="w-full">
-            {checkInEnabled && (
-              <TabsTrigger value="scan" className="flex-1">
-                <ScanLine className="h-4 w-4 mr-1.5" />Check-In
-              </TabsTrigger>
-            )}
+            <TabsTrigger value="scan" className="flex-1">
+              <ScanLine className="h-4 w-4 mr-1.5" />Check-In
+            </TabsTrigger>
             <TabsTrigger value="leads" className="flex-1">
               <Target className="h-4 w-4 mr-1.5" />My Captures
             </TabsTrigger>
           </TabsList>
         </Tabs>
 
-        {/* Check-In tab — only when toggle is on */}
-        {mode === "scan" && checkInEnabled && (
+        {/* Check-In tab */}
+        {mode === "scan" && (
           <div className="space-y-4">
             <Card>
               <CardHeader className="pb-2">
@@ -377,7 +375,7 @@ export default function StaffPortal() {
                   autoFocus
                 />
                 <Button className="w-full" onClick={() => scanMutation.mutate()}
-                  disabled={!code.trim() || scanMutation.isPending}>
+                  disabled={!code.trim() || scanMutation.isPending || !checkInEnabled}>
                   {scanMutation.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Processing...</> : "Check In"}
                 </Button>
                 {lastCheckedIn && (
@@ -419,7 +417,7 @@ export default function StaffPortal() {
                           ? <Badge variant="outline" className="text-green-700 bg-green-50 border-green-200 text-xs">
                               <CheckCircle className="h-3 w-3 mr-1" />In
                             </Badge>
-                          : <Button size="sm" onClick={() => manualMutation.mutate(a.id)}>Check In</Button>
+                          : <Button size="sm" onClick={() => manualMutation.mutate(a.id)} disabled={!checkInEnabled}>Check In</Button>
                         }
                         <Button size="sm" variant="outline" onClick={() => openMatchedLead(a)}
                           title={isStationless ? "Hallway capture" : "Capture interaction"}>
