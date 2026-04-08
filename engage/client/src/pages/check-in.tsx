@@ -222,7 +222,7 @@ export default function CheckIn() {
         captureMethod,
       };
       if (matchedAttendeeId) {
-        payload.attendeeId = matchedAttendeeId;
+        payload.eventAttendeeId = matchedAttendeeId;
       } else {
         payload.unmatchedFirstName = data.firstName;
         payload.unmatchedLastName = data.lastName;
