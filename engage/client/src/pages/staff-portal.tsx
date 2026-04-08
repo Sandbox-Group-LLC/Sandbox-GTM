@@ -22,11 +22,10 @@ import { Checkbox } from "../components/ui/checkbox";
 import { Separator } from "../components/ui/separator";
 import {
   Monitor, MapPin, Users, QrCode, Search, Target,
-  CheckCircle, LogOut, Zap, Clock, Building2,
-  ScanLine, UserPlus, Loader2, Package
+  CheckCircle, LogOut, Zap, Building2,
+  ScanLine, UserPlus, Loader2, Package, Footprints,
 } from "lucide-react";
 
-// ── Lead capture schema ───────────────────────────────────────────────────────
 const leadSchema = z.object({
   firstName: z.string().min(1, "Required"),
   lastName: z.string().min(1, "Required"),
@@ -44,23 +43,23 @@ const leadSchema = z.object({
 type LeadForm = z.infer<typeof leadSchema>;
 
 const INTERACTION_TYPES = [
-  { value: "product_demo",         label: "Product Demo" },
-  { value: "technical_deep_dive",  label: "Technical Deep Dive" },
-  { value: "pricing_packaging",    label: "Pricing & Packaging" },
+  { value: "product_demo",          label: "Product Demo" },
+  { value: "technical_deep_dive",   label: "Technical Deep Dive" },
+  { value: "pricing_packaging",     label: "Pricing & Packaging" },
   { value: "executive_conversation",label: "Executive Conversation" },
-  { value: "product_discussion",   label: "Product Discussion" },
-  { value: "use_case_exploration", label: "Use Case Exploration" },
-  { value: "support_inquiry",      label: "Support Inquiry" },
-  { value: "other",                label: "Other" },
+  { value: "product_discussion",    label: "Product Discussion" },
+  { value: "use_case_exploration",  label: "Use Case Exploration" },
+  { value: "support_inquiry",       label: "Support Inquiry" },
+  { value: "other",                 label: "Other" },
 ];
 const OUTCOMES = [
-  { value: "requested_follow_up",  label: "Requested Follow-Up" },
-  { value: "asked_for_pricing",    label: "Asked for Pricing" },
-  { value: "wants_trial_pilot",    label: "Wants Trial/Pilot" },
-  { value: "intro_to_stakeholder", label: "Intro to Stakeholder" },
-  { value: "not_a_fit",           label: "Not a Fit" },
-  { value: "too_early",           label: "Too Early" },
-  { value: "other",               label: "Other" },
+  { value: "requested_follow_up",   label: "Requested Follow-Up" },
+  { value: "asked_for_pricing",     label: "Asked for Pricing" },
+  { value: "wants_trial_pilot",     label: "Wants Trial/Pilot" },
+  { value: "intro_to_stakeholder",  label: "Intro to Stakeholder" },
+  { value: "not_a_fit",            label: "Not a Fit" },
+  { value: "too_early",            label: "Too Early" },
+  { value: "other",                label: "Other" },
 ];
 const NEXT_STEPS = [
   { value: "schedule_call",    label: "Schedule Call" },
@@ -78,14 +77,14 @@ const OPP_POTENTIALS = [
   { value: "over_100k",   label: "Over $100k" },
 ];
 const TAGS = [
-  { value: "budget_confirmed",  label: "Budget Confirmed" },
-  { value: "buying_committee",  label: "Buying Committee" },
-  { value: "urgent_timeline",   label: "Urgent Timeline" },
-  { value: "decision_maker",    label: "Decision Maker" },
-  { value: "executive",         label: "Executive" },
-  { value: "champion",          label: "Champion" },
+  { value: "budget_confirmed",     label: "Budget Confirmed" },
+  { value: "buying_committee",     label: "Buying Committee" },
+  { value: "urgent_timeline",      label: "Urgent Timeline" },
+  { value: "decision_maker",       label: "Decision Maker" },
+  { value: "executive",            label: "Executive" },
+  { value: "champion",             label: "Champion" },
   { value: "competitor_mentioned", label: "Competitor Mentioned" },
-  { value: "icp_fit",           label: "ICP Fit" },
+  { value: "icp_fit",              label: "ICP Fit" },
 ];
 
 type Mode = "scan" | "leads";
@@ -93,14 +92,17 @@ type Mode = "scan" | "leads";
 export default function StaffPortal() {
   const { user, logout } = useAuth();
   const { toast } = useToast();
-  const { eventId, eventName, hasEvent } = useActiveEvent();
+  const { eventId, eventName } = useActiveEvent();
   const [mode, setMode] = useState<Mode>("scan");
   const [code, setCode] = useState("");
   const [search, setSearch] = useState("");
   const [leadOpen, setLeadOpen] = useState(false);
   const [isMatched, setIsMatched] = useState(false);
   const [matchedId, setMatchedId] = useState<string | null>(null);
+  const [isHallway, setIsHallway] = useState(false);
   const [lastCheckedIn, setLastCheckedIn] = useState<any>(null);
+
+  const isStationless = !user?.stationId;
 
   const leadForm = useForm<LeadForm>({
     resolver: zodResolver(leadSchema),
@@ -109,35 +111,30 @@ export default function StaffPortal() {
       opportunityPotential: "", nextStep: "", tags: [], notes: "" },
   });
 
-  // Fetch station if assigned
   const { data: station } = useQuery<any>({
     queryKey: ["/api/staff/station", user?.stationId],
     queryFn: () => fetchJSON(`/api/events/${eventId}/stations/${user!.stationId}`),
     enabled: !!user?.stationId && !!eventId,
   });
 
-  // Attendee search for scan/manual
   const { data: attendees = [] } = useQuery<any[]>({
     queryKey: ["/api/attendees", eventId],
     queryFn: () => fetchJSON(`/api/events/${eventId}/attendees`),
     enabled: !!eventId,
   });
 
-  // Staff's own captures this event
   const { data: myCaptures = [] } = useQuery<any[]>({
-    queryKey: ["/api/staff/captures", eventId, user?.id],
-    queryFn: () => fetchJSON(`/api/events/${eventId}/interactions?staffId=${user!.id}`),
-    enabled: !!eventId && !!user?.id,
+    queryKey: ["/api/staff/captures", eventId],
+    queryFn: () => fetchJSON(`/api/events/${eventId}/interactions`),
+    enabled: !!eventId,
   });
 
-  // Checkin stats
   const { data: stats } = useQuery<any>({
     queryKey: ["/api/checkin-stats", eventId],
     queryFn: () => fetchJSON(`/api/events/${eventId}/checkin/stats`),
     enabled: !!eventId,
   });
 
-  // Badge scan
   const scanMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest("POST", `/api/events/${eventId}/checkin/scan`, {
@@ -154,7 +151,6 @@ export default function StaffPortal() {
     onError: (err: any) => toast({ title: "Scan failed", description: err.message, variant: "destructive" }),
   });
 
-  // Manual checkin
   const manualMutation = useMutation({
     mutationFn: async (attendeeId: string) => {
       const res = await apiRequest("POST", `/api/events/${eventId}/checkin/manual`, {
@@ -172,9 +168,9 @@ export default function StaffPortal() {
     onError: (err: any) => toast({ title: "Check-in failed", description: err.message, variant: "destructive" }),
   });
 
-  // Lead capture
   const leadMutation = useMutation({
     mutationFn: async (data: LeadForm) => {
+      const captureMethod = isHallway ? "hallway" : isMatched ? "lookup" : "manual";
       const payload: any = {
         interactionType: data.interactionType,
         intentLevel: data.intentLevel,
@@ -183,8 +179,8 @@ export default function StaffPortal() {
         nextStep: data.nextStep || undefined,
         tags: data.tags?.length ? data.tags : undefined,
         notes: data.notes || undefined,
-        station: station?.stationLocation || undefined,
-        captureMethod: isMatched ? "lookup" : "manual",
+        station: isHallway ? null : (station?.stationLocation || undefined),
+        captureMethod,
       };
       if (matchedId) payload.eventAttendeeId = matchedId;
       else {
@@ -198,28 +194,38 @@ export default function StaffPortal() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/staff/captures", eventId, user?.id] });
-      toast({ title: "✓ Interaction captured" });
+      queryClient.invalidateQueries({ queryKey: ["/api/staff/captures", eventId] });
+      const msg = isHallway ? "Hallway capture saved 🚶" : "Interaction captured";
+      toast({ title: `✓ ${msg}` });
       setLeadOpen(false);
       leadForm.reset();
       setMatchedId(null);
       setIsMatched(false);
+      setIsHallway(false);
     },
     onError: (err: any) => toast({ title: "Failed", description: err.message, variant: "destructive" }),
   });
 
-  const openManualLead = () => {
-    setIsMatched(false); setMatchedId(null);
+  const openHallwayCapture = () => {
+    setIsHallway(true); setIsMatched(false); setMatchedId(null);
     leadForm.reset({ firstName: "", lastName: "", email: "", company: "",
       jobTitle: "", interactionType: "", intentLevel: "", outcome: "" });
     setLeadOpen(true);
   };
 
-  const openMatchedLead = (a: any) => {
+  const openMatchedLead = (a: any, hallway = false) => {
+    setIsHallway(hallway || isStationless);
     setIsMatched(true); setMatchedId(a.id);
     leadForm.reset({ firstName: a.firstName, lastName: a.lastName,
       email: a.email, company: a.company || "", jobTitle: a.jobTitle || "",
       interactionType: "", intentLevel: "", outcome: "" });
+    setLeadOpen(true);
+  };
+
+  const openStationLead = () => {
+    setIsHallway(false); setIsMatched(false); setMatchedId(null);
+    leadForm.reset({ firstName: "", lastName: "", email: "", company: "",
+      jobTitle: "", interactionType: "", intentLevel: "", outcome: "" });
     setLeadOpen(true);
   };
 
@@ -230,6 +236,9 @@ export default function StaffPortal() {
       || a.email?.toLowerCase().includes(q)
       || a.badgeCode?.toLowerCase().includes(q);
   });
+
+  const hallwayCaptures = myCaptures.filter((c: any) => c.captureMethod === "hallway");
+  const stationCaptures = myCaptures.filter((c: any) => c.captureMethod !== "hallway");
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -242,7 +251,7 @@ export default function StaffPortal() {
             <p className="text-xs text-muted-foreground">{eventName || "Loading..."}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <span className="text-xs text-muted-foreground hidden sm:block">{user?.name || user?.email}</span>
           <Button variant="ghost" size="sm" onClick={logout} className="text-muted-foreground">
             <LogOut className="h-4 w-4" />
@@ -252,8 +261,8 @@ export default function StaffPortal() {
 
       <main className="flex-1 p-4 max-w-2xl mx-auto w-full space-y-4">
 
-        {/* Station card — or meeting turd null state */}
-        {user?.stationId ? (
+        {/* Station card — or hallway turd state */}
+        {!isStationless ? (
           <Card className="border-primary/20 bg-primary/5">
             <CardContent className="p-4">
               <div className="flex items-start gap-3">
@@ -261,7 +270,7 @@ export default function StaffPortal() {
                   <Monitor className="h-5 w-5 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold">{station?.stationName || "Loading station..."}</p>
+                  <p className="font-semibold">{station?.stationName || "Loading..."}</p>
                   <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
                     <MapPin className="h-3 w-3" />
                     <span>{station?.stationLocation}</span>
@@ -274,35 +283,42 @@ export default function StaffPortal() {
                     </div>
                   )}
                 </div>
-                <Button size="sm" onClick={openManualLead} className="flex-shrink-0">
+                <Button size="sm" onClick={openStationLead} className="flex-shrink-0">
                   <UserPlus className="h-3.5 w-3.5 mr-1.5" />Capture
                 </Button>
               </div>
             </CardContent>
           </Card>
         ) : (
-          <Card className="border-dashed">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-muted">
-                <Monitor className="h-5 w-5 text-muted-foreground" />
+          // Hallway turd card
+          <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/20">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-900/30">
+                  <Footprints className="h-5 w-5 text-amber-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-amber-900 dark:text-amber-100">Hallway Mode</p>
+                  <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
+                    Met someone interesting? Capture it before the moment's gone.
+                  </p>
+                </div>
+                <Button size="sm" onClick={openHallwayCapture}
+                  className="flex-shrink-0 bg-amber-600 hover:bg-amber-700 text-white border-0">
+                  <Footprints className="h-3.5 w-3.5 mr-1.5" />Capture
+                </Button>
               </div>
-              <div>
-                <p className="text-sm font-medium">No station assigned</p>
-                <p className="text-xs text-muted-foreground">You're set up for meetings only</p>
-              </div>
-              <Button size="sm" variant="outline" className="ml-auto flex-shrink-0" onClick={openManualLead}>
-                <UserPlus className="h-3.5 w-3.5 mr-1.5" />Capture Lead
-              </Button>
             </CardContent>
           </Card>
         )}
 
         {/* Stats strip */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-4 gap-2">
           {[
-            { label: "Registered", value: stats?.totalAttendees ?? "—", icon: <Users className="h-4 w-4 text-muted-foreground" /> },
-            { label: "Checked In", value: stats?.checkedIn ?? "—", icon: <CheckCircle className="h-4 w-4 text-green-500" /> },
-            { label: "My Captures", value: myCaptures.length, icon: <Target className="h-4 w-4 text-purple-500" /> },
+            { label: "Registered",  value: stats?.totalAttendees ?? "—", icon: <Users className="h-4 w-4 text-muted-foreground" /> },
+            { label: "Checked In",  value: stats?.checkedIn ?? "—",       icon: <CheckCircle className="h-4 w-4 text-green-500" /> },
+            { label: "Station",     value: stationCaptures.length,         icon: <Target className="h-4 w-4 text-purple-500" /> },
+            { label: "Hallway",     value: hallwayCaptures.length,         icon: <Footprints className="h-4 w-4 text-amber-500" /> },
           ].map(({ label, value, icon }) => (
             <Card key={label}>
               <CardContent className="p-3 flex flex-col items-center text-center gap-1">
@@ -329,7 +345,6 @@ export default function StaffPortal() {
         {/* Check-In tab */}
         {mode === "scan" && (
           <div className="space-y-4">
-            {/* Badge scan */}
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm flex items-center gap-2">
@@ -363,7 +378,6 @@ export default function StaffPortal() {
               </CardContent>
             </Card>
 
-            {/* Manual search */}
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm flex items-center gap-2">
@@ -384,15 +398,16 @@ export default function StaffPortal() {
                         <p className="text-sm font-medium truncate">{a.firstName} {a.lastName}</p>
                         <p className="text-xs text-muted-foreground truncate">{a.company}</p>
                       </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
                         {a.checkedIn
                           ? <Badge variant="outline" className="text-green-700 bg-green-50 border-green-200 text-xs">
                               <CheckCircle className="h-3 w-3 mr-1" />In
                             </Badge>
                           : <Button size="sm" onClick={() => manualMutation.mutate(a.id)}>Check In</Button>
                         }
-                        <Button size="sm" variant="outline" onClick={() => openMatchedLead(a)}>
-                          <Target className="h-3 w-3" />
+                        <Button size="sm" variant="outline" onClick={() => openMatchedLead(a)}
+                          title={isStationless ? "Hallway capture" : "Capture interaction"}>
+                          {isStationless ? <Footprints className="h-3 w-3 text-amber-600" /> : <Target className="h-3 w-3" />}
                         </Button>
                       </div>
                     </div>
@@ -408,55 +423,48 @@ export default function StaffPortal() {
 
         {/* My Captures tab */}
         {mode === "leads" && (
-          <Card>
-            <CardHeader className="pb-2 flex flex-row items-center justify-between">
-              <CardTitle className="text-sm">My Captures This Event</CardTitle>
-              <Button size="sm" onClick={openManualLead}>
-                <UserPlus className="h-3.5 w-3.5 mr-1.5" />New
-              </Button>
-            </CardHeader>
-            <CardContent className="p-0">
-              {myCaptures.length === 0 ? (
-                <div className="flex flex-col items-center py-10 text-muted-foreground">
-                  <Package className="h-8 w-8 mb-2 opacity-30" />
-                  <p className="text-sm">No captures yet</p>
-                  <p className="text-xs mt-1">Use the Check-In tab to find attendees</p>
-                </div>
-              ) : (
-                <div className="divide-y">
-                  {myCaptures.map((c: any) => (
-                    <div key={c.id} className="px-4 py-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="text-sm font-medium">
-                            {c.firstName && c.lastName
-                              ? `${c.firstName} ${c.lastName}`
-                              : c.unmatchedFirstName
-                                ? `${c.unmatchedFirstName} ${c.unmatchedLastName}`
-                                : "Anonymous"}
-                          </p>
-                          <p className="text-xs text-muted-foreground">{c.company || c.unmatchedCompany || "—"}</p>
-                        </div>
-                        <div className="text-right flex-shrink-0">
-                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                            c.intentLevel === "high" ? "bg-red-100 text-red-700" :
-                            c.intentLevel === "medium" ? "bg-amber-100 text-amber-700" :
-                            "bg-muted text-muted-foreground"
-                          }`}>{c.intentLevel}</span>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {new Date(c.createdAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-                          </p>
-                        </div>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1 capitalize">
-                        {c.interactionType?.replace(/_/g, " ")} · {c.outcome?.replace(/_/g, " ")}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <div className="space-y-4">
+            {/* Hallway captures section */}
+            {hallwayCaptures.length > 0 && (
+              <Card className="border-amber-200">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2 text-amber-700">
+                    <Footprints className="h-4 w-4" />Hallway Captures
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="divide-y">
+                    {hallwayCaptures.map((c: any) => <CaptureRow key={c.id} c={c} />)}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Station captures section */}
+            <Card>
+              <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Target className="h-4 w-4" />
+                  {isStationless ? "All Captures" : "Station Captures"}
+                </CardTitle>
+                <Button size="sm" onClick={isStationless ? openHallwayCapture : openStationLead}>
+                  <UserPlus className="h-3.5 w-3.5 mr-1.5" />New
+                </Button>
+              </CardHeader>
+              <CardContent className="p-0">
+                {stationCaptures.length === 0 ? (
+                  <div className="flex flex-col items-center py-10 text-muted-foreground">
+                    <Package className="h-8 w-8 mb-2 opacity-30" />
+                    <p className="text-sm">No captures yet</p>
+                  </div>
+                ) : (
+                  <div className="divide-y">
+                    {stationCaptures.map((c: any) => <CaptureRow key={c.id} c={c} />)}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         )}
       </main>
 
@@ -465,21 +473,28 @@ export default function StaffPortal() {
         <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <div className="flex items-center gap-2">
-              <DialogTitle>Capture Interaction</DialogTitle>
-              <Badge variant="outline" className={isMatched
-                ? "bg-green-50 text-green-700 border-green-200"
-                : "bg-amber-50 text-amber-700 border-amber-200"}>
-                {isMatched ? "Matched" : "Walk-Up"}
+              <DialogTitle>
+                {isHallway ? "Hallway Capture" : "Capture Interaction"}
+              </DialogTitle>
+              <Badge variant="outline" className={
+                isHallway ? "bg-amber-50 text-amber-700 border-amber-200" :
+                isMatched ? "bg-green-50 text-green-700 border-green-200" :
+                "bg-muted text-muted-foreground"
+              }>
+                {isHallway ? "🚶 Hallway" : isMatched ? "Matched" : "Walk-Up"}
               </Badge>
             </div>
             <DialogDescription>
-              {station ? `Station: ${station.stationName}` : "No station — manual capture"}
+              {isHallway
+                ? "Capture before the moment's gone — the elevator doesn't wait."
+                : station
+                  ? `Station: ${station.stationName} · ${station.stationLocation}`
+                  : "Manual capture"}
             </DialogDescription>
           </DialogHeader>
 
           <Form {...leadForm}>
             <form onSubmit={leadForm.handleSubmit(d => leadMutation.mutate(d))} className="space-y-4">
-              {/* Contact info */}
               <div className="grid grid-cols-2 gap-3">
                 <FormField control={leadForm.control} name="firstName" render={({ field }) => (
                   <FormItem><FormLabel>First Name *</FormLabel>
@@ -517,7 +532,6 @@ export default function StaffPortal() {
 
               <Separator />
 
-              {/* Interaction details */}
               <div className="grid grid-cols-2 gap-3">
                 <FormField control={leadForm.control} name="interactionType" render={({ field }) => (
                   <FormItem><FormLabel>Type *</FormLabel>
@@ -531,7 +545,7 @@ export default function StaffPortal() {
                   <FormItem><FormLabel>Intent *</FormLabel>
                     <FormControl>
                       <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-3 pt-2">
-                        {["low", "medium", "high"].map(v => (
+                        {["low","medium","high"].map(v => (
                           <div key={v} className="flex items-center gap-1">
                             <RadioGroupItem value={v} id={`il-${v}`} />
                             <Label htmlFor={`il-${v}`} className="text-xs capitalize cursor-pointer">{v}</Label>
@@ -592,22 +606,60 @@ export default function StaffPortal() {
               <FormField control={leadForm.control} name="notes" render={({ field }) => (
                 <FormItem><FormLabel>Notes</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Anything worth noting..." rows={3}
-                      {...field} value={field.value || ""} />
+                    <Textarea placeholder={isHallway ? "What happened in the elevator..." : "Anything worth noting..."}
+                      rows={3} {...field} value={field.value || ""} />
                   </FormControl>
                 </FormItem>
               )} />
 
               <div className="flex gap-2 pt-2">
                 <Button type="button" variant="outline" className="flex-1" onClick={() => setLeadOpen(false)}>Cancel</Button>
-                <Button type="submit" className="flex-1" disabled={leadMutation.isPending}>
-                  {leadMutation.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : "Save Interaction"}
+                <Button type="submit" className={`flex-1 ${isHallway ? "bg-amber-600 hover:bg-amber-700" : ""}`}
+                  disabled={leadMutation.isPending}>
+                  {leadMutation.isPending
+                    ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</>
+                    : isHallway ? "🚶 Save Hallway Capture" : "Save Interaction"}
                 </Button>
               </div>
             </form>
           </Form>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function CaptureRow({ c }: { c: any }) {
+  const isHallway = c.captureMethod === "hallway";
+  return (
+    <div className="px-4 py-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start gap-2 min-w-0">
+          {isHallway && <Footprints className="h-3.5 w-3.5 text-amber-500 flex-shrink-0 mt-0.5" />}
+          <div className="min-w-0">
+            <p className="text-sm font-medium truncate">
+              {c.firstName && c.lastName ? `${c.firstName} ${c.lastName}`
+                : c.unmatchedFirstName ? `${c.unmatchedFirstName} ${c.unmatchedLastName}`
+                : "Anonymous"}
+            </p>
+            <p className="text-xs text-muted-foreground truncate">{c.company || c.unmatchedCompany || "—"}</p>
+          </div>
+        </div>
+        <div className="text-right flex-shrink-0">
+          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+            c.intentLevel === "high"   ? "bg-red-100 text-red-700" :
+            c.intentLevel === "medium" ? "bg-amber-100 text-amber-700" :
+            "bg-muted text-muted-foreground"}`}>
+            {c.intentLevel}
+          </span>
+          <p className="text-xs text-muted-foreground mt-1">
+            {new Date(c.createdAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+          </p>
+        </div>
+      </div>
+      <p className="text-xs text-muted-foreground mt-1 capitalize">
+        {c.interactionType?.replace(/_/g, " ")} · {c.outcome?.replace(/_/g, " ")}
+      </p>
     </div>
   );
 }
