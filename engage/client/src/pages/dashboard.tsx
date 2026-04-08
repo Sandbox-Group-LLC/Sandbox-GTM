@@ -20,6 +20,7 @@ const NAV_LINKS = [
   { href: "/stations",  label: "Stations" },
   { href: "/meetings",  label: "Meetings" },
   { href: "/leads",     label: "Leads" },
+  { href: "/admin",     label: "Admin" },
   { href: "/connect",   label: "Connect" },
 ];
 
