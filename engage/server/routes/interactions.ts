@@ -9,6 +9,7 @@ const router = Router({ mergeParams: true });
 // GET /api/events/:eventId/interactions
 router.get("/interactions", async (req: Request<EP>, res: Response) => {
   try {
+    const { staffId } = req.query as { staffId?: string };
     const rows = await db.select({
       id: productInteractions.id,
       eventAttendeeId: productInteractions.eventAttendeeId,
@@ -91,6 +92,16 @@ router.post("/stations", async (req: Request<EP>, res: Response) => {
       productFocus: productFocus || [], isActive: true,
     }).returning();
     res.status(201).json(s);
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+// GET /api/events/:eventId/stations/:stationId — single station detail
+router.get("/stations/:stationId", async (req: Request<EP & { stationId: string }>, res: Response) => {
+  try {
+    const [station] = await db.select().from(demoStations)
+      .where(and(eq(demoStations.id, req.params.stationId), eq(demoStations.eventId, req.params.eventId)));
+    if (!station) return res.status(404).json({ error: "Station not found" });
+    res.json(station);
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
