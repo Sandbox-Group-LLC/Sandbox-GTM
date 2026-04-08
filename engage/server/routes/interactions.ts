@@ -21,6 +21,7 @@ router.get("/interactions", async (req: Request<EP>, res: Response) => {
       station: productInteractions.station,
       tags: productInteractions.tags,
       notes: productInteractions.notes,
+      captureMethod: productInteractions.captureMethod,
       createdAt: productInteractions.createdAt,
       firstName: orgAttendees.firstName,
       lastName: orgAttendees.lastName,
