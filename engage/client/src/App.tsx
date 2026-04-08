@@ -13,6 +13,7 @@ import MomentLive from "./pages/moment-live";
 import DemoStations from "./pages/demo-stations";
 import MeetingsPage from "./pages/meetings";
 import LeadsPage from "./pages/leads";
+import StaffPortal from "./pages/staff-portal";
 import NotFound from "./pages/not-found";
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -37,19 +38,22 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
 const PUBLIC_ROUTES = ["/login", "/moment/"];
 
 function AuthGuard({ children }: { children: ReactNode }) {
-  const { isAuthenticated, checking } = useAuth();
+  const { isAuthenticated, checking, user } = useAuth();
   const [location, navigate] = useLocation();
   const isPublic = PUBLIC_ROUTES.some(r => location.startsWith(r));
 
   useEffect(() => {
-    if (!checking && !isAuthenticated && !isPublic) navigate("/login");
-  }, [checking, isAuthenticated, isPublic, location]);
+    if (!checking && !isAuthenticated && !isPublic) {
+      navigate("/login");
+    }
+    // Staff always go to /staff, never the admin app
+    if (!checking && isAuthenticated && user?.role === "staff" && !location.startsWith("/staff")) {
+      navigate("/staff");
+    }
+  }, [checking, isAuthenticated, isPublic, location, user]);
 
-  // Still verifying cookie — show nothing to avoid flash
   if (checking && !isPublic) return null;
-
   if (!isAuthenticated && !isPublic) return null;
-
   return <>{children}</>;
 }
 
@@ -69,6 +73,7 @@ export default function App() {
               <Route path="/stations" component={DemoStations} />
               <Route path="/meetings" component={MeetingsPage} />
               <Route path="/leads" component={LeadsPage} />
+              <Route path="/staff" component={StaffPortal} />
               <Route component={NotFound} />
             </Switch>
           </AuthGuard>
