@@ -238,8 +238,10 @@ export default function StaffPortal() {
       || a.badgeCode?.toLowerCase().includes(q);
   });
 
-  const hallwayCaptures = myCaptures.filter((c: any) => c.captureMethod === "hallway");
-  const stationCaptures = myCaptures.filter((c: any) => c.captureMethod !== "hallway");
+  const isHallwayCapture = (c: any) => 
+    c.captureMethod === "hallway" || c.capture_method === "hallway";
+  const hallwayCaptures = myCaptures.filter(isHallwayCapture);
+  const stationCaptures = myCaptures.filter((c: any) => !isHallwayCapture(c));
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -644,7 +646,7 @@ export default function StaffPortal() {
 }
 
 function CaptureRow({ c }: { c: any }) {
-  const isHallway = c.captureMethod === "hallway";
+  const isHallway = c.captureMethod === "hallway" || c.capture_method === "hallway";
   return (
     <div className="px-4 py-3">
       <div className="flex items-start justify-between gap-2">
