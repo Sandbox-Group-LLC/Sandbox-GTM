@@ -93,9 +93,15 @@ export default function CheckIn() {
   const { toast } = useToast();
   const [mode, setMode] = useState<Mode>("program");
   const [selectedSessionId, setSelectedSessionId] = useState("");
-  const handleSessionChange = (id: string) => {
+  const handleSessionChange = async (id: string) => {
     setSelectedSessionId(id);
-    setSessionCheckedIn(new Set()); // reset per-session tracking on session switch
+    setSessionCheckedIn(new Set()); // reset immediately
+    if (id && selectedEventId) {
+      try {
+        const ids: string[] = await fetchJSON(`/api/events/${selectedEventId}/checkin/sessions/${id}/checked-in`);
+        setSessionCheckedIn(new Set(ids));
+      } catch { /* non-critical — local state is fallback */ }
+    }
   };
   const [code, setCode] = useState("");
   const [search, setSearch] = useState("");
