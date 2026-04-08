@@ -103,6 +103,7 @@ export default function StaffPortal() {
   const [lastCheckedIn, setLastCheckedIn] = useState<any>(null);
 
   const isStationless = !user?.stationId;
+  const [checkInEnabled, setCheckInEnabled] = useState(false);
 
   const leadForm = useForm<LeadForm>({
     resolver: zodResolver(leadSchema),
@@ -170,7 +171,7 @@ export default function StaffPortal() {
 
   const leadMutation = useMutation({
     mutationFn: async (data: LeadForm) => {
-      const captureMethod = isHallway ? "hallway" : isMatched ? "lookup" : "manual";
+      const captureMethod = isHallway ? "hallway" : isMatched ? "lookup" : "walk_up";
       const payload: any = {
         interactionType: data.interactionType,
         intentLevel: data.intentLevel,
@@ -252,6 +253,19 @@ export default function StaffPortal() {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Check-In</span>
+            <button
+              onClick={() => setCheckInEnabled(v => !v)}
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                checkInEnabled ? "bg-primary" : "bg-muted-foreground/30"
+              }`}
+            >
+              <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+                checkInEnabled ? "translate-x-4" : "translate-x-1"
+              }`} />
+            </button>
+          </div>
           <span className="text-xs text-muted-foreground hidden sm:block">{user?.name || user?.email}</span>
           <Button variant="ghost" size="sm" onClick={logout} className="text-muted-foreground">
             <LogOut className="h-4 w-4" />
@@ -331,19 +345,21 @@ export default function StaffPortal() {
         </div>
 
         {/* Mode tabs */}
-        <Tabs value={mode} onValueChange={v => setMode(v as Mode)}>
+        <Tabs value={checkInEnabled ? mode : "leads"} onValueChange={v => setMode(v as Mode)}>
           <TabsList className="w-full">
-            <TabsTrigger value="scan" className="flex-1">
-              <ScanLine className="h-4 w-4 mr-1.5" />Check-In
-            </TabsTrigger>
+            {checkInEnabled && (
+              <TabsTrigger value="scan" className="flex-1">
+                <ScanLine className="h-4 w-4 mr-1.5" />Check-In
+              </TabsTrigger>
+            )}
             <TabsTrigger value="leads" className="flex-1">
               <Target className="h-4 w-4 mr-1.5" />My Captures
             </TabsTrigger>
           </TabsList>
         </Tabs>
 
-        {/* Check-In tab */}
-        {mode === "scan" && (
+        {/* Check-In tab — only when toggle is on */}
+        {mode === "scan" && checkInEnabled && (
           <div className="space-y-4">
             <Card>
               <CardHeader className="pb-2">
