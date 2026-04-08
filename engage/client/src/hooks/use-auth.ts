@@ -40,10 +40,12 @@ export function useAuth() {
   }, []);
 
   const logout = useCallback(async () => {
-    await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
-    sessionStorage.removeItem("engage_user");
-    setUser(null);
-    window.location.href = "/login";
+    try {
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    } catch { /* continue regardless */ }
+    sessionStorage.clear();
+    // Hard redirect — nukes all React state and cookie cache
+    window.location.replace("/login");
   }, []);
 
   return {
