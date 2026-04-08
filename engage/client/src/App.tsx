@@ -14,6 +14,7 @@ import DemoStations from "./pages/demo-stations";
 import MeetingsPage from "./pages/meetings";
 import LeadsPage from "./pages/leads";
 import StaffPortal from "./pages/staff-portal";
+import AdminPage from "./pages/admin";
 import NotFound from "./pages/not-found";
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -74,6 +75,7 @@ export default function App() {
               <Route path="/meetings" component={MeetingsPage} />
               <Route path="/leads" component={LeadsPage} />
               <Route path="/staff" component={StaffPortal} />
+              <Route path="/admin" component={AdminPage} />
               <Route component={NotFound} />
             </Switch>
           </AuthGuard>
