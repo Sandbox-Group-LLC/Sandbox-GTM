@@ -161,3 +161,15 @@ Root directory: `engage`
 ## Pre-Launch Checklist
 
 See [PRE-LAUNCH.md](./PRE-LAUNCH.md)
+
+---
+
+## GTM Zingers
+
+Features born from real event floor chaos. These aren't in any other platform.
+
+| Feature | The Line |
+|---|---|
+| **Hallway Capture** 🚶 | Because the best leads happen between sessions. |
+
+---
