@@ -174,10 +174,10 @@ function UsersTab({ stations, eventId }: { stations: any[]; eventId: string }) {
               {form.role === "staff" && (
                 <div className="space-y-1.5">
                   <Label>Station</Label>
-                  <Select value={form.stationId} onValueChange={v => setForm(f => ({ ...f, stationId: v }))}>
+                  <Select value={form.stationId} onValueChange={v => setForm(f => ({ ...f, stationId: v === "__none__" ? "" : v }))}>
                     <SelectTrigger><SelectValue placeholder="None (meeting only)" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None — meeting only 💩</SelectItem>
+                      <SelectItem value="__none__">None — meeting only 💩</SelectItem>
                       {stations.map(s => (
                         <SelectItem key={s.id} value={s.id}>{s.stationName}</SelectItem>
                       ))}
@@ -231,10 +231,10 @@ function UsersTab({ stations, eventId }: { stations: any[]; eventId: string }) {
               {editUser.role === "staff" && (
                 <div className="space-y-1.5">
                   <Label>Station Assignment</Label>
-                  <Select value={editUser.stationId || ""} onValueChange={v => setEditUser((u: any) => ({ ...u, stationId: v || null }))}>
+                  <Select value={editUser.stationId || "__none__"} onValueChange={v => setEditUser((u: any) => ({ ...u, stationId: v === "__none__" ? null : v }))}>
                     <SelectTrigger><SelectValue placeholder="None — meeting only 💩" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None — meeting only 💩</SelectItem>
+                      <SelectItem value="__none__">None — meeting only 💩</SelectItem>
                       {stations.map(s => (
                         <SelectItem key={s.id} value={s.id}>{s.stationName} · {s.stationLocation}</SelectItem>
                       ))}
