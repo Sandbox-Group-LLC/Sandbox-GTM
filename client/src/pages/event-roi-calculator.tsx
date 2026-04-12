@@ -368,7 +368,7 @@ export default function EventROICalculator() {
         </div>
         <h1 style={{
           fontSize: 32, fontWeight: 800, lineHeight: 1.15, marginBottom: 12,
-          fontFamily: "'Instrument Serif', Georgia, serif", fontWeight: 400, fontSize: 40,
+          fontFamily: "'Inter', Georgia, serif", fontWeight: 400, fontSize: 40,
           background: "linear-gradient(135deg, #fff 0%, #94a3b8 100%)",
           WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
         }}>
