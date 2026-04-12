@@ -105,6 +105,7 @@ import ProofRequestDetail from "@/pages/proof-request-detail";
 import Designers from "@/pages/designers";
 import ApprovedAssets from "@/pages/approved-assets";
 import SharedProofView from "@/pages/shared-proof-view";
+import EventROICalculator from "@/pages/event-roi-calculator";
 import { HelpChatWidget } from "@/components/help-chat-widget";
 
 function ClerkTokenSync() {
@@ -208,6 +209,7 @@ function Router() {
         <Route path="/" component={Landing} />
         <Route path="/pricing" component={Pricing} />
         <Route path="/book-demo" component={BookDemo} />
+        <Route path="/event-roi-calculator" component={EventROICalculator} />
         <Route path="/the-sandbox" component={ThoughtLeadership} />
         <Route path="/the-sandbox/:slug" component={ThoughtLeadershipArticle} />
         <Route path="/thought-leadership">{() => { window.location.href = "/the-sandbox"; return null; }}</Route>
