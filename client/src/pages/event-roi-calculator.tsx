@@ -4,10 +4,10 @@ import { MarketingHeader } from "@/components/marketing-header";
 const STEPS = ["Program Profile", "Data & Attribution", "Revenue Inputs"];
 
 const EVENT_TYPES = [
-  { key: "field", label: "Field Events", icon: "🎯", avgCost: 15000 },
-  { key: "virtual", label: "Virtual / Webinars", icon: "💻", avgCost: 5000 },
-  { key: "hybrid", label: "Hybrid Events", icon: "🔄", avgCost: 50000 },
-  { key: "tradeshow", label: "Tradeshows", icon: "🏢", avgCost: 50000 },
+  { key: "field", label: "Field Events", avgCost: 15000 },
+  { key: "virtual", label: "Virtual / Webinars", avgCost: 5000 },
+  { key: "hybrid", label: "Hybrid Events", avgCost: 50000 },
+  { key: "tradeshow", label: "Tradeshows", avgCost: 50000 },
 ];
 
 const MATURITY_OPTIONS = {
