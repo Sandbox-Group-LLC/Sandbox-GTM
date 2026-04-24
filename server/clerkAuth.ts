@@ -1,4 +1,4 @@
-import { clerkMiddleware, getAuth, createClerkClient } from '@clerk/express';
+import { createClerkClient } from '@clerk/express';
 import session from 'express-session';
 import MemoryStore from 'memorystore';
 import type { Express, RequestHandler } from 'express';
@@ -8,6 +8,7 @@ const MemoryStoreSession = MemoryStore(session);
 
 const clerkClient = createClerkClient({
   secretKey: process.env.CLERK_SECRET_KEY!,
+  publishableKey: process.env.CLERK_PUBLISHABLE_KEY || process.env.VITE_CLERK_PUBLISHABLE_KEY,
 });
 
 export function getSession() {
@@ -24,12 +25,42 @@ export function getSession() {
   });
 }
 
+// Custom Clerk middleware that accepts BOTH session cookies AND Authorization: Bearer tokens.
+// This avoids the cross-origin cookie problem: when the Clerk production instance isn't wired
+// to a CNAME on sandbox-gtm.com, the session cookie never reaches our server. The frontend
+// ClerkTokenSync already attaches a Bearer JWT to every fetch — this middleware validates it.
+async function customClerkMiddleware(req: any, _res: any, next: any) {
+  try {
+    const requestState = await clerkClient.authenticateRequest(req, {
+      acceptsToken: 'any',
+    });
+
+    if (requestState.isSignedIn) {
+      const auth = requestState.toAuth();
+      req.auth = auth;
+    } else {
+      req.auth = { userId: null };
+    }
+  } catch (err) {
+    // If Clerk rejects the token (expired, invalid, wrong instance), fall through with no auth.
+    // isAuthenticated below will return 401. Don't 500 on bad tokens.
+    console.error('[clerkAuth] authenticateRequest failed:', err instanceof Error ? err.message : err);
+    req.auth = { userId: null };
+  }
+  next();
+}
+
+// Helper that mirrors @clerk/express's getAuth but reads from our attached req.auth
+function getAuth(req: any): { userId: string | null } {
+  return req.auth || { userId: null };
+}
+
 export async function setupAuth(app: Express) {
   app.set('trust proxy', 1);
   // Session used only for super-admin org switching context
   app.use(getSession());
-  // Clerk validates JWT on every request
-  app.use(clerkMiddleware());
+  // Custom Clerk middleware that accepts both cookies and Bearer tokens
+  app.use(customClerkMiddleware);
 
   // Login/logout redirect to Clerk hosted UI
   app.get('/api/login', (req, res) => {
@@ -71,6 +102,7 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
         profileImageUrl: clerkUser.imageUrl ?? null,
       });
     } catch (err) {
+      console.error('[clerkAuth] Failed to lazy-sync user from Clerk:', err instanceof Error ? err.message : err);
       return res.status(401).json({ message: 'Unauthorized' });
     }
   }
