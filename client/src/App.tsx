@@ -1,6 +1,6 @@
 import { Switch, Route, useLocation } from "wouter";
-import { useEffect } from "react";
-import { useAuth as useClerkAuth } from "@clerk/clerk-react";
+import { useEffect, useState } from "react";
+import { useAuth as useClerkAuth, useSignIn } from "@clerk/clerk-react";
 import { setClerkTokenGetter } from "@/lib/queryClient";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
@@ -115,6 +115,62 @@ function ClerkTokenSync() {
   // a race where /api/auth/user fires without an Authorization header and
   // returns 401, which React Query treats as null user = signed out.
   setClerkTokenGetter(getToken);
+  return null;
+}
+
+// ClerkTicketExchange: when ForgeOS loads the app with ?__clerk_ticket=<token>,
+// exchange the ticket for a real Clerk session. Clerk's React SDK does NOT
+// auto-consume tickets on arbitrary pages — only inside <SignIn /> or via an
+// explicit signIn.create() call. Without this, the ticket sits in the URL
+// unread and the iframe shows the landing page.
+function ClerkTicketExchange() {
+  const { signIn, setActive, isLoaded } = useSignIn();
+  const { isSignedIn } = useClerkAuth();
+  const [attempted, setAttempted] = useState(false);
+
+  useEffect(() => {
+    if (!isLoaded || attempted) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const ticket = params.get("__clerk_ticket");
+    if (!ticket) return;
+
+    // Already signed in — strip the params and move on, no need to re-exchange.
+    if (isSignedIn) {
+      params.delete("__clerk_ticket");
+      params.delete("__clerk_status");
+      const qs = params.toString();
+      const cleanUrl = window.location.pathname + (qs ? `?${qs}` : "") + window.location.hash;
+      window.history.replaceState({}, "", cleanUrl);
+      setAttempted(true);
+      return;
+    }
+
+    setAttempted(true);
+
+    (async () => {
+      try {
+        const result = await signIn!.create({ strategy: "ticket", ticket });
+        if (result.status === "complete" && result.createdSessionId) {
+          await setActive!({ session: result.createdSessionId });
+        } else {
+          console.warn("[ClerkTicketExchange] unexpected sign-in status:", result.status);
+        }
+      } catch (err) {
+        console.error("[ClerkTicketExchange] ticket exchange failed:", err);
+      } finally {
+        // Strip the ticket params from the URL so a refresh doesn't re-attempt a
+        // one-time-use token (and so the params don't leak into navigation).
+        const cleaned = new URLSearchParams(window.location.search);
+        cleaned.delete("__clerk_ticket");
+        cleaned.delete("__clerk_status");
+        const qs = cleaned.toString();
+        const cleanUrl = window.location.pathname + (qs ? `?${qs}` : "") + window.location.hash;
+        window.history.replaceState({}, "", cleanUrl);
+      }
+    })();
+  }, [isLoaded, isSignedIn, signIn, setActive, attempted]);
+
   return null;
 }
 
@@ -365,6 +421,7 @@ function App() {
         <DemoModeProvider>
           <TooltipProvider>
             <ClerkTokenSync />
+            <ClerkTicketExchange />
             <Router />
             <Toaster />
           </TooltipProvider>
