@@ -60,6 +60,62 @@ app.get("/api/public/test", (_req, res) => {
   res.status(200).json({ message: "public test works", env: process.env.NODE_ENV });
 });
 
+// ForgeOS iframe preview: mints a short-lived Clerk sign-in token for a fixed user id,
+// returns a URL the ForgeOS shell loads in the iframe so the app is fully authenticated.
+// Gated by X-ForgeOS-Secret header matching FORGEOS_PREVIEW_SECRET env var.
+app.get("/api/forgeos/preview-url", async (req, res) => {
+  try {
+    const expectedSecret = process.env.FORGEOS_PREVIEW_SECRET;
+    if (!expectedSecret) {
+      return res.status(403).json({ error: "preview disabled" });
+    }
+
+    const providedSecret = req.header("X-ForgeOS-Secret");
+    if (!providedSecret || providedSecret !== expectedSecret) {
+      return res.status(403).json({ error: "forbidden" });
+    }
+
+    const clerkSecretKey = process.env.CLERK_SECRET_KEY;
+    if (!clerkSecretKey) {
+      return res.status(500).json({ error: "clerk not configured" });
+    }
+
+    // Hardcoded to Brian's Clerk user id — this is intentional, the preview is always "sign in as me".
+    const userId = process.env.FORGEOS_PREVIEW_USER_ID || "user_3Amq2LZfInpaXAW5TLrfoowkrtJ";
+
+    const clerkResp = await fetch("https://api.clerk.com/v1/sign_in_tokens", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${clerkSecretKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        user_id: userId,
+        expires_in_seconds: 300,
+      }),
+    });
+
+    if (!clerkResp.ok) {
+      const errText = await clerkResp.text().catch(() => "");
+      console.error("[forgeos/preview-url] Clerk sign_in_tokens failed:", clerkResp.status, errText);
+      return res.status(502).json({ error: "clerk token mint failed" });
+    }
+
+    const tokenBody = await clerkResp.json().catch(() => null) as any;
+    const token = tokenBody?.token;
+    if (!token) {
+      console.error("[forgeos/preview-url] Clerk response missing token:", tokenBody);
+      return res.status(502).json({ error: "clerk token malformed" });
+    }
+
+    const url = `https://sandbox-gtm.com/?__clerk_ticket=${encodeURIComponent(token)}&__clerk_status=sign_in`;
+    return res.status(200).json({ url });
+  } catch (err) {
+    console.error("[forgeos/preview-url] error:", err);
+    return res.status(500).json({ error: "internal error" });
+  }
+});
+
 // Parse JSON bodies early so all routes can access req.body
 app.use(
   express.json({
