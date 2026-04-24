@@ -110,9 +110,11 @@ import { HelpChatWidget } from "@/components/help-chat-widget";
 
 function ClerkTokenSync() {
   const { getToken } = useClerkAuth();
-  useEffect(() => {
-    setClerkTokenGetter(getToken);
-  }, [getToken]);
+  // Register synchronously during render so the token getter is in place
+  // before any query fires — useEffect would run after first render, creating
+  // a race where /api/auth/user fires without an Authorization header and
+  // returns 401, which React Query treats as null user = signed out.
+  setClerkTokenGetter(getToken);
   return null;
 }
 
