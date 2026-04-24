@@ -367,7 +367,7 @@ export default function EventROICalculator() {
           Sandbox-GTM
         </div>
         <h1 style={{
-          fontSize: 32, fontWeight: 800, lineHeight: 1.15, marginBottom: 12,
+          lineHeight: 1.15, marginBottom: 12,
           fontFamily: "'Inter', Georgia, serif", fontWeight: 400, fontSize: 40,
           background: "linear-gradient(135deg, #fff 0%, #94a3b8 100%)",
           WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
@@ -538,7 +538,7 @@ export default function EventROICalculator() {
           {/* Pipeline Projection */}
           <div style={{ marginTop: 48 }}>
             <h2 style={{
-              fontSize: 18, fontWeight: 700, marginBottom: 4,
+              marginBottom: 4,
               fontFamily: "'Instrument Serif', Georgia, serif", fontWeight: 400, fontSize: 24,
             }}>Pipeline Projection</h2>
             <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 24 }}>
