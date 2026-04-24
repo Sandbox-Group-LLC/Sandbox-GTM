@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useClerk } from "@clerk/react";
+import { useClerk } from "@clerk/clerk-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
