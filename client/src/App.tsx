@@ -1,6 +1,6 @@
 import { Switch, Route, useLocation } from "wouter";
 import { useEffect } from "react";
-import { useAuth as useClerkAuth } from "@clerk/react";
+import { useAuth as useClerkAuth } from "@clerk/clerk-react";
 import { setClerkTokenGetter } from "@/lib/queryClient";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
