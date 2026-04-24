@@ -13,7 +13,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
     "@clerk/express": "^2.0.4",
-    "@clerk/clerk-react": 
+    "@clerk/clerk-react": "^5.31.0",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
