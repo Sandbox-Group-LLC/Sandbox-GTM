@@ -31,7 +31,26 @@ export function getSession() {
 // ClerkTokenSync already attaches a Bearer JWT to every fetch — this middleware validates it.
 async function customClerkMiddleware(req: any, _res: any, next: any) {
   try {
-    const requestState = await clerkClient.authenticateRequest(req, {
+    // Reconstruct a full URL for Clerk — req.url is just the path, which fails to parse.
+    const protocol = (req.headers['x-forwarded-proto'] as string) || req.protocol || 'https';
+    const host = req.headers['x-forwarded-host'] || req.headers.host;
+    const fullUrl = `${protocol}://${host}${req.originalUrl || req.url}`;
+
+    // Build a Fetch-style Request for Clerk. Copy headers and method from the Express req.
+    const headers = new Headers();
+    for (const [key, value] of Object.entries(req.headers)) {
+      if (Array.isArray(value)) {
+        for (const v of value) headers.append(key, v);
+      } else if (typeof value === 'string') {
+        headers.set(key, value);
+      }
+    }
+    const fetchReq = new Request(fullUrl, {
+      method: req.method,
+      headers,
+    });
+
+    const requestState = await clerkClient.authenticateRequest(fetchReq, {
       acceptsToken: 'any',
     });
 
