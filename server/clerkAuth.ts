@@ -107,29 +107,58 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     return res.status(401).json({ message: 'Unauthorized' });
   }
 
-  // Ensure user exists in our DB; lazy-sync from Clerk on first encounter
+  // Ensure user exists in our DB; lazy-sync from Clerk on first encounter.
+  //
+  // Two lookup paths:
+  //   1. Direct id match — normal case, user already synced under this Clerk id.
+  //   2. Email match — previous session (Replit Auth, or an earlier Clerk user id)
+  //      created a row with this email. The users.email column is UNIQUE, so a
+  //      plain insert with the new Clerk id would hit users_email_unique. In that
+  //      case we adopt the existing row: keep its db id as the canonical identity
+  //      so every FK (organization_members, events.created_by, etc.) keeps working.
   let dbUser = await storage.getUser(userId);
+  let effectiveUserId = userId;
+
   if (!dbUser) {
     try {
       const clerkUser = await clerkClient.users.getUser(userId);
       const email = clerkUser.emailAddresses[0]?.emailAddress ?? null;
-      dbUser = await storage.upsertUser({
-        id: userId,
-        email,
-        firstName: clerkUser.firstName ?? null,
-        lastName: clerkUser.lastName ?? null,
-        profileImageUrl: clerkUser.imageUrl ?? null,
-      });
+
+      // Check for an existing row under this email before inserting.
+      const existingByEmail = email ? await storage.getUserByEmail(email) : undefined;
+
+      if (existingByEmail) {
+        // Adopt the existing row. Refresh profile fields from Clerk but keep the db id.
+        dbUser = await storage.upsertUser({
+          id: existingByEmail.id,
+          email: existingByEmail.email,
+          firstName: clerkUser.firstName ?? existingByEmail.firstName ?? null,
+          lastName: clerkUser.lastName ?? existingByEmail.lastName ?? null,
+          profileImageUrl: clerkUser.imageUrl ?? existingByEmail.profileImageUrl ?? null,
+        });
+        effectiveUserId = existingByEmail.id;
+      } else {
+        // No existing row — safe to create fresh under the Clerk id.
+        dbUser = await storage.upsertUser({
+          id: userId,
+          email,
+          firstName: clerkUser.firstName ?? null,
+          lastName: clerkUser.lastName ?? null,
+          profileImageUrl: clerkUser.imageUrl ?? null,
+        });
+      }
     } catch (err) {
       console.error('[clerkAuth] Failed to lazy-sync user from Clerk:', err instanceof Error ? err.message : err);
       return res.status(401).json({ message: 'Unauthorized' });
     }
   }
 
-  // Attach req.user in the same shape existing routes expect
+  // Attach req.user in the same shape existing routes expect.
+  // Use effectiveUserId so downstream handlers see the canonical db id, not the
+  // Clerk id, when those differ after an email-match adoption.
   (req as any).user = {
     claims: {
-      sub: userId,
+      sub: effectiveUserId,
       email: dbUser?.email ?? null,
     },
   };
