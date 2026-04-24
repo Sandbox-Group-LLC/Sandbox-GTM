@@ -56,7 +56,7 @@ export default function Signup() {
     if (validationResult?.valid && inviteCode.trim()) {
       localStorage.setItem("signupInviteCode", inviteCode.trim());
     }
-    window.location.href = "/api/login";
+    window.location.href = "/sign-up";
   };
 
   const clearInviteCode = () => {
@@ -165,7 +165,7 @@ export default function Signup() {
             <p className="text-center text-sm text-muted-foreground">
               Already a Sandbox user?{" "}
               <a 
-                href="/api/login" 
+                href="/sign-in" 
                 className="text-primary hover:underline font-medium"
                 data-testid="link-signin"
               >
