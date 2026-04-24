@@ -22,7 +22,7 @@ export default defineConfig({
   resolve: {
     modules: [path.resolve(import.meta.dirname, "node_modules"), "node_modules"],
     alias: {
-      "@clerk/react": path.resolve(import.meta.dirname, "node_modules/@clerk/react/dist/index.mjs"),
+      "@clerk/react": path.resolve(import.meta.dirname, "node_modules/@clerk/clerk-react/dist/index.mjs"),
       "@": path.resolve(import.meta.dirname, "client", "src"),
       "@shared": path.resolve(import.meta.dirname, "shared"),
       "@assets": path.resolve(import.meta.dirname, "attached_assets"),
@@ -31,7 +31,7 @@ export default defineConfig({
   root: path.resolve(import.meta.dirname, "client"),
   envDir: path.resolve(import.meta.dirname),
   optimizeDeps: {
-    include: ["@clerk/react"],
+    include: ["@clerk/clerk-react"],
   },
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
