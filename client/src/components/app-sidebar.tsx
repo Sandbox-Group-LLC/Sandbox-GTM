@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useClerk } from "@clerk/react";
+import { useClerk } from "@clerk/clerk-react";
 import { Link, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
