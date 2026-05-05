@@ -6,17 +6,6 @@ Track this before any real attendee data touches the platform.
 
 ## 🔴 Security — Must Do
 
-- [ ] **Kill the relay endpoint**
-  Remove `/api/admin/relay` from `server/index.ts` entirely.
-  It is a raw SQL execution endpoint. It must not exist in production.
-  _File: `engage/server/index.ts`_
-
-- [ ] **Rotate all secrets**
-  - `JWT_SECRET` — generate a new 256-bit random hex: `openssl rand -hex 32`
-  - `SESSION_SECRET` — same
-  - `ADMIN_PASSWORD` — irrelevant once relay is removed
-  - Update all on Render before go-live
-
 - [ ] **Verify httpOnly cookie flags in production**
   Hit `/api/auth/login`, inspect response headers.
   Cookies must show: `HttpOnly; Secure; SameSite=Strict`
